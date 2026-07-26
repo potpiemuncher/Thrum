@@ -797,11 +797,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         }
         public event EventHandler ProfileEditorSectionDescriptionChanged;
 
-        public string updaterExe = Environment.Is64BitProcess ? "DS4Updater.exe" : "DS4Updater_x86.exe";
+        public string updaterExe = Environment.Is64BitProcess ? ProductInfo.UpdaterExeName : ProductInfo.UpdaterExeNameX86;
 
         private string DownloadUpstreamUpdaterVersion()
         {
-            Uri url = new Uri("https://api.github.com/repos/hbashton/DS4Updater/releases/latest");
+            Uri url = new Uri(ProductInfo.UpdaterLatestReleaseApiUri);
 
             Task<System.Net.Http.HttpResponseMessage> requestTask = App.requestClient.GetAsync(url.ToString());
             requestTask.Wait();
@@ -821,7 +821,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public bool RunUpdaterCheck(bool launch, out string upstreamVersion)
         {
-            string destPath = Path.Combine(Global.exedirpath, "DS4Updater.exe");
+            string destPath = Path.Combine(Global.exedirpath, ProductInfo.UpdaterExeName);
             bool updaterExists = File.Exists(destPath);
             upstreamVersion = DownloadUpstreamUpdaterVersion();
             if (string.IsNullOrEmpty(upstreamVersion)) return false;
@@ -830,8 +830,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 (!string.IsNullOrEmpty(upstreamVersion) && FileVersionInfo.GetVersionInfo(destPath).FileVersion.CompareTo(upstreamVersion) != 0))
             {
                 launch = false;
-                Uri url2 = new Uri($"https://github.com/hbashton/DS4Updater/releases/download/v{upstreamVersion}/{updaterExe}");
-                string filename = Path.Combine(Path.GetTempPath(), "DS4Updater.exe");
+                Uri url2 = new Uri($"{ProductInfo.UpdaterReleasesPageUri}/download/v{upstreamVersion}/{updaterExe}");
+                string filename = Path.Combine(Path.GetTempPath(), ProductInfo.UpdaterExeName);
                 using (var downloadStream = new FileStream(filename, FileMode.Create))
                 {
                     Task<System.Net.Http.HttpResponseMessage> temp =
@@ -860,7 +860,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public void DownloadUpstreamVersionInfo()
         {
-            Uri url = new Uri("https://api.github.com/repos/hbashton/DS4Windows/releases/latest");
+            Uri url = new Uri(ProductInfo.LatestReleaseApiUri);
             string filename = Global.appdatapath + "\\version.txt";
             bool success = false;
             using (StreamWriter streamWriter = new(filename, false))
@@ -905,7 +905,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             bool launch = false;
             using (Process p = new Process())
             {
-                p.StartInfo.FileName = Path.Combine(Global.exedirpath, "DS4Updater.exe");
+                p.StartInfo.FileName = Path.Combine(Global.exedirpath, ProductInfo.UpdaterExeName);
                 bool isAdmin = Global.IsAdministrator();
                 List<string> argList = new List<string>();
                 argList.Add("-autolaunch");

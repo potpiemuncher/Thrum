@@ -634,7 +634,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         private void CheckStartupOptions()
         {
-            bool lnkExists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk");
+            bool lnkExists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName);
             if (lnkExists)
             {
                 runAtStartup = true;

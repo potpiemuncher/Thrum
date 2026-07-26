@@ -8,7 +8,7 @@ namespace DS4Windows
 {
     public static class ReleaseChannelPolicy
     {
-        public const string InstalledReleaseFileName = "DS4Windows.release";
+        public const string InstalledReleaseFileName = ProductInfo.InstalledReleaseFileName;
 
         private static readonly Regex prereleaseNameRegex = new(
             @"(?i)(alpha|beta|preview|pre[- ]?release|prerelease|release candidate|(?:^|[^a-z])rc(?:\d|[^a-z]|$))",

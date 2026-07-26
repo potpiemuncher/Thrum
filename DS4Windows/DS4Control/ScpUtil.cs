@@ -633,8 +633,8 @@ namespace DS4Windows
         public static string appdatapath;
         public static bool firstRun = false;
         public static bool multisavespots = false;
-        public static string appDataPpath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\DS4Windows";
-        public static string localAppDataPpath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DS4Windows");
+        public static string appDataPpath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\" + ProductInfo.AppDataFolderName;
+        public static string localAppDataPpath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ProductInfo.LocalAppDataFolderName);
         public static bool runHotPlug = false;
         public static string[] tempprofilename = new string[TEST_PROFILE_ITEM_COUNT] { string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty };
         public static bool[] useTempProfile = new bool[TEST_PROFILE_ITEM_COUNT] { false, false, false, false, false, false, false, false, false };
@@ -674,11 +674,13 @@ namespace DS4Windows
 
         public const int CONFIG_VERSION = 5;
         public const int APP_CONFIG_VERSION = 2;
-        public const string ASSEMBLY_RESOURCE_PREFIX = "pack://application:,,,/DS4Windows;";
-        public const string RESOURCES_PREFIX = "/DS4Windows;component/Resources";
+        // Identity strings live in ProductInfo; these names stay so call sites
+        // do not churn.
+        public const string ASSEMBLY_RESOURCE_PREFIX = ProductInfo.AssemblyResourcePrefix;
+        public const string RESOURCES_PREFIX = ProductInfo.ResourcesPrefix;
         // Need to add additional probing path in code starting with .NET 6.
         public const string PROBING_PATH = "Lang";
-        public const string LANGUAGE_ASSEMBLY_NAME = "DS4Windows.resources.dll";
+        public const string LANGUAGE_ASSEMBLY_NAME = ProductInfo.LanguageAssemblyName;
         public const string CUSTOM_EXE_CONFIG_FILENAME = "custom_exe_name.txt";
         public const string XML_EXTENSION = ".xml";
 
@@ -3448,8 +3450,8 @@ namespace DS4Windows
 
     public class Changelog
     {
-        public const string GITHUB_RELEASES_API_URI = "https://api.github.com/repos/hbashton/DS4Windows/releases";
-        public const string GITHUB_LATEST_RELEASE_API_URI = "https://api.github.com/repos/hbashton/DS4Windows/releases/latest";
+        public const string GITHUB_RELEASES_API_URI = ProductInfo.ReleasesApiUri;
+        public const string GITHUB_LATEST_RELEASE_API_URI = ProductInfo.LatestReleaseApiUri;
 
         private static bool? _newerVersionAvailable = null;
         private static Version _latestVersion;

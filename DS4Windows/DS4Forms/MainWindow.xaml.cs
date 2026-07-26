@@ -2002,23 +2002,74 @@ Suspend support not enabled.", true);
 
         private void ViiperRefreshBtn_Click(object sender, RoutedEventArgs e)
         {
-            RefreshViiperStatusText();
+            RefreshViiperStatusText(recheckDriver: true);
         }
 
-        private void RefreshViiperStatusText()
+        private void ViiperDriverRecheckBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshViiperStatusText(recheckDriver: true);
+        }
+
+        /// <summary>
+        /// Refreshes the whole VIIPER section off the dispatcher thread.
+        ///
+        /// <para>Everything behind it is slow enough to be felt on the UI
+        /// thread: a TCP ping with a one-second timeout, a Task Scheduler
+        /// query, and — since the driver gate was wired into readiness — a
+        /// SetupAPI enumeration plus catalog trust verification. All of it is
+        /// read-only.</para>
+        /// </summary>
+        /// <param name="recheckDriver">
+        /// True for the user-initiated re-check, which discards the session's
+        /// cached driver validation. False for the initial load, which uses it.
+        /// </param>
+        private void RefreshViiperStatusText(bool recheckDriver = false)
         {
             if (viiperStatusText == null)
             {
                 return;
             }
 
-            ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus(tryStartServer: false);
+            ViiperDriverStatusViewModel driverStatus =
+                settingsWrapVM?.ViiperDriverStatus;
+            if (driverStatus != null)
+            {
+                driverStatus.IsBusy = true;
+            }
+
+            Task.Run(() =>
+            {
+                ViiperDriverReadiness readiness = recheckDriver
+                    ? ViiperSetupManager.RefreshDriverReadiness()
+                    : ViiperSetupManager.DriverReadiness;
+                ViiperPrerequisiteStatus status =
+                    ViiperSetupManager.GetStatus(tryStartServer: false);
+                ViiperAutostartStatus autostart = ViiperAutostart.Inspect();
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ApplyViiperStatusText(status);
+                    ApplyViiperAutostart(autostart);
+                    if (driverStatus != null)
+                    {
+                        driverStatus.Apply(readiness);
+                        driverStatus.IsBusy = false;
+                    }
+                }));
+            });
+        }
+
+        private void ApplyViiperStatusText(ViiperPrerequisiteStatus status)
+        {
+            if (viiperStatusText == null)
+            {
+                return;
+            }
+
             viiperStatusText.Text = $"{status.DisplayText}. " +
                 $"VIIPER helper: {(status.ViiperInstalled ? "installed" : "missing")}; " +
                 $"usbip-win2: {(status.UsbipInstalled ? "installed" : "missing")}; " +
                 $"server: {(status.ServerRunning ? "running" : "not running")}.";
-
-            RefreshViiperAutostartText();
         }
 
         /// <summary>
@@ -2033,12 +2084,90 @@ Suspend support not enabled.", true);
                 return;
             }
 
-            ViiperAutostartStatus autostart = ViiperAutostart.Inspect();
+            ApplyViiperAutostart(ViiperAutostart.Inspect());
+        }
+
+        private void ApplyViiperAutostart(ViiperAutostartStatus autostart)
+        {
+            if (viiperAutostartText == null)
+            {
+                return;
+            }
+
             viiperAutostartText.Text = autostart.DisplayText;
             viiperAutostartRemoveBtn.Visibility = autostart.Any
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             viiperAutostartRemoveBtn.Tag = autostart;
+        }
+
+        /// <summary>
+        /// Produces exactly the report the <c>-viiperdriverdiagnostic</c>
+        /// command produces, saves it under %TEMP%, shows it in a copyable
+        /// window, and refreshes the card from the same pass so the two can
+        /// never disagree.
+        /// </summary>
+        private void ViiperDriverDiagnosticBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ViiperDriverStatusViewModel driverStatus =
+                settingsWrapVM?.ViiperDriverStatus;
+            if (driverStatus == null)
+            {
+                return;
+            }
+
+            driverStatus.IsBusy = true;
+            Task.Run(() =>
+            {
+                ViiperDriverDiagnosticRun run =
+                    ViiperDriverValidationCommand.RunDiagnostic();
+                ViiperDriverReadiness readiness = run.Report == null
+                    ? null
+                    : ViiperDriverReadinessProvider.Default.Adopt(run.Report);
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    driverStatus.ApplyDiagnostic(run);
+                    if (readiness != null)
+                    {
+                        driverStatus.Apply(readiness);
+                    }
+
+                    driverStatus.IsBusy = false;
+                    ViiperDriverValidationCommand.ShowReportWindow(run.Text, this);
+                }));
+            });
+        }
+
+        private void ViiperDriverCopyReportBtn_Click(object sender, RoutedEventArgs e)
+        {
+            string text = settingsWrapVM?.ViiperDriverStatus?.ReportText;
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            try
+            {
+                Clipboard.SetText(text);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogToGui(
+                    "Could not copy the VIIPER driver report: " + ex.Message,
+                    true);
+            }
+        }
+
+        private void ViiperDriverOpenReportBtn_Click(object sender, RoutedEventArgs e)
+        {
+            string path = settingsWrapVM?.ViiperDriverStatus?.ReportFilePath;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return;
+            }
+
+            Util.StartProcessHelper(path);
         }
 
         private void ViiperAutostartRemoveBtn_Click(object sender, RoutedEventArgs e)

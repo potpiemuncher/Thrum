@@ -15,6 +15,8 @@
     <SolidColorBrush x:Key="MutedForegroundColor" Color="#FF5F7086" />
     <SolidColorBrush x:Key="SuccessColor" Color="#FF16883F" />
     <SolidColorBrush x:Key="DangerColor" Color="#FFB4232C" />
+    <!-- "Known, but not approved." Neither green nor red on purpose. -->
+    <SolidColorBrush x:Key="WarningColor" Color="#FFA35A00" />
 
     <system:String x:Key="KeyImageImg">key-solid.png</system:String>
     <system:String x:Key="CancelImg">cancel.png</system:String>

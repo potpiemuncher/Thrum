@@ -35,6 +35,45 @@ namespace DS4Windows
     /// file state, and it runs as a normal user (the report states whether it ran
     /// elevated so a restricted read is visible instead of being papered over).
     /// </summary>
+    /// <summary>
+    /// Everything one read-only diagnostic pass produced: the report text
+    /// exactly as the <c>-viiperdriverdiagnostic</c> command prints it, where it
+    /// was saved, and the underlying observations so a caller does not have to
+    /// pay for a second enumeration to learn the same facts.
+    /// </summary>
+    public sealed class ViiperDriverDiagnosticRun
+    {
+        /// <summary>The formatted report. Never null.</summary>
+        public string Text { get; init; }
+
+        /// <summary>
+        /// Full path the report was written to, or null when it could not be
+        /// written. For opening the file; never displayed — use
+        /// <see cref="DisplayPath"/> for that.
+        /// </summary>
+        public string FilePath { get; init; }
+
+        /// <summary>
+        /// The saved location in a form that carries no user name, e.g.
+        /// <c>%TEMP%\Thrum\viiper-driver-validation-....txt</c>.
+        /// </summary>
+        public string DisplayPath { get; init; }
+
+        /// <summary>Why the report could not be saved, or null on success.</summary>
+        public string WriteError { get; init; }
+
+        /// <summary>The observations behind the text, or null if none were produced.</summary>
+        public ViiperDriverValidationReport Report { get; init; }
+
+        /// <summary>
+        /// The exit code the command form would return: 0 passed, 1 failed,
+        /// 2 the diagnostic itself could not run.
+        /// </summary>
+        public int ExitCode { get; init; }
+
+        public bool Saved => FilePath != null && WriteError == null;
+    }
+
     public static class ViiperDriverValidationCommand
     {
         /// <summary>Validation passed.</summary>
@@ -58,29 +97,45 @@ namespace DS4Windows
         public static int Run()
         {
             bool console = TryAttachParentConsole();
+            ViiperDriverDiagnosticRun run = RunDiagnostic();
+            Emit(run.Text, console);
+            return run.ExitCode;
+        }
 
-            string text;
-            int exitCode;
+        /// <summary>
+        /// Runs one read-only diagnostic pass and saves the report, without
+        /// printing it or showing a window. The single implementation behind
+        /// both the <c>-viiperdriverdiagnostic</c> command and the Settings
+        /// "Run full diagnostic" action, so the two cannot produce different
+        /// reports.
+        ///
+        /// <para>Read-only, exactly as the command form is: nothing is
+        /// elevated, attached, started, or changed. The only write is the
+        /// report file under <c>%TEMP%</c>.</para>
+        /// </summary>
+        public static ViiperDriverDiagnosticRun RunDiagnostic()
+        {
             try
             {
-                exitCode = BuildReport(out text);
+                return BuildReport();
             }
             catch (Exception ex)
             {
-                text = ProductInfo.ProductName +
-                    " VIIPER driver diagnostic could not run: " + ex.Message;
-                exitCode = ExitCodeError;
+                return new ViiperDriverDiagnosticRun
+                {
+                    Text = ProductInfo.ProductName +
+                        " VIIPER driver diagnostic could not run: " + ex.Message,
+                    ExitCode = ExitCodeError,
+                };
             }
-
-            Emit(text, console);
-            return exitCode;
         }
 
-        private static int BuildReport(out string text)
+        private static ViiperDriverDiagnosticRun BuildReport()
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
             string usbipPath = ResolveUsbipExecutablePath();
             string reportPath = BuildReportFilePath(now);
+            string displayPath = DisplayReportPath(reportPath);
 
             ViiperDriverValidationReport report =
                 ViiperDriverGate.Default.Inspect(usbipPath);
@@ -95,25 +150,37 @@ namespace DS4Windows
                 Elevated = ReadElevated(),
                 UsbipExecutablePath =
                     ViiperDriverReportFormatter.RedactUserPath(usbipPath),
-                ReportFilePath = DisplayReportPath(reportPath),
+                ReportFilePath = displayPath,
             };
 
-            text = ViiperDriverReportFormatter.Format(report, context);
+            string text = ViiperDriverReportFormatter.Format(report, context);
             string writeError = TryWriteReport(reportPath, text);
             if (writeError != null)
             {
                 text += Environment.NewLine +
-                    "  The report could not be saved to " +
-                    DisplayReportPath(reportPath) + ": " + writeError +
-                    Environment.NewLine;
+                    "  The report could not be saved to " + displayPath + ": " +
+                    writeError + Environment.NewLine;
             }
 
-            return report.Result != null && report.Result.Passed
-                ? ExitCodePassed
-                : ExitCodeFailed;
+            return new ViiperDriverDiagnosticRun
+            {
+                Text = text,
+                FilePath = writeError == null ? reportPath : null,
+                DisplayPath = displayPath,
+                WriteError = writeError,
+                Report = report,
+                ExitCode = report.Result != null && report.Result.Passed
+                    ? ExitCodePassed
+                    : ExitCodeFailed,
+            };
         }
 
-        private static string ResolveUsbipExecutablePath()
+        /// <summary>
+        /// The usbip.exe location the diagnostic and the readiness check both
+        /// evaluate. Internal so <see cref="ViiperDriverReadinessProvider"/>
+        /// resolves it the same way rather than reimplementing the lookup.
+        /// </summary>
+        internal static string ResolveUsbipExecutablePath()
         {
             return ResolveUsbipExecutablePath(
                 Environment.GetEnvironmentVariable("PATH") ?? string.Empty,
@@ -271,9 +338,11 @@ namespace DS4Windows
         /// <summary>
         /// DS4Windows is a WPF application with no console of its own, so a
         /// GUI-launched run gets the same text in a selectable, scrollable window
-        /// it can be copied out of.
+        /// it can be copied out of. Internal so the Settings driver-status card
+        /// shows the report the same way the command does.
         /// </summary>
-        private static void ShowReportWindow(string text)
+        internal static void ShowReportWindow(string text,
+            System.Windows.Window owner = null)
         {
             try
             {
@@ -297,8 +366,10 @@ namespace DS4Windows
                     Title = WindowTitle,
                     Width = 940,
                     Height = 620,
-                    WindowStartupLocation =
-                        System.Windows.WindowStartupLocation.CenterScreen,
+                    WindowStartupLocation = owner == null
+                        ? System.Windows.WindowStartupLocation.CenterScreen
+                        : System.Windows.WindowStartupLocation.CenterOwner,
+                    Owner = owner != null && owner.IsLoaded ? owner : null,
                     Content = view,
                 };
                 window.ShowDialog();

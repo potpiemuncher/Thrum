@@ -259,6 +259,18 @@ namespace DS4Windows
         public static ViiperDriverManifest ObservedBaselines { get; } =
             BuildObservedBaselines();
 
+        /// <summary>
+        /// Composes a manifest from an arbitrary release set. The product always
+        /// uses <see cref="ObservedBaselines"/>; this exists so the tier-handling
+        /// code paths — in particular the
+        /// <see cref="ViiperDriverTier.Production"/> path, which no real entry
+        /// reaches by design — can be exercised against a fabricated manifest
+        /// instead of by editing the real one.
+        /// </summary>
+        internal static ViiperDriverManifest FromReleases(
+            IEnumerable<ViiperDriverRelease> releases) =>
+            new ViiperDriverManifest(releases);
+
         private static ViiperDriverManifest BuildObservedBaselines()
         {
             // Exact identity extracted offline from the signed x64 installer

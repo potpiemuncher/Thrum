@@ -790,7 +790,15 @@ namespace DS4Windows
         /// Returns a non-null rejection reason when the trust result is not
         /// clean under normal chain policy; null when acceptable.
         /// </summary>
-        private static string RejectTrust(ViiperSignatureTrust trust)
+        private static string RejectTrust(ViiperSignatureTrust trust) =>
+            DescribeTrustRejection(trust);
+
+        /// <summary>
+        /// The single wording for "why this signature is not acceptable",
+        /// shared with readiness and the status UI so the decision and its
+        /// explanation cannot drift apart. Null means acceptable.
+        /// </summary>
+        public static string DescribeTrustRejection(ViiperSignatureTrust trust)
         {
             if (trust == null)
                 return "no trust result was produced";

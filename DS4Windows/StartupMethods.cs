@@ -27,20 +27,20 @@ namespace DS4WinWPF
     [System.Security.SuppressUnmanagedCodeSecurity]
     public static class StartupMethods
     {
-        public static string lnkpath = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk";
+        public static string lnkpath = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName;
         private static string taskBatPath = Path.Combine(DS4Windows.Global.exedirpath, "task.bat");
 
         public static bool HasStartProgEntry()
         {
             // Exception handling should not be needed here. Method handles most cases
-            bool exists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk");
+            bool exists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName);
             return exists;
         }
 
         public static bool HasTaskEntry()
         {
             TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
+            Task tasker = ts.FindTask(DS4Windows.ProductInfo.StartupTaskName);
             return tasker != null;
         }
 
@@ -87,7 +87,7 @@ namespace DS4WinWPF
         public static void DeleteOldTaskEntry()
         {
             TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
+            Task tasker = ts.FindTask(DS4Windows.ProductInfo.StartupTaskName);
             if (tasker != null)
             {
                 foreach(Microsoft.Win32.TaskScheduler.Action act in tasker.Definition.Actions)
@@ -97,7 +97,7 @@ namespace DS4WinWPF
                         ExecAction temp = act as ExecAction;
                         if (temp.Path != taskBatPath)
                         {
-                            ts.RootFolder.DeleteTask("RunDS4Windows");
+                            ts.RootFolder.DeleteTask(DS4Windows.ProductInfo.StartupTaskName);
                             break;
                         }
                     }
@@ -135,16 +135,16 @@ namespace DS4WinWPF
             td.Principal.RunLevel = TaskRunLevel.Highest;
             td.Settings.StopIfGoingOnBatteries = false;
             td.Settings.DisallowStartIfOnBatteries = false;
-            ts.RootFolder.RegisterTaskDefinition("RunDS4Windows", td);
+            ts.RootFolder.RegisterTaskDefinition(DS4Windows.ProductInfo.StartupTaskName, td);
         }
 
         public static void DeleteTaskEntry()
         {
             TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
+            Task tasker = ts.FindTask(DS4Windows.ProductInfo.StartupTaskName);
             if (tasker != null)
             {
-                ts.RootFolder.DeleteTask("RunDS4Windows");
+                ts.RootFolder.DeleteTask(DS4Windows.ProductInfo.StartupTaskName);
             }
         }
 
@@ -157,7 +157,7 @@ namespace DS4WinWPF
         public static void LaunchOldTask()
         {
             TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
+            Task tasker = ts.FindTask(DS4Windows.ProductInfo.StartupTaskName);
             if (tasker != null)
             {
                 tasker.Run("");
@@ -199,7 +199,7 @@ namespace DS4WinWPF
                 string temp = string.Empty;
                 w.WriteLine("@echo off"); // Turn off echo
                 w.WriteLine("SET mypath=\"%~dp0\"");
-                temp = $"cmd.exe /c start \"RunDS4Windows\" %mypath%\\{DS4Windows.Global.exeFileName} -m";
+                temp = $"cmd.exe /c start \"{DS4Windows.ProductInfo.StartupTaskName}\" %mypath%\\{DS4Windows.Global.exeFileName} -m";
                 w.WriteLine(temp);
                 w.WriteLine("exit");
             }

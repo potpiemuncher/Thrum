@@ -47,10 +47,9 @@ namespace DS4Windows
         public const int ExitCodeError = 2;
 
         private const int AttachParentProcess = -1;
-        private const string ReportDirectoryName = "DS4Windows";
+        private const string ReportDirectoryName = ProductInfo.TempFolderName;
         private const string ReportFilePrefix = "viiper-driver-validation-";
-        private const string WindowTitle =
-            "DS4Windows - VIIPER driver diagnostic";
+        private const string WindowTitle = ProductInfo.DiagnosticWindowTitle;
 
         /// <summary>
         /// Runs the diagnostic and returns the process exit code: 0 when
@@ -68,8 +67,8 @@ namespace DS4Windows
             }
             catch (Exception ex)
             {
-                text = "DS4Windows VIIPER driver diagnostic could not run: " +
-                    ex.Message;
+                text = ProductInfo.ProductName +
+                    " VIIPER driver diagnostic could not run: " + ex.Message;
                 exitCode = ExitCodeError;
             }
 

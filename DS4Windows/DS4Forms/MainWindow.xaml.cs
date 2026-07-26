@@ -100,6 +100,10 @@ namespace DS4WinWPF.DS4Forms
         public MainWindow(ArgumentParser parser)
         {
             InitializeComponent();
+            // The -command client finds this window by title, so the title has
+            // to come from the same constant the client searches with. This
+            // overrides the Title set in XAML with the identical value.
+            Title = ProductInfo.WindowTitle;
             profileEditorReturnTabIndex = mainTabCon.Items.IndexOf(profilesTab);
 
             mainWinVM = new MainWindowsViewModel();
@@ -321,7 +325,7 @@ namespace DS4WinWPF.DS4Forms
                         if (!string.IsNullOrEmpty(newUpdaterVersion))
                         {
                             Util.StartProcessHelper(
-                                $"https://github.com/hbashton/DS4Updater/releases/tag/v{newUpdaterVersion}");
+                                $"{ProductInfo.UpdaterReleasesPageUri}/tag/v{newUpdaterVersion}");
                         }
                     });
                 }
@@ -383,7 +387,7 @@ namespace DS4WinWPF.DS4Forms
                             MessageBox.Show(Properties.Resources.PleaseDownloadUpdater);
                             if (!string.IsNullOrEmpty(newUpdaterVersion))
                             {
-                                Util.StartProcessHelper($"https://github.com/hbashton/DS4Updater/releases/tag/v{newUpdaterVersion}");
+                                Util.StartProcessHelper($"{ProductInfo.UpdaterReleasesPageUri}/tag/v{newUpdaterVersion}");
                             }
                         });
                     }

@@ -314,6 +314,7 @@ qualified type references, which stay. The identity-bearing ones:
 | Update-feed guard tests | `UpdateFeedTests.cs` | **DONE (1.7)** — the four `DS4Updater` artefacts appear here *on purpose*, as the binary scan's needles. Along with `StartupEntryIdentityTests.cs`, this is one of only two files in the repository that should contain them. |
 | Version compatibility tests | `VersionCompatibilityTests.cs` | **DONE (1.9)** — `app_version="4.0.2.1"` and `config_version` fixtures. These carry inherited version strings as *data being read*, which is the point of the file. |
 | Localization sweep guards | `LocalizationSweepTests.cs` | **DONE (1.8)** — 7 tests. The flipped values name this product and not the old one; the `CustomExeNameInfo` exceptions are pinned individually; the upstream wiki link survived; every hand-added designer property resolves to a real key; every import format string still has its placeholders; all 23 satellites load; no satellite declares a key the neutral file lacks. The old name appears here as needles, so this is a third file that should contain it on purpose. |
+| Satellite resolution guards | `SatelliteAssemblyResolutionTests.cs` | **DONE (issue #6)** — 10 tests. The satellite path is a pure function of `AppContext.BaseDirectory`, `Global.PROBING_PATH` and `ProductInfo.LanguageAssemblyName`, so no working directory can enter it; the handler is registered from a module initializer before any of this assembly's code runs; and it stays inert for everything that is not a `.resources` assembly. |
 
 ---
 

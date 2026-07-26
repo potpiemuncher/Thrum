@@ -1,3 +1,4 @@
+using DS4Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Threading;
@@ -8,6 +9,15 @@ namespace DS4WindowsTests
     [TestClass]
     public class ThemeResourceTests
     {
+        /// <summary>
+        /// Relative pack URI authority for the app assembly. Composed from
+        /// <see cref="ProductInfo.ExeBaseName"/> rather than spelled out, so an
+        /// assembly rename cannot leave this test pointed at a name that no
+        /// longer exists.
+        /// </summary>
+        private static readonly string ComponentPrefix =
+            $"/{ProductInfo.ExeBaseName};component";
+
         [TestMethod]
         public void DefaultThemeLoadsBridgeShellStylesOnFreshConfiguration()
         {
@@ -20,13 +30,14 @@ namespace DS4WindowsTests
                     var defaultTheme = new ResourceDictionary();
                     application.Resources.MergedDictionaries.Add(defaultTheme);
                     defaultTheme.Source = new Uri(
-                        "/DS4Windows;component/DS4Forms/Themes/DefaultTheme.xaml",
+                        ComponentPrefix + "/DS4Forms/Themes/DefaultTheme.xaml",
                         UriKind.Relative);
 
                     var bridgeStyles = new ResourceDictionary();
                     application.Resources.MergedDictionaries.Add(bridgeStyles);
                     bridgeStyles.Source = new Uri(
-                        "/DS4Windows;component/DS4Forms/Themes/BridgeShellStyles.xaml",
+                        ComponentPrefix +
+                        "/DS4Forms/Themes/BridgeShellStyles.xaml",
                         UriKind.Relative);
 
                     Assert.IsNotNull(application.TryFindResource(

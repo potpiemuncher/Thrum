@@ -40,6 +40,20 @@ namespace DS4WindowsTests
                 "AssemblyName, or every pack URI built from it dies.");
         }
 
+        /// <summary>
+        /// <see cref="ProductInfo.ExeBaseNameLowerInvariant"/> has to be
+        /// spelled out because <c>ToLowerInvariant()</c> is not
+        /// constant-foldable, so nothing but a test keeps it in step with
+        /// <see cref="ProductInfo.ExeBaseName"/>. It feeds the self-invoked
+        /// Game Bar probe switch.
+        /// </summary>
+        [TestMethod]
+        public void LowerInvariantExeBaseNameMatchesExeBaseName()
+        {
+            Assert.AreEqual(ProductInfo.ExeBaseName.ToLowerInvariant(),
+                ProductInfo.ExeBaseNameLowerInvariant);
+        }
+
         [TestMethod]
         public void AssemblyResourcePrefixIsBuiltFromTheAssemblyName()
         {
@@ -221,7 +235,7 @@ namespace DS4WindowsTests
                 try
                 {
                     // Force the app assembly to load so that the
-                    // "/DS4Windows;component/..." authority can be resolved.
+                    // "/<AssemblyName>;component/..." authority resolves.
                     _ = typeof(Global).Assembly;
 
                     info = Application.GetResourceStream(

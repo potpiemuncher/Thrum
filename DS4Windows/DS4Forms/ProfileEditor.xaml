@@ -8,7 +8,7 @@
              xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              xmlns:lex="http://wpflocalizeextension.codeplex.com"
              lex:LocalizeDictionary.DesignCulture=""
-             lex:ResxLocalizationProvider.DefaultAssembly="DS4Windows"
+             lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
              lex:ResxLocalizationProvider.DefaultDictionary="Strings"
              mc:Ignorable="d" 
              d:DesignHeight="550" d:DesignWidth="1000">
@@ -97,28 +97,28 @@
                                           ToolTip="Choose the controller artwork used by the remapping diagram">
                                     <ComboBoxItem>
                                         <StackPanel Orientation="Horizontal">
-                                            <Image Source="/DS4Windows;component/Resources/DualShock 4 Controller.png"
+                                            <Image Source="/Thrum;component/Resources/DualShock 4 Controller.png"
                                                    Width="44" Height="26" Stretch="Uniform" Margin="0,0,9,0" />
                                             <TextBlock Text="DualShock 4" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </ComboBoxItem>
                                     <ComboBoxItem>
                                         <StackPanel Orientation="Horizontal">
-                                            <Image Source="/DS4Windows;component/Resources/DualSense Controller.png"
+                                            <Image Source="/Thrum;component/Resources/DualSense Controller.png"
                                                    Width="44" Height="26" Stretch="Uniform" Margin="0,0,9,0" />
                                             <TextBlock Text="DualSense" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </ComboBoxItem>
                                     <ComboBoxItem>
                                         <StackPanel Orientation="Horizontal">
-                                            <Image Source="/DS4Windows;component/Resources/DualSense Edge Controller.png"
+                                            <Image Source="/Thrum;component/Resources/DualSense Edge Controller.png"
                                                    Width="44" Height="26" Stretch="Uniform" Margin="0,0,9,0" />
                                             <TextBlock Text="DualSense Edge" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </ComboBoxItem>
                                     <ComboBoxItem>
                                         <StackPanel Orientation="Horizontal">
-                                            <Image Source="/DS4Windows;component/Resources/Switch 2 Pro Controller.png"
+                                            <Image Source="/Thrum;component/Resources/Switch 2 Pro Controller.png"
                                                    Width="44" Height="26" Stretch="Uniform" Margin="0,0,9,0" />
                                             <TextBlock Text="Switch 2 Pro" VerticalAlignment="Center" />
                                         </StackPanel>

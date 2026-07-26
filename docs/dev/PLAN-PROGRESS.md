@@ -417,3 +417,295 @@ verified byte-identical before committing.
   the checklist; `ProductIdentityTests` is the safety net.
 - Before that flip, decide the two open items the map records: the OSC address
   namespace, and what happens to the unreferenced `Changelog.json`.
+
+---
+
+## 2026-07-25 — Phase 1.2 + 1.3 (the atomic rename to Thrum)
+
+**Session scope:** Phase 1, tasks 1.2 and 1.3, plus the identity values they
+unlock from task 1.5. Branch `phase1/rename-flip`, one commit.
+
+**Intent: this is the behaviour change.** Task 1.1 moved every identity string
+into `ProductInfo` without altering a single value. This entry is the other
+half: the values change, the assembly is renamed, and the application stops
+presenting itself as DS4Windows to Windows, to itself, and to its own build
+output. Nothing here is a refactor; every line is a deliberate change of what
+the product is called.
+
+### What flipped
+
+| Surface | Before | After |
+|---|---|---|
+| Assembly / executable | `DS4Windows.exe` | `Thrum.exe` |
+| Satellite assemblies | `DS4Windows.resources.dll` | `Thrum.resources.dll` |
+| Pack URI authority | `/DS4Windows;component` | `/Thrum;component` |
+| `assemblyIdentity` | `DS4Windows.app` | `Thrum.app` |
+| Window title | `DS4Windows` | `Thrum` |
+| `%APPDATA%` / `%LOCALAPPDATA%` / `%TEMP%` folder | `DS4Windows` | `Thrum` |
+| Scheduled task | `RunDS4Windows` | `RunThrum` |
+| Startup shortcut | `DS4Windows.lnk` | `Thrum.lnk` |
+| Log file / archive | `ds4windows_log.txt` / `ds4windows_log_{#}.txt` | `thrum_log.txt` / `thrum_log_{#}.txt` |
+| Installed-release marker | `DS4Windows.release` | `Thrum.release` |
+| Game Bar probe switch | `--ds4windows-gamebar-probe` | `--thrum-gamebar-probe` |
+| Package folder / zip / artifact | `DS4Windows`, `DS4Windows_{v}_{arch}` | `Thrum`, `Thrum_{v}_{arch}` |
+| Managed-files manifest | `.ds4windows-managed-files.txt` | `.thrum-managed-files.txt` |
+
+### Instance and IPC namespace (task 1.3)
+
+The point of this table is coexistence: a Thrum install and a real DS4Windows
+install must not see each other. Every name below is now distinct from
+upstream's.
+
+| Object | New name |
+|---|---|
+| Single-instance `EventWaitHandle` | `{21c16c88-2c23-4389-91a1-e6613bab7255}` |
+| Class-name MMF | `Thrum_IPCClassName.dat` |
+| Result-data MMF | `Thrum_IPCResultData.dat` |
+| Result-ready event | `Thrum_IPCResultData_ReadyEvent` |
+| Result single-task mutex | `Thrum_IPCResultData_SingleTaskMtx` |
+| `FindWindow` title target | `Thrum` |
+
+The GUID was generated fresh for this change and hard-coded. It deliberately
+differs from the inherited `{a52b5b20-d9ee-4f32-8518-307fa14aa0c6}`; sharing it
+would have made a second product refuse to start, or hand its window to the
+wrong process. The four IPC names are composed from `ProductInfo.ProductName`,
+so they moved as a set, and `IpcObjectNamesAreDistinctAndNamespaced` asserts
+they stay distinct and prefixed.
+
+`MainWindow.xaml`'s `Title` attribute was **removed** rather than re-spelled.
+The constructor's `Title = ProductInfo.WindowTitle` is now the only source, so
+the running window's title and the `-command` client's `FindWindow` target
+cannot drift apart by construction.
+
+The `-command` protocol shape is unchanged: same WM_COPYDATA handler, same
+verbs, same result-MMF layout. Only the object names moved.
+
+### The fragile cluster (task 1.2)
+
+- **`AssemblyName`** → `Thrum`, together with `ProductInfo.ExeBaseName`. These
+  two are what `ExeBaseNameMatchesTheApplicationAssemblyName` pins to each
+  other; changing one alone fails CI, which is the entire reason that test
+  exists.
+- **23 `lex:ResxLocalizationProvider.DefaultAssembly`** attributes across 23
+  XAML files. This is the highest-risk line item in the change and the one with
+  the worst failure mode: a missed attribute does not fail the build or any
+  test, it silently kills localization on exactly one page, at runtime, for
+  users who are not running English. All 23 were swept and the count verified.
+- **4 pack URIs** in `ProfileEditor.xaml` (`/DS4Windows;component/Resources/*`).
+- **`app.manifest`** `assemblyIdentity`, and **`NLog.config`**'s file-name
+  placeholder — both XML that is read before any managed constant exists, so
+  both had to be edited by hand.
+- **`ThemeResourceTests`**' two relative pack URIs now compose from
+  `ProductInfo.ExeBaseName` instead of naming the assembly literally.
+- **`BridgeShellStyles.xaml`**'s shell header is now bound to
+  `{x:Static identity:ProductInfo.ProductName}`, and its `D` monogram is a `T`.
+  A real logo is the icons pull request's job; leaving a `D` next to "Thrum"
+  was not an option.
+
+### Satellite assembly mechanism (verified, not assumed)
+
+The chain that has to survive an assembly rename, end to end:
+
+1. The csproj sets no `SatelliteResourceLanguages`, so MSBuild emits every
+   culture as `<culture>/<AssemblyName>.resources.dll`. After the rename that
+   is `Thrum.resources.dll` — confirmed in the publish output.
+2. `utils/post-build.py` moves each culture folder under `Lang/`.
+3. `DS4Windows/runtimeconfig.template.json` declares
+   `additionalProbingPaths: ["./Lang/"]`, which the SDK emits into
+   `Thrum.runtimeconfig.json`. **This is the mechanism** — there is no custom
+   `AssemblyResolve` handler anywhere in the tree, and the template contains no
+   assembly name, so it is inherently rename-safe.
+4. `Global.PROBING_PATH` (`"Lang"`) and `Global.LANGUAGE_ASSEMBLY_NAME` are used
+   only by `LanguagePackViewModel` to *enumerate* installed language packs for
+   the settings dropdown. The latter already composes from
+   `ProductInfo.LanguageAssemblyName`, so it followed the rename automatically.
+
+Verified in the publish output: 31 `Thrum.resources.dll` files, and 23 culture
+folders under `Lang/` after packaging.
+
+**Smoke item (runtime, not unit-verifiable):** actually switching the UI
+language in the running app and confirming the strings change. The build and
+packaging halves are proven; the load half needs the GUI.
+
+### Build tooling
+
+`utils/inject_deps_path.py` was the most dangerous find of the session and was
+**not** in the identity map. It rewrites the entry assembly's library `path` to
+`./` inside `deps.json`, matching it with a hard-coded `re.compile(r"^DS4Windows/")`.
+After the rename that pattern matches nothing, the script exits 0, and the
+package is broken in a way no build step reports — it only shows up when the
+application is launched. It now derives the assembly name from the `deps.json`
+filename it was handed, so it cannot go stale again. Verified against the real
+output: the pattern matched `Thrum/4.0.2.1-dualsense-beta` and set its path.
+
+`utils/post-build.py`, `.github/workflows/ci-build.yml` and
+`.github/workflows/release.yml` were updated for the deps.json name, the
+package folder name, the zip and artifact names, and the run-summary text. The
+*directory* paths (`.\DS4Windows\DS4WinWPF.csproj`,
+`.\DS4WindowsTests\DS4WindowsTests.csproj`) are project folders, not identity,
+and stay.
+
+### Tests
+
+- `ViiperDriverReportFormatterTests` asserted the literal report header
+  `"DS4Windows VIIPER driver validation"` and a literal `%TEMP%\DS4Windows\…`
+  fixture path. Both now compose from `ProductInfo`, and the formatter builds
+  the header from `ProductInfo.ProductName`, so the assertion and the
+  production string can never disagree again.
+- One test added: `LowerInvariantExeBaseNameMatchesExeBaseName`. The Game Bar
+  probe switch needs a lower-case token, `ToLowerInvariant()` is not
+  constant-foldable, so `ProductInfo.ExeBaseNameLowerInvariant` has to be
+  spelled out — and nothing but a test keeps it honest. This is why the suite
+  total is 525 rather than the 524 the plan predicted.
+- Two test-local temp file names (`ds4windows-dualsense-trace-*.wav`) renamed;
+  scratch files with no coupling.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **succeeded, 0
+  errors**, 17 warnings, all pre-existing and identical to the 1.1 baseline.
+- CI's exact publish invocation
+  (`dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release /p:platform=x64 -o .\bin\x64\Release\output`)
+  — succeeded. Output contains `Thrum.exe`, `Thrum.dll`, `Thrum.deps.json`,
+  `Thrum.runtimeconfig.json` and 31 `Thrum.resources.dll` satellites.
+  **Zero files matching `DS4Windows*` or `*ds4w*` anywhere in the tree.**
+- CI's packaging step (`python .\utils\post-build.py …`) — succeeded, produced
+  `bin\x64\Release\Thrum\` and `Thrum_<version>_x64.zip`, with 23
+  `Thrum.resources.dll` under `Lang/` and `.thrum-managed-files.txt` present.
+  The workflow's `Copy-Item` source path and artifact path both still exist.
+- Full suite with the repository's CI filter: **525 passed / 0 failed.** All
+  ten pre-existing guard tests pass on the flipped values — including the five
+  that PR #1 recorded as failing until `AssemblyName` matched `ExeBaseName`.
+  They were the completion detector for this change and they are green.
+- `git grep -in "ds4windows"` re-sweep: 1,644 hits, every one classified
+  against the identity map (see below). The count rose from 1,637 because this
+  change *added* explanatory prose to the map and to `ProductInfo`, while the
+  identity literals themselves went away.
+- The GUI application was not launched.
+
+### Leftover audit
+
+Every remaining hit falls in a KEEP or DEFER category:
+
+**KEEP — not product identity.** Namespace plumbing (242 declarations + 612
+qualified type references, 52% of the total); GPL headers and lineage
+attribution (200); the `<DS4Windows>` config XML root element and its XPaths
+(26); the OSC address namespace and command word (33); project, solution and
+directory paths (70); the vendored Bezier editor web app (6).
+
+**KEEP — decided during this change.** The five `DS4WINDOWS_*` diagnostic
+environment variables, and the two `DS4Windows:AudioHaptics*` pseudo-endpoint
+prefixes. Both are covered under "new anchors" below.
+
+**DEFER.** `.resx` translated values (188) and generated designer files (29) to
+the localization pull request; `.cs` and `.xaml` English prose (112) likewise;
+updater executable names, release-feed URLs, `newest.txt`, `Changelog.json` and
+the About-box header (16) to the icons+updater pull request; `ds4w.bat` (7) to
+whichever later phase rewrites or deletes it.
+
+**DOC.** 84 hits in repository documentation, including this log and the
+identity map itself.
+
+### New anchors found by the re-sweep
+
+Eight anchors the 1.1 sweep missed. All are now recorded in the identity map,
+marked **(found in 1.2)**.
+
+1. **`utils/inject_deps_path.py`'s hard-coded assembly name** — described
+   above. Fixed, and made self-deriving.
+2. **A duplicated `%APPDATA%` folder literal** in
+   `DualShock4BluetoothSpeakerPassthrough.cs`, which built
+   `%APPDATA%\DS4Windows\Logs` directly instead of going through
+   `Global.appDataPpath`. A `ScpUtil`-only flip would have left Bluetooth audio
+   diagnostic dumps in the old product's folder. Fixed. (It still ignores
+   portable mode — a pre-existing bug, deliberately left alone.)
+3. **Tray tooltip, balloon title and tray title** — three literals in
+   `TrayIconViewModel`. Without them the tray would have kept introducing
+   itself as DS4Windows after every other rename landed. Fixed.
+4. **Five message-box captions** outside `App.xaml.cs`. The 1.1 pass converted
+   the four captions in that one file but never swept the tree for the same
+   pattern. Fixed.
+5. **Five `DS4WINDOWS_*` diagnostic environment variables** —
+   `…_DUALSENSE_PCM_TRACE_DIRECTORY`, `…_DS4_AUDIO_DRIFT_MODE`,
+   `…_DS4_AUDIO_TRANSPORT_MODE`, `…_DS4_AUDIO_DIAGNOSTIC_CAPTURE`,
+   `…_VIIPER_STATE_RATE_HZ`. **Kept**, on the same reasoning as the OSC
+   namespace: they are an external control surface a human sets before
+   launching, renaming them invalidates every debugging runbook that names
+   them, and no test in the tree would catch a mistake. Recorded as open
+   decision 4 in the map.
+6. **Two audio pseudo-endpoint prefixes**, `DS4Windows:AudioHapticsApp:` and
+   `DS4Windows:AudioHapticsAuto:`. These are not display strings: the composed
+   identifier is persisted as a profile's capture-source setting, which makes
+   them on-disk file-format values in the same sense as the `<DS4Windows>` root
+   element. **Kept** — flipping them would silently reset every per-app
+   audio-haptics capture selection.
+
+### Deviations from the plan
+
+1. **`PackageProjectUrl` and `RepositoryUrl` moved in this change**, although
+   the identity map assigned them to the icons+updater pull request. They are
+   package metadata with no runtime consumer, and leaving a freshly renamed
+   assembly pointing at `hbashton/DS4Windows` as its repository was not worth a
+   second pull request. `ProductInfo.ReleaseOwnerRepo` — the value that
+   actually drives update checks — is untouched and still points upstream,
+   with a doc comment saying why.
+2. **`ds4w.bat` was not flipped**, although the identity map listed it under
+   the flip pull request. Nothing in the build, the workflows, or the
+   application references it; half-renaming a dead script would produce a file
+   that is neither working nor honestly legacy. Re-categorised as DEFER in the
+   map.
+3. **`ds4winwpf_screen_20200412.png` was not renamed**, same reasoning: it is a
+   screenshot of the old UI under the old brand, so it is replaced or deleted
+   with the visual identity, not renamed now. Re-categorised as DEFER.
+4. **`newest.txt` was left alone**, per the task's deferral to the version
+   reset. Worth recording *why* it does not matter: `post-build.py` writes its
+   copy to the repository root, not to `DS4Windows/newest.txt`, so the
+   committed file is already dead and no code in the tree reads it.
+5. **One test was added**, making the suite 525 rather than the predicted 524.
+   Reason under "Tests" above.
+6. **`ProductInfo` gained a 32nd member**, `ExeBaseNameLowerInvariant`, for the
+   same reason.
+7. **Four extra product-name mentions were flipped in
+   `extras/install-viiper-backend.ps1`** beyond the three the map listed. They
+   are the script's own log and error text, including "Launch setup from
+   DS4Windows so Windows can request it automatically" — an instruction that
+   would have been simply wrong after the rename. The VIIPER ecosystem names in
+   that script (`RunVIIPER`, `%LOCALAPPDATA%\VIIPER`, the release URL) are
+   untouched, as required.
+8. **The identity map was updated in this change**, not left as a historical
+   snapshot. It is described in its own header as the checklist for the
+   rebrand, so leaving 25 rows saying "flip PR" after the flip would make it
+   misleading. Every completed row now carries its outcome, the eight new
+   anchors are added, and three rows were re-categorised as DEFER with reasons.
+
+### Smoke items queued for the rebrand smoke script
+
+None of these are unit-testable; they need the GUI and, in one case, a real
+DS4Windows install.
+
+- `-command query.appversion` against a running instance, and second-instance
+  forwarding, on the new IPC names.
+- Side-by-side run with a real DS4Windows install: neither hijacks the other's
+  single-instance event or `-command` IPC.
+- UI language switch, proving `Lang/<culture>/Thrum.resources.dll` actually
+  loads.
+- Scheduled task `RunThrum` and startup shortcut `Thrum.lnk` create, detect and
+  delete correctly.
+- HidHide whitelist registration under the new executable name.
+- Log file appears as `thrum_log.txt`.
+
+### Next steps
+
+- **Phase 1.4 — import wizard.** The data folders now point at
+  `%APPDATA%\Thrum`, so an existing DS4Windows user currently sees an empty
+  configuration. The one-time copy-import from `%APPDATA%\DS4Windows` is the
+  next pull request and should not wait.
+- **Phase 1.6 / 1.7 — icons and update feed.** `ApplicationIcon` is still
+  `DS4W.ico` and `ProductInfo.ReleaseOwnerRepo` still points at
+  `hbashton/DS4Windows`. The updater cutover matters for safety, not just
+  branding: the inherited `DS4Updater.exe` path would install DS4Windows over
+  Thrum.
+- **Phase 1.8 — string sweep**, the 188 `.resx` hits plus the 112 prose hits.
+- **Phase 1.9 — version reset**, which also disposes of `newest.txt`.
+- Decide open decision 4 (the `DS4WINDOWS_*` environment variables) and the two
+  older open items the map still carries.

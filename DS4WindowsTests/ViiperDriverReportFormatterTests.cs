@@ -334,11 +334,12 @@ public class ViiperDriverReportFormatterTests
     {
         string text = Format(ValidInspector(), ValidVerifier());
 
-        StringAssert.Contains(text, "DS4Windows VIIPER driver validation");
+        StringAssert.Contains(text,
+            ProductInfo.ProductName + " VIIPER driver validation");
         StringAssert.Contains(text, "1999-12-31 23:59:59Z");
         StringAssert.Contains(text, "3.5.1");
         StringAssert.Contains(text, "X64");
-        StringAssert.Contains(text, @"%TEMP%\DS4Windows\report.txt");
+        StringAssert.Contains(text, ExampleReportFilePath);
         StringAssert.Contains(text, "elevated");
         StringAssert.Contains(text, "read-only");
     }
@@ -373,8 +374,17 @@ public class ViiperDriverReportFormatterTests
             ProcessArchitecture = "X64",
             Elevated = false,
             UsbipExecutablePath = CanonicalUsbipPath,
-            ReportFilePath = @"%TEMP%\DS4Windows\report.txt",
+            ReportFilePath = ExampleReportFilePath,
         };
+
+    /// <summary>
+    /// Stands in for the real report location, which the command builds under
+    /// <c>%TEMP%\{ProductInfo.TempFolderName}</c>. Composed from the same
+    /// constant so a rebrand cannot leave the fixture describing the old
+    /// product's folder.
+    /// </summary>
+    private static readonly string ExampleReportFilePath =
+        $@"%TEMP%\{ProductInfo.TempFolderName}\report.txt";
 
     /// <summary>
     /// Asserts one comparison line exists in a section and returns it, so a

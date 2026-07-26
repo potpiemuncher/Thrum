@@ -11,9 +11,16 @@ tempfile = sys.argv[1]
 if not os.path.exists(tempfile):
   sys.exit(1)
 
+# The entry assembly's library key in deps.json is "<AssemblyName>/<version>",
+# and the file is named "<AssemblyName>.deps.json". Deriving the name from the
+# path keeps this script correct across an assembly rename.
+assembly_name = os.path.basename(tempfile)
+if assembly_name.endswith(".deps.json"):
+  assembly_name = assembly_name[: -len(".deps.json")]
+
 # Open file
 temp_json = None
-pattern = re.compile(r"^DS4Windows/")
+pattern = re.compile(r"^" + re.escape(assembly_name) + r"/")
 with open(tempfile) as input_file:
   temp_json = json.load(input_file)
   for k, v in temp_json["libraries"].items():

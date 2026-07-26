@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.IO;
 using System.Windows;
+using DS4Windows;
 
 
 namespace DS4WinWPF.DS4Forms
@@ -82,7 +83,7 @@ namespace DS4WinWPF.DS4Forms
                 }
                 catch (UnauthorizedAccessException)
                 {
-                    MessageBox.Show("Cannot Delete old settings, please manaully delete", "DS4Windows");
+                    MessageBox.Show("Cannot Delete old settings, please manaully delete", ProductInfo.ProductName);
                 }
             }
             else if (!multisaves)

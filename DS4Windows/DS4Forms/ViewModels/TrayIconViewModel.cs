@@ -29,10 +29,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 {
     public class TrayIconViewModel
     {
-        private string tooltipText = "DS4Windows";
+        private string tooltipText = ProductInfo.ProductName;
         private string iconSource;
-        public const string ballonTitle = "DS4Windows";
-        public const string trayTitle = "DS4Windows";
+        public const string ballonTitle = ProductInfo.ProductName;
+        public const string trayTitle = ProductInfo.ProductName;
         private ContextMenu contextMenu;
         private MenuItem changeServiceItem;
         private MenuItem openItem;

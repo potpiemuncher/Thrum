@@ -46,7 +46,7 @@ namespace DS4Windows
         /// Cosmetic on its own, but it is the root of the composed IPC object
         /// names below, so changing it renames those kernel objects too.
         /// </summary>
-        public const string ProductName = "DS4Windows";
+        public const string ProductName = "Thrum";
 
         /// <summary>
         /// The main window's title bar text. The <c>-command</c> client process
@@ -66,7 +66,16 @@ namespace DS4Windows
         /// runtime and the satellite language assemblies stop resolving. This
         /// is the value the reflection guard test pins to the real assembly.
         /// </summary>
-        public const string ExeBaseName = "DS4Windows";
+        public const string ExeBaseName = "Thrum";
+
+        /// <summary>
+        /// Lower-case form of <see cref="ExeBaseName"/>, for the places that
+        /// need a case-insensitive token in a case-sensitive context: the
+        /// self-invoked command-line switches. It has to be spelled out because
+        /// <c>ToLowerInvariant()</c> is not constant-foldable; a guard test
+        /// asserts the two stay in step.
+        /// </summary>
+        public const string ExeBaseNameLowerInvariant = "thrum";
 
         /// <summary>
         /// Folder name under <c>%APPDATA%</c> holding profiles, actions, linked
@@ -95,9 +104,14 @@ namespace DS4Windows
         /// see each other as the same product: a second build will refuse to
         /// start, or will hand its window over to the wrong process. A rebranded
         /// build MUST take a fresh GUID here so it can run beside the original.
+        ///
+        /// This GUID was generated for Thrum and deliberately differs from the
+        /// inherited DS4Windows one (<c>{a52b5b20-d9ee-4f32-8518-307fa14aa0c6}</c>),
+        /// so a Thrum install and a real DS4Windows install never see each
+        /// other as second instances of themselves.
         /// </summary>
         public const string SingleInstanceEventName =
-            "{a52b5b20-d9ee-4f32-8518-307fa14aa0c6}";
+            "{21c16c88-2c23-4389-91a1-e6613bab7255}";
 
         /// <summary>
         /// Memory-mapped file holding the main window's Win32 class name, which
@@ -154,11 +168,12 @@ namespace DS4Windows
         public const string StartupShortcutName = ExeBaseName + ".lnk";
 
         /// <summary>
-        /// Stem of the log file names. Kept lower case with an underscore for
-        /// historical reasons rather than composed from
-        /// <see cref="ProductName"/>.
+        /// Stem of the log file names. Kept lower case with an underscore
+        /// rather than composed from <see cref="ProductName"/>, because the
+        /// file name convention is independent of the product's display
+        /// casing.
         /// </summary>
-        private const string LogFileBaseName = "ds4windows_log";
+        private const string LogFileBaseName = "thrum_log";
 
         /// <summary>
         /// The NLog file target's file name, applied over the config file at
@@ -182,6 +197,11 @@ namespace DS4Windows
         /// product's releases. Root of the release URLs below: point it at the
         /// wrong repository and the update check offers a different product's
         /// builds for download.
+        ///
+        /// Still points at the upstream repository: the update feed cutover is
+        /// a separate change from the assembly rename, because it also has to
+        /// disable auto-update until this product ships an updater of its own.
+        /// Until then a manual update check simply offers upstream's page.
         /// </summary>
         public const string ReleaseOwnerRepo = "hbashton/DS4Windows";
 

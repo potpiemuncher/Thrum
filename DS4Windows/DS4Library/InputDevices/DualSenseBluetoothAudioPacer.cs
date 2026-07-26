@@ -264,11 +264,11 @@ namespace DS4Windows.InputDevices
             if (string.IsNullOrWhiteSpace(executablePath) ||
                 !File.Exists(executablePath))
             {
-                error = "The exact current DS4Windows executable could not be located.";
+                error = $"The exact current {ProductInfo.ProductName} executable could not be located.";
                 return false;
             }
 
-            string pipeName = "DS4Windows.DualSenseAudioPacer." +
+            string pipeName = ProductInfo.ProductName + ".DualSenseAudioPacer." +
                 Process.GetCurrentProcess().Id + "." + Guid.NewGuid().ToString("N");
             Guid authenticationToken = Guid.NewGuid();
             NamedPipeServerStream server = null;

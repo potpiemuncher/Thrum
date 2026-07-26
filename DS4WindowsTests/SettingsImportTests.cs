@@ -2,6 +2,7 @@ using DS4Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -25,10 +26,17 @@ namespace DS4WindowsTests
         private string root;
         private string source;
         private string target;
+        private CultureInfo previousStringsCulture;
 
         [TestInitialize]
         public void SetUp()
         {
+            // The summary wording now comes from Strings.resx, so an assertion
+            // on English text would otherwise depend on the machine's UI
+            // culture. Pin the resource lookup to the neutral file.
+            previousStringsCulture = DS4WinWPF.Translations.Strings.Culture;
+            DS4WinWPF.Translations.Strings.Culture = CultureInfo.InvariantCulture;
+
             // TestRunDirectory when the adapter provides one, the process temp
             // path otherwise. Never a hard-coded location.
             string baseDirectory = TestContext?.TestRunDirectory;
@@ -48,6 +56,8 @@ namespace DS4WindowsTests
         [TestCleanup]
         public void TearDown()
         {
+            DS4WinWPF.Translations.Strings.Culture = previousStringsCulture;
+
             try
             {
                 if (root != null && Directory.Exists(root))

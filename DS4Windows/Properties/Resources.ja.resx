@@ -157,7 +157,7 @@
     <value>バージョン *number* を今すぐダウンロードしますか?</value>
   </data>
   <data name="DS4Update" xml:space="preserve">
-    <value>DS4Windows の更新を利用可能です!</value>
+    <value>Thrum の更新を利用可能です!</value>
   </data>
   <data name="FallBack" xml:space="preserve">
     <value>フォールバック</value>
@@ -181,7 +181,7 @@
     <value>インストール中...</value>
   </data>
   <data name="LanguagePackApplyRestartRequired" xml:space="preserve">
-    <value>言語パックの変更は、DS4Windows の再起動後に反映されます。</value>
+    <value>言語パックの変更は、Thrum の再起動後に反映されます。</value>
   </data>
   <data name="LatencyNotOverTen" xml:space="preserve">
     <value>コントローラー *number* の遅延は 10ms 以下です</value>
@@ -262,7 +262,7 @@
     <value>弱振動を停止</value>
   </data>
   <data name="StoppedDS4Windows" xml:space="preserve">
-    <value>DS4Windows を停止しました</value>
+    <value>Thrum を停止しました</value>
   </data>
   <data name="StoppingDS4" xml:space="preserve">
     <value>DS4 入力コントローラーを停止中</value>
@@ -304,7 +304,7 @@
     <value>未割り当て</value>
   </data>
   <data name="UpToDate" xml:space="preserve">
-    <value>DS4Windows は最新バージョンです。</value>
+    <value>Thrum は最新バージョンです。</value>
   </data>
   <data name="UsingExclusive" xml:space="preserve">
     <value>排他モードで使用</value>

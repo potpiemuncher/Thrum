@@ -16,7 +16,7 @@
                        FontSize="16"
                        FontWeight="Bold"
                        Margin="0,0,0,4" />
-            <TextBlock Text="Runs temporary virtual-controller probes and writes detailed diagnostics to the DS4Windows log. Tests create and dispose throwaway VIIPER devices."
+            <TextBlock Text="Runs temporary virtual-controller probes and writes detailed diagnostics to the Thrum log. Tests create and dispose throwaway VIIPER devices."
                        TextWrapping="Wrap"
                        Opacity="0.78"
                        Margin="0,0,0,10" />

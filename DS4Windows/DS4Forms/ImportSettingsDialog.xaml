@@ -3,7 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:lex="http://wpflocalizeextension.codeplex.com"
         xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
+        lex:LocalizeDictionary.DesignCulture=""
+        lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
+        lex:ResxLocalizationProvider.DefaultDictionary="Strings"
         mc:Ignorable="d"
         Height="360" Width="520" ResizeMode="NoResize"
         ShowInTaskbar="True" WindowStartupLocation="CenterScreen"
@@ -15,10 +19,10 @@
                  false, which is the decline signal. No Click handler, so
                  nothing can race the built-in cancel behaviour into setting
                  DialogResult twice. It also gives Escape for free. -->
-            <Button x:Name="startFreshBtn" Content="Start _fresh"
+            <Button x:Name="startFreshBtn" Content="{lex:Loc Import.StartFreshButton}"
                     IsCancel="True"
                     MinWidth="110" Padding="10,4" />
-            <Button x:Name="importBtn" Content="_Import"
+            <Button x:Name="importBtn" Content="{lex:Loc Import.ImportButton}"
                     Click="ImportBtn_Click" IsDefault="True"
                     MinWidth="110" Padding="10,4" Margin="12,0,0,0" />
         </StackPanel>

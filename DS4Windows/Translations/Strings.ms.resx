@@ -157,7 +157,7 @@
     <value>Periksa Kemaskini Sekarang</value>
   </data>
   <data name="CheckUpdateStartup" xml:space="preserve">
-    <value>Semak Kemas Kini Pada Permulaan DS4Windows</value>
+    <value>Semak Kemas Kini Pada Permulaan Thrum</value>
   </data>
   <data name="Clear" xml:space="preserve">
     <value>Bersihkan</value>
@@ -348,9 +348,9 @@ Perubahan pada pilihan ini berkuat kuasa pada masa sambungan pad permainan.</val
     <value>Nama boleh laku tersuai</value>
   </data>
   <data name="CustomExeNameInfo" xml:space="preserve">
-    <value>Sesetengah permainan melaksanakan sekatan yang menyebabkan input DS4 diabaikan jika permainan mengesan sama ada 'DS4Windows.exe' atau 'InputMapper.exe' berjalan pada masa itu. Penyelesaian kepada sekatan itu ialah menamakan semula 'DS4Windows.exe' supaya semakan dalam permainan gagal. Menentukan nama exe tersuai di sini membolehkan DS4Updater mengemas kini salinan tersuai DS4Windows secara automatik kepada nama fail yang dikehendaki. Pastikan anda meninggalkan sambungan.
+    <value>Sesetengah permainan melaksanakan sekatan yang menyebabkan input DS4 diabaikan jika permainan mengesan sama ada 'Thrum.exe' atau 'InputMapper.exe' berjalan pada masa itu. Penyelesaian kepada sekatan itu ialah menamakan semula 'Thrum.exe' supaya semakan dalam permainan gagal. Menentukan nama exe tersuai di sini membolehkan DS4Updater mengemas kini salinan tersuai Thrum secara automatik kepada nama fail yang dikehendaki. Pastikan anda meninggalkan sambungan.
 
-Contoh: whyme_DS4Windows</value>
+Contoh: whyme_Thrum</value>
   </data>
   <data name="XInputChecker" xml:space="preserve">
     <value>XInputChecker</value>
@@ -497,7 +497,7 @@ Contoh: whyme_DS4Windows</value>
     <value>Dalam sesetengah situasi, ia mungkin berguna untuk mengehadkan nilai maksimum yang dikeluarkan oleh output kayu analog. Output Maks membolehkan pendikitan nilai output akhir kayu analog.</value>
   </data>
   <data name="AntiDeadzoneTooltip" xml:space="preserve">
-    <value>Anti-deadzone bertindak sebagai offset untuk digunakan dengan paksi untuk menandakan nilai output minimum yang dijana selepas paksi meninggalkan zon mati yang ditetapkan. Ini terutamanya bertujuan untuk membantu memetakan paksi kepada nilai zon mati yang ditetapkan yang digunakan untuk paksi dalam permainan video. Sebagai contoh, zon mati biasa yang ditetapkan untuk XInput LS dalam permainan video ialah sekitar 8000 (25%). Dengan tiada anti-deadzone ditetapkan, paksi perlu bergerak melepasi zon mati yang ditetapkan dalam DS4Windows bersama-sama dengan zon mati paksi yang ditetapkan permainan.</value>
+    <value>Anti-deadzone bertindak sebagai offset untuk digunakan dengan paksi untuk menandakan nilai output minimum yang dijana selepas paksi meninggalkan zon mati yang ditetapkan. Ini terutamanya bertujuan untuk membantu memetakan paksi kepada nilai zon mati yang ditetapkan yang digunakan untuk paksi dalam permainan video. Sebagai contoh, zon mati biasa yang ditetapkan untuk XInput LS dalam permainan video ialah sekitar 8000 (25%). Dengan tiada anti-deadzone ditetapkan, paksi perlu bergerak melepasi zon mati yang ditetapkan dalam Thrum bersama-sama dengan zon mati paksi yang ditetapkan permainan.</value>
   </data>
   <data name="StickInputCurveTooltip" xml:space="preserve">
     <value>TETAPAN USANG/LAMA. Cuba gunakan lengkung berdasarkan koordinat input mentah sebelum sebarang maklumat zon mati digunakan. Wonky</value>
@@ -572,7 +572,7 @@ Tetapan putaran bertujuan untuk membantu membetulkan orientasi kayu(stick) analo
 
 - Dilumpuhkan: derum akan diskala semula secara asli oleh pengawal mengikut tahap kuasa yang ditentukan (kualiti lebih baik)
 
-- Didayakan: kedua-dua skala semula derum generik DS4Windows dan kawalan asli DualSense akan aktif</value>
+- Didayakan: kedua-dua skala semula derum generik Thrum dan kawalan asli DualSense akan aktif</value>
   </data>
   <data name="DualSRumbleModes_Tip" xml:space="preserve">
     <value>Mod Tepat (disyorkan):
@@ -656,7 +656,7 @@ Dilumpuhkan:
     <value>Leret Pad Sentuh Untuk Menukar Profil</value>
   </data>
   <data name="TurnOffDS4WindowsTemporarily" xml:space="preserve">
-    <value>Matikan DS4Windows Buat Sementara</value>
+    <value>Matikan Thrum Buat Sementara</value>
   </data>
   <data name="Unplug" xml:space="preserve">
     <value>Cabut Plag</value>
@@ -746,7 +746,7 @@ Dilumpuhkan:
     <value>Sokongan Alat Kawalan DS3</value>
   </data>
   <data name="FirstLaunch.DeviceIntroText" xml:space="preserve">
-    <value>Disebabkan oleh pemeta lain yang mendayakan sokongan untuk berbilang jenis peranti secara lalai (Input Steam), DS4Windows hanya mendayakan sokongan untuk membaca daripada alat kawalan DS4 secara lalai. Anda boleh menentukan sokongan pemeta untuk jenis peranti lain yang disokong di sini. Berhati-hati apabila menggunakan DS4Windows dengan pemeta lain yang mungkin berjalan pada masa yang sama.</value>
+    <value>Disebabkan oleh pemeta lain yang mendayakan sokongan untuk berbilang jenis peranti secara lalai (Input Steam), Thrum hanya mendayakan sokongan untuk membaca daripada alat kawalan DS4 secara lalai. Anda boleh menentukan sokongan pemeta untuk jenis peranti lain yang disokong di sini. Berhati-hati apabila menggunakan Thrum dengan pemeta lain yang mungkin berjalan pada masa yang sama.</value>
   </data>
   <data name="FirstLaunch.DS3EnableCkbLabel" xml:space="preserve">
     <value>Sokongan Peranti DS3</value>

@@ -695,7 +695,7 @@ namespace DS4Windows.VJoyFeeder
                 catch
                 {
                     vJoyAvailable[vJoyID - 1] = false;
-                    AppLogger.LogToGui("ERROR. vJoy initialization failed. Make sure that DS4Windows application can find vJoyInterface.dll library file", false);
+                    AppLogger.LogToGui($"ERROR. vJoy initialization failed. Make sure that {ProductInfo.ProductName} application can find vJoyInterface.dll library file", false);
                 }
             }
         }

@@ -284,7 +284,7 @@ namespace DS4Windows
                 return;
             }
 
-            const string message = "Xbox Game Bar is not installed or its ms-gamebar protocol handler is not registered. Install or repair Xbox Game Bar from the Microsoft Store, then restart DS4Windows to use Game Bar profile support.";
+            const string message = "Xbox Game Bar is not installed or its ms-gamebar protocol handler is not registered. Install or repair Xbox Game Bar from the Microsoft Store, then restart " + ProductInfo.ProductName + " to use Game Bar profile support.";
             AppLogger.LogToGui(message, true);
             AppLogger.LogToTray(message, true, true);
         }

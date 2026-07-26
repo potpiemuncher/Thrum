@@ -349,7 +349,7 @@ namespace DS4Windows
             })
             {
                 IsBackground = true,
-                Name = "DS4Windows VIIPER Sony HID registration",
+                Name = $"{ProductInfo.ProductName} VIIPER Sony HID registration",
                 Priority = System.Threading.ThreadPriority.BelowNormal,
             };
 

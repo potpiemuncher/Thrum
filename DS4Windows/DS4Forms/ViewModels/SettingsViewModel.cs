@@ -634,7 +634,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         private void CheckStartupOptions()
         {
-            bool lnkExists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName);
+            // StartupMethods owns the path. This used to compose its own copy
+            // of it, which is how a rename can leave the settings page looking
+            // for a shortcut nobody writes.
+            bool lnkExists = File.Exists(StartupMethods.lnkpath);
             if (lnkExists)
             {
                 runAtStartup = true;

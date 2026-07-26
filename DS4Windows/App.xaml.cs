@@ -198,6 +198,14 @@ namespace DS4WinWPF
             DS4Windows.Global.FindConfigLocation();
             bool firstRun = DS4Windows.Global.firstRun;
 
+            // Whether the appdata configuration is untouched has to be sampled
+            // here, before any first-run dialog runs: SaveWhere's "Appdata"
+            // button writes a stub Profiles.xml through Global.SaveDefault, and
+            // asking afterwards would report a genuinely empty configuration as
+            // an existing one and suppress the import offer forever.
+            bool appDataConfigPristine = new DS4Windows.ImportPlanner()
+                .IsTargetPristine(DS4Windows.Global.appDataPpath);
+
             // Could not find unique profile location; does not exist or multiple places.
             // Advise user to specify where DS4Windows should save its configuation files
             // and profiles
@@ -238,6 +246,15 @@ namespace DS4WinWPF
             logger.Info("Logger created");
             StartupDiag(logger, $"App bootstrap pid={Environment.ProcessId} admin={DS4Windows.Global.IsAdministrator()} cwd=\"{Environment.CurrentDirectory}\" cmd=\"{Environment.CommandLine}\"");
             StartupDiag(logger, $"Exe location=\"{DS4Windows.Global.exelocation}\" configPath=\"{DS4Windows.Global.appdatapath}\" firstRun={firstRun}");
+
+            // Offer the one-time import before Global.Load reads settings, so
+            // that anything copied in is picked up by the ordinary load path
+            // and goes through ProfileMigration / OutContType normalization
+            // exactly as an in-place configuration would.
+            StartupDiag(logger, "Settings import offer begin");
+            firstRun = OfferOneTimeSettingsImport(logger, firstRun,
+                appDataConfigPristine);
+            StartupDiag(logger, $"Settings import offer end firstRun={firstRun}");
 
             StartupDiag(logger, "Global.Load begin");
             bool readAppConfig = DS4Windows.Global.Load();
@@ -344,6 +361,112 @@ namespace DS4WinWPF
             StartupDiag(logger, "MainWindow.LateChecks begin");
             window.LateChecks(parser);
             StartupDiag(logger, "MainWindow.LateChecks returned");
+        }
+
+        /// <summary>
+        /// The one-time offer to copy an existing DS4Windows configuration into
+        /// this product's data folder.
+        ///
+        /// <para>Runs between the config-location decision and
+        /// <c>Global.Load()</c>, so whatever is copied in is read by the
+        /// ordinary load path: config-version migration and legacy
+        /// <c>OutContType</c> normalization happen exactly as they would for a
+        /// configuration that had always been here. The importer therefore
+        /// copies bytes and transforms nothing.</para>
+        ///
+        /// <para>Four gates, all of which must pass: the resolved data folder
+        /// is the appdata one (portable installs never see this — the reasons
+        /// are on <see cref="DS4Forms.ImportSettingsDialog"/>), that folder held
+        /// no configuration when this launch began, the user has not already
+        /// declined, and there is actually something to import.</para>
+        /// </summary>
+        /// <returns>
+        /// The first-run flag the rest of startup should use. It goes false
+        /// once a configuration exists, because the remaining first-run steps
+        /// generate and save defaults, which would overwrite what was just
+        /// imported.
+        /// </returns>
+        private bool OfferOneTimeSettingsImport(Logger logger, bool firstRun,
+            bool appDataConfigPristine)
+        {
+            string target = DS4Windows.Global.appdatapath;
+
+            if (string.IsNullOrEmpty(target) ||
+                !string.Equals(target, DS4Windows.Global.appDataPpath,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                // Portable / exe-directory mode.
+                return firstRun;
+            }
+
+            if (!appDataConfigPristine)
+            {
+                return firstRun;
+            }
+
+            DS4Windows.ImportPlanner planner = new DS4Windows.ImportPlanner();
+            if (planner.WasOfferDeclined(target))
+            {
+                return firstRun;
+            }
+
+            DS4Windows.ImportPlan plan = planner.CreatePlan(
+                DS4Windows.ImportPlanner.DefaultSourceDirectory(), target);
+            if (plan.IsEmpty)
+            {
+                return firstRun;
+            }
+
+            logger.Info($"Importable {DS4Windows.ImportPlanner.LegacySourceFolderName} configuration found: " +
+                $"{plan.Items.Count} files, {plan.ProfileCount} profiles, {plan.CollisionCount} already present");
+
+            DS4Forms.ImportSettingsDialog dialog =
+                new DS4Forms.ImportSettingsDialog(plan);
+            dialog.ShowDialog();
+
+            if (!dialog.ImportRequested)
+            {
+                // Closing the window counts as declining, so that "asked
+                // exactly once" holds however the dialog was dismissed.
+                bool recorded = planner.RecordOfferDeclined(target);
+                logger.Info("Settings import declined. Decline marker " +
+                    (recorded ? "written." : "could not be written; the offer will repeat."));
+                return firstRun;
+            }
+
+            DS4Windows.ImportResult result =
+                new DS4Windows.ImportExecutor().Execute(plan);
+            logger.Info($"Settings import finished: {result.CopiedCount} copied, " +
+                $"{result.SkippedCount} already present, {result.FailedCount} failed");
+            foreach (DS4Windows.ImportItemResult failure in result.Failures)
+            {
+                logger.Warn($"Settings import could not copy {failure.Item.RelativePath}: {failure.FailureMessage}");
+            }
+
+            if (result.AnyFailed)
+            {
+                // Whatever landed is kept: it is loadable, and re-running the
+                // import later only copies what is still missing. Nothing is
+                // rolled back and nothing in the source was touched.
+                MessageBox.Show(
+                    $"{result.CopiedCount} of {plan.Items.Count} files were imported. " +
+                    $"{result.FailedCount} could not be copied; the log lists them. " +
+                    "What was imported has been kept, and nothing in the " +
+                    $"{DS4Windows.ImportPlanner.LegacySourceFolderName} folder was changed.",
+                    DS4Windows.ProductInfo.ProductName,
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            // A configuration that is no longer pristine must not be handed to
+            // the first-run bootstrap: it writes a fresh Profiles.xml and a
+            // fresh Profiles\Default.xml over the imported ones.
+            if (firstRun && !planner.IsTargetPristine(target))
+            {
+                DS4Windows.Global.firstRun = false;
+                return false;
+            }
+
+            return firstRun;
         }
 
         private static void StartupDiag(Logger logger, string message)

@@ -1,0 +1,47 @@
+﻿<Window x:Class="DS4WinWPF.DS4Forms.ImportSettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
+        mc:Ignorable="d"
+        Height="360" Width="520" ResizeMode="NoResize"
+        ShowInTaskbar="True" WindowStartupLocation="CenterScreen"
+        Style="{DynamicResource WindowStyle}">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <!-- IsCancel alone closes the dialog and leaves ImportRequested
+                 false, which is the decline signal. No Click handler, so
+                 nothing can race the built-in cancel behaviour into setting
+                 DialogResult twice. It also gives Escape for free. -->
+            <Button x:Name="startFreshBtn" Content="Start _fresh"
+                    IsCancel="True"
+                    MinWidth="110" Padding="10,4" />
+            <Button x:Name="importBtn" Content="_Import"
+                    Click="ImportBtn_Click" IsDefault="True"
+                    MinWidth="110" Padding="10,4" Margin="12,0,0,0" />
+        </StackPanel>
+
+        <TextBlock x:Name="headingTxt" DockPanel.Dock="Top"
+                   FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+        <TextBlock x:Name="sourceTxt" DockPanel.Dock="Top" Margin="0,10,0,0"
+                   TextWrapping="Wrap" />
+
+        <TextBlock x:Name="footerTxt" DockPanel.Dock="Bottom"
+                   Margin="0,10,0,0" TextWrapping="Wrap" Opacity="0.85" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,10,0,0"
+                      Focusable="False">
+            <ItemsControl x:Name="foundList" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                   Margin="12,2,0,2" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

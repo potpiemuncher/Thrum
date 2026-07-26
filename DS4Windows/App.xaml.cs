@@ -509,6 +509,17 @@ namespace DS4WinWPF
                 exitApp = true;
                 Current.Shutdown();
             }
+            else if (parser.ViiperDriverDiagnostic)
+            {
+                // Runs before the ControlService or any window exists. The
+                // command only reads package/file trust state and writes its
+                // diagnostic report; it cannot attach or release a controller.
+                int diagnosticExitCode =
+                    DS4Windows.ViiperDriverValidationCommand.Run();
+                runShutdown = false;
+                exitApp = true;
+                Current.Shutdown(diagnosticExitCode);
+            }
             else if (parser.ReenableDevice)
             {
                 DS4Windows.DS4Devices.reEnableDevice(parser.DeviceInstanceId);

@@ -18,17 +18,23 @@ flip branch, and re-run again on the import branch; every row below carries a
 disposition and nothing is uncategorised.
 
 **Total raw hits: 1637 before the flip, 1644 after it, 1702 after the import
-pull request, 1754 after the icons/updater/version pull request.** Most of
-that total is not identity at all — see
+pull request, 1805 after the icons/updater/version pull request, 1659 after the
+localization sweep.** Most of that total is not identity at all — see
 [Bulk categories](#bulk-categories) — so the number to watch is the
-per-category breakdown below, not the total. The count keeps *rising* while the
-identity literals themselves go away: the flip added explanatory prose to this
-file and to `ProductInfo`, and the import change added the audit sections below,
-the [smoke checklist](smoke-rebrand.md), and six new source files whose GPL
-header and `namespace DS4Windows` line each contribute three hits before a line
-of logic is written. The genuinely new *literals* are two, both of them
-deliberate: the import source folder name, and the inherited startup entry names
-used as needles by the guard test that proves they appear nowhere else.
+per-category breakdown below, not the total. For four pull requests the count
+*rose* while the identity literals themselves went away: the flip added
+explanatory prose to this file and to `ProductInfo`, and the import change added
+the audit sections below, the [smoke checklist](smoke-rebrand.md), and six new
+source files whose GPL header and `namespace DS4Windows` line each contribute
+three hits before a line of logic is written.
+
+The localization sweep is the first one where it falls, by 146, and it falls in
+the places that mattered: `.resx` −137, the generated designers −13, `.cs` −15,
+`.xaml` −7, against +16 in documentation (this file's new sections and the
+progress log) and +10 in tests, where the old name appears as guard needles.
+What is left in the resource files is the deliberate remainder catalogued in
+§10: dead keys, upstream links, foreign executable names, and keys whose *names*
+still spell the old product because a key is a contract.
 
 The icons/updater/version change repeated the pattern: +52 hits, all of them
 prose (this file's revised rows, the progress log entry, the new tests' XML
@@ -89,7 +95,7 @@ one commit.
 | `LANGUAGE_ASSEMBLY_NAME` | `DS4Control/ScpUtil.cs:683` | **DONE (1.1)** → `ProductInfo.LanguageAssemblyName` |
 | `assemblyIdentity name="Thrum.app"` | `DS4Windows/app.manifest:3` | **DONE (1.2)** — XML, cannot consume a constant |
 | 4 XAML pack URIs `/Thrum;component/Resources/*.png` | `DS4Forms/ProfileEditor.xaml:100,107,114,121` | **DONE (1.2)** |
-| 23 XAML `lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` | 23 `DS4Forms/*.xaml` files | **DONE (1.2)** — all 23. A missed one kills that page’s localization at runtime only, which is why the count is written down. The 1.4 import dialog is a 24th XAML file with **no** `lex` bindings: its text is English in the code-behind until the localization pull request gives it `.resx` keys, at which point it needs this attribute too. |
+| 24 XAML `lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` | 24 `DS4Forms/*.xaml` files | **DONE (1.2)** for 23, **DONE (1.8)** for the 24th. A missed one kills that page’s localization at runtime only, which is why the count is written down. `ImportSettingsDialog.xaml` became the 24th when 1.8 moved its text into `Strings.resx`. |
 | `ThemeResourceTests` relative pack URIs (2) | `DS4WindowsTests/ThemeResourceTests.cs` | **DONE (1.2)** — now composed from `ProductInfo.ExeBaseName` |
 | `PackageProjectUrl`, `RepositoryUrl` | `DS4WinWPF.csproj:29,31` | **DONE (1.2)** → `https://github.com/potpiemuncher/Thrum`. Package metadata. `ProductInfo.ReleaseOwnerRepo` caught up in **1.7**. |
 | Solution/project names `DS4WinWPF`, `DS4WindowsTests` | `DS4WindowsWPF.sln`, project files | **KEEP** — project/namespace identity, out of Phase 1 scope (no `RootNamespace` change) |
@@ -161,6 +167,9 @@ table.
 | Worker thread names `"… Game Bar API Poll"`, `"… UIA Poll"` | `DS4Control/GameBarIntegration.cs:449,554` | **DONE (1.2)** → `ProductInfo.ProductName`; cosmetic (debugger only) |
 | Five `DS4WINDOWS_*` diagnostic environment variables: `…_DUALSENSE_PCM_TRACE_DIRECTORY`, `…_DS4_AUDIO_DRIFT_MODE`, `…_DS4_AUDIO_TRANSPORT_MODE`, `…_DS4_AUDIO_DIAGNOSTIC_CAPTURE`, `…_VIIPER_STATE_RATE_HZ` | `DualSenseBluetoothSpeakerPassthrough.cs:595`, `DualShock4AudioDrift.cs:21`, `DualShock4AudioTransport.cs:31`, `DualShock4BluetoothSpeakerPassthrough.cs:223`, `Viiper/ViiperOutDevice.cs:35` | **KEEP** — **(found in 1.2)**. Same class as the OSC namespace: an external control surface a human sets before launching, with no in-tree consumer that a rename would fix. Renaming them silently invalidates every debugging runbook that names them, and no test would catch it. See open decision 4. |
 | Audio pseudo-endpoint prefixes `DS4Windows:AudioHapticsApp:` and `DS4Windows:AudioHapticsAuto:` | `DS4Control/ProcessLoopbackWaveCapture.cs:18,19` | **KEEP** — **(found in 1.2)**. These are not display strings: the composed id is stored as a profile's capture-source setting, so they are on-disk file-format values in the same sense as the `<DS4Windows>` root element. Flipping them silently resets every per-app audio-haptics capture selection. |
+| Audio pseudo-endpoint ids `DS4Windows:AutoDetectDualSenseGameAudio` and `DS4Windows:DefaultSystemAudio` | `DS4Control/DualSenseAudioPassthrough.cs:36,37` | **KEEP** — **(found in 1.8)**. The two the 1.2 sweep missed, and the same class as the pair above: both are compared with `StringComparison.Ordinal` against the persisted per-profile capture-source setting. Flipping either silently resets "auto-detect game audio" and "system audio" on every existing profile. |
+| Named pipe prefix `DS4Windows.DualSenseAudioPacer.` | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:271` | **DONE (1.8)** → `ProductInfo.ProductName` — **(found in 1.8)**. A kernel object name, so §4's category, but safe to move: the parent composes it with its own PID and a fresh GUID and hands it to the helper on the command line, so both ends agree by construction and no other process can be listening. |
+| Auto game-audio detection excludes the running app by **process name** | `DS4Control/AutomaticGameAudioDetector.cs` | **DONE (1.8)** — **(found in 1.8), and a real regression from the rename.** The exclusion set listed `ds4windows`, so before 1.2 this application could never be chosen as "the game" whose audio to capture. After the rename to `Thrum.exe` nothing excluded us any more. `ProductInfo.ExeBaseNameLowerInvariant` is now in the set; the inherited `ds4windows` entry stays, because a real DS4Windows install running alongside is not a game either. |
 
 ### HidHide audit — **verdict: no hard-coded name; nothing to fix** (1.5)
 
@@ -304,21 +313,136 @@ qualified type references, which stay. The identity-bearing ones:
 | Icon guard tests | `IconResourceTests.cs` | **DONE (1.6)** — every icon loads through **both** `System.Drawing.Icon` and `BitmapFrame`, and still carries uncompressed frames at 16/24/32/48. The last of those is the one that matters: the negative control proved that a PNG-only icon passes the `System.Drawing.Icon` load test, so the load tests alone would not have caught the regression they exist to catch. |
 | Update-feed guard tests | `UpdateFeedTests.cs` | **DONE (1.7)** — the four `DS4Updater` artefacts appear here *on purpose*, as the binary scan's needles. Along with `StartupEntryIdentityTests.cs`, this is one of only two files in the repository that should contain them. |
 | Version compatibility tests | `VersionCompatibilityTests.cs` | **DONE (1.9)** — `app_version="4.0.2.1"` and `config_version` fixtures. These carry inherited version strings as *data being read*, which is the point of the file. |
+| Localization sweep guards | `LocalizationSweepTests.cs` | **DONE (1.8)** — 7 tests. The flipped values name this product and not the old one; the `CustomExeNameInfo` exceptions are pinned individually; the upstream wiki link survived; every hand-added designer property resolves to a real key; every import format string still has its placeholders; all 23 satellites load; no satellite declares a key the neutral file lacks. The old name appears here as needles, so this is a third file that should contain it on purpose. |
 
 ---
 
 ## 10. User-visible strings and translations
 
-Bulk-counted, not enumerated. The localization PR owns all of it.
+**DONE (1.8).** The sweep was value-only: not one key, comment key, entry count
+or file encoding moved. 195 token replacements across 29 `.resx` files, plus 24
+`.cs`/`.xaml` prose literals and 17 new neutral keys for the import dialog.
 
-| Set | Files | Hits | Disposition |
-|---|---|---|---|
-| English `Translations/Strings.resx` | 1 | 14 | localization PR — replace the literal product name with a placeholder |
-| English `Properties/Resources.resx` | 1 | 16 | localization PR |
-| Non-English `.resx` (24 languages, both families) | 27 | 193 | localization PR — scripted conservative replace **only** where the token is the literal product name; log every skipped hit for translators |
-| Generated `*.Designer.cs` | `Properties/Resources.Designer.cs`, `Translations/Strings.Designer.cs` | 34 | regenerated automatically from the `.resx`; never hand-edited |
-| Hard-coded English UI text and log messages in `.cs` | `App.xaml.cs` (104 file-wide hits, of which the identity-bearing ones are now converted), `SettingsViewModel.cs` (83), `ControlService.cs` (28), and ~50 other files | — | localization PR — prose sentences such as "Copy complete, please relaunch DS4Windows…". Deliberately **not** touched in 1.1: they are sentences, not identity constants, and mechanically substituting them would produce a large, unreviewable diff. |
-| Hard-coded English text in `.xaml` (tooltips, labels) | `MainWindow.xaml`, `WelcomeDialog.xaml`, `ViiperDebuggerWindow.xaml`, `ControllerRegisterOptionsWindow.xaml`, `About.xaml` | ~13 | localization PR |
+| Set | Files | Disposition |
+|---|---|---|
+| `Translations/Strings*.resx` (neutral + 24) | 25 | **DONE (1.8)** — 180 replacements in 9 allowlisted keys |
+| `Properties/Resources*.resx` (neutral + 3) | 4 | **DONE (1.8)** — 15 replacements in 4 allowlisted keys |
+| `Strings.Designer.cs`, `Resources.Designer.cs` | 2 | **DONE (1.8)** — the "Looks up a localized string similar to …" echoes were hand-synced for the changed neutral values. These files are **checked in and the command-line build does not regenerate them**, so the echo comments drift silently; properties and `GetString("<key>")` arguments were not touched. |
+| Hard-coded English UI text and log messages in `.cs` | 16 literals across 13 files | **DONE (1.8)** → `ProductInfo.ProductName` |
+| Hard-coded English text in `.xaml` | 7 literals across 6 files | **DONE (1.8)** — flipped to the literal `Thrum`. XAML text cannot consume a constant without splitting the sentence into `Run`s, and these are unlocalized English prose to begin with. |
+| Import dialog (from 1.4) | `ImportSettingsDialog.xaml(.cs)`, `ImportPlanSummary.cs`, `App.xaml.cs` | **DONE (1.8)** — 17 new `Import.*` keys in the **neutral file only**; see below |
+
+### The flip allowlist, and why it is an allowlist
+
+A blanket `DS4Windows` → `Thrum` pass over every `<value>` would have been
+wrong in four different ways, so the sweep flipped only keys that were
+classified first. The script parses each file, decides from the *decoded*
+value, applies the substitution to the raw `<value>` span so entities and CRLF
+survive, and then re-parses and asserts that the key list, the key order and
+every untargeted value are unchanged and that each targeted value decodes to
+exactly the intended string.
+
+| Key | Family | Note |
+|---|---|---|
+| `CheckUpdateStartup`, `AntiDeadzoneTooltip`, `DualSRumbleForceGenericRescale_Tip`, `TurnOffDS4WindowsTemporarily`, `FirstLaunch.DeviceIntroText`, `SaveWhere.AppDataDescText`, `Welcome.Step5HelpText`, `Welcome.WinTitle` | Strings | plain token swap |
+| `CustomExeNameInfo` | Strings | token swap in the 24 translations; the **neutral value was rewritten by hand**, because a swap cannot fix a sentence promising that `DS4Updater` will rename our executable — that pipeline was deleted in 1.7. `DS4Windows.exe` and `InputMapper.exe` stay: they are the names a game's block looks for. |
+| `DS4Update`, `LanguagePackApplyRestartRequired`, `StoppedDS4Windows`, `UpToDate` | Resources | plain token swap. `UpToDate` closes open decision 5. |
+
+`TurnOffDS4WindowsTemporarily`, `StoppedDS4Windows`, `DS4WindowsCannotEditHere`
+and `IfRemovingDS4Windows` keep **keys** that spell the old name. A key is a
+contract with 24 translated files, with `lex:Loc` in XAML and with the checked-in
+designer; renaming one buys nothing a user can see and breaks all three.
+
+### Skipped hits
+
+| Hit | Category | Reason |
+|---|---|---|
+| `Resources.QuitOtherPrograms` (4 files) | KEEP-UPSTREAM | its only token is inside `https://github.com/Ryochan7/DS4Windows/wiki/Exclusive-Mode-…`. The flip script protects URL spans and reports them; a test asserts the link survived. |
+| `Strings.CustomExeNameInfo` — `DS4Windows.exe`, `InputMapper.exe` | KEEP-SOURCE | the processes a game detects. Renaming them to ours makes the explanation false. |
+| `MainWindow.xaml:746` "Support DS4Windows" + PayPal button | KEEP-SOURCE | see open decision 6 — the link pays the upstream maintainer, so the label is currently accurate and must not move without the link. |
+| `About.xaml` lineage credits (5), `About.xaml.cs` project links (3), `ControllerRegisterOptionsWindow.xaml` Moonlight doc link, `ControlService.cs:1651` KB link | KEEP-UPSTREAM | §11 attribution. |
+| `<DS4Windows>` XML root, XPaths, `ImportPlanner.LegacySourceFolderName`, the four audio pseudo-endpoint ids, five `DS4WINDOWS_*` env vars, OSC addresses and command word | KEEP-TECH | on-disk format and external control surfaces (§3, §4). Verified: **none of these is a `.resx` value** — the string resources contain no protocol strings at all. |
+| 11 `.resx` values in keys with zero references | DEAD | listed below, unchanged and not removed. |
+| `App.xaml.cs:77` comment, `LogViewModel.cs:48` commented-out line, `AppSettingsDTO.cs:52` commented-out block, `StartupMethods.cs:110` `<see cref>` | KEEP | not user-visible; a `cref` must name the real type. |
+| `utils/post-build.py:35` comment "DS4Updater uses this manifest…" | DEFER | describes a tool deleted in 1.7. Build-script prose, not identity; belongs with whatever phase revisits the packaging manifest. |
+
+### Dead strings — enumerated, not deleted
+
+The plan asked 1.8 to purge dead ViGEm strings. **Key removal is not safe in a
+value-only pull request**: every key is echoed by a checked-in designer property
+and by up to 24 translated files, so removing one is a four-file edit per key
+with a build break as the failure mode. They are catalogued here instead, for a
+cleanup phase that can regenerate the designers in the same commit.
+
+Method: a key counts as referenced only when it is reached the way the codebase
+actually reaches it — `Strings.<Key with dots as underscores>` in C#, or a
+`lex:Loc` / `lex:BLoc` / `lex:LocExtension` key token in XAML for
+`Strings.resx`; `Resources.<Key>` for `Properties/Resources.resx`. A bare
+identifier of the same name does not count, which is what an earlier pass got
+wrong. There is **no dynamic lookup anywhere in the tree** — no
+`ResourceManager.GetString(variable)`, no computed `lex` key — so a static scan
+is complete.
+
+**`Translations/Strings.resx`: 31 of 462 entries unreferenced.**
+
+`AdvancedSupport`, `ControllerSupportMoonlight`, `DeadZone X`, `DeadZone Y`,
+`DS4LightbarPassthruDisabled`, `DualSRumbleModePassthru`,
+`DualSRumbleSpecificSettings`, `EnableOutputDataToDS4`,
+`EnableOutputDataToDS4Tip`, `FullBtnPull`, `FutureNetNotInstalled`, `HidHide`,
+`HidNinja`, `HipFireDelay`, `ID`, `Mode`, `Net8NoticeWin.WinTitle`,
+`Net8NotInstalledWinNotice`, `New`, `OK`, `Other`, `PresetIntroText`,
+`SelectedProfile`, `Status`, `StickInputCurveTooltip`, `TwoStageMode`,
+`UpgradeNetCaption`, `ViGEm117MinNeeded`, `ViGEmPluginFailure`,
+`Welcome.Step1HelpText`, `Welcome.Step1Text`.
+
+The three the plan named are all here: `ViGEm117MinNeeded`,
+`ViGEmPluginFailure`, and the first-launch ViGEmBus step pair
+(`Welcome.Step1Text` = "Step 1: Install ViGEmBus Driver", plus its help text).
+`WelcomeDialog.xaml` starts at step 2, so the step-1 button was removed from the
+view and its strings were left behind. **The DsHidMini text is not dead and is
+not listed** — DS3 support still uses it.
+
+**`Properties/Resources.resx`: 111 of 175 entries unreferenced.** This whole
+family is WinForms-era leftovers; the live 64 are the survivors. The dead list
+is machine-derivable with the rule above and is not reproduced in full here;
+the eight that carry the product name are `CannotMoveFiles`, `CloseDS4W`,
+`CloseMinimize`, `CopyComplete`, `DS4WindowsCannotEditHere`,
+`IfRemovingDS4Windows`, `RunAtStartup`, `UACTask`.
+
+Dead values were **not** flipped. A string no user can reach is not part of a
+user-visible sweep, and flipping text that is scheduled for deletion adds churn
+to 24 translated files for nothing. Three of them (`CopyComplete`,
+`DS4WindowsCannotEditHere`, `RunAtStartup`) have live code-literal twins in
+`App.xaml.cs` and `MainWindow.xaml` — *those* were flipped.
+
+### Import dialog — neutral-only keys, deliberately
+
+17 new keys under the `Import.` prefix, added to `Translations/Strings.resx`
+only. The 24 translated files fall back to neutral. Machine-translating them
+would put unreviewed text in front of users in 24 languages, which is worse than
+English.
+
+`Import.CollisionCountPlural`, `Import.CollisionCountSingular`,
+`Import.FooterText`, `Import.HeadingText`, `Import.ImportButton`,
+`Import.KindActions`, `Import.KindAppSettings`, `Import.KindAutoProfiles`,
+`Import.KindControllerConfigs`, `Import.KindLinkedProfiles`,
+`Import.KindOutputSlots`, `Import.PartialFailureText`,
+`Import.ProfileCountPlural`, `Import.ProfileCountSingular`,
+`Import.SourceText`, `Import.StartFreshButton`, `Import.WinTitle`.
+
+`ImportSettingsDialog.xaml` is now the 24th XAML file carrying
+`lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` — the row in §2 that
+predicted this is closed.
+
+### Indonesian has never shipped
+
+`Translations/Strings.idn.resx` produces **no satellite assembly**: `idn` is not
+a culture name (Indonesian is `id`), so MSBuild drops it without an error and
+`post-build.py`'s hard-coded language list creates an empty `Lang\idn\` folder
+for it. 24 translated files, 23 shipped satellites. Left as found — renaming a
+resource file changes which translations ship, which is not a value-only
+change — and guarded by `EveryExpectedTranslationShipsAsASatellite`, whose
+negative control is adding `idn` back to the expected list.
 
 ---
 
@@ -390,12 +514,26 @@ Phase 1 pull request touches.
    whether to rename them to `THRUM_*`, or to accept both spellings for a
    release and then drop the old one. Either way it needs a test, since nothing
    in the tree currently proves a variable is still read.
-5. **`Resources.UpToDate` says "DS4Windows application is up-to-date."**
-   Raised by 1.7, deliberately *not* fixed there. It is the body of the message
-   box the rewritten update check now shows, so it is visibly wrong prose in a
-   flow this pull request owns — but it is a `.resx` value with 24 translations,
-   and the whole point of giving the localization pull request sole ownership of
-   those 223 hits is that they get one scripted pass with a translator log,
-   rather than four pull requests each editing the English and leaving the rest
-   behind. Flagged here so 1.8 does not have to rediscover it. The same applies
-   to the `FakeExeName` tooltip, which still names DS4Updater as an example.
+5. ~~**`Resources.UpToDate` says "DS4Windows application is up-to-date."**~~
+   **CLOSED (1.8): flipped**, together with the `FakeExeName` tooltip
+   (`Strings.CustomExeNameInfo`), whose neutral value was rewritten because the
+   `DS4Updater` sentence in it described a feature deleted in 1.7. See §10.
+6. **The in-app "Support DS4Windows" card pays the upstream maintainer.**
+   `MainWindow.xaml:746` labels a PayPal button that
+   `MainWindow.xaml.cs:1002` points at `paypal.me/hbashton`. 1.8 left both
+   alone: the label is *accurate* as it stands, and flipping only the text
+   would solicit donations for this product and route them elsewhere, which is
+   worse than the inherited wording. It is a product decision, not a rebrand
+   one — keep the card as upstream support and label it so, keep it and change
+   the destination, or remove it. Whichever is chosen, the label and the link
+   must move together.
+7. **Dead resource keys.** 31 in `Strings.resx` and 111 in
+   `Properties/Resources.resx` have no reference (§10). Removing a key means
+   editing the checked-in designer and up to 24 translated files in the same
+   commit, so 1.8 enumerated them instead of deleting them. A cleanup phase
+   should take the whole list at once, with the designer regeneration in the
+   same change.
+8. **Indonesian never ships** (§10): `Strings.idn.resx` is not a culture name,
+   so no satellite is emitted. Renaming it to `Strings.id.resx` would ship
+   ~600 already-written translations; it needs a `csproj` update and a check
+   that `post-build.py`'s hard-coded language list follows.

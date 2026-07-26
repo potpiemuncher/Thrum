@@ -503,7 +503,7 @@
                                   Visibility="{Binding IsProfileChangedCheckVisible}" Margin="16 0 0 10"/>
                         <CheckBox Content="{lex:Loc DisconnectFromBtWhenStopping}" Margin="{StaticResource spaceMargin}"
                               IsChecked="{Binding DisconnectBTStop}"
-                              ToolTip="Disconnect Bluetooth controllers when the DS4Windows service is stopped."
+                              ToolTip="Disconnect Bluetooth controllers when the Thrum service is stopped."
                               Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
                         <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                             <CheckBox Content="{lex:Loc FlashLightbarAtHighLatency}" VerticalAlignment="Center"
@@ -516,7 +516,7 @@
                             </StackPanel>
                         </StackPanel>
                         <CheckBox Content="{lex:Loc StartMinimized}" Margin="{StaticResource spaceMargin}"
-                              IsChecked="{Binding StartMinimize}" ToolTip="Open DS4Windows quietly without showing the main window."
+                              IsChecked="{Binding StartMinimize}" ToolTip="Open Thrum quietly without showing the main window."
                               Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
                         <CheckBox Content="{lex:Loc MinimizeToTaskbar}"
                                   ToolTip="{lex:Loc MinimizeToTaskbarTip}"
@@ -554,7 +554,7 @@
                         </StackPanel>
 
                         <CheckBox Content="{lex:Loc CheckUpdateStartup}" Margin="{StaticResource spaceMargin}"
-                              IsChecked="{Binding CheckForUpdates}" ToolTip="Periodically check GitHub for a newer DS4Windows release."
+                              IsChecked="{Binding CheckForUpdates}" ToolTip="Periodically check GitHub for a newer Thrum release."
                               Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
                         <StackPanel x:Name="checkEveryOptionsStack" Orientation="Horizontal" Margin="{StaticResource spaceMargin}"
                                 IsEnabled="{Binding CheckForUpdates}">

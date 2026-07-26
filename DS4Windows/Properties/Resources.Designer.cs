@@ -431,7 +431,7 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to DS4Windows Update Available!.
+        ///   Looks up a localized string similar to Thrum Update Available!.
         /// </summary>
         public static string DS4Update {
             get {
@@ -710,7 +710,7 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Language pack change will take effect after DS4Windows application is restarted..
+        ///   Looks up a localized string similar to Language pack change will take effect after Thrum application is restarted..
         /// </summary>
         public static string LanguagePackApplyRestartRequired {
             get {
@@ -1268,7 +1268,7 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Stopped DS4Windows.
+        ///   Looks up a localized string similar to Stopped Thrum.
         /// </summary>
         public static string StoppedDS4Windows {
             get {
@@ -1538,7 +1538,7 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to DS4Windows application is up-to-date..
+        ///   Looks up a localized string similar to Thrum application is up-to-date..
         /// </summary>
         public static string UpToDate {
             get {

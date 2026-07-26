@@ -236,9 +236,9 @@ namespace DS4WinWPF
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             Logger logger = logHolder.Logger;
             string version = DS4Windows.Global.exeDisplayVersion;
-            logger.Info($"DS4Windows version {version}");
-            logger.Info($"DS4Windows exe file: {DS4Windows.Global.exeFileName}");
-            logger.Info($"DS4Windows Assembly Architecture: {(Environment.Is64BitProcess ? "x64" : "x86")}");
+            logger.Info($"{DS4Windows.ProductInfo.ProductName} version {version}");
+            logger.Info($"{DS4Windows.ProductInfo.ProductName} exe file: {DS4Windows.Global.exeFileName}");
+            logger.Info($"{DS4Windows.ProductInfo.ProductName} Assembly Architecture: {(Environment.Is64BitProcess ? "x64" : "x86")}");
             logger.Info($"OS Version: {Environment.OSVersion}");
             logger.Info($"OS Product Name: {DS4Windows.Util.GetOSProductName()}");
             logger.Info($"OS Release ID: {DS4Windows.Util.GetOSReleaseId()}");
@@ -300,8 +300,8 @@ namespace DS4WinWPF
             else
             {
                 MessageBox.Show(
-                    "This build cannot create VIIPER virtual controllers. Install the x64 DS4Windows build on 64-bit Windows.",
-                    "DS4Windows virtual controller setup",
+                    $"This build cannot create VIIPER virtual controllers. Install the x64 {DS4Windows.ProductInfo.ProductName} build on 64-bit Windows.",
+                    $"{DS4Windows.ProductInfo.ProductName} virtual controller setup",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
@@ -449,10 +449,10 @@ namespace DS4WinWPF
                 // import later only copies what is still missing. Nothing is
                 // rolled back and nothing in the source was touched.
                 MessageBox.Show(
-                    $"{result.CopiedCount} of {plan.Items.Count} files were imported. " +
-                    $"{result.FailedCount} could not be copied; the log lists them. " +
-                    "What was imported has been kept, and nothing in the " +
-                    $"{DS4Windows.ImportPlanner.LegacySourceFolderName} folder was changed.",
+                    string.Format(CultureInfo.CurrentCulture,
+                        Translations.Strings.Import_PartialFailureText,
+                        result.CopiedCount, plan.Items.Count, result.FailedCount,
+                        DS4Windows.ImportPlanner.LegacySourceFolderName),
                     DS4Windows.ProductInfo.ProductName,
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -588,12 +588,12 @@ namespace DS4WinWPF
                         }
                     }
                     catch { }
-                    MessageBox.Show("Copy complete, please relaunch DS4Windows and remove settings from Program Directory",
+                    MessageBox.Show($"Copy complete, please relaunch {DS4Windows.ProductInfo.ProductName} and remove settings from Program Directory",
                         DS4Windows.ProductInfo.ProductName);
                 }
                 else
                 {
-                    MessageBox.Show("DS4Windows cannot edit settings here, This will now close",
+                    MessageBox.Show($"{DS4Windows.ProductInfo.ProductName} cannot edit settings here, This will now close",
                         DS4Windows.ProductInfo.ProductName);
                 }
 

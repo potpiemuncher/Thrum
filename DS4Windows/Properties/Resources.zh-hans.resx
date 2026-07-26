@@ -132,7 +132,7 @@
         <value>下</value>
     </data>
     <data name="DS4Update" xml:space="preserve">
-        <value>DS4Windows更新已可用！</value>
+        <value>Thrum更新已可用！</value>
     </data>
     <data name="DS4WindowsCannotEditHere" xml:space="preserve">
         <value>DS4Windows无法编辑这里的设置，将关闭窗口</value>
@@ -225,7 +225,7 @@
         <value>在关闭后保持这个窗口尺寸</value>
     </data>
     <data name="LanguagePackApplyRestartRequired" xml:space="preserve">
-        <value>语言包仅会在DS4Windows重启后生效</value>
+        <value>语言包仅会在Thrum重启后生效</value>
     </data>
     <data name="LatencyNotOverTen" xml:space="preserve">
         <value>控制器 *number* 的延迟现在已在10ms以内</value>
@@ -393,7 +393,7 @@
         <value>停止轻震动</value>
     </data>
     <data name="StoppedDS4Windows" xml:space="preserve">
-        <value>停止DS4Windows</value>
+        <value>停止Thrum</value>
     </data>
     <data name="StoppingDS4" xml:space="preserve">
         <value>停止DS4 控制器输入</value>
@@ -477,7 +477,7 @@
         <value>上</value>
     </data>
     <data name="UpToDate" xml:space="preserve">
-        <value>DS4Windows已经是最新版本</value>
+        <value>Thrum已经是最新版本</value>
     </data>
     <data name="UseControllerForMapping" xml:space="preserve">
         <value>你也可以用控制器来改变设置</value>

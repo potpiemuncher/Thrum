@@ -62,6 +62,16 @@ namespace DS4Windows
     internal sealed class AutomaticGameAudioDetector
     {
         private const int CurrentProcessRetentionPoints = 35;
+
+        /// <summary>
+        /// Process names that are never the game whose audio should be
+        /// captured. <see cref="ProductInfo.ExeBaseNameLowerInvariant"/> is in
+        /// the set because this application is not a game either; the entry has
+        /// to track the executable name, or the rename silently makes us a
+        /// detection candidate for our own capture. The inherited
+        /// <c>ds4windows</c> entry stays for the same reason: a real
+        /// DS4Windows install running alongside is not a game.
+        /// </summary>
         private static readonly HashSet<string> ExcludedExecutables = new(
             StringComparer.OrdinalIgnoreCase)
         {
@@ -73,6 +83,7 @@ namespace DS4Windows
             "searchhost",
             "spotify", "steam", "steamwebhelper", "taskhostw",
             "unitycrashhandler32", "unitycrashhandler64", "upc", "updater",
+            ProductInfo.ExeBaseNameLowerInvariant,
         };
 
         public bool TryDetect(int currentProcessId,

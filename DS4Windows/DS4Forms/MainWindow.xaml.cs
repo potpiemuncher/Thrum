@@ -2044,7 +2044,7 @@ Suspend support not enabled.", true);
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.AddExtension = true;
             dialog.DefaultExt = ".xml";
-            dialog.Filter = "DS4Windows Profile (*.xml)|*.xml";
+            dialog.Filter = $"{ProductInfo.ProductName} Profile (*.xml)|*.xml";
             dialog.Title = "Select Profile to Import File";
             if (Global.appdatapath != Global.exedirpath)
                 dialog.InitialDirectory = Path.Combine(Global.appDataPpath, "Profiles");
@@ -2071,7 +2071,7 @@ Suspend support not enabled.", true);
                 SaveFileDialog dialog = new SaveFileDialog();
                 dialog.AddExtension = true;
                 dialog.DefaultExt = ".xml";
-                dialog.Filter = "DS4Windows Profile (*.xml)|*.xml";
+                dialog.Filter = $"{ProductInfo.ProductName} Profile (*.xml)|*.xml";
                 dialog.Title = "Select Profile to Export File";
                 Stream stream;
                 Stream profile = new StreamReader(Global.appdatapath + "\\Profiles\\" + entity.Name + ".xml").BaseStream;

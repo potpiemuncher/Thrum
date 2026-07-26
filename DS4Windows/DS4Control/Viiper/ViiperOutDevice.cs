@@ -5322,7 +5322,7 @@ namespace DS4Windows
             try
             {
                 detachPort?.Invoke(usbipPort,
-                    "DS4Windows VIIPER device stopped");
+                    $"{ProductInfo.ProductName} VIIPER device stopped");
             }
             catch
             {

@@ -175,12 +175,33 @@ item is process identity, not input.
 1. Settings, change the UI language to a non-English one that is installed.
 2. Observe the interface.
 3. Restart and confirm the choice persisted.
+4. While in that language, read three strings the 1.8 sweep edited: the
+   Settings "check for updates at startup" checkbox, the anti-deadzone tooltip
+   in the profile editor, and the auto-profile "turn off temporarily" label.
 
 **Expected** Interface strings change to the selected language. The
 corresponding `Lang\<culture>\Thrum.resources.dll` exists under `<install>`.
 No log entry about a missing resource assembly, and no page that stays English
 while the rest translates — that is the failure mode of a missed
 `DefaultAssembly` attribute and it shows up one page at a time.
+
+The three strings from step 4 read normally and name **Thrum** in the middle of
+otherwise translated text. No mojibake, no doubled or missing characters around
+the product name — the sweep rewrote 24 non-English files, and a broken
+encoding shows up exactly there and nowhere else. Arabic and Hebrew are worth
+one look each, for right-to-left rendering around the Latin word.
+
+## 8a. The import dialog renders its resource-driven text
+
+**Steps** With a populated `%APPDATA%\DS4Windows` and no `%APPDATA%\Thrum`,
+launch and read the import dialog carefully before answering.
+
+**Expected** Title, heading, source path, the found-items list, the footer and
+both buttons are all filled in — no blank line, no literal `{0}`. The window
+is a fixed 520x360 and does not resize, so check the footer's last line is
+visible rather than clipped. **In a non-English UI language this dialog is
+still English**, by design: its keys are neutral-only until translators pick
+them up.
 
 ## 9. Startup entries create and remove under our own names
 

@@ -592,7 +592,7 @@ namespace DS4Windows
                 else if (!switched && !stickMouseFakerInputMissingNoticeShown)
                 {
                     stickMouseFakerInputMissingNoticeShown = true;
-                    LogDebug("Stick mouse profile detected, but DS4Windows could not connect to FakerInput. SendInput will remain active.");
+                    LogDebug($"Stick mouse profile detected, but {ProductInfo.ProductName} could not connect to FakerInput. SendInput will remain active.");
                 }
 
                 return;
@@ -1098,7 +1098,7 @@ namespace DS4Windows
                     {
                         sessionReleased = hidHideDevice.ClearSessionBlacklist();
                         StartupDiag(sessionReleased
-                            ? $"Released {sessionIds.Count} DS4Windows-managed HidHide session entries"
+                            ? $"Released {sessionIds.Count} {ProductInfo.ProductName}-managed HidHide session entries"
                             : "HidHide session release failed; cleanup will be retried");
                     }
 
@@ -1115,7 +1115,7 @@ namespace DS4Windows
                         persistentReleased = removed == 0 || hidHideDevice.SetBlacklist(instances);
                         if (removed > 0 && persistentReleased)
                         {
-                            StartupDiag($"Released {removed} DS4Windows-managed HidHide blacklist entries");
+                            StartupDiag($"Released {removed} {ProductInfo.ProductName}-managed HidHide blacklist entries");
                         }
                         else if (!persistentReleased)
                         {
@@ -2523,7 +2523,7 @@ namespace DS4Windows
 
             device.ModifyFeatureSetFlag(VidPidFeatureSet.NoOutputData, !getEnableOutputDataToDS4(ind));
             if (!getEnableOutputDataToDS4(ind))
-                LogDebug("Output data to DS4 disabled. Lightbar and rumble events are not written to DS4 gamepad. If the gamepad is connected over BT then IdleDisconnect option is recommended to let DS4Windows to close the connection after long period of idling.");
+                LogDebug($"Output data to DS4 disabled. Lightbar and rumble events are not written to DS4 gamepad. If the gamepad is connected over BT then IdleDisconnect option is recommended to let {ProductInfo.ProductName} to close the connection after long period of idling.");
 
             device.setIdleTimeout(getIdleDisconnectTimeout(ind));
             device.setBTPollRate(getBTPollRate(ind));

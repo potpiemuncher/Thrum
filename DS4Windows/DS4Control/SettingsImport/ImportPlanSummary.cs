@@ -28,9 +28,9 @@ namespace DS4Windows
     /// wording is unit-testable and so a later Settings-page entry point can
     /// reuse it verbatim instead of paraphrasing it.</para>
     ///
-    /// <para>The strings are English-only on purpose: adding <c>.resx</c> keys
-    /// is the localization pull request's job (plan task 1.8), and inventing
-    /// keys here would put untranslated entries into 24 language files.</para>
+    /// <para>The wording lives in <c>Translations/Strings.resx</c> under the
+    /// <c>Import.*</c> keys, neutral only; the translated files fall back to it
+    /// until a translator fills them in.</para>
     /// </summary>
     public static class ImportPlanSummary
     {
@@ -50,31 +50,32 @@ namespace DS4Windows
             if (profiles > 0)
             {
                 lines.Add(string.Format(CultureInfo.CurrentCulture,
-                    profiles == 1 ? "{0} controller profile"
-                                  : "{0} controller profiles",
+                    profiles == 1
+                        ? DS4WinWPF.Translations.Strings.Import_ProfileCountSingular
+                        : DS4WinWPF.Translations.Strings.Import_ProfileCountPlural,
                     profiles));
             }
 
             AddIfPresent(plan, lines, ImportItemKind.AppSettings,
-                "App settings and profile assignments");
+                DS4WinWPF.Translations.Strings.Import_KindAppSettings);
             AddIfPresent(plan, lines, ImportItemKind.AutoProfiles,
-                "Auto-profile rules");
+                DS4WinWPF.Translations.Strings.Import_KindAutoProfiles);
             AddIfPresent(plan, lines, ImportItemKind.Actions,
-                "Special actions");
+                DS4WinWPF.Translations.Strings.Import_KindActions);
             AddIfPresent(plan, lines, ImportItemKind.LinkedProfiles,
-                "Profiles linked to specific controllers");
+                DS4WinWPF.Translations.Strings.Import_KindLinkedProfiles);
             AddIfPresent(plan, lines, ImportItemKind.ControllerConfigs,
-                "Per-controller settings");
+                DS4WinWPF.Translations.Strings.Import_KindControllerConfigs);
             AddIfPresent(plan, lines, ImportItemKind.OutputSlots,
-                "Output slot layout");
+                DS4WinWPF.Translations.Strings.Import_KindOutputSlots);
 
             int collisions = plan.CollisionCount;
             if (collisions > 0)
             {
                 lines.Add(string.Format(CultureInfo.CurrentCulture,
                     collisions == 1
-                        ? "{0} file is already present here and will be kept as it is"
-                        : "{0} files are already present here and will be kept as they are",
+                        ? DS4WinWPF.Translations.Strings.Import_CollisionCountSingular
+                        : DS4WinWPF.Translations.Strings.Import_CollisionCountPlural,
                     collisions));
             }
 

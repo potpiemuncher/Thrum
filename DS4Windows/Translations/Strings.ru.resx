@@ -157,7 +157,7 @@
     <value>Проверка обновлений</value>
   </data>
   <data name="CheckUpdateStartup" xml:space="preserve">
-    <value>Проверка обновлений DS4Windows при запуске</value>
+    <value>Проверка обновлений Thrum при запуске</value>
   </data>
   <data name="Clear" xml:space="preserve">
     <value>Очистить</value>
@@ -342,9 +342,9 @@
 (string)</comment>
   </data>
   <data name="CustomExeNameInfo" xml:space="preserve">
-    <value>Некоторые игры встроили блок, который приводит к игнорированию ввода DS4, если игра обнаруживает, что в это время запущен DS4Windows.exe или InputMapper.exe. Обходной путь к блокировке - переименовать DS4Windows.exe, чтобы проверка в игре не прошла. Указание настраиваемого имени exe-файла позволяет DS4Updater автоматически обновлять настраиваемую копию DS4Windows до желаемого имени файла. Обязательно уберите расширение.
+    <value>Некоторые игры встроили блок, который приводит к игнорированию ввода DS4, если игра обнаруживает, что в это время запущен Thrum.exe или InputMapper.exe. Обходной путь к блокировке - переименовать Thrum.exe, чтобы проверка в игре не прошла. Указание настраиваемого имени exe-файла позволяет DS4Updater автоматически обновлять настраиваемую копию Thrum до желаемого имени файла. Обязательно уберите расширение.
 
-Пример: whyme_DS4Windows</value>
+Пример: whyme_Thrum</value>
     <comment>Settings tab
 (help button)</comment>
   </data>
@@ -561,7 +561,7 @@
     <value>Проведите по тачпаду, чтобы переключить профиль</value>
   </data>
   <data name="TurnOffDS4WindowsTemporarily" xml:space="preserve">
-    <value>Временно выключить DS4Windows</value>
+    <value>Временно выключить Thrum</value>
   </data>
   <data name="Unplug" xml:space="preserve">
     <value>Отключить</value>
@@ -648,7 +648,7 @@
     <value>Поддержка контроллера DS3</value>
   </data>
   <data name="FirstLaunch.DeviceIntroText" xml:space="preserve">
-    <value>Из-за того, что другие мапперы по умолчанию поддерживают использование нескольких типов устройств (Steam Input), DS4Windows по умолчанию активирует поддержку только для чтения с контроллеров DS4. Вы можете указать поддержку маппера для других поддерживаемых типов устройств здесь. Будьте осторожны при использовании DS4Windows с возможным одновременным запуском других мапперов.</value>
+    <value>Из-за того, что другие мапперы по умолчанию поддерживают использование нескольких типов устройств (Steam Input), Thrum по умолчанию активирует поддержку только для чтения с контроллеров DS4. Вы можете указать поддержку маппера для других поддерживаемых типов устройств здесь. Будьте осторожны при использовании Thrum с возможным одновременным запуском других мапперов.</value>
   </data>
   <data name="FirstLaunch.DS3EnableCkbLabel" xml:space="preserve">
     <value>Поддержка контроллера DS3</value>
@@ -1152,7 +1152,7 @@
     <value>Program Folder</value>
   </data>
   <data name="SaveWhere.AppDataDescText" xml:space="preserve">
-    <value>Для тех, кто предпочитает обычную установку. Настройки сохраняются по пути %appdata%\DS4Windows</value>
+    <value>Для тех, кто предпочитает обычную установку. Настройки сохраняются по пути %appdata%\Thrum</value>
   </data>
   <data name="SaveWhere.DontDelete" xml:space="preserve">
     <value>Не удаляйте другие настройки пока</value>
@@ -1201,13 +1201,13 @@
     <value>(Дополнительно) Шаг 4: Установите HidHide Driver</value>
   </data>
   <data name="Welcome.Step5HelpText" xml:space="preserve">
-    <value>Используйте драйвер FakerInput для создания системной виртуальной клавиатуры, относительной мыши и абсолютной мыши. Позволяет использовать виртуальные события клавиатуры и мыши в некоторых ситуациях, когда SendInput не работает. Такие ситуации включают в себя повышенный процесс и игры, запросы контроля учетных записей пользователей, и системы античита, блокирующие события SendInput. Использование FakerInput необходимо для работы DS4Windows с некоторыми играми, защищенными системами античита, такими как Valorant.</value>
+    <value>Используйте драйвер FakerInput для создания системной виртуальной клавиатуры, относительной мыши и абсолютной мыши. Позволяет использовать виртуальные события клавиатуры и мыши в некоторых ситуациях, когда SendInput не работает. Такие ситуации включают в себя повышенный процесс и игры, запросы контроля учетных записей пользователей, и системы античита, блокирующие события SendInput. Использование FakerInput необходимо для работы Thrum с некоторыми играми, защищенными системами античита, такими как Valorant.</value>
   </data>
   <data name="Welcome.Step5Text" xml:space="preserve">
     <value>(Дополнительно) Шаг 5: Установите FakerInput Driver</value>
   </data>
   <data name="Welcome.WinTitle" xml:space="preserve">
-    <value>Добро пожаловать в DS4Windows</value>
+    <value>Добро пожаловать в Thrum</value>
   </data>
   <data name="SpecialActionEdit.CheckBattery" xml:space="preserve">
     <value>Проверить заряд батаери</value>

@@ -204,7 +204,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to An anti-deadzone acts as an offset for use with an axis to denote the minimum output value generated after an axis has left its assigned deadzone. This is mainly meant to help with mapping an axis to the assigned deadzone value used for an axis in a video game. For example, the typical assigned deadzone for XInput LS in a video game is around 8000 (25%). With no anti-deadzone assigned, an axis would have to move past the assigned deadzone in DS4Windows along with the game&apos;s assigned axis deadzone..
+        ///   Looks up a localized string similar to An anti-deadzone acts as an offset for use with an axis to denote the minimum output value generated after an axis has left its assigned deadzone. This is mainly meant to help with mapping an axis to the assigned deadzone value used for an axis in a video game. For example, the typical assigned deadzone for XInput LS in a video game is around 8000 (25%). With no anti-deadzone assigned, an axis would have to move past the assigned deadzone in Thrum along with the game&apos;s assigned axis deadzone..
         /// </summary>
         public static string AntiDeadzoneTooltip {
             get {
@@ -555,7 +555,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Check for updates at DS4Windows startup.
+        ///   Looks up a localized string similar to Check for updates at Thrum startup.
         /// </summary>
         public static string CheckUpdateStartup {
             get {
@@ -906,9 +906,9 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Some games implement a block that causes DS4 input to be ignored if a game detects either DS4Windows.exe or InputMapper.exe running at the time. A workaround to the block is to rename DS4Windows.exe so the check in the game fails. Specifying a custom exe name here allows DS4Updater to automatically update a custom copy of DS4Windows to the desired file name. Make sure to omit the extension.
+        ///   Looks up a localized string similar to Some games implement a block that causes DS4 input to be ignored if a game detects a known remapper such as DS4Windows.exe or InputMapper.exe running at the time. A workaround to the block is to run under a different executable name so the check in the game fails. Specifying a custom exe name here makes Thrum keep a renamed copy of itself beside the original. Make sure to omit the extension.
         ///
-        ///Example: whyme_DS4Windows.
+        ///Example: whyme_Thrum.
         /// </summary>
         public static string CustomExeNameInfo {
             get {
@@ -1119,7 +1119,7 @@ namespace DS4WinWPF.Translations {
         ///
         ///- Disabled: rumble will be rescaled natively by the controller accordingly to the defined power level (better quality)
         ///
-        ///- Enabled: both DS4Windows generic rumble rescale and DualSense&apos;s native control will be active.
+        ///- Enabled: both Thrum generic rumble rescale and DualSense&apos;s native control will be active.
         /// </summary>
         public static string DualSRumbleForceGenericRescale_Tip {
             get {
@@ -1423,7 +1423,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Due to other mappers enabling support for multiple device types by default (Steam Input), DS4Windows only enables support for reading from DS4 controllers by default. You can specify mapper support for other supported device types here. Be careful when using DS4Windows with other possible mappers running at the same time..
+        ///   Looks up a localized string similar to Due to other mappers enabling support for multiple device types by default (Steam Input), Thrum only enables support for reading from DS4 controllers by default. You can specify mapper support for other supported device types here. Be careful when using Thrum with other possible mappers running at the same time..
         /// </summary>
         public static string FirstLaunch_DeviceIntroText {
             get {
@@ -1851,6 +1851,162 @@ namespace DS4WinWPF.Translations {
         public static string Import {
             get {
                 return ResourceManager.GetString("Import", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} files are already present here and will be kept as they are.
+        /// </summary>
+        public static string Import_CollisionCountPlural {
+            get {
+                return ResourceManager.GetString("Import.CollisionCountPlural", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} file is already present here and will be kept as it is.
+        /// </summary>
+        public static string Import_CollisionCountSingular {
+            get {
+                return ResourceManager.GetString("Import.CollisionCountSingular", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Importing copies these files. Nothing in the {0} folder is changed, moved or deleted, and that install keeps working. Older profiles are upgraded as they load.
+        ///
+        ///This is asked once..
+        /// </summary>
+        public static string Import_FooterText {
+            get {
+                return ResourceManager.GetString("Import.FooterText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import your existing {0} settings?.
+        /// </summary>
+        public static string Import_HeadingText {
+            get {
+                return ResourceManager.GetString("Import.HeadingText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to _Import.
+        /// </summary>
+        public static string Import_ImportButton {
+            get {
+                return ResourceManager.GetString("Import.ImportButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Special actions.
+        /// </summary>
+        public static string Import_KindActions {
+            get {
+                return ResourceManager.GetString("Import.KindActions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to App settings and profile assignments.
+        /// </summary>
+        public static string Import_KindAppSettings {
+            get {
+                return ResourceManager.GetString("Import.KindAppSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Auto-profile rules.
+        /// </summary>
+        public static string Import_KindAutoProfiles {
+            get {
+                return ResourceManager.GetString("Import.KindAutoProfiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Per-controller settings.
+        /// </summary>
+        public static string Import_KindControllerConfigs {
+            get {
+                return ResourceManager.GetString("Import.KindControllerConfigs", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Profiles linked to specific controllers.
+        /// </summary>
+        public static string Import_KindLinkedProfiles {
+            get {
+                return ResourceManager.GetString("Import.KindLinkedProfiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Output slot layout.
+        /// </summary>
+        public static string Import_KindOutputSlots {
+            get {
+                return ResourceManager.GetString("Import.KindOutputSlots", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} of {1} files were imported. {2} could not be copied; the log lists them. What was imported has been kept, and nothing in the {3} folder was changed..
+        /// </summary>
+        public static string Import_PartialFailureText {
+            get {
+                return ResourceManager.GetString("Import.PartialFailureText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} controller profiles.
+        /// </summary>
+        public static string Import_ProfileCountPlural {
+            get {
+                return ResourceManager.GetString("Import.ProfileCountPlural", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} controller profile.
+        /// </summary>
+        public static string Import_ProfileCountSingular {
+            get {
+                return ResourceManager.GetString("Import.ProfileCountSingular", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} keeps its configuration in its own folder, so it starts empty. An existing {1} configuration was found in:
+        ///{2}.
+        /// </summary>
+        public static string Import_SourceText {
+            get {
+                return ResourceManager.GetString("Import.SourceText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Start _fresh.
+        /// </summary>
+        public static string Import_StartFreshButton {
+            get {
+                return ResourceManager.GetString("Import.StartFreshButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} - import existing settings.
+        /// </summary>
+        public static string Import_WinTitle {
+            get {
+                return ResourceManager.GetString("Import.WinTitle", resourceCulture);
             }
         }
         
@@ -2983,7 +3139,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to For those who prefer a regular install. Settings saved at %appdata%\DS4Windows.
+        ///   Looks up a localized string similar to For those who prefer a regular install. Settings saved at %appdata%\Thrum.
         /// </summary>
         public static string SaveWhere_AppDataDescText {
             get {
@@ -3697,7 +3853,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Turn Off DS4Windows Temporarily.
+        ///   Looks up a localized string similar to Turn Off Thrum Temporarily.
         /// </summary>
         public static string TurnOffDS4WindowsTemporarily {
             get {
@@ -3953,7 +4109,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Use FakerInput driver to expose system-wide virtual keyboard, relative mouse, and absolute mouse. Allows virtual KB+M events to be usable in some situations when SendInput fails. Such situations are elevated process and games, UAC prompts, and anti-cheat systems that block SendInput events. Use of FakerInput is necessary to allow DS4Windows to work with some games with anti-cheat protection like Valorant..
+        ///   Looks up a localized string similar to Use FakerInput driver to expose system-wide virtual keyboard, relative mouse, and absolute mouse. Allows virtual KB+M events to be usable in some situations when SendInput fails. Such situations are elevated process and games, UAC prompts, and anti-cheat systems that block SendInput events. Use of FakerInput is necessary to allow Thrum to work with some games with anti-cheat protection like Valorant..
         /// </summary>
         public static string Welcome_Step5HelpText {
             get {
@@ -3971,7 +4127,7 @@ namespace DS4WinWPF.Translations {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Welcome to DS4Windows.
+        ///   Looks up a localized string similar to Welcome to Thrum.
         /// </summary>
         public static string Welcome_WinTitle {
             get {

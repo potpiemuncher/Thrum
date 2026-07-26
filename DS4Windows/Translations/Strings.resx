@@ -160,7 +160,7 @@
     <value>Check For Update Now</value>
   </data>
   <data name="CheckUpdateStartup" xml:space="preserve">
-    <value>Check for updates at DS4Windows startup</value>
+    <value>Check for updates at Thrum startup</value>
   </data>
   <data name="Clear" xml:space="preserve">
     <value>Clear</value>
@@ -360,9 +360,9 @@ Changes to this option takes effect at the gamepad connection time.</value>
     <value>Custom Exe Name</value>
   </data>
   <data name="CustomExeNameInfo" xml:space="preserve">
-    <value>Some games implement a block that causes DS4 input to be ignored if a game detects either DS4Windows.exe or InputMapper.exe running at the time. A workaround to the block is to rename DS4Windows.exe so the check in the game fails. Specifying a custom exe name here allows DS4Updater to automatically update a custom copy of DS4Windows to the desired file name. Make sure to omit the extension.
+    <value>Some games implement a block that causes DS4 input to be ignored if a game detects a known remapper such as DS4Windows.exe or InputMapper.exe running at the time. A workaround to the block is to run under a different executable name so the check in the game fails. Specifying a custom exe name here makes Thrum keep a renamed copy of itself beside the original. Make sure to omit the extension.
 
-Example: whyme_DS4Windows</value>
+Example: whyme_Thrum</value>
   </data>
   <data name="XInputChecker" xml:space="preserve">
     <value>XInputChecker</value>
@@ -509,7 +509,7 @@ Example: whyme_DS4Windows</value>
     <value>In some situations, it might be useful to limit the maximum value that is output by the output analog stick. Max Output allows throttling the final output value of the analog stick.</value>
   </data>
   <data name="AntiDeadzoneTooltip" xml:space="preserve">
-    <value>An anti-deadzone acts as an offset for use with an axis to denote the minimum output value generated after an axis has left its assigned deadzone. This is mainly meant to help with mapping an axis to the assigned deadzone value used for an axis in a video game. For example, the typical assigned deadzone for XInput LS in a video game is around 8000 (25%). With no anti-deadzone assigned, an axis would have to move past the assigned deadzone in DS4Windows along with the game's assigned axis deadzone.</value>
+    <value>An anti-deadzone acts as an offset for use with an axis to denote the minimum output value generated after an axis has left its assigned deadzone. This is mainly meant to help with mapping an axis to the assigned deadzone value used for an axis in a video game. For example, the typical assigned deadzone for XInput LS in a video game is around 8000 (25%). With no anti-deadzone assigned, an axis would have to move past the assigned deadzone in Thrum along with the game's assigned axis deadzone.</value>
   </data>
   <data name="StickInputCurveTooltip" xml:space="preserve">
     <value>OLD OBSOLETE SETTING. Attempt to apply a curve based on raw input coordinates before any dead zone info is applied. Wonky</value>
@@ -584,7 +584,7 @@ The rotation setting is meant to help correct the orientation of an analog stick
 
 - Disabled: rumble will be rescaled natively by the controller accordingly to the defined power level (better quality)
 
-- Enabled: both DS4Windows generic rumble rescale and DualSense's native control will be active</value>
+- Enabled: both Thrum generic rumble rescale and DualSense's native control will be active</value>
   </data>
   <data name="DualSRumbleModes_Tip" xml:space="preserve">
     <value>Accurate Mode (recommended):
@@ -668,7 +668,7 @@ Disabled:
     <value>Swipe Touchpad To Switch Profiles</value>
   </data>
   <data name="TurnOffDS4WindowsTemporarily" xml:space="preserve">
-    <value>Turn Off DS4Windows Temporarily</value>
+    <value>Turn Off Thrum Temporarily</value>
   </data>
   <data name="Unplug" xml:space="preserve">
     <value>Unplug</value>
@@ -758,7 +758,7 @@ Disabled:
     <value>DS3 Controller Support</value>
   </data>
   <data name="FirstLaunch.DeviceIntroText" xml:space="preserve">
-    <value>Due to other mappers enabling support for multiple device types by default (Steam Input), DS4Windows only enables support for reading from DS4 controllers by default. You can specify mapper support for other supported device types here. Be careful when using DS4Windows with other possible mappers running at the same time.</value>
+    <value>Due to other mappers enabling support for multiple device types by default (Steam Input), Thrum only enables support for reading from DS4 controllers by default. You can specify mapper support for other supported device types here. Be careful when using Thrum with other possible mappers running at the same time.</value>
   </data>
   <data name="FirstLaunch.DS3EnableCkbLabel" xml:space="preserve">
     <value>DS3 Device Support</value>
@@ -1262,7 +1262,7 @@ Disabled:
     <value>Program Folder</value>
   </data>
   <data name="SaveWhere.AppDataDescText" xml:space="preserve">
-    <value>For those who prefer a regular install. Settings saved at %appdata%\DS4Windows</value>
+    <value>For those who prefer a regular install. Settings saved at %appdata%\Thrum</value>
   </data>
   <data name="SaveWhere.DontDelete" xml:space="preserve">
     <value>Don't Delete the other settings yet</value>
@@ -1313,13 +1313,13 @@ To setup Bluetooth (optional): Hold the PS Button and Share for 3 seconds. The l
     <value>(Optional) Step 4: Install HidHide Driver</value>
   </data>
   <data name="Welcome.Step5HelpText" xml:space="preserve">
-    <value>Use FakerInput driver to expose system-wide virtual keyboard, relative mouse, and absolute mouse. Allows virtual KB+M events to be usable in some situations when SendInput fails. Such situations are elevated process and games, UAC prompts, and anti-cheat systems that block SendInput events. Use of FakerInput is necessary to allow DS4Windows to work with some games with anti-cheat protection like Valorant.</value>
+    <value>Use FakerInput driver to expose system-wide virtual keyboard, relative mouse, and absolute mouse. Allows virtual KB+M events to be usable in some situations when SendInput fails. Such situations are elevated process and games, UAC prompts, and anti-cheat systems that block SendInput events. Use of FakerInput is necessary to allow Thrum to work with some games with anti-cheat protection like Valorant.</value>
   </data>
   <data name="Welcome.Step5Text" xml:space="preserve">
     <value>(Optional) Step 5: Install FakerInput Driver</value>
   </data>
   <data name="Welcome.WinTitle" xml:space="preserve">
-    <value>Welcome to DS4Windows</value>
+    <value>Welcome to Thrum</value>
   </data>
   <data name="SpecialActionEdit.CheckBattery" xml:space="preserve">
     <value>Check Battery Life</value>
@@ -1489,5 +1489,70 @@ Please click OK to confirm that you have read the message. Press Cancel to be re
   </data>
   <data name="InverseMotors" xml:space="preserve">
     <value>Inverse motors</value>
+  </data>
+  <data name="Import.WinTitle" xml:space="preserve">
+    <value>{0} - import existing settings</value>
+    <comment>First-run settings import dialog. {0} is the product name.</comment>
+  </data>
+  <data name="Import.HeadingText" xml:space="preserve">
+    <value>Import your existing {0} settings?</value>
+    <comment>{0} is the name of the other product the settings are read from; it is a folder name and must not be translated.</comment>
+  </data>
+  <data name="Import.SourceText" xml:space="preserve">
+    <value>{0} keeps its configuration in its own folder, so it starts empty. An existing {1} configuration was found in:
+{2}</value>
+    <comment>{0} product name, {1} source product/folder name, {2} the source path.</comment>
+  </data>
+  <data name="Import.FooterText" xml:space="preserve">
+    <value>Importing copies these files. Nothing in the {0} folder is changed, moved or deleted, and that install keeps working. Older profiles are upgraded as they load.
+
+This is asked once.</value>
+    <comment>{0} is the source product/folder name.</comment>
+  </data>
+  <data name="Import.ImportButton" xml:space="preserve">
+    <value>_Import</value>
+    <comment>Default button. The underscore marks the access key.</comment>
+  </data>
+  <data name="Import.StartFreshButton" xml:space="preserve">
+    <value>Start _fresh</value>
+    <comment>Cancel button. The underscore marks the access key.</comment>
+  </data>
+  <data name="Import.ProfileCountSingular" xml:space="preserve">
+    <value>{0} controller profile</value>
+    <comment>{0} is 1.</comment>
+  </data>
+  <data name="Import.ProfileCountPlural" xml:space="preserve">
+    <value>{0} controller profiles</value>
+    <comment>{0} is 2 or more.</comment>
+  </data>
+  <data name="Import.KindAppSettings" xml:space="preserve">
+    <value>App settings and profile assignments</value>
+  </data>
+  <data name="Import.KindAutoProfiles" xml:space="preserve">
+    <value>Auto-profile rules</value>
+  </data>
+  <data name="Import.KindActions" xml:space="preserve">
+    <value>Special actions</value>
+  </data>
+  <data name="Import.KindLinkedProfiles" xml:space="preserve">
+    <value>Profiles linked to specific controllers</value>
+  </data>
+  <data name="Import.KindControllerConfigs" xml:space="preserve">
+    <value>Per-controller settings</value>
+  </data>
+  <data name="Import.KindOutputSlots" xml:space="preserve">
+    <value>Output slot layout</value>
+  </data>
+  <data name="Import.CollisionCountSingular" xml:space="preserve">
+    <value>{0} file is already present here and will be kept as it is</value>
+    <comment>{0} is 1.</comment>
+  </data>
+  <data name="Import.CollisionCountPlural" xml:space="preserve">
+    <value>{0} files are already present here and will be kept as they are</value>
+    <comment>{0} is 2 or more.</comment>
+  </data>
+  <data name="Import.PartialFailureText" xml:space="preserve">
+    <value>{0} of {1} files were imported. {2} could not be copied; the log lists them. What was imported has been kept, and nothing in the {3} folder was changed.</value>
+    <comment>{0} copied, {1} total, {2} failed, {3} the source product/folder name.</comment>
   </data>
 </root>

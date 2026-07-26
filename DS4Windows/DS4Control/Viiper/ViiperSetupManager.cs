@@ -115,7 +115,7 @@ namespace DS4Windows
             Interlocked.Exchange(ref promptShownThisSession, 1);
             string message =
                 "This profile uses a VIIPER virtual controller output.\n\n" +
-                "DS4Windows needs two pieces installed before this can work:\n" +
+                ProductInfo.ProductName + " needs two pieces installed before this can work:\n" +
                 "- VIIPER helper/server\n" +
                 "- usbip-win2 Windows USB/IP driver\n\n" +
                 $"Current status: {status.DisplayText}\n\n" +
@@ -139,7 +139,7 @@ namespace DS4Windows
             if (!status.SetupScriptFound)
             {
                 string message =
-                    "DS4Windows could not find the bundled VIIPER setup script.\n\n" +
+                    ProductInfo.ProductName + " could not find the bundled VIIPER setup script.\n\n" +
                     "Opening the VIIPER and usbip-win2 release pages instead.";
                 if (owner != null)
                 {

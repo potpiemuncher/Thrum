@@ -2954,7 +2954,7 @@ namespace DS4WinWPF.DS4Forms
             dialog.AddExtension = true;
             dialog.DefaultExt = ".xml";
             dialog.FileName = "Actions";
-            dialog.Filter = "DS4Windows Special Actions (*.xml)|*.xml";
+            dialog.Filter = $"{ProductInfo.ProductName} Special Actions (*.xml)|*.xml";
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 var profileStream = new StreamReader(@$"{Global.appdatapath}\Actions.xml").BaseStream;

@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+using System.Globalization;
 using System.Windows;
 using DS4Windows;
 
@@ -41,9 +42,10 @@ namespace DS4WinWPF.DS4Forms
     /// sitting next to the executable. So the offer is gated on the resolved
     /// data folder being the appdata one, in <c>App.xaml.cs</c>.</para>
     ///
-    /// <para>The text is English-only; the strings move to <c>.resx</c> with
-    /// the rest of the user-visible prose in the localization pull
-    /// request.</para>
+    /// <para>The text lives in <c>Translations/Strings.resx</c> under the
+    /// <c>Import.*</c> keys (added by plan task 1.8). Only the neutral file has
+    /// them: the 24 translated files fall back to neutral until a translator
+    /// fills them in, which is the intended state, not an oversight.</para>
     /// </summary>
     public partial class ImportSettingsDialog : Window
     {
@@ -57,20 +59,20 @@ namespace DS4WinWPF.DS4Forms
         {
             InitializeComponent();
 
-            Title = ProductInfo.ProductName + " - import existing settings";
-            headingTxt.Text =
-                $"Import your existing {ImportPlanner.LegacySourceFolderName} settings?";
-            sourceTxt.Text =
-                $"{ProductInfo.ProductName} keeps its configuration in its own " +
-                $"folder, so it starts empty. An existing " +
-                $"{ImportPlanner.LegacySourceFolderName} configuration was " +
-                $"found in:\n{plan.SourceDirectory}";
+            Title = string.Format(CultureInfo.CurrentCulture,
+                Translations.Strings.Import_WinTitle, ProductInfo.ProductName);
+            headingTxt.Text = string.Format(CultureInfo.CurrentCulture,
+                Translations.Strings.Import_HeadingText,
+                ImportPlanner.LegacySourceFolderName);
+            sourceTxt.Text = string.Format(CultureInfo.CurrentCulture,
+                Translations.Strings.Import_SourceText,
+                ProductInfo.ProductName,
+                ImportPlanner.LegacySourceFolderName,
+                plan.SourceDirectory);
             foundList.ItemsSource = ImportPlanSummary.Describe(plan);
-            footerTxt.Text =
-                "Importing copies these files. Nothing in the " +
-                $"{ImportPlanner.LegacySourceFolderName} folder is changed, " +
-                "moved or deleted, and that install keeps working. Older " +
-                "profiles are upgraded as they load.\n\nThis is asked once.";
+            footerTxt.Text = string.Format(CultureInfo.CurrentCulture,
+                Translations.Strings.Import_FooterText,
+                ImportPlanner.LegacySourceFolderName);
 
             // Import is the default button, so Enter takes it and Tab reaches
             // both buttons in order; Escape maps to Start fresh via IsCancel.

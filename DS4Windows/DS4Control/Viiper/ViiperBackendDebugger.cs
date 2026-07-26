@@ -140,7 +140,7 @@ namespace DS4Windows
         {
             Log("============================================================");
             Log($"VIIPER DEBUG SESSION START test={test} utc={DateTime.UtcNow:O}");
-            Log($"DS4Windows exe={Global.exelocation}");
+            Log($"{ProductInfo.ProductName} exe={Global.exelocation}");
             Log($"Verbose logging={Global.VerboseStartupLogging}");
 
             if (!Global.VerboseStartupLogging)

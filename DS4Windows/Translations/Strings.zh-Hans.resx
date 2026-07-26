@@ -414,7 +414,7 @@
     <comment/>
   </data>
   <data name="CustomExeNameInfo" xml:space="preserve">
-    <value>一些游戏如果测到DS4Windows.exe 或 InputMapper.exe 正在运行，则会忽略 DS4 的输入。对于这些游戏，解决方法是将 DS4Windows.exe 重命名，以规避检测。在这样自定义可执行文件的名称，以允许 DS4Updater 自动更新已被重命名的DS4Windows。请不要输入扩展名（即 .exe)。名称示例: whyme_DS4Windows</value>
+    <value>一些游戏如果测到Thrum.exe 或 InputMapper.exe 正在运行，则会忽略 DS4 的输入。对于这些游戏，解决方法是将 Thrum.exe 重命名，以规避检测。在这样自定义可执行文件的名称，以允许 DS4Updater 自动更新已被重命名的Thrum。请不要输入扩展名（即 .exe)。名称示例: whyme_Thrum</value>
     <comment/>
   </data>
   <data name="XInputChecker" xml:space="preserve">
@@ -678,7 +678,7 @@
 
 - 禁用： 震动会根据设定的等级重新调整原生震动（更好的质量）
 
-- 启用：DS4Windows的通用震动调整和DualSense的原生控制都会生效</value>
+- 启用：Thrum的通用震动调整和DualSense的原生控制都会生效</value>
   </data>
   <data name="DualSRumbleModes_Tip" xml:space="preserve">
     <value>Accurate Mode (recommended):- Better replicates the DualShock 4/Xbox 360 controller rumble feeling- More accurately executes game's intended rumble effects- Rumble has more depth. Within the same power level there is a greater difference between min and max in-game rumble activation,varying from real low up to the max strength of the defined power levelLegacy Mode:- Overral stronger, but lacks depth- Has a "sharper" feeling- The min and max activation in-game will be, respectively, only slightly below and slight above the chosen power level strengthDisabled:- Fully disables rumble</value>
@@ -764,7 +764,7 @@
     <comment/>
   </data>
   <data name="TurnOffDS4WindowsTemporarily" xml:space="preserve">
-    <value>临时关闭 DS4Windows</value>
+    <value>临时关闭 Thrum</value>
     <comment/>
   </data>
   <data name="Unplug" xml:space="preserve">
@@ -868,7 +868,7 @@
     <value>DS3 手柄支持</value>
   </data>
   <data name="AntiDeadzoneTooltip" xml:space="preserve">
-    <value>反死区作为一个与轴关联的偏移量，用于表示摇杆在某轴在离开其指定的死区后生成的最小输出值。这主要是为了应对游戏中某轴的死区。例如在游戏中，一般的XInput LS死区约为8000（25%）。如果没有分配反死区，摇杆就必须移动超过DS4Windows和游戏设定的死区才有输出。</value>
+    <value>反死区作为一个与轴关联的偏移量，用于表示摇杆在某轴在离开其指定的死区后生成的最小输出值。这主要是为了应对游戏中某轴的死区。例如在游戏中，一般的XInput LS死区约为8000（25%）。如果没有分配反死区，摇杆就必须移动超过Thrum和游戏设定的死区才有输出。</value>
   </data>
   <data name="AutoProfiles.DisplaySwitchVia" xml:space="preserve">
     <value>通过以下选项显示配置切换</value>
@@ -904,7 +904,7 @@
     <value>从挂起中唤醒</value>
   </data>
   <data name="FirstLaunch.DeviceIntroText" xml:space="preserve">
-    <value>由于其他映射软件默认支持多种设备（Steam输入），DS4Windows默认只启用DS4控制器的输入。你可以在这里启用其他支持的设备的输入。当DS4Windows与其他映射同时运行的时候请小心冲突。</value>
+    <value>由于其他映射软件默认支持多种设备（Steam输入），Thrum默认只启用DS4控制器的输入。你可以在这里启用其他支持的设备的输入。当Thrum与其他映射同时运行的时候请小心冲突。</value>
   </data>
   <data name="FirstLaunch.DS3EnableCkbLabel" xml:space="preserve">
     <value>DS3 设备支持</value>
@@ -1279,7 +1279,7 @@
     <value>常规</value>
   </data>
   <data name="SaveWhere.AppDataDescText" xml:space="preserve">
-    <value>对于那些偏好常规安装的人，设置保存路径在 %appdata%\DS4Windows</value>
+    <value>对于那些偏好常规安装的人，设置保存路径在 %appdata%\Thrum</value>
   </data>
   <data name="SaveWhere.DontDelete" xml:space="preserve">
     <value>先不要删除其他设置</value>
@@ -1381,7 +1381,7 @@
     <value>是</value>
   </data>
   <data name="Welcome.WinTitle" xml:space="preserve">
-    <value>欢迎来到 DS4Windows</value>
+    <value>欢迎来到 Thrum</value>
   </data>
   <data name="Welcome.Step1HelpText" xml:space="preserve">
     <value>如果这个窗口在安装完成后再次出现，你可能需要重新启动你的电脑。</value>
@@ -1411,7 +1411,7 @@
     <value>（可选）步骤5：安装FakerInput驱动</value>
   </data>
   <data name="Welcome.Step5HelpText" xml:space="preserve">
-    <value>使用FakerInput驱动来设置全局的虚拟键盘，相对鼠标，和绝对鼠标。在某些情况下，SendInput失效时可以发送虚拟的键盘与鼠标事件。这些情况包括提升优先级的进程与游戏，UAC提示框，以及一些反作弊系统会屏蔽SendInput事件。为了能让DS4Windows在一些带有反作弊保护的游戏，比如 Valorant，中正常运行，FakerInput是必要的。</value>
+    <value>使用FakerInput驱动来设置全局的虚拟键盘，相对鼠标，和绝对鼠标。在某些情况下，SendInput失效时可以发送虚拟的键盘与鼠标事件。这些情况包括提升优先级的进程与游戏，UAC提示框，以及一些反作弊系统会屏蔽SendInput事件。为了能让Thrum在一些带有反作弊保护的游戏，比如 Valorant，中正常运行，FakerInput是必要的。</value>
   </data>
   <data name="SpecialActionEdit.CheckBattery" xml:space="preserve">
     <value>检查电池电量</value>

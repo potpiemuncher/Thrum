@@ -2471,7 +2471,13 @@ namespace DS4WinWPF.DS4Forms
             {
                 if (ViiperSetupManager.IsViiperOutputType(profileSettingsVM.TempConType))
                 {
+                    // Transport first (is the backend installed at all), then
+                    // the experimental-driver acknowledgement. Asking for
+                    // consent to use something that is not installed would be
+                    // the wrong question in the wrong order.
                     ViiperSetupManager.EnsureReadyWithPrompt(Application.Current.MainWindow);
+                    ViiperSetupManager.EnsureExperimentalAcknowledgedWithPrompt(
+                        Application.Current.MainWindow);
                 }
 
                 UpdateOutputControllerHint(profileSettingsVM.TempConType);

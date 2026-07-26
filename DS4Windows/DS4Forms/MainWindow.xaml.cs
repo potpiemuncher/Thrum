@@ -987,6 +987,14 @@ Suspend support not enabled.", true);
                 return;
             }
 
+            if (mainTabCon.SelectedItem == outputSlotsTab)
+            {
+                // The gate's answer can change while the page is not shown (a
+                // driver install, a consent switch), and this page is where a
+                // refusal has to be visible before the user presses Plug.
+                slotManControl.RefreshGateBanner();
+            }
+
             if (mainTabCon.SelectedItem == settingsTab)
             {
                 lastMsgLb.Visibility = Visibility.Hidden;
@@ -2055,8 +2063,139 @@ Suspend support not enabled.", true);
                         driverStatus.Apply(readiness);
                         driverStatus.IsBusy = false;
                     }
+
+                    ApplyViiperConsentText(readiness);
                 }));
             });
+        }
+
+        /// <summary>
+        /// Fills the consent card's explanatory lines from the readiness the
+        /// same pass produced, so the card names the package the driver-status
+        /// card above it just reported.
+        /// </summary>
+        private void ApplyViiperConsentText(ViiperDriverReadiness readiness)
+        {
+            if (viiperConsentIntroText == null)
+            {
+                return;
+            }
+
+            viiperConsentIntroText.Text =
+                "Installed driver package: " +
+                ViiperExperimentalDisclosure.DescribeInstalled(readiness);
+            viiperExperimentalAckText.Text =
+                ViiperExperimentalDisclosure.AcknowledgementSummary;
+            viiperAudioEndpointsText.Text =
+                ViiperExperimentalDisclosure.AudioClassSummary;
+        }
+
+        /// <summary>
+        /// The one-time acknowledgement, from the switch rather than from a
+        /// device-connect path.
+        ///
+        /// <para>The checkbox binding is <c>OneWay</c>, so nothing is recorded
+        /// until this handler says so and the box snaps back on its own if the
+        /// user declines. Turning consent <i>off</i> needs no dialog: revoking
+        /// permission is never the risky direction.</para>
+        /// </summary>
+        private void ViiperExperimentalAckCk_Checked(object sender, RoutedEventArgs e)
+        {
+            bool requested = viiperExperimentalAckCk.IsChecked == true;
+            if (!ConsentSwitchMoved(requested,
+                settingsWrapVM?.ViiperExperimentalAcknowledged))
+            {
+                return;
+            }
+
+            if (requested && !ConfirmExperimentalAcknowledgement())
+            {
+                viiperExperimentalAckCk.IsChecked = false;
+                AppLogger.LogToGui(
+                    "Virtual controller output stays off: the experimental " +
+                    "kernel driver notice was declined.", false);
+                return;
+            }
+
+            settingsWrapVM.ViiperExperimentalAcknowledged = requested;
+            // A consent decision is worth one line: it is the record of what
+            // the user was shown and what they answered.
+            AppLogger.LogToGui(requested
+                ? "Virtual controller output enabled; the experimental kernel driver notice was accepted."
+                : "Virtual controller output disabled.", false);
+            slotManControl.RefreshGateBanner();
+        }
+
+        /// <summary>
+        /// The audio-class opt-in. The disclosure is shown on <b>every</b>
+        /// enablement, not once: the risk does not fade with familiarity, and
+        /// the installed package can have changed since the last time.
+        /// </summary>
+        private void ViiperAudioEndpointsCk_Checked(object sender, RoutedEventArgs e)
+        {
+            bool requested = viiperAudioEndpointsCk.IsChecked == true;
+            if (!ConsentSwitchMoved(requested,
+                settingsWrapVM?.AllowExperimentalAudioEndpoints))
+            {
+                return;
+            }
+
+            if (requested && !ConfirmAudioClassEnablement())
+            {
+                viiperAudioEndpointsCk.IsChecked = false;
+                AppLogger.LogToGui(
+                    "Virtual audio endpoints stay off: the kernel-crash risk " +
+                    "notice was declined.", false);
+                return;
+            }
+
+            settingsWrapVM.AllowExperimentalAudioEndpoints = requested;
+            AppLogger.LogToGui(requested
+                ? "Virtual audio endpoints enabled; the kernel-crash risk notice was accepted. Applies to the next controller connection."
+                : "Virtual audio endpoints disabled. Endpoints that are already running are left alone.",
+                false);
+            slotManControl.RefreshGateBanner();
+        }
+
+        /// <summary>
+        /// Whether a <c>Checked</c>/<c>Unchecked</c> notification represents a
+        /// user moving a consent switch, rather than the box catching up with
+        /// what is already stored.
+        ///
+        /// <para><b>Why these handlers and not <c>Click</c>.</b> A consent gate
+        /// must be impossible to flip without the disclosure, and <c>Click</c>
+        /// only covers the input paths WPF routes through <c>OnClick</c>. These
+        /// two events fire on the state change itself, whatever moved it, so
+        /// there is no way to end up with the box ticked and consent
+        /// unrecorded.</para>
+        ///
+        /// <para>The cost of that is three echoes to filter, all handled by the
+        /// same comparison: the binding applying a stored <c>true</c> at
+        /// startup, this handler writing the value it just decided, and the
+        /// corrective un-tick after a decline. In each case the requested value
+        /// already equals the stored one, so nothing is asked twice.</para>
+        /// </summary>
+        private static bool ConsentSwitchMoved(bool requested, bool? stored) =>
+            stored.HasValue && requested != stored.Value;
+
+        private bool ConfirmExperimentalAcknowledgement() =>
+            MessageBox.Show(this,
+                ViiperExperimentalDisclosure.AcknowledgementBody,
+                ViiperExperimentalDisclosure.AcknowledgementTitle,
+                MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) == MessageBoxResult.Yes;
+
+        private bool ConfirmAudioClassEnablement()
+        {
+            // Names the package that is installed right now, which is why the
+            // readiness is read here rather than captured when the card loaded.
+            string body = ViiperExperimentalDisclosure.BuildAudioClassBody(
+                ViiperSetupManager.DriverReadiness);
+
+            return MessageBox.Show(this, body,
+                ViiperExperimentalDisclosure.AudioClassTitle,
+                MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) == MessageBoxResult.Yes;
         }
 
         private void ApplyViiperStatusText(ViiperPrerequisiteStatus status)

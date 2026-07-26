@@ -2511,3 +2511,302 @@ card shows the display path, never the real one.
 6. **Spotted in passing, not fixed:** the Settings "Run At Startup" helper text
    still reads "Tells Windows to start DS4Windows after login" — a Phase 1.8
    localization-sweep miss in the string resources.
+
+---
+
+## 2026-07-26 — Phase 2.3 + 2.5: experimental gating, risk disclosure, runtime guardrails
+
+**Session scope:** tasks **2.3** (experimental gating + risk disclosure) and
+**2.5** (runtime guardrails), plus the Phase 1.8 sweep miss found during the 2.2
+manual pass. Explicitly not 2.4 (installer): nothing here installs, elevates,
+attaches or modifies a driver.
+
+2.1/2.2 made the four-state readiness visible. This is the change that makes it
+*do* something — and the first change in this repo that can refuse to create a
+virtual device.
+
+### The feature-class split
+
+Everything turns on one fact from Part 2's risk model: the confirmed usbip-win2
+request-lifetime defect is reachable **only** through virtual USB audio endpoint
+teardown. So features split in two, and the split is a property of the VIIPER
+device type, not of the user-facing feature name:
+
+| Class | What is in it |
+|---|---|
+| **ControllerOnly** | `xbox360`, `ns2pro`, and the HID-only Sony personas — `dualsensecombinedext`, `dualsenseext`, `dualsense`, the Edge equivalents, `dualshock4`. No USB audio interface is created, so the race is not reachable. |
+| **Audio** | Anything creating or opening a virtual audio/mic endpoint: every `…audioduplex*` and `…audioonly*` type, the `…micv2` types, and the audio-only sidecar. |
+
+### The gating decision
+
+`ViiperVirtualDeviceGate.Decide(state, class, acknowledged, audioEnabled,
+alreadyAttached)` is pure, total, and reads nothing else. All **64**
+combinations are enumerated in `ViiperVirtualDeviceGateTests`:
+
+| # | readiness | class | attached | ack | audio opt-in | result |
+|---|---|---|---|---|---|---|
+| 1 | *any* | *any* | **yes** | *any* | *any* | **allow** — running session |
+| 2 | `Missing` | any | no | any | any | block `DriverMissing` |
+| 3 | `DetectedUnvalidated` | any | no | any | any | block `DriverUnvalidated` |
+| 4 | `ValidatedExperimental` | ControllerOnly | no | no | any | block `ExperimentalNotAcknowledged` |
+| 5 | `ValidatedExperimental` | ControllerOnly | no | yes | any | **allow** |
+| 6 | `ValidatedExperimental` | Audio | no | no | any | block `ExperimentalNotAcknowledged` |
+| 7 | `ValidatedExperimental` | Audio | no | yes | **no** | block `AudioClassNotEnabled` |
+| 8 | `ValidatedExperimental` | Audio | no | yes | yes | **allow** |
+| 9 | `Approved` | any | no | any | any | **allow** |
+| 10 | *unknown enum value* | any | no | any | any | block `DriverUnvalidated` |
+
+Four properties this ordering is chosen for:
+
+- **Row 1 comes first, unconditionally.** Tearing down a live audio endpoint is
+  the exact operation the kernel defect is reached through, so a gate that
+  yanked one would cause the crash it exists to prevent. Mid-game teardown is
+  also simply hostile. Gating is about *new allocations*.
+- **Rows 2 and 3 cannot be bought with consent.** Consent accepts a known risk;
+  it does not override an unproven one. `ConsentCannotUnlockAnUnprovenDriver`
+  pins that.
+- **The acknowledgement is checked before the audio opt-in** (row 6 before row
+  7). A user who has consented to nothing hears about the driver first, not
+  about audio.
+- **Row 9 is the only row where audio needs no opt-in**, and `Approved` is
+  unreachable by design. That is what stops the tier being decorative.
+
+### Where the gate is wired
+
+Two choke points, both minimal-diff:
+
+1. **`ViiperOutDevice.Connect()`** — the one place a virtual USB device is
+   brought into existence, for primary outputs *and* the sidecar. It already
+   threw `IOException` on a prerequisite failure and every caller already
+   handles that, so a refusal needs no new error path. It asks twice: refusal of
+   the controller class throws; refusal of the audio class is not fatal for a
+   primary output, it just starts the persona ladder below the audio rungs.
+   Recovery (`TryRecoverStream`) reopens the *existing* device and never passes
+   here, so an in-flight session is untouched by construction.
+2. **`PlayStationFeatureOutputPolicy.GetAudioOnlySidecarType`** — gained a
+   required `audioClassAllowed` parameter (no default, so every call site must
+   say what it consulted).
+
+### What changed about the automatic sidecar
+
+Before: with a Sony pad on Bluetooth and an Xbox or Switch profile output, the
+policy created an audio-only virtual DualSense **by itself**. Observed live
+during the Phase 1 smoke pass as a second usbip port. Ordinary use on this
+machine therefore exercised the audio-endpoint teardown path, unprompted.
+
+After: `ControlService.EnsurePlayStationFeatureOutput` asks the gate before the
+policy, and the policy refuses without consent. Two details matter:
+
+- The gate is asked with `alreadyAttached` = "a sidecar for this controller is
+  connected right now". `CheckProfileOptions` runs on every profile change, so
+  without that, switching the setting off mid-session would *disconnect* a live
+  audio endpoint on the next profile change — the race trigger. The switch
+  applies to the next connection, never the current one.
+- Refusals are logged once per controller per reason, not on every profile
+  change, but at least once: a user whose controller speaker silently stopped
+  appearing has to be able to find out why.
+
+The persona ladder gained three named HID-only tails
+(`CreateDualSenseHidOnlyStream`, `…Edge…`, `…DualShock4…`). They were already
+the final fallbacks; naming them lets the gated path enter the ladder below the
+audio rungs without duplicating the tail.
+
+### The two persisted flags
+
+`ViiperExperimentalAcknowledged` and `AllowExperimentalAudioEndpoints`, both
+**default off**, both in the string-proxy DTO form. That form matters more here
+than for the 2.4b setting: a config written before these elements existed must
+read as *no consent given*, and a malformed value must read as off rather than
+throw out of `Deserialize` and take the whole settings file with it. Both are
+tested.
+
+The Settings checkboxes bind **`OneWay`** and are driven by `Checked`/
+`Unchecked` handlers, not `Click`. A consent gate must be impossible to flip
+without the disclosure, and `Click` only covers the input paths WPF routes
+through `OnClick` — during the manual pass a UI-automation toggle changed the
+box without raising it. The state-change events fire whatever moved the box.
+The cost is three echoes to filter (the binding applying a stored `true` at
+startup, the handler writing what it just decided, the corrective un-tick after
+a decline), all handled by one comparison: act only when the requested value
+differs from the stored one. Verified live that a stored `true` produces no
+dialog at startup.
+
+### The disclosure wording
+
+Shipped verbatim, and asserted by `ViiperExperimentalDisclosureTests` rather
+than by review habit. One-time acknowledgement, shown from the Settings switch
+and from the profile editor's output-type change:
+
+> Virtual controllers in Thrum are presented to Windows through usbip-win2, a
+> third-party kernel-mode USB/IP driver that is not developed by this project
+> and is not approved for production use by anyone.
+>
+> A kernel driver runs inside Windows itself. If it faults, Windows stops with a
+> blue screen; Thrum cannot catch that or recover from it.
+>
+> Plain controller output - buttons, sticks, triggers, rumble, lightbar - does
+> not use the driver path that carries the known defect, and Thrum has run those
+> lifecycles cleanly in testing. Virtual audio and microphone endpoints do use
+> it, and stay switched off until you enable them separately.
+>
+> Continue and use virtual controllers?
+
+Per-enablement audio-class confirmation (shown **every** time the switch is
+turned on, because the risk does not fade with familiarity and the installed
+package can change between sessions):
+
+> You are about to let Thrum create virtual USB audio and microphone endpoints
+> (controller speaker, headset jack and pad microphone) through the usbip-win2
+> kernel driver.
+>
+> The risk, plainly: usbip-win2 has a confirmed defect in how it retires
+> in-flight USB requests. When a virtual audio endpoint is torn down - closing a
+> game, switching profiles, unplugging the pad, shutting down - an audio
+> transfer that completes at the same moment can corrupt kernel memory and stop
+> Windows with a blue screen. It has been reproduced on this project's own
+> hardware.
+>
+> This is a defect in usbip-win2, not in Thrum. It is reported upstream as
+> usbip-win2 issue #181 (https://github.com/vadimgrn/usbip-win2/issues/181).
+> Thrum orders its own teardown as carefully as it can, but the fault is inside
+> the kernel driver and cannot be fully prevented from outside it. No usbip-win2
+> release is known to have fixed it.
+>
+> Installed package: usbip-win2 0.9.7.8, an experimental baseline Thrum
+> recognises.
+> Recognising a package is not approving it. Thrum has no usbip-win2 release on
+> its approved list, and does not suggest installing any release other than the
+> one its own setup installs.
+>
+> You do not need this for controller support. Buttons, sticks, triggers,
+> rumble, gyro, touchpad and lightbar all work with these endpoints switched
+> off, and that configuration does not reach the defect.
+>
+> Turn virtual audio endpoints on?
+
+The "Installed package" line is composed from the session readiness, so it names
+whatever is present; the four states each have their own true sentence and
+`EveryStateDescribesWhatIsInstalled` covers all of them. Issue #181 is
+*referenced*, never summarised as a fact about the reader's release — that is
+what keeps the page true on a machine with a package nobody has examined.
+
+Wording is enforced negatively too: `NoDisclosureRecommendsAnUnlistedPackage`
+and `NoRefusalRecommendsAnUnlistedPackage` fail on "download", "latest version",
+"newest", "upgrade to", "update usbip", "install a newer", "/releases".
+
+### Surfacing the blocked state
+
+- **Output Slots banner** (`ViiperOutputGateBannerViewModel`), refreshed when the
+  tab is selected and when a consent switch moves, evaluated on a worker thread
+  so the first readiness pass never blocks the dispatcher. Red **"New virtual
+  controllers are blocked"** when nothing can be created; amber **"Virtual audio
+  endpoints are off"** when only the audio class is refused — and the amber row
+  says running controllers are unaffected, because a user looking at a working
+  pad while reading "blocked" concludes the message is wrong and stops reading
+  the next one.
+- **Log**: the refusal reason verbatim, from the same `Decide` call, plus one
+  line per consent decision (what was shown, what was answered).
+- The 2.2 card's `DetectedUnvalidated` text moved from "will be restricted" to
+  the present tense, now that it is true, and gained the "already plugged in
+  keep running" promise.
+
+### Phase 1.8 sweep miss, fixed and guarded
+
+The 2.2 pass found "Tells Windows to start DS4Windows after login" still in the
+Settings tooltip. Root cause: 1.8's reference scan decided a
+`Properties/Resources` key was dead if no C# file said `Resources.<Key>`. It did
+not know the **`{lex:Loc Resources:<Key>}`** XAML form. Re-running the sweep
+with that form added found **three** live keys still naming the old product, not
+one:
+
+| File | Keys | Tokens |
+|---|---|---|
+| `Properties/Resources.resx` | `RunAtStartup`, `UACTask` | 2 |
+| `Properties/Resources.ru.resx` | `RunAtStartup`, `UACTask`, `CloseMinimize` | 3 |
+| `Properties/Resources.zh-hans.resx` | `RunAtStartup`, `UACTask` | 2 |
+
+Flipped with the same value-only, URL-guarded, re-parse-and-assert script 1.8
+used, so the diff is 7 lines across 3 files with every BOM and CRLF intact. The
+two checked-in designer doc comments were synced. `QuitOtherPrograms` stays as
+it is — its only token is inside the upstream wiki URL, which the guard confirms
+on every run.
+
+The guard is now `NoXamlReachableTooltipStillNamesTheOldProduct`: the 17
+XAML-reachable `Resources:` keys, each checked with URLs stripped, against
+`ProductInfo.ProductName`. It also records `BtPollRate` — bound twice in
+`ProfileEditor.xaml` and declared in **no** resource file, so that tooltip has
+always rendered empty. Inherited from upstream; recorded rather than dropped
+from the list, because dropping it would hide it.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, 14
+  pre-existing warnings.
+- Full suite with the CI filter — **696 passed / 0 failed**, from the 663
+  baseline: +33. `AppSettingsTests.CheckSettingsSave` remains excluded and
+  remains stale for the reason recorded in the 2.4b entry.
+- **Manual pass on the packaged build, non-elevated**, with the maintainer's
+  real configuration (backed up first, restored byte-identical afterwards —
+  hashes re-verified). `usbip.exe port`:
+
+  | State | `usbip port` |
+  |---|---|
+  | before launch | *(no imported devices)* |
+  | app running, **no consent recorded** | *(no imported devices)* |
+  | acknowledgement accepted, **audio off**, one X360 output plugged | `Port 01 … Xbox360 Controller (045e:028e)` — **one port, no second Sony port** |
+  | plus a DualSense output plugged, audio still off | adds `Port 02 … DualSense wireless controller (PS5) (054c:0ce6)` — the pad itself, still **no audio sidecar port** |
+  | both unplugged | *(no imported devices)* |
+
+  With no consent recorded the backend's own census answered `{"buses":[]}`:
+  nothing was created at all, which is the guardrail working. The Output Slots
+  banner read **"New virtual controllers are blocked"** with the acknowledgement
+  reason; after accepting it, **"Virtual audio endpoints are off"** with the
+  audio reason.
+
+  The DualSense plugged with audio consent off negotiated a **HID-only persona**
+  — the census reports `type: "dualsense"` with `speakerInterfaceActive: false`
+  and `microphoneInterfaceActive: false` — and the log carried
+  *"Virtual DualSense output is starting without its audio and microphone
+  interfaces."* followed by the full reason. Both disclosures were read verbatim
+  from the live dialogs (above). Decline reverted the switch and recorded
+  nothing; accept persisted immediately; a restart read both flags back
+  correctly (`ack` on, `audio` off) with no dialog at startup.
+
+  No Thrum process and no stray `viiper.exe` left behind; `usbip port` empty at
+  the end.
+
+### Deviations and gaps
+
+1. **The physical DualSense could not be brought into the test.** It is paired
+   and connected over Bluetooth, but its HID interface delivered nothing and
+   Thrum reported "No Controllers Connected" for the whole session; waking a
+   sleeping pad needs a physical button press. So the *bound-pad* sidecar
+   scenario — a real Sony pad on BT with an X360 profile output — was not
+   exercised live, and neither was controller input (manual check (c)). What was
+   exercised instead: the same gate, the same policy call, the same audio-class
+   refusal, on virtual outputs plugged by hand, plus the full unit coverage of
+   `GetAudioOnlySidecarType` under both consent values. **Queued as an [HW]
+   item.**
+2. **The Default profile's output was temporarily switched to `ViiperX360`** to
+   set up the documented sidecar scenario, then restored. The maintainer's
+   profile is `ViiperDualSense`, not X360 as the task brief assumed.
+3. **Consent was recorded and then un-recorded.** The manual pass accepted both
+   disclosures to test them; the config was restored from the pre-test backup
+   afterwards, so neither flag is set on the maintainer's machine and the
+   elements are absent from `Profiles.xml` again. Consent is theirs to give.
+4. **`Checked`/`Unchecked` instead of `Click`** on the two consent checkboxes —
+   see above. Not what the plan implied, and the better design for this purpose.
+5. **`ViiperDriverStatusViewModel.RestrictionText` was reworded** for
+   `DetectedUnvalidated`. Outside the letter of 2.3/2.5, but the 2.2 text said
+   "will be restricted" precisely because the restriction did not exist yet.
+6. **Not verified live, and cannot be here:** the `Missing`, `Approved` and real
+   `DetectedUnvalidated` rows of the table. Unit-tested against fakes; seeing
+   them refuse against a real machine needs the TESTENV checkpoints, which is
+   the [VM] pass Phase 2 already schedules.
+
+### [HW] queue
+
+- Wake the DualSense (PS button) and re-run manual check (a)/(c) with the
+  Default profile on an X360 output: confirm exactly one usbip port for the pad
+  and **no** `054c:0ce6` sidecar with audio consent absent, then confirm normal
+  controller input. Roughly five minutes with the maintainer present.

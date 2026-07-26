@@ -423,6 +423,57 @@ namespace DS4WinWPF.DS4Control.DTOXml
             }
         }
 
+        /// <summary>
+        /// Consent, so the same string-proxy form as the setting above: a
+        /// malformed value must fall back to "not acknowledged" rather than
+        /// throw out of <c>Deserialize</c> and take the whole settings file
+        /// with it. The default is <c>false</c>, so an older config that
+        /// predates the element leaves consent ungranted, which is the only
+        /// safe reading of silence.
+        /// </summary>
+        [XmlIgnore]
+        public bool ViiperExperimentalAcknowledged
+        {
+            get; private set;
+        } = BackingStore.DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED;
+
+        [XmlElement("ViiperExperimentalAcknowledged")]
+        public string ViiperExperimentalAcknowledgedString
+        {
+            get => ViiperExperimentalAcknowledged.ToString();
+            set
+            {
+                if (bool.TryParse(value, out bool temp))
+                {
+                    ViiperExperimentalAcknowledged = temp;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Same shape, and the more important of the two: this one gates the
+        /// only feature class that reaches the confirmed usbip-win2 kernel
+        /// defect. Anything unparseable reads as off.
+        /// </summary>
+        [XmlIgnore]
+        public bool AllowExperimentalAudioEndpoints
+        {
+            get; private set;
+        } = BackingStore.DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS;
+
+        [XmlElement("AllowExperimentalAudioEndpoints")]
+        public string AllowExperimentalAudioEndpointsString
+        {
+            get => AllowExperimentalAudioEndpoints.ToString();
+            set
+            {
+                if (bool.TryParse(value, out bool temp))
+                {
+                    AllowExperimentalAudioEndpoints = temp;
+                }
+            }
+        }
+
         [XmlIgnore]
         public bool CloseMinimizes
         {
@@ -900,6 +951,8 @@ namespace DS4WinWPF.DS4Control.DTOXml
             UseAdvancedMoonlight = source.useAdvancedMoonlight;
             VerboseStartupLogging = source.verboseStartupLogging;
             StopViiperBackendOnExit = source.stopViiperBackendOnExit;
+            ViiperExperimentalAcknowledged = source.viiperExperimentalAcknowledged;
+            AllowExperimentalAudioEndpoints = source.allowExperimentalAudioEndpoints;
             CloseMinimizes = source.closeMini;
             UseLang = source.useLang;
             DownloadLang = source.downloadLang;
@@ -1002,6 +1055,8 @@ namespace DS4WinWPF.DS4Control.DTOXml
             destination.useAdvancedMoonlight = UseAdvancedMoonlight;
             destination.verboseStartupLogging = VerboseStartupLogging;
             destination.stopViiperBackendOnExit = StopViiperBackendOnExit;
+            destination.viiperExperimentalAcknowledged = ViiperExperimentalAcknowledged;
+            destination.allowExperimentalAudioEndpoints = AllowExperimentalAudioEndpoints;
             destination.closeMini = CloseMinimizes;
             destination.useLang = UseLang;
             destination.downloadLang = DownloadLang;

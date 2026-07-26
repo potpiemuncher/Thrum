@@ -41,6 +41,8 @@ namespace DS4WinWPF.DS4Forms
     {
         private DS4Windows.ControlService controlService;
         private CurrentOutDeviceViewModel currentOutDevVM;
+        private readonly ViiperOutputGateBannerViewModel gateBannerVM =
+            new ViiperOutputGateBannerViewModel();
         //private PermanentOutDevViewModel permanentDevVM;
 
         public OutputSlotManagerControl()
@@ -48,10 +50,43 @@ namespace DS4WinWPF.DS4Forms
             InitializeComponent();
         }
 
+        /// <summary>
+        /// Re-asks the gate whenever the page could have gone stale, rather than
+        /// on a timer.
+        ///
+        /// <para>Off the dispatcher: the very first readiness evaluation of a
+        /// session costs a SetupAPI enumeration plus three WinVerifyTrust calls,
+        /// and the whole point of the 2.2 caching work was that this never
+        /// blocks the UI thread. Every later call is a cache read.</para>
+        /// </summary>
+        public void RefreshGateBanner()
+        {
+            System.Windows.Threading.Dispatcher dispatcher = Dispatcher;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                DS4Windows.ViiperVirtualDeviceDecision controller =
+                    DS4Windows.ViiperVirtualDeviceGuard.Decide(
+                        DS4Windows.ViiperFeatureClass.ControllerOnly);
+                DS4Windows.ViiperVirtualDeviceDecision audio =
+                    DS4Windows.ViiperVirtualDeviceGuard.Decide(
+                        DS4Windows.ViiperFeatureClass.Audio);
+
+                if (dispatcher == null || dispatcher.HasShutdownStarted)
+                {
+                    return;
+                }
+
+                dispatcher.BeginInvoke(new Action(() =>
+                    gateBannerVM.Apply(controller, audio)));
+            });
+        }
+
         public void SetupDataContext(DS4Windows.ControlService controlService,
             DS4Windows.OutputSlotManager outputMan)
         {
             this.controlService = controlService;
+
+            gateBanner.DataContext = gateBannerVM;
 
             currentOutDevVM = new CurrentOutDeviceViewModel(controlService, outputMan);
             currentOutDevVM.SelectedIndexChanged += CurrentOutDevVM_SelectedIndexChanged;

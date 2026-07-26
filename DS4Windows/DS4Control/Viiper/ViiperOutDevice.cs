@@ -183,6 +183,11 @@ namespace DS4Windows
         private readonly ViiperVirtualDeviceType viiperType;
         private readonly bool audioOnlySidecar;
         private readonly ViiperClient client;
+        // Whether this connection may negotiate a persona that carries virtual
+        // USB audio/microphone interfaces. Decided once per Connect() by the
+        // gate and never re-read mid-session: revoking consent must not change
+        // what a live stream is doing, only what the next one may ask for.
+        private bool audioEndpointsPermitted;
         private readonly object pendingPacketLock = new object();
         private readonly object microphoneQueueLock = new object();
         private readonly object microphoneProcessingLock = new object();
@@ -586,6 +591,17 @@ namespace DS4Windows
         {
             Disconnect();
 
+            // The runtime guardrail, and the only place a virtual USB device is
+            // brought into existence: every primary output and the audio-only
+            // sidecar come through here. Deliberately before the transport
+            // check, so a refusal explains the actual reason rather than
+            // whatever the backend happened to say first.
+            //
+            // Nothing here can affect a device that is already attached: this
+            // runs only while building a new connection, and the Disconnect()
+            // above concerns this object alone.
+            audioEndpointsPermitted = ApplyVirtualDeviceGate();
+
             ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus(tryStartServer: true);
             if (!status.Ready)
             {
@@ -695,6 +711,69 @@ namespace DS4Windows
             }
         }
 
+        /// <summary>
+        /// True for the personas whose negotiation ladder starts with a device
+        /// type that carries USB audio interfaces. Xbox 360 and Switch 2 Pro
+        /// have no audio persona at all, so they never reach the gate's audio
+        /// class and are unaffected by the audio setting.
+        /// </summary>
+        internal static bool CanNegotiateAudioEndpoints(
+            ViiperVirtualDeviceType type) =>
+            type == ViiperVirtualDeviceType.DualShock4 ||
+            type == ViiperVirtualDeviceType.DualSense ||
+            type == ViiperVirtualDeviceType.DualSenseEdge;
+
+        /// <summary>
+        /// Asks the gate whether this device may be created, and how much of it.
+        ///
+        /// <para>Two questions, in this order, because they have different
+        /// answers and only one of them is fatal:</para>
+        /// <list type="number">
+        /// <item>May a virtual controller be created at all? A refusal here is
+        /// an <see cref="IOException"/> - the device does not appear.</item>
+        /// <item>May it carry audio endpoints? A refusal here is not fatal for a
+        /// primary output: the persona ladder simply starts below the audio
+        /// rungs and the pad works as a controller. It <i>is</i> fatal for the
+        /// audio-only sidecar, whose entire purpose is those endpoints.</item>
+        /// </list>
+        /// </summary>
+        /// <returns>Whether audio personas may be negotiated.</returns>
+        private bool ApplyVirtualDeviceGate()
+        {
+            ViiperVirtualDeviceDecision baseline =
+                ViiperVirtualDeviceGuard.Decide(
+                    ViiperFeatureClass.ControllerOnly);
+            if (!baseline.Allowed)
+            {
+                AppLogger.LogToGui(
+                    $"Refused to create the virtual {outputType.ToDisplayName()} output. " +
+                    baseline.Reason, true);
+                throw new IOException(baseline.Reason);
+            }
+
+            if (!audioOnlySidecar && !CanNegotiateAudioEndpoints(viiperType))
+            {
+                return false;
+            }
+
+            ViiperVirtualDeviceDecision audio =
+                ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio);
+            if (audio.Allowed)
+            {
+                return true;
+            }
+
+            if (audioOnlySidecar)
+            {
+                throw new IOException(audio.Reason);
+            }
+
+            AppLogger.LogToGui(
+                $"Virtual {outputType.ToDisplayName()} output is starting without its audio and microphone interfaces. " +
+                audio.Reason, false);
+            return false;
+        }
+
         private ViiperDeviceStream CreateDeviceStream()
         {
             activeStreamUsesFramedProtocol = false;
@@ -705,6 +784,13 @@ namespace DS4Windows
             activeStreamFrameVersion = 0;
             Volatile.Write(ref virtualMicrophoneInterfaceActive, 0);
             Volatile.Write(ref virtualMicrophoneInterfaceStateKnown, 0);
+
+            // Every rung of every ladder below that names an audioduplex,
+            // audioonly or mic device type creates virtual USB audio endpoints.
+            // When the gate refused the audio class, the ladder starts under
+            // them instead: the pad is created as a plain HID device and the
+            // kernel path the known defect lives on is never opened.
+            bool audio = audioEndpointsPermitted;
 
             if (viiperType == ViiperVirtualDeviceType.DualSense)
             {
@@ -751,6 +837,11 @@ namespace DS4Windows
                             "The installed VIIPER build does not support the DualSense audio-only interface. Update VIIPER from Settings before using PlayStation audio with an Xbox or Switch output.",
                             ex);
                     }
+                }
+
+                if (!audio)
+                {
+                    return CreateDualSenseHidOnlyStream();
                 }
 
                 try
@@ -804,32 +895,16 @@ namespace DS4Windows
                     AppLogger.LogToGui($"VIIPER DualSense microphone input unavailable, continuing without mic-in: {ex.Message}", false);
                 }
 
-                try
-                {
-                    ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsensecombinedext");
-                    activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
-                    return stream;
-                }
-                catch (IOException ex)
-                {
-                    try
-                    {
-                        AppLogger.LogToGui($"VIIPER DualSense combined haptics feedback unavailable, using legacy extended feedback: {ex.Message}", false);
-                        ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseext");
-                        activeFeedbackLength = DualSenseExtendedFeedbackLength;
-                        return stream;
-                    }
-                    catch (IOException legacyEx)
-                    {
-                        AppLogger.LogToGui($"VIIPER DualSense adaptive trigger feedback unavailable, falling back to base DualSense output: {legacyEx.Message}", false);
-                        activeFeedbackLength = DualSenseBaseFeedbackLength;
-                        return client.CreateDeviceAndOpenStream("dualsense");
-                    }
-                }
+                return CreateDualSenseHidOnlyStream();
             }
 
             if (viiperType == ViiperVirtualDeviceType.DualSenseEdge)
             {
+                if (!audio)
+                {
+                    return CreateDualSenseEdgeHidOnlyStream();
+                }
+
                 try
                 {
                     ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
@@ -881,28 +956,7 @@ namespace DS4Windows
                     AppLogger.LogToGui($"VIIPER DualSense Edge microphone input unavailable, continuing without mic-in: {ex.Message}", false);
                 }
 
-                try
-                {
-                    ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseedgecombinedext");
-                    activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
-                    return stream;
-                }
-                catch (IOException ex)
-                {
-                    try
-                    {
-                        AppLogger.LogToGui($"VIIPER DualSense Edge combined haptics feedback unavailable, using legacy extended feedback: {ex.Message}", false);
-                        ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseedgeext");
-                        activeFeedbackLength = DualSenseExtendedFeedbackLength;
-                        return stream;
-                    }
-                    catch (IOException legacyEx)
-                    {
-                        AppLogger.LogToGui($"VIIPER DualSense Edge adaptive trigger feedback unavailable, falling back to base DualSense Edge output: {legacyEx.Message}", false);
-                        activeFeedbackLength = DualSenseBaseFeedbackLength;
-                        return client.CreateDeviceAndOpenStream("dualsenseedge");
-                    }
-                }
+                return CreateDualSenseEdgeHidOnlyStream();
             }
 
             if (viiperType == ViiperVirtualDeviceType.DualShock4)
@@ -931,6 +985,11 @@ namespace DS4Windows
                             "The installed VIIPER build does not support the DualShock 4 audio-only interface. Update VIIPER from Settings before using PlayStation audio with an Xbox or Switch output.",
                             ex);
                     }
+                }
+
+                if (!audio)
+                {
+                    return CreateDualShock4HidOnlyStream();
                 }
 
                 try
@@ -970,13 +1029,78 @@ namespace DS4Windows
                         false);
                 }
 
-                activeFeedbackLength = ViiperStatePacketBuilder.GetFeedbackLength(
-                    viiperType);
-                return client.CreateDeviceAndOpenStream("dualshock4", 0x05C4);
+                return CreateDualShock4HidOnlyStream();
             }
 
             activeFeedbackLength = ViiperStatePacketBuilder.GetFeedbackLength(viiperType);
             return client.CreateDeviceAndOpenStream(viiperType);
+        }
+
+        // ---- HID-only tails -------------------------------------------------
+        //
+        // The bottom of each Sony persona ladder: the device types that expose
+        // no USB audio or microphone interface. These were already the final
+        // fallbacks; they are named methods now because the audio gate needs to
+        // enter the ladder here rather than at the top, and duplicating them
+        // would let the gated and ungated paths drift.
+
+        private ViiperDeviceStream CreateDualSenseHidOnlyStream()
+        {
+            try
+            {
+                ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsensecombinedext");
+                activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                return stream;
+            }
+            catch (IOException ex)
+            {
+                try
+                {
+                    AppLogger.LogToGui($"VIIPER DualSense combined haptics feedback unavailable, using legacy extended feedback: {ex.Message}", false);
+                    ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseext");
+                    activeFeedbackLength = DualSenseExtendedFeedbackLength;
+                    return stream;
+                }
+                catch (IOException legacyEx)
+                {
+                    AppLogger.LogToGui($"VIIPER DualSense adaptive trigger feedback unavailable, falling back to base DualSense output: {legacyEx.Message}", false);
+                    activeFeedbackLength = DualSenseBaseFeedbackLength;
+                    return client.CreateDeviceAndOpenStream("dualsense");
+                }
+            }
+        }
+
+        private ViiperDeviceStream CreateDualSenseEdgeHidOnlyStream()
+        {
+            try
+            {
+                ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseedgecombinedext");
+                activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                return stream;
+            }
+            catch (IOException ex)
+            {
+                try
+                {
+                    AppLogger.LogToGui($"VIIPER DualSense Edge combined haptics feedback unavailable, using legacy extended feedback: {ex.Message}", false);
+                    ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseedgeext");
+                    activeFeedbackLength = DualSenseExtendedFeedbackLength;
+                    return stream;
+                }
+                catch (IOException legacyEx)
+                {
+                    AppLogger.LogToGui($"VIIPER DualSense Edge adaptive trigger feedback unavailable, falling back to base DualSense Edge output: {legacyEx.Message}", false);
+                    activeFeedbackLength = DualSenseBaseFeedbackLength;
+                    return client.CreateDeviceAndOpenStream("dualsenseedge");
+                }
+            }
+        }
+
+        private ViiperDeviceStream CreateDualShock4HidOnlyStream()
+        {
+            activeFeedbackLength = ViiperStatePacketBuilder.GetFeedbackLength(
+                viiperType);
+            return client.CreateDeviceAndOpenStream("dualshock4", 0x05C4);
         }
 
         private ViiperDeviceStream CreateDeviceStreamWithServerFallback()

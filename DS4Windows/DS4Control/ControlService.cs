@@ -45,6 +45,11 @@ namespace DS4Windows
         private readonly ViiperOutDevice[] playStationFeatureOutputDevices =
             new ViiperOutDevice[MAX_DS4_CONTROLLER_COUNT];
         private readonly object playStationFeatureOutputLock = new object();
+        // Last logged audio-class refusal reason per controller, as
+        // ViiperVirtualDeviceBlock. -1 = nothing refused yet, so the first
+        // refusal always speaks and a repeat of the same reason stays quiet.
+        private readonly int[] playStationAudioRefusalLogged =
+            Enumerable.Repeat(-1, MAX_DS4_CONTROLLER_COUNT).ToArray();
         private readonly GameBarIntegration gameBarIntegration = new GameBarIntegration();
         private readonly object hidHideSessionLock = new object();
         private readonly HashSet<string> hidHideSessionManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2426,12 +2431,54 @@ namespace DS4Windows
                 return primary;
             }
 
+            // The sidecar is an audio-only virtual device, so it is squarely
+            // the thing the audio-class gate governs. Two properties matter
+            // here and both are deliberate:
+            //
+            //  - It is no longer created implicitly. Before plan task 2.3 a
+            //    Sony pad on Bluetooth with an Xbox or Switch profile output
+            //    grew a second virtual device carrying USB audio interfaces
+            //    with nobody asking, which put ordinary use on the exact
+            //    teardown path the known kernel defect lives on.
+            //  - A sidecar that is already attached keeps the gate open. If the
+            //    setting is turned off mid-session, this method still runs on
+            //    the next profile change, and refusing here would disconnect a
+            //    live audio endpoint - which is the race trigger itself. The
+            //    switch takes effect for the next connection, never this one.
+            bool sidecarAlreadyAttached;
+            lock (playStationFeatureOutputLock)
+            {
+                sidecarAlreadyAttached =
+                    playStationFeatureOutputDevices[index]?.IsRuntimeConnected
+                        == true;
+            }
+
+            ViiperVirtualDeviceDecision audioDecision =
+                ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio,
+                    sidecarAlreadyAttached);
+
+            // What the hardware matrix alone would want, kept separate from what
+            // the gate permits so a refusal can be told apart from "this pad
+            // never had a sidecar anyway". Only the first is worth explaining.
+            OutContType matrixSidecar = primary?.IsRuntimeConnected == true
+                ? PlayStationFeatureOutputPolicy.GetAudioOnlySidecarType(
+                    source, primaryType, getDInputOnly(index),
+                    audioClassAllowed: true)
+                : OutContType.None;
+
             OutContType desiredSidecar = primary?.IsRuntimeConnected == true
                 ? PlayStationFeatureOutputPolicy.GetAudioOnlySidecarType(
-                    source, primaryType, getDInputOnly(index))
+                    source, primaryType, getDInputOnly(index),
+                    audioDecision.Allowed)
                 : OutContType.None;
+
             if (desiredSidecar == OutContType.None)
             {
+                if (!audioDecision.Allowed && matrixSidecar != OutContType.None)
+                {
+                    LogAudioClassRefusal(index, audioDecision);
+                }
+
                 DisconnectPlayStationFeatureOutput(index);
                 return null;
             }
@@ -2480,6 +2527,35 @@ namespace DS4Windows
                     return null;
                 }
             }
+        }
+
+        /// <summary>
+        /// Says once, per controller and per reason, why the PlayStation audio
+        /// interface was not created. <c>CheckProfileOptions</c> runs on every
+        /// profile change, so an unconditional line here would bury the log;
+        /// but a user whose controller speaker silently stopped appearing needs
+        /// to be able to find out why, so it must be said at least once.
+        /// </summary>
+        private void LogAudioClassRefusal(int index,
+            ViiperVirtualDeviceDecision decision)
+        {
+            if (index < 0 || index >= playStationAudioRefusalLogged.Length)
+            {
+                return;
+            }
+
+            int reason = (int)decision.Block;
+            if (Interlocked.Exchange(
+                ref playStationAudioRefusalLogged[index], reason) == reason)
+            {
+                return;
+            }
+
+            AppLogger.LogToGui(
+                $"Controller #{index + 1}: no PlayStation audio interface was created. " +
+                decision.Reason, false);
+            StartupDiag(
+                $"PlayStation audio sidecar gated index={index} block={decision.Block}");
         }
 
         private void DisconnectPlayStationFeatureOutput(int index)

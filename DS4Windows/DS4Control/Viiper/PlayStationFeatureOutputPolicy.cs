@@ -26,7 +26,7 @@ namespace DS4Windows
 
         internal static OutContType GetAudioOnlySidecarType(
             DS4Device source, OutContType primaryOutputType,
-            bool dInputOnly)
+            bool dInputOnly, bool audioClassAllowed)
         {
             if (source?.HidDevice?.Attributes == null)
             {
@@ -37,15 +37,28 @@ namespace DS4Windows
                 source.ConnectionType,
                 source.HidDevice.Attributes.VendorId,
                 source.HidDevice.Attributes.ProductId,
-                primaryOutputType, dInputOnly);
+                primaryOutputType, dInputOnly, audioClassAllowed);
         }
 
+        /// <param name="audioClassAllowed">
+        /// The audio-class gate's answer. This sidecar exists only to carry
+        /// virtual USB audio endpoints, so it is exactly the device the gate
+        /// governs: <c>false</c> means no sidecar, full stop.
+        ///
+        /// <para>Historically this method answered from the hardware matrix
+        /// alone, which meant a Sony pad on Bluetooth with an Xbox or Switch
+        /// profile output grew a second virtual device with audio interfaces
+        /// with nobody asking for it. That implicit creation is what plan task
+        /// 2.3 removes: the parameter has no default, so every call site has to
+        /// say what it consulted.</para>
+        /// </param>
         internal static OutContType GetAudioOnlySidecarType(
             InputDeviceType deviceType, ConnectionType connectionType,
             int vendorId, int productId, OutContType primaryOutputType,
-            bool dInputOnly)
+            bool dInputOnly, bool audioClassAllowed)
         {
-            if (dInputOnly || connectionType != ConnectionType.BT ||
+            if (!audioClassAllowed || dInputOnly ||
+                connectionType != ConnectionType.BT ||
                 vendorId != DS4Devices.SONY_VID ||
                 !NeedsAudioOnlySidecar(primaryOutputType))
             {

@@ -445,7 +445,7 @@
 
                 </local:AutoProfiles>
             </TabItem>
-            <TabItem Header="{lex:Loc OutputSlots}" Tag="&#xE950;" ToolTip="Inspect and control virtual controller slots and output devices." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
+            <TabItem x:Name="outputSlotsTab" Header="{lex:Loc OutputSlots}" Tag="&#xE950;" ToolTip="Inspect and control virtual controller slots and output devices." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
                 <local:OutputSlotManagerControl x:Name="slotManControl">
 
                 </local:OutputSlotManagerControl>
@@ -726,6 +726,51 @@
                                         <TextBlock Text="{Binding CheckedAtText}"
                                                    Style="{StaticResource BridgeSectionDescriptionStyle}"
                                                    Margin="0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!--
+                                    Consent card (plan task 2.3). The two
+                                    switches the runtime gate reads. Both default
+                                    off and both are only ever turned on from a
+                                    click handler that showed the disclosure
+                                    first - the bindings are OneWay for exactly
+                                    that reason, so a checkbox can never write
+                                    consent on its own.
+                                -->
+                                <Border Style="{StaticResource BridgeCardStyle}"
+                                        MaxWidth="560"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="What virtual controllers are allowed to do"
+                                                   Style="{StaticResource BridgeSectionTitleStyle}" />
+                                        <TextBlock x:Name="viiperConsentIntroText"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0,0,0,10" />
+
+                                        <CheckBox x:Name="viiperExperimentalAckCk"
+                                                  Content="Use virtual controllers (experimental kernel driver)"
+                                                  IsChecked="{Binding ViiperExperimentalAcknowledged, Mode=OneWay}"
+                                                  Checked="ViiperExperimentalAckCk_Checked"
+                                                  Unchecked="ViiperExperimentalAckCk_Checked"
+                                                  Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
+                                        <TextBlock x:Name="viiperExperimentalAckText"
+                                                   Style="{StaticResource BridgeCardListItemStyle}"
+                                                   Margin="24,2,0,10" />
+
+                                        <CheckBox x:Name="viiperAudioEndpointsCk"
+                                                  Content="Allow virtual audio and microphone endpoints"
+                                                  IsChecked="{Binding AllowExperimentalAudioEndpoints, Mode=OneWay}"
+                                                  Checked="ViiperAudioEndpointsCk_Checked"
+                                                  Unchecked="ViiperAudioEndpointsCk_Checked"
+                                                  Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
+                                        <TextBlock x:Name="viiperAudioEndpointsText"
+                                                   Style="{StaticResource BridgeCardListItemStyle}"
+                                                   Margin="24,2,0,0" />
+                                        <TextBlock Text="Turning this off never disconnects an endpoint that is already running; it applies to the next controller connection."
+                                                   Style="{StaticResource BridgeCardListItemStyle}"
+                                                   Margin="24,2,0,0" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

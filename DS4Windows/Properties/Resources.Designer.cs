@@ -440,26 +440,6 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
-        /// </summary>
-        public static System.Drawing.Icon DS4W {
-            get {
-                object obj = ResourceManager.GetObject("DS4W", resourceCulture);
-                return ((System.Drawing.Icon)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
-        /// </summary>
-        public static System.Drawing.Icon DS4W___White {
-            get {
-                object obj = ResourceManager.GetObject("DS4W___White", resourceCulture);
-                return ((System.Drawing.Icon)(obj));
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to DS4Windows cannot edit settings here, This will now close.
         /// </summary>
         public static string DS4WindowsCannotEditHere {
@@ -987,15 +967,6 @@ namespace DS4WinWPF.Properties {
         public static string OutContNotice {
             get {
                 return ResourceManager.GetString("OutContNotice", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Please Download the Updater now, place it in the programs folder and rename to DS4Updater.exe if on x86, then check for update again. DS4Windows will attempt to open DS4Updater Release page when this window is closed..
-        /// </summary>
-        public static string PleaseDownloadUpdater {
-            get {
-                return ResourceManager.GetString("PleaseDownloadUpdater", resourceCulture);
             }
         }
         

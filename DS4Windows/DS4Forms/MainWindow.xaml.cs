@@ -272,7 +272,7 @@ namespace DS4WinWPF.DS4Forms
                     }
                     catch
                     {
-                        Dispatcher.Invoke(() => MessageBox.Show(Strings.FailedToRetrieveLatestVersion, "DS4Windows Updater"));
+                        Dispatcher.Invoke(() => MessageBox.Show(Strings.FailedToRetrieveLatestVersion, ProductInfo.ProductName));
                         // bubble the exception up to allow to see what's wrong in the log
                         throw;
                     }
@@ -291,6 +291,19 @@ namespace DS4WinWPF.DS4Forms
             Util.LogAssistBackgroundTask(tempTask);
         }
 
+        /// <summary>
+        /// Tells the user a newer release exists and offers to open the
+        /// releases page in their browser.
+        /// </summary>
+        /// <remarks>
+        /// This used to download DS4Updater.exe and hand the running install
+        /// over to it. That pipeline was removed rather than repointed:
+        /// DS4Updater installs DS4Windows, so a user who accepted an update
+        /// would have had this product replaced by the one it was forked from.
+        /// Until this product ships an updater of its own, an available update
+        /// opens a web page and does nothing else - no download, no elevated
+        /// copy, no process launch.
+        /// </remarks>
         private void DisplayUpdaterWindow(string version)
         {
             MessageBoxResult result = MessageBoxResult.No;
@@ -303,110 +316,10 @@ namespace DS4WinWPF.DS4Forms
 
             if (result == MessageBoxResult.Yes)
             {
-                bool launch = true;
-                launch = mainWinVM.RunUpdaterCheck(launch, out string newUpdaterVersion);
-
-                if (launch)
-                {
-                    launch = mainWinVM.LauchDS4Updater(version);
-                }
-
-                if (launch)
-                {
-                    // Set that the window is getting ready to close for other components
-                    contextclose = true;
-                    Dispatcher.BeginInvoke(Close);
-                }
-                else
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        MessageBox.Show(Properties.Resources.PleaseDownloadUpdater);
-                        if (!string.IsNullOrEmpty(newUpdaterVersion))
-                        {
-                            Util.StartProcessHelper(
-                                $"{ProductInfo.UpdaterReleasesPageUri}/tag/v{newUpdaterVersion}");
-                        }
-                    });
-                }
-            }
-        }
-
-        private void Check_Version(bool showstatus = false)
-        {
-            string version = Global.exeversion;
-            string newversion = string.Empty;
-            string versionFilePath = Path.Combine(Global.appdatapath, "version.txt");
-            ulong lastVersionNum = Global.LastVersionCheckedNum;
-            //ulong lastVersion = Global.CompileVersionNumberFromString("2.1.1");
-
-            bool versionFileExists = File.Exists(versionFilePath);
-            if (versionFileExists)
-            {
-                newversion = File.ReadAllText(versionFilePath).Trim();
-                //newversion = "2.1.3";
-            }
-
-            ulong newversionNum = !string.IsNullOrEmpty(newversion) ?
-                Global.CompileVersionNumberFromString(newversion) : 0;
-
-            if (!string.IsNullOrWhiteSpace(newversion) && version.CompareTo(newversion) != 0 &&
-                lastVersionNum < newversionNum)
-            {
-                MessageBoxResult result = MessageBoxResult.No;
                 Dispatcher.Invoke(() =>
                 {
-                    UpdaterWindow updaterWin = new UpdaterWindow(newversion);
-                    updaterWin.ShowDialog();
-                    result = updaterWin.Result;
+                    Util.StartProcessHelper(ProductInfo.ReleasesPageUri);
                 });
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    bool launch = true;
-                    launch = mainWinVM.RunUpdaterCheck(launch, out string newUpdaterVersion);
-
-                    if (launch)
-                    {
-                        launch = mainWinVM.LauchDS4Updater(newversion);
-                    }
-
-                    if (launch)
-                    {
-                        // Set that the window is getting ready to close for other components
-                        contextclose = true;
-                        Dispatcher.BeginInvoke((Action)(() =>
-                        {
-                            Close();
-                        }));
-                    }
-                    else
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            MessageBox.Show(Properties.Resources.PleaseDownloadUpdater);
-                            if (!string.IsNullOrEmpty(newUpdaterVersion))
-                            {
-                                Util.StartProcessHelper($"{ProductInfo.UpdaterReleasesPageUri}/tag/v{newUpdaterVersion}");
-                            }
-                        });
-                    }
-                }
-                else
-                {
-                    if (versionFileExists)
-                        File.Delete(versionFilePath);
-                }
-            }
-            else
-            {
-                if (versionFileExists)
-                    File.Delete(versionFilePath);
-
-                if (showstatus)
-                {
-                    Dispatcher.Invoke(() => MessageBox.Show(Properties.Resources.UpToDate, "DS4Windows Updater"));
-                }
             }
         }
 
@@ -2115,11 +2028,11 @@ Suspend support not enabled.", true);
                     if (Changelog.CheckNewerReleaseExists(out string releaseTag, false))
                         DisplayUpdaterWindow(releaseTag);
                     else
-                        Dispatcher.Invoke(() => MessageBox.Show(Properties.Resources.UpToDate, "DS4Windows Updater"));
+                        Dispatcher.Invoke(() => MessageBox.Show(Properties.Resources.UpToDate, ProductInfo.ProductName));
                 }
                 catch
                 {
-                    Dispatcher.Invoke(() => MessageBox.Show(Strings.FailedToRetrieveLatestVersion, "DS4Windows Updater"));
+                    Dispatcher.Invoke(() => MessageBox.Show(Strings.FailedToRetrieveLatestVersion, ProductInfo.ProductName));
                     // bubble the exception up to allow to see what's wrong in the log
                     throw;
                 }

@@ -311,9 +311,6 @@
     <data name="OutContNotice" xml:space="preserve">
         <value>选择输出虚拟手柄类型（在配置文件保存时应用）</value>
     </data>
-    <data name="PleaseDownloadUpdater" xml:space="preserve">
-        <value>请现在下载 Updater，并放在文件夹中然后重命名为 DS4Updater.exe （x86设备），然后重新检查更新。DS4Windows会在这个窗口关闭后尝试打开DS4Updater下载页面。</value>
-    </data>
     <data name="PleaseImport" xml:space="preserve">
         <value>请导入或创建一个配置。</value>
     </data>

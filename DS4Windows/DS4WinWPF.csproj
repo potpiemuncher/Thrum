@@ -8,18 +8,17 @@
 		<RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
 		<RootNamespace>DS4WinWPF</RootNamespace>
 		<AssemblyName>Thrum</AssemblyName>
-		<ApplicationIcon>DS4W.ico</ApplicationIcon>
+		<ApplicationIcon>Resources\Thrum.ico</ApplicationIcon>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<StartupObject>DS4WinWPF.App</StartupObject>
 		<NeutralLanguage>en</NeutralLanguage>
 		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
 		<EnableNETAnalyzers>false</EnableNETAnalyzers>
 		<ServerGarbageCollection>true</ServerGarbageCollection>
-		<AssemblyVersion>4.0.2.1</AssemblyVersion>
-		<FileVersion>4.0.2.1</FileVersion>
-		<Version>4.0.2.1-dualsense-beta</Version>
-		<InformationalVersion>4.0.2.1 DualSense Beta</InformationalVersion>
-		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+		<!-- Version, AssemblyVersion, FileVersion and InformationalVersion are
+		     inherited from the repository-root Directory.Build.props. Do not
+		     re-declare them here: a local value silently wins over the shared
+		     one and that is exactly how the four of them drifted apart before. -->
 		<Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
 		<Platform Condition=" '$(Platform)' == '' ">x64</Platform>
 		<Copyright>Copyright © Thrum project 2026; DS4Windows contributors — Scarlet.Crush Productions 2012, 2013; InhexSTER, HecticSeptic, electrobrains 2013, 2014; Jays2Kings 2013, 2014, 2015, 2016; Ryochan7 2017-2023; schmaldeo 2024; hbashton 2025, 2026. Licensed under the GNU GPL version 3 or later.</Copyright>
@@ -81,6 +80,10 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
 		</Content>
+		<Content Include="Resources\ICONS.NOTICE.txt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</Content>
 		<Content Include="$(PkgYellowDogMan_RRNoise_NET)\runtimes\win-x64\native\rnnoise.dll" Condition="'$(Platform)' == 'x64'">
 			<Link>rnnoise.dll</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -137,7 +140,7 @@
 		<None Include="Resources\keydown_white.png" />
 		<None Include="Resources\keyup_white.png" />
 		<None Include="Resources\USB_white.png" />
-		<None Include="Resources\DS4W - Black.ico" />
+		<None Include="Resources\Thrum - Black.ico" />
 		<None Include="Resources\key-solid.png" />
 		<None Include="Resources\rainbowCCrop.png" />
 		<None Include="Resources\rainbowC.png" />
@@ -209,8 +212,8 @@
 		<None Include="Resources\cancel.png" />
 		<None Include="Resources\checked.png" />
 		<None Include="Resources\copy.png" />
-		<None Include="Resources\DS4W - White.ico" />
-		<None Include="Resources\DS4W.ico" />
+		<None Include="Resources\Thrum - White.ico" />
+		<None Include="Resources\Thrum.ico" />
 		<None Include="Resources\edit.png" />
 		<None Include="Resources\delete.png" />
 		<None Include="Resources\export.png" />
@@ -235,7 +238,7 @@
 		<Resource Include="Resources\keydown_white.png" />
 		<Resource Include="Resources\keyup_white.png" />
 		<Resource Include="Resources\USB_white.png" />
-		<Resource Include="Resources\DS4W - Black.ico" />
+		<Resource Include="Resources\Thrum - Black.ico" />
 		<Resource Include="Resources\key-solid.png" />
 		<Resource Include="Resources\rainbowCCrop.png" />
 		<Resource Include="Resources\rainbowC.png" />
@@ -307,8 +310,8 @@
 		<Resource Include="Resources\cancel.png" />
 		<Resource Include="Resources\checked.png" />
 		<Resource Include="Resources\copy.png" />
-		<Resource Include="Resources\DS4W - White.ico" />
-		<Resource Include="Resources\DS4W.ico" />
+		<Resource Include="Resources\Thrum - White.ico" />
+		<Resource Include="Resources\Thrum.ico" />
 		<Resource Include="Resources\edit.png" />
 		<Resource Include="Resources\delete.png" />
 		<Resource Include="Resources\export.png" />

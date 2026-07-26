@@ -46,7 +46,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public async Task DisplayChangelog()
         {
             var changelog = await Changelog.GetChangelogMarkdown();
-            Markdown = changelog;
+            Markdown = string.IsNullOrWhiteSpace(changelog) ?
+                ChangelogViewModel.EmptyChangelogMarkdown : changelog;
         }
 
         public void SetSkippedVersion()

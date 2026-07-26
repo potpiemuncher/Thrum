@@ -1021,11 +1021,11 @@ namespace DS4Windows
 
         public static Dictionary<TrayIconChoice, string> iconChoiceResources = new Dictionary<TrayIconChoice, string>
         {
-            [TrayIconChoice.Default] = $"{Global.RESOURCES_PREFIX}/DS4W.ico",
-            [TrayIconChoice.Colored] = $"{Global.RESOURCES_PREFIX}/DS4W.ico",
-            [TrayIconChoice.White] = $"{Global.RESOURCES_PREFIX}/DS4W - White.ico",
-            [TrayIconChoice.Black] = $"{Global.RESOURCES_PREFIX}/DS4W - Black.ico",
-            [TrayIconChoice.Battery] = $"{RESOURCES_PREFIX}/DS4W.ico"
+            [TrayIconChoice.Default] = $"{Global.RESOURCES_PREFIX}/{ProductInfo.AppIconFileName}",
+            [TrayIconChoice.Colored] = $"{Global.RESOURCES_PREFIX}/{ProductInfo.AppIconFileName}",
+            [TrayIconChoice.White] = $"{Global.RESOURCES_PREFIX}/{ProductInfo.WhiteTrayIconFileName}",
+            [TrayIconChoice.Black] = $"{Global.RESOURCES_PREFIX}/{ProductInfo.BlackTrayIconFileName}",
+            [TrayIconChoice.Battery] = $"{RESOURCES_PREFIX}/{ProductInfo.AppIconFileName}"
         };
 
         public static void SaveWhere(string path)
@@ -3454,7 +3454,6 @@ namespace DS4Windows
         public const string GITHUB_LATEST_RELEASE_API_URI = ProductInfo.LatestReleaseApiUri;
 
         private static bool? _newerVersionAvailable = null;
-        private static Version _latestVersion;
         private static string _latestReleaseTag = string.Empty;
 
         public static bool TryParseReleaseVersion(string tagName, out Version version)
@@ -3483,16 +3482,36 @@ namespace DS4Windows
             request.Wait();
             if (!request.Result.IsSuccessStatusCode)
             {
+                AppLogger.LogToGui(
+                    $"Update check could not reach the release feed " +
+                    $"(HTTP {(int)request.Result.StatusCode}). Treating this " +
+                    "build as up to date.", false);
                 return false;
             }
 
             var task = request.Result.Content.ReadFromJsonAsync<GithubRelease[]>();
             task.Wait();
 
+            GithubRelease[] published = task.Result;
+            if (published is null || published.Length == 0)
+            {
+                // The list endpoint answers 200 with an empty array when the
+                // repository has published nothing yet - unlike /releases/latest,
+                // which answers 404. That is the normal state of a new product,
+                // not a failure, so it is an informational line and an
+                // up-to-date verdict rather than an error.
+                AppLogger.LogToGui(
+                    "Update check: no releases have been published yet. " +
+                    "This build is up to date.", false);
+                _latestReleaseTag = string.Empty;
+                _newerVersionAvailable = false;
+                return false;
+            }
+
             bool currentBuildIsPrerelease = ReleaseChannelPolicy.IsPrereleaseBuild(
                 Global.exeDisplayVersion);
             GithubRelease selectedRelease = ReleaseChannelPolicy.SelectPreferredRelease(
-                task.Result, currentBuildIsPrerelease);
+                published, currentBuildIsPrerelease);
 
             string installedReleaseTag = string.Empty;
             string markerPath = Path.Combine(
@@ -3520,23 +3539,9 @@ namespace DS4Windows
                 installedReleaseTag);
 
             _latestReleaseTag = selectedRelease?.TagName ?? string.Empty;
-            _latestVersion = TryParseReleaseVersion(_latestReleaseTag, out Version version) ?
-                version : new Version(0, 0, 0);
             _newerVersionAvailable = updateAvailable;
             releaseTag = _latestReleaseTag;
             return updateAvailable;
-        }
-
-        // Much more compact and elegant way of checking if there is a new update available than the
-        // shenanigans with fetching newest.txt and using a .txt file as a DTO instead of simply
-        // passing a string to the function that displays the updater window.
-        // I wanted to make this method async, but these can't have an out parameter and this is the signature i wanted
-        // it to have
-        public static bool CheckNewerVersionExists(out Version version, bool allowCached = true)
-        {
-            bool result = CheckNewerReleaseExists(out _, allowCached);
-            version = _latestVersion ?? new Version(0, 0, 0);
-            return result;
         }
 
         public static async Task<Dictionary<Version, string>> GetChangelog(bool allVersions = false)

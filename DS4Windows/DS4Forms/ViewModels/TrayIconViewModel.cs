@@ -513,7 +513,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 >= 80 and < 90 => $"{Global.RESOURCES_PREFIX}/80.ico",
                 >= 90 and < 100 => $"{Global.RESOURCES_PREFIX}/90.ico",
                 100 => $"{Global.RESOURCES_PREFIX}/100.ico",
-                _ => $"{Global.RESOURCES_PREFIX}/DS4W.ico"
+                _ => $"{Global.RESOURCES_PREFIX}/{ProductInfo.AppIconFileName}"
             };
         }
 

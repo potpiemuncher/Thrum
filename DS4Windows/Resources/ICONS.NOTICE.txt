@@ -1,0 +1,45 @@
+Application and tray icon attribution
+=====================================
+
+The application icon, the tray icon variants and the battery tray icons in
+this directory are original work of the Thrum project, licensed under the
+GNU General Public License version 3 or later, the same terms as the rest of
+this program.
+
+    Thrum.ico            coloured application and default tray icon
+    Thrum - White.ico    monochrome tray icon for dark taskbars
+    Thrum - Black.ico    monochrome tray icon for light taskbars
+    0.ico .. 100.ico     battery-level tray icons, in steps of ten
+
+They are PLACEHOLDERS pending a real visual identity. Nothing about the
+current mark - a rounded square carrying a letter T in a deep violet - is a
+design decision anyone should feel obliged to preserve. It exists so that the
+product stops shipping another project's brand, not because it is finished.
+
+They are generated, not drawn by hand. The generator is committed alongside
+them at:
+
+    utils/generate-thrum-icons/
+
+Run it from the repository root:
+
+    dotnet run --project utils/generate-thrum-icons
+
+It rewrites every file listed above in place and is idempotent.
+
+Why the generator is in the repository rather than just its output: each of
+these files carries seven frames in two different encodings - uncompressed
+32-bit BMP at 16, 24, 32 and 48 pixels, and PNG at 64, 128 and 256. That mix
+is load bearing rather than incidental. WPF reads either kind, but the tray
+goes through GDI, which selects a frame by size before decoding; an icon with
+only PNG frames fails at runtime in the notification area while building and
+testing perfectly. Recovering that recipe by inspecting a finished .ico is
+tedious and easy to get subtly wrong, so whoever replaces these placeholders
+should change the drawing code and re-run the tool rather than hand-authoring
+replacements.
+
+No inherited icon assets remain here. The former DS4W.ico, DS4W - White.ico
+and DS4W - Black.ico were deleted rather than renamed.
+
+Controller artwork is a separate matter with separate terms: see
+ControllerArtwork.NOTICE.txt in this directory.

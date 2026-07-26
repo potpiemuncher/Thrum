@@ -30,14 +30,22 @@ namespace DS4WinWPF.DS4Forms
         {
             InitializeComponent();
 
-            string version = $"{Global.exeDisplayVersion})";
-            headerLb.Content += version;
-        }
+            headerLb.Content =
+                $"{ProductInfo.ProductName} {Global.exeDisplayVersion}";
 
+            // The warranty disclaimer is not decoration. GPLv3 section 5(d)
+            // requires an interactive program that normally prints one to keep
+            // doing so, and the About box is where this one lives.
+            licenceTb.Text =
+                $"{ProductInfo.ProductName} is free software: you may redistribute " +
+                "it and modify it under the terms of the GNU General Public " +
+                "License, version 3 or (at your option) any later version. It " +
+                "comes with ABSOLUTELY NO WARRANTY, to the extent permitted by " +
+                "law. The full licence text is on the License tab, and the " +
+                "corresponding source for every release is published in the " +
+                "project repository.";
 
-        private void SiteLink_Click(object sender, RoutedEventArgs e)
-        {
-            Util.StartProcessHelper("https://ryochan7.github.io/ds4windows-site/");
+            lineageTb.Text = $"What {ProductInfo.ProductName} is built on";
         }
 
         private void SourceLink_Click(object sender, RoutedEventArgs e)
@@ -98,6 +106,26 @@ namespace DS4WinWPF.DS4Forms
         private void ContributorsLink_OnClick(object sender, RoutedEventArgs e)
         {
             Util.StartProcessHelper($"{ProductInfo.ProjectUri}/blob/main/contributors.txt");
+        }
+
+        private void LicenceTextLink_Click(object sender, RoutedEventArgs e)
+        {
+            Util.StartProcessHelper("https://www.gnu.org/licenses/gpl-3.0.html");
+        }
+
+        private void HbashtonLink_Click(object sender, RoutedEventArgs e)
+        {
+            Util.StartProcessHelper("https://github.com/hbashton/DS4Windows");
+        }
+
+        private void ViiperLink_Click(object sender, RoutedEventArgs e)
+        {
+            Util.StartProcessHelper("https://github.com/hbashton/VIIPER");
+        }
+
+        private void SchmaldeoLink_Click(object sender, RoutedEventArgs e)
+        {
+            Util.StartProcessHelper("https://github.com/schmaldeo/DS4Windows");
         }
     }
 }

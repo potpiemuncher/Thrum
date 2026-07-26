@@ -219,9 +219,6 @@
   <data name="OtherFileLocation" xml:space="preserve">
     <value>、他の位置にあるファイルは削除されます</value>
   </data>
-  <data name="PleaseDownloadUpdater" xml:space="preserve">
-    <value>アップデーターをダウンロードして、プログラムフォルダ下に格納し DS4Updater.exe にリネームしてください。x86 の場合、再度更新を確認してください。このウインドウを閉じると、DS4Windows は DS4Updater のリリースページを開こうとします。</value>
-  </data>
   <data name="ProfileCannotRestore" xml:space="preserve">
     <value>*Profile name* を復元することはできません。</value>
   </data>

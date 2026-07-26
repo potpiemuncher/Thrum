@@ -306,9 +306,10 @@ namespace DS4Windows
                 {
                     Interlocked.Exchange(ref promptShownThisSession, 0);
                     AppLogger.LogToGui(
-                        "SUCCESSFUL: VIIPER setup finished successfully. Virtual controllers are ready. Restarting DS4Windows.",
+                        "SUCCESSFUL: VIIPER setup finished successfully. Virtual controllers are ready. Restarting " +
+                        ProductInfo.ProductName + ".",
                         false, false);
-                    RestartDs4Windows();
+                    RestartApplication();
                     return;
                 }
 
@@ -320,19 +321,25 @@ namespace DS4Windows
                     ? "VIIPER was installed, but Windows is not reporting every component as ready yet. Restart Windows once, then click Refresh."
                     : $"VIIPER setup could not finish (exit code {exitCode}).\n\n" +
                       "If a viiper.exe process was still running, it may have blocked the VIIPER registration step. " +
-                      "Close viiper.exe manually and run Repair again.\n\nReview the setup log for details:\n{logPath}";
+                      $"Close viiper.exe manually and run Repair again.\n\nReview the setup log for details:\n{logPath}";
                 ShowInstallerMessage(owner, message, "VIIPER setup",
                     exitCode == 0 ? MessageBoxImage.Warning :
                         MessageBoxImage.Error);
             }));
         }
 
-        private static void RestartDs4Windows()
+        private static void RestartApplication()
         {
-            string exePath = Path.Combine(Global.exedirpath, "DS4Windows.exe");
+            // Global.exelocation, not a composed "<product>.exe" under
+            // exedirpath: it is the executable actually running, so it survives
+            // a rename, a portable copy, and the junction/Scoop case that
+            // exelocation already resolves.
+            string exePath = Global.exelocation;
             if (!File.Exists(exePath))
             {
-                AppLogger.LogToGui("VIIPER setup succeeded, but DS4Windows.exe was not found for automatic restart.", true, true);
+                AppLogger.LogToGui("VIIPER setup succeeded, but " +
+                    ProductInfo.ExeBaseName +
+                    ".exe was not found for automatic restart.", true, true);
                 return;
             }
 
@@ -352,7 +359,7 @@ namespace DS4Windows
                 catch (Exception ex)
                 {
                     AppLogger.LogToGui(
-                        $"Could not restart DS4Windows automatically after VIIPER install: {ex.Message}",
+                        $"Could not restart {ProductInfo.ProductName} automatically after VIIPER install: {ex.Message}",
                         true, true);
                     return;
                 }
@@ -367,7 +374,7 @@ namespace DS4Windows
                 catch (Exception ex)
                 {
                     AppLogger.LogToGui(
-                        $"DS4Windows failed to restart automatically after VIIPER install: {ex.Message}",
+                        $"{ProductInfo.ProductName} failed to restart automatically after VIIPER install: {ex.Message}",
                         true, true);
                 }
             });

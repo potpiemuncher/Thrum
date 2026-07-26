@@ -440,7 +440,7 @@ try {
         Write-SetupLog "Registered hidden logon task '$taskName'." Green
     }
     else {
-        Write-SetupLog "Could not create hidden logon task. Setup will continue; VIIPER can still be started by DS4Windows when needed." Yellow
+        Write-SetupLog "Could not create hidden logon task. Setup will continue; VIIPER can still be started by Thrum when needed." Yellow
     }
 
     Write-Step "Verification"

@@ -23,3 +23,60 @@ Switch 2 Pro Controller remapping artwork is an adapted project asset based on
 "Nintendo Switch 2 Pro Controller.jpg" by Kyu3a, licensed under CC BY-SA 4.0:
 https://commons.wikimedia.org/wiki/File:Nintendo_Switch_2_Pro_Controller.jpg
 https://creativecommons.org/licenses/by-sa/4.0/
+
+================================================================================
+TO AUDIT (added 2026-07-25)
+================================================================================
+
+The entries above were inherited with this source tree and are incomplete. The
+items below are known to be used by, bundled with, vendored into, or required
+by this project but are NOT yet documented above. Each one still needs its
+license identified and confirmed against the actual distributed artifact
+before a release is published. Nothing is asserted about their license terms
+here; these are placeholders recording an outstanding audit, not notices.
+
+Runtime dependencies and backends
+- VIIPER (virtual-controller backend) - https://github.com/hbashton/VIIPER
+  Stated by the project as GPL-3.0. Consumed as a separately downloaded,
+  pinned release binary; not vendored into this repository. Confirm the
+  license text shipped with the pinned release asset.
+- usbip-win2 (kernel USB/IP driver) - https://github.com/vadimgrn/usbip-win2
+  External prerequisite, installed by the user, not redistributed here.
+  Understood to be BSD-2-Clause; confirm against the release package.
+- HidHide (device-hiding filter driver) - external optional prerequisite,
+  installed by the user from its own official installer. Not redistributed.
+
+NuGet package references (see DS4Windows/DS4WinWPF.csproj for versions)
+- NAudio
+- Concentus
+- WPFLocalizeExtension
+- H.NotifyIcon.Wpf
+- MdXaml
+- Ookii.Dialogs.Wpf
+- DotNetProjects.Extended.Wpf.Toolkit
+  (The csproj also references bloomtom.HttpProgress, Microsoft.Windows.CsWin32,
+  NLog, System.Management, System.Memory, TaskScheduler, WpfScreenHelper and
+  YellowDogMan.RRNoise.NET; the full package set is audited together.)
+
+Vendored source
+- SbcSharp - vendored under DS4Windows/ThirdParty/SbcSharp/, which carries its
+  own LICENSE.txt and NOTICE.md. Those files are authoritative; this file
+  should cross-reference them.
+
+Bundled binaries
+- FakerInputWrapper (FakerInputWrapper.dll, FakerInputDll.dll) - shipped under
+  DS4Windows/libs/{x64,x86}/FakerInputWrapper/.
+- SharpOSC (SharpOSC.dll) - shipped under DS4Windows/libs/{x64,x86}/SharpOSC/.
+
+Artwork
+- Controller artwork - DS4Windows/Resources/ControllerArtwork.NOTICE.txt
+  carries the artwork notices for the controller images. That file is
+  authoritative; this file should cross-reference it. The Switch 2 Pro entry
+  above is one item from that set and is not the whole of it.
+
+Protocol research credit
+- egormanga (SAxense) - DualSense protocol research.
+- awalol (DS5Dongle) - DualSense protocol research.
+  Credited for reverse-engineering work relied on by the DualSense transport
+  and audio paths. Confirm whether any code, as opposed to knowledge, is
+  derived from these sources, and record the applicable terms if so.

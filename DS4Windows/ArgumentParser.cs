@@ -26,6 +26,7 @@ namespace DS4WinWPF
         private bool mini;
         private bool stop;
         private bool driverinstall;
+        private bool viiperDriverDiagnostic;
         private bool reenableDevice;
         private string deviceInstanceId;
         private bool runtask;
@@ -39,6 +40,7 @@ namespace DS4WinWPF
         public bool Mini { get => mini; }
         public bool Stop { get => stop; }
         public bool Driverinstall { get => driverinstall; }
+        public bool ViiperDriverDiagnostic { get => viiperDriverDiagnostic; }
         public bool ReenableDevice { get => reenableDevice; }
         public bool Runtask { get => runtask; }
         public bool Command { get => command; }
@@ -61,6 +63,13 @@ namespace DS4WinWPF
                     case "driverinstall":
                     case "-driverinstall":
                         driverinstall = true;
+                        break;
+
+                    // Read-only VIIPER package identity/trust diagnostic. It
+                    // exits before the controller service is created.
+                    case "viiperdriverdiagnostic":
+                    case "-viiperdriverdiagnostic":
+                        viiperDriverDiagnostic = true;
                         break;
 
                     case "re-enabledevice":

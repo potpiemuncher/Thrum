@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone generator for Thrum's placeholder icon set. Deliberately NOT part
+    of DS4WindowsWPF.sln: it is a build-time authoring tool, not a product
+    component, and adding it to the solution would put it on the CI critical
+    path for no benefit.
+
+    Run it from the repository root with:
+        dotnet run  (dash dash) project utils/generate-thrum-icons
+
+    It rewrites DS4Windows/Resources/*.ico in place and is idempotent — running
+    it twice produces byte-identical files.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- System.Drawing.Common ships in the Windows Desktop shared framework,
+         so this needs no NuGet package and restores offline. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Thrum.IconGenerator</RootNamespace>
+    <AssemblyName>generate-thrum-icons</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <Platforms>AnyCPU</Platforms>
+  </PropertyGroup>
+
+</Project>

@@ -238,14 +238,8 @@
   <data name="DS4Update" xml:space="preserve">
     <value>DS4Windows Update Available!</value>
   </data>
-  <data name="DS4W" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\DS4W.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="DS4WindowsCannotEditHere" xml:space="preserve">
     <value>DS4Windows cannot edit settings here, This will now close</value>
-  </data>
-  <data name="DS4W___White" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\DS4W - White.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="EditProfile" xml:space="preserve">
     <value>Edit</value>
@@ -396,9 +390,6 @@
   </data>
   <data name="OtherFileLocation" xml:space="preserve">
     <value>, other location files will be deleted</value>
-  </data>
-  <data name="PleaseDownloadUpdater" xml:space="preserve">
-    <value>Please Download the Updater now, place it in the programs folder and rename to DS4Updater.exe if on x86, then check for update again. DS4Windows will attempt to open DS4Updater Release page when this window is closed.</value>
   </data>
   <data name="PleaseImport" xml:space="preserve">
     <value>Please import or make a profile</value>

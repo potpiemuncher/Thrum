@@ -333,3 +333,6 @@ ASALocalRun/
 !DS4Windows/libs/x64/
 !DS4Windows/libs/x86/
 
+# Build artifact: utils/post-build.py writes the packaged version here.
+# The tracked copy that matters is DS4Windows/newest.txt.
+/newest.txt

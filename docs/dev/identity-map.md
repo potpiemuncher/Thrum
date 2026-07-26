@@ -18,7 +18,8 @@ flip branch, and re-run again on the import branch; every row below carries a
 disposition and nothing is uncategorised.
 
 **Total raw hits: 1637 before the flip, 1644 after it, 1702 after the import
-pull request.** Most of that total is not identity at all — see
+pull request, 1754 after the icons/updater/version pull request.** Most of
+that total is not identity at all — see
 [Bulk categories](#bulk-categories) — so the number to watch is the
 per-category breakdown below, not the total. The count keeps *rising* while the
 identity literals themselves go away: the flip added explanatory prose to this
@@ -28,6 +29,13 @@ header and `namespace DS4Windows` line each contribute three hits before a line
 of logic is written. The genuinely new *literals* are two, both of them
 deliberate: the import source folder name, and the inherited startup entry names
 used as needles by the guard test that proves they appear nowhere else.
+
+The icons/updater/version change repeated the pattern: +52 hits, all of them
+prose (this file's revised rows, the progress log entry, the new tests' XML
+documentation explaining *why* the external updater is gone) plus four new
+guard-test needles. The literals it removed are larger than the ones it added
+— the whole `DS4Updater` pipeline, three `DS4W*.ico` file names, two resource
+references to them, and a dead localized string naming `DS4Updater.exe`.
 
 The flip's re-sweep found eight anchors the first pass had missed. Each is
 marked **(found in 1.2)** below: a duplicated `%APPDATA%` folder literal, five
@@ -43,7 +51,7 @@ message-box captions outside `App.xaml.cs`, and a hard-coded assembly name in
 | **DONE (1.1)** | Now reads from `ProductInfo`; value unchanged. |
 | **DONE (1.2+1.3)** | Landed by the flip pull request: `ProductInfo`'s values, the assembly rename, and the XAML / manifest / script sweep. Covers plan tasks 1.2, 1.3 and 1.5. |
 | **DONE (1.4+1.5)** | Landed by the import pull request: the one-time copy-import of an existing DS4Windows configuration, and the startup-name and HidHide audits that close out task 1.5. |
-| **icons+updater PR** | Icon and artwork assets, About box, update feed cutover (plan tasks 1.6, 1.7). |
+| **DONE (1.6+1.7+1.9)** | Landed by the icons/updater/version pull request: the placeholder icon set and its generator, the About box, the release-feed cutover and removal of the external updater, and the version reset. |
 | **localization PR** | `.resx` user-visible strings (plan task 1.8). |
 | **KEEP** | Deliberately unchanged. Reason given per row. |
 | **DECIDE** | Needs an explicit decision before the flip; default recorded. |
@@ -83,7 +91,7 @@ one commit.
 | 4 XAML pack URIs `/Thrum;component/Resources/*.png` | `DS4Forms/ProfileEditor.xaml:100,107,114,121` | **DONE (1.2)** |
 | 23 XAML `lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` | 23 `DS4Forms/*.xaml` files | **DONE (1.2)** — all 23. A missed one kills that page’s localization at runtime only, which is why the count is written down. The 1.4 import dialog is a 24th XAML file with **no** `lex` bindings: its text is English in the code-behind until the localization pull request gives it `.resx` keys, at which point it needs this attribute too. |
 | `ThemeResourceTests` relative pack URIs (2) | `DS4WindowsTests/ThemeResourceTests.cs` | **DONE (1.2)** — now composed from `ProductInfo.ExeBaseName` |
-| `PackageProjectUrl`, `RepositoryUrl` | `DS4WinWPF.csproj:29,31` | **DONE (1.2)** → `https://github.com/potpiemuncher/Thrum`. Package metadata only — `ProductInfo.ReleaseOwnerRepo` still points upstream until the update feed cuts over. |
+| `PackageProjectUrl`, `RepositoryUrl` | `DS4WinWPF.csproj:29,31` | **DONE (1.2)** → `https://github.com/potpiemuncher/Thrum`. Package metadata. `ProductInfo.ReleaseOwnerRepo` caught up in **1.7**. |
 | Solution/project names `DS4WinWPF`, `DS4WindowsTests` | `DS4WindowsWPF.sln`, project files | **KEEP** — project/namespace identity, out of Phase 1 scope (no `RootNamespace` change) |
 | `namespace DS4Windows` / `DS4WinWPF`, 272 declaration lines + 686 qualified `DS4Windows.Type` references | tree-wide `.cs` | **KEEP** — namespaces are not product identity; renaming them is a separate, purely cosmetic churn with a large conflict cost against `upstream-track` |
 
@@ -101,7 +109,7 @@ one commit.
 | `%LOCALAPPDATA%\Thrum` (`localAppDataPpath`) | `DS4Control/ScpUtil.cs:637` | **DONE (1.3)** → `ProductInfo.LocalAppDataFolderName`, value flipped |
 | `%TEMP%\Thrum` diagnostic report folder | `DS4Control/Viiper/Validation/ViiperDriverValidationCommand.cs:50` | **DONE (1.3)** → `ProductInfo.TempFolderName`, value flipped |
 | `%TEMP%\<product>.GameBarProbe.*.txt` | `DS4Control/GameBarIntegration.cs:829` | **DONE (1.2)** → `ProductInfo.ProductName` |
-| `Update Files\DS4Windows` cleanup path in the elevated updater batch | `DS4Control/Util.cs:305` | icons+updater PR |
+| `Update Files\DS4Windows` cleanup path in the elevated updater batch | `DS4Control/Util.cs:305` | **DONE (1.7)** — the whole `ElevatedCopyUpdater` method is gone, so both hard-coded literals inside it went with it. It was unreachable anyway: nothing ever passed `deleteUpdatesDir: true`. |
 | `%APPDATA%\<product>\Logs` for the Bluetooth speaker diagnostic dump | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4023` | **DONE (1.2)** — **(found in 1.2)**. An independent hard-coded copy of the AppData folder name that bypassed `Global.appDataPpath` entirely; a `ScpUtil`-only flip would have left these dumps in the old product's folder. Now `ProductInfo.AppDataFolderName`. (It still ignores portable mode — a pre-existing bug, out of scope here.) |
 | `%LOCALAPPDATA%\VIIPER` install dir | `extras/install-viiper-backend.ps1:9` | **KEEP** — VIIPER ecosystem state, shared with upstream installs |
 
@@ -222,17 +230,23 @@ so a vacuous pass is impossible.
 
 | Anchor | Location | Disposition |
 |---|---|---|
-| `GITHUB_RELEASES_API_URI`, `GITHUB_LATEST_RELEASE_API_URI` (`hbashton/DS4Windows`) | `DS4Control/ScpUtil.cs:3453,3454` | **DONE (1.1)** → `ProductInfo.ReleasesApiUri` / `LatestReleaseApiUri`; values flip in icons+updater PR |
-| Latest-release URL used by `DownloadUpstreamVersionInfo` | `DS4Forms/ViewModels/MainWindowsViewModel.cs:863` | **DONE (1.1)** |
-| `DS4Updater.exe` / `DS4Updater_x86.exe` (5 sites) | `MainWindowsViewModel.cs:800,824,834,908` | **DONE (1.1)** → `ProductInfo.UpdaterExeName` / `UpdaterExeNameX86` |
-| `hbashton/DS4Updater` releases API + download URL | `MainWindowsViewModel.cs:804,833` | **DONE (1.1)** → `ProductInfo.UpdaterLatestReleaseApiUri` / `UpdaterReleasesPageUri` |
-| `hbashton/DS4Updater` release-tag links (2) | `DS4Forms/MainWindow.xaml.cs:328,390` | **DONE (1.1)** → `ProductInfo.UpdaterReleasesPageUri` |
-| `InstalledReleaseFileName = "DS4Windows.release"` | `DS4Control/ReleaseChannelPolicy.cs:11` | **DONE (1.1)** → `ProductInfo.InstalledReleaseFileName` (derived from `ExeBaseName`, so it flips with the assembly rename) |
-| Project link `https://github.com/hbashton/DS4Windows` | `DS4Forms/About.xaml.cs:45` | **DONE (1.1)** → `ProductInfo.ProjectUri` |
-| Contributors link `…/blob/main/contributors.txt` | `DS4Forms/About.xaml.cs:100` | **DONE (1.1)** → composed from `ProductInfo.ProjectUri` |
+| `GITHUB_RELEASES_API_URI`, `GITHUB_LATEST_RELEASE_API_URI` | `DS4Control/ScpUtil.cs:3453,3454` | **DONE (1.7)** — aliases of `ProductInfo.ReleasesApiUri` / `LatestReleaseApiUri`; both now resolve to `potpiemuncher/Thrum`. |
+| `ProductInfo.ReleaseOwnerRepo` | `DS4Control/ProductInfo.cs` | **DONE (1.7)** → `potpiemuncher/Thrum`. Every other release URL is composed from it, so they cannot disagree about whose builds to offer. |
+| Latest-release URL used by `DownloadUpstreamVersionInfo` | `MainWindowsViewModel.cs:863` | **DONE (1.7)** — the method had no callers and was deleted. It wrote a `version.txt` that only the equally dead `Check_Version` read. |
+| `DS4Updater.exe` / `DS4Updater_x86.exe`, `hbashton/DS4Updater` API and page URLs | `ProductInfo.cs`, `MainWindowsViewModel.cs` | **DONE (1.7)** — **all five constants deleted, not repointed.** There is no Thrum updater to name yet, and a repointed constant is an invitation to wire the pipeline back up. |
+| `Util.ElevatedCopyUpdater` and its `%TEMP%` `updatercopy.bat` elevation | `DS4Control/Util.cs:290` | **DONE (1.7)** — deleted with its single caller. This was the only elevation anywhere in the update path. |
+| `MainWindowsViewModel.RunUpdaterCheck` / `LauchDS4Updater` / `DownloadUpstreamUpdaterVersion` | `MainWindowsViewModel.cs:802–939` | **DONE (1.7)** — deleted. Together they were the download, the elevated copy and the launch. |
+| `MainWindow.Check_Version` | `MainWindow.xaml.cs:335` | **DONE (1.7)** — deleted; no callers, and a second older copy of the same update flow. |
+| `Changelog.CheckNewerVersionExists` and the `_latestVersion` cache field | `ScpUtil.cs:3535` | **DONE (1.7)** — deleted; no callers. |
+| `hbashton/DS4Updater` release-tag links (2) | `MainWindow.xaml.cs:328,390` | **DONE (1.7)** — both gone with the methods that contained them. |
+| Three hard-coded `"DS4Windows Updater"` message-box captions | `MainWindow.xaml.cs:275,2031,2035` | **DONE (1.7)** → `ProductInfo.ProductName`. Same class as the five captions found in 1.2. |
+| `PleaseDownloadUpdater` resource string (4 languages) | `Properties/Resources*.resx` | **DONE (1.7)** — deleted. It told the user to download and rename `DS4Updater.exe`, describing a feature that no longer exists, and it was the last thing in the neutral resources naming the updater binary. |
+| `InstalledReleaseFileName = "DS4Windows.release"` | `DS4Control/ReleaseChannelPolicy.cs:11` | **DONE (1.1)** → `ProductInfo.InstalledReleaseFileName` (derived from `ExeBaseName`, so it flipped with the assembly rename) |
+| Project link `https://github.com/hbashton/DS4Windows` | `DS4Forms/About.xaml.cs:45` | **DONE (1.1)** → `ProductInfo.ProjectUri`, value flipped in **1.7**. A separate, deliberate hbashton link now exists in the About box's lineage credits — that one is attribution and must *not* track `ProductInfo`. |
+| Contributors link `…/blob/main/contributors.txt` | `DS4Forms/About.xaml.cs:100` | **DONE (1.1)**, value flipped in **1.7** |
 | HTTP `User-Agent: DS4Windows` (2) | `App.xaml.cs:621,638` | **DONE (1.1)** → `ProductInfo.HttpUserAgent` |
-| `newest.txt` (contains `4.0.2.1`) | `DS4Windows/newest.txt` | **DEFER** to the version reset (plan task 1.9). Not read by any code in this tree — and `post-build.py` writes its copy to the *repository root*, never to this file, so the committed one is already dead. |
-| `Changelog.json` | `DS4Windows/Changelog.json` (16 hits, stale `3.3.3` data) | icons+updater PR. **Not referenced by any code** — no reader exists in this tree; treat as a dead asset to replace or delete. |
+| `newest.txt` (contained `4.0.2.1`) | `DS4Windows/newest.txt` | **DONE (1.9)** → `0.9.0`. Re-verified dead: `post-build.py` writes its copy to the *repository root* from the CI version argument, never to this file, and no code in the tree reads either copy. The root copy is now `.gitignore`d as the build artifact it is. |
+| `Changelog.json`, `Changelog.min.json` | `DS4Windows/` | **DONE (1.7)** — **deleted.** Re-verified against `ChangelogWindow` as the task required, because "nothing reads it" is exactly the kind of finding that is wrong once: that window does **not** read them. It goes `ChangelogViewModel` → `Changelog.GetChangelogMarkdown` → an HTTP GET of the releases API, and renders GitHub release bodies as markdown. The two files were 219 KB of stale 3.3.3 data with no reader in the csproj, the workflows, the build scripts or the C#. Closes open decision 2. |
 | `hbashton/VIIPER` releases URL | `DS4Control/Viiper/ViiperSetupManager.cs:69` | **KEEP** — the backend's own repository |
 
 ---
@@ -241,15 +255,18 @@ so a vacuous pass is impossible.
 
 | Anchor | Location | Disposition |
 |---|---|---|
-| `ApplicationIcon = DS4W.ico` | `DS4WinWPF.csproj:11` | icons+updater PR |
-| Tray icon assets `DS4W.ico`, `DS4W - White.ico`, `DS4W - Black.ico` | `Resources/`, csproj `None`+`Resource` entries (6 lines) | icons+updater PR |
-| `TrayIconChoice` → icon map (5 entries) | `DS4Control/ScpUtil.cs:1022–1029` | icons+updater PR (the prefix already comes from `ProductInfo`; only the file names change) |
-| Battery tray icons `0.ico` … `100.ico` + `DS4W.ico` fallback | `DS4Forms/ViewModels/TrayIconViewModel.cs:505–516` | icons+updater PR (fallback only) |
+| `ApplicationIcon` | `DS4WinWPF.csproj:11` | **DONE (1.6)** → `Resources\Thrum.ico`. Also **de-duplicated**: the inherited value named a second copy of the icon at the project root (`DS4Windows/DS4W.ico`) that had to be kept in step with `Resources/DS4W.ico` by hand. There is now one file. |
+| Tray icon assets `DS4W.ico`, `DS4W - White.ico`, `DS4W - Black.ico` | `Resources/`, csproj `None`+`Resource` entries (6 lines) | **DONE (1.6)** → `Thrum.ico`, `Thrum - White.ico`, `Thrum - Black.ico`. The three inherited files were **deleted**, not kept alongside. |
+| `TrayIconChoice` → icon map (5 entries) | `DS4Control/ScpUtil.cs:1022—1029` | **DONE (1.6)** → composed from `ProductInfo.AppIconFileName` / `WhiteTrayIconFileName` / `BlackTrayIconFileName`, so the map cannot name a file the identity does not. |
+| Battery tray icons `0.ico` — `100.ico` + fallback | `DS4Forms/ViewModels/TrayIconViewModel.cs:505—516` | **DONE (1.6)** — **contents replaced, names kept.** The view model composes these paths arithmetically from the battery percentage; the names describe a level, not a brand, so renaming them would have meant rewriting that switch to buy nothing. The fallback now uses `ProductInfo.AppIconFileName`. |
+| Dead `ResXFileRef` entries `DS4W`, `DS4W___White` | `Properties/Resources.resx`, `Resources.ru.resx`, `Resources.Designer.cs` | **DONE (1.6)** — deleted. Nothing read `Properties.Resources.DS4W*`, but a file reference to a deleted `.ico` is a *build* failure, so these had to move with the files either way. `DS4` → `DS4.ico` stays: that one is device artwork and its target still exists. |
+| Icon provenance notice | `Resources/ICONS.NOTICE.txt` (new) | **DONE (1.6)** — states that the icons are project-owned, GPL, generated by `utils/generate-thrum-icons/`, and explicitly placeholders. Ships next to `ControllerArtwork.NOTICE.txt`. |
+| Icon generator | `utils/generate-thrum-icons/` (new) | **DONE (1.6)** — a committed `dotnet run` tool that renders the mark and assembles the multi-resolution `.ico` files. Deliberately **not** in `DS4WindowsWPF.sln`: it is authoring tooling, not a product component, and does not belong on the CI critical path. |
 | Tray tooltip text, balloon title and tray title | `DS4Forms/ViewModels/TrayIconViewModel.cs:32,34,35` | **DONE (1.2)** → `ProductInfo.ProductName` — **(found in 1.2)**. Three literals; without them the tray would still have introduced itself as DS4Windows after every other rename landed. |
-| Shell header text and its `D` monogram | `DS4Forms/Themes/BridgeShellStyles.xaml:459` | **DONE (1.2)** — the header is bound to `{x:Static identity:ProductInfo.ProductName}` and the monogram letter is now `T`. A real logo lands with the icons pull request. |
-| About header `"DS4Windows - hbashton Build (Version "` | `DS4Forms/About.xaml:12` | icons+updater PR |
+| Shell header text and its `D` monogram | `DS4Forms/Themes/BridgeShellStyles.xaml:459` | **DONE (1.2)** — the header is bound to `{x:Static identity:ProductInfo.ProductName}` and the monogram letter is now `T`. Left as a text monogram in 1.6: the icon set is an explicit placeholder, so replacing one placeholder with another inside the shell chrome would have been motion rather than progress. |
+| About header `"DS4Windows - hbashton Build (Version "` | `DS4Forms/About.xaml:12` | **DONE (1.6)** — the literal was **removed** from the XAML rather than re-spelled. It was a half-sentence with the version appended in the constructor, which is precisely the shape of string a rebrand walks past. The label's content is now assigned wholly in the constructor from `ProductInfo.ProductName` and `Global.exeDisplayVersion`. |
 | Controller artwork `DualShock 4 / DualSense / DualSense Edge / Switch 2 Pro Controller.png`, `DS4-Config_*.png`, `DS4 Config.png`, … | `Resources/` | **KEEP** — these name the *devices*, not the product, and are licensed per `Resources/ControllerArtwork.NOTICE.txt`. Covered by the new resource guard test. |
-| `ds4winwpf_screen_20200412.png` (repo screenshot) | repo root | **DEFER** to the icons pull request. It is a screenshot of the old UI under the old brand, so renaming the file buys nothing; it gets replaced or deleted with the visual identity. |
+| `ds4winwpf_screen_20200412.png` (repo screenshot) | repo root | **DONE (1.6)** — deleted. Nothing in the tree referenced it and the README that once embedded it was replaced in 0.5, so it was an orphaned picture of another product's user interface. A replacement waits for a UI worth screenshotting. |
 
 ---
 
@@ -261,10 +278,12 @@ so a vacuous pass is impossible.
 | `re.compile(r"^DS4Windows/")` matching the entry assembly's `deps.json` library key | `utils/inject_deps_path.py:16` | **DONE (1.2)** — **(found in 1.2)**. The nastiest miss in the sweep: this script rewrites the app's own library `path` to `./`, and with a stale pattern it would have matched nothing, exited 0, and produced a package that only fails at launch. It now derives the assembly name from the `deps.json` filename, so it cannot go stale again. |
 | Install path, release API, download URL, zip name, folder move, desktop shortcut, exe name (12 hits) | `ds4w.bat` | **DEFER**. Inert legacy helper: nothing in the build, the workflows, or the app references it. It gets rewritten or deleted in a later phase rather than half-flipped now. |
 | Artifact name `Thrum_…`, packaged folder name, step summary text | `.github/workflows/ci-build.yml:85,91,98,102` | **DONE (1.2)**. The test-project and csproj *paths* are directory names and stay. |
-| Zip asset names | `.github/workflows/release.yml:54,56` | **DONE (1.2)**. The csproj-parse and publish *paths* are directory names and stay. |
+| Zip asset names | `.github/workflows/release.yml:54,56` | **DONE (1.2)**. |
+| Version XPath `DS4Windows/DS4WinWPF.csproj` → `.//AssemblyVersion`, `.//Version` | `.github/workflows/release.yml:33,34` | **DONE (1.9)** — repointed at the new root `Directory.Build.props`. This is the trap in moving version properties out of a project file: the step parses XML by path, so it would have kept succeeding against a csproj that no longer declares a version — `find()` returns `None` and the failure surfaces as an unhelpful `AttributeError` mid-release. |
 | Bug-report template product name and log file name | `.github/ISSUE_TEMPLATE/bug_report.md:25,30` | **DONE (1.2)** |
 | `Thrum-VIIPER-Setup` temp dir and User-Agent (3 hits), plus 4 product-name mentions in the script’s own log and error text | `extras/install-viiper-backend.ps1:12,70,89,177,238,244,323` | **DONE (1.2)**. `RunVIIPER` and `%LOCALAPPDATA%\VIIPER` are untouched. |
 | `!DS4Windows/libs/x64/`, `!DS4Windows/libs/x86/` | `.gitignore:333,334` | **KEEP** — project *directory* paths, not identity |
+| Root `/newest.txt` | `.gitignore` | **DONE (1.9)** — added. `post-build.py` writes it on every local package run, so it turned up as an untracked file inviting an accidental commit of a build artifact. |
 | Bezier editor web app strings + Ryochan7 wiki links (8 hits) | `DS4Windows/BezierCurveEditor/build.js`, `index.html` | **KEEP** for now — vendored third-party web app; the wiki links are upstream documentation. Revisit in the localization PR if the in-app text is reachable. |
 
 ---
@@ -282,6 +301,9 @@ qualified type references, which stay. The identity-bearing ones:
 | New guard tests | `ProductIdentityTests.cs` | n/a — these enforce the rest |
 | Startup-entry guard tests, incl. the literal scan for `RunDS4Windows` / `DS4Windows.lnk` | `StartupEntryIdentityTests.cs` | **DONE (1.5)** — the two inherited names appear here *on purpose*, as the needles. This is the only file in the repository that should contain them. |
 | Import tests | `SettingsImportTests.cs` | **DONE (1.4)** — the `DS4Windows` source folder name appears as the expected value of `ImportPlanner.LegacySourceFolderName`. |
+| Icon guard tests | `IconResourceTests.cs` | **DONE (1.6)** — every icon loads through **both** `System.Drawing.Icon` and `BitmapFrame`, and still carries uncompressed frames at 16/24/32/48. The last of those is the one that matters: the negative control proved that a PNG-only icon passes the `System.Drawing.Icon` load test, so the load tests alone would not have caught the regression they exist to catch. |
+| Update-feed guard tests | `UpdateFeedTests.cs` | **DONE (1.7)** — the four `DS4Updater` artefacts appear here *on purpose*, as the binary scan's needles. Along with `StartupEntryIdentityTests.cs`, this is one of only two files in the repository that should contain them. |
+| Version compatibility tests | `VersionCompatibilityTests.cs` | **DONE (1.9)** — `app_version="4.0.2.1"` and `config_version` fixtures. These carry inherited version strings as *data being read*, which is the point of the file. |
 
 ---
 
@@ -314,6 +336,21 @@ Bulk-counted, not enumerated. The localization PR owns all of it.
 
 ---
 
+## 12. Version, and why it is not identity
+
+Version numbering is not in the same category as the names above, but it is
+recorded here because the version reset happened in the same pull request and
+because one version number in this repository *is* an identity anchor.
+
+| Anchor | Location | Disposition |
+|---|---|---|
+| `Version`, `AssemblyVersion`, `FileVersion`, `InformationalVersion` | root `Directory.Build.props` (new) | **DONE (1.9)** — `0.9.0-beta.1` / `0.9.0.0` / `0.9.0.0`. Both projects inherit; the per-csproj copies were removed. |
+| `InformationalVersion` base-commit suffix | root `Directory.Build.props` | **DONE (1.9)** — `(base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)`. **This one is identity.** It is the only place in a shipped binary that says which upstream tree it derives from, which GPL correspondence needs and support triage needs. A guard test asserts both the commit and the base version survive. |
+| `app_version` XML attribute | `AppSettingsDTO`, `ProfileDTO`, `OutputSlotPersistDTO`, `ProfileMigration` | **KEEP, and keep write-only.** Every one of the three DTO properties declares `set { }`: the value is parsed off disk and discarded. That is what makes a configuration written by DS4Windows 4.0.2.1 loadable by a build numbered 0.9.0, and it is now pinned by test rather than left as an observation. |
+| `config_version` (`CONFIG_VERSION = 5`, `APP_CONFIG_VERSION = 2`) | `ScpUtil.cs:675,676` | **KEEP, unchanged.** File-format versions, independent of the product version. Renumbering the product must not renumber the format, or every existing file changes meaning. `APP_CONFIG_VERSION` is never compared to anything; `CONFIG_VERSION` is compared exactly once, one-directionally. |
+
+---
+
 ## Bulk categories
 
 Where the 1637 raw hits actually live:
@@ -340,8 +377,10 @@ Phase 1 pull request touches.
    `ds4windows`). External integrations bind to these paths. Default: keep, and
    document them as a stable compatibility surface. Revisit only with a
    migration story.
-2. **`Changelog.json`**. Nothing reads it. Replace with our own changelog feed
-   in the icons+updater PR, or delete it.
+2. ~~**`Changelog.json`**.~~ **CLOSED (1.7): deleted.** Re-verified against
+   `ChangelogWindow` first, since "nothing reads it" is a finding that only has
+   to be wrong once. It is not the reader: it fetches the releases API and
+   renders release bodies. See §6.
 3. **Namespace rename** (`DS4Windows` / `DS4WinWPF` → product namespaces). Not
    in Phase 1. It is pure churn against `upstream-track` and buys nothing a
    user can see; if it is ever done, it should be a single mechanical commit
@@ -351,3 +390,12 @@ Phase 1 pull request touches.
    whether to rename them to `THRUM_*`, or to accept both spellings for a
    release and then drop the old one. Either way it needs a test, since nothing
    in the tree currently proves a variable is still read.
+5. **`Resources.UpToDate` says "DS4Windows application is up-to-date."**
+   Raised by 1.7, deliberately *not* fixed there. It is the body of the message
+   box the rewritten update check now shows, so it is visibly wrong prose in a
+   flow this pull request owns — but it is a `.resx` value with 24 translations,
+   and the whole point of giving the localization pull request sole ownership of
+   those 223 hits is that they get one scripted pass with a translator log,
+   rather than four pull requests each editing the English and leaving the rest
+   behind. Flagged here so 1.8 does not have to rediscover it. The same applies
+   to the `FakeExeName` tooltip, which still names DS4Updater as an example.

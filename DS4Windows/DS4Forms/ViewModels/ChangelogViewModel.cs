@@ -45,10 +45,22 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         }
         public event EventHandler MarkdownChanged;
 
+        /// <summary>
+        /// Release notes are read from this product's GitHub releases, so
+        /// until it has published one there is genuinely nothing to show.
+        /// An empty markdown document renders as a blank window, which reads
+        /// as a broken feature rather than an accurate one.
+        /// </summary>
+        internal static string EmptyChangelogMarkdown =>
+            $"No release notes yet.{Environment.NewLine}{Environment.NewLine}" +
+            $"{ProductInfo.ProductName} has not published a release. Once it " +
+            "does, the notes for each version appear here.";
+
         public async Task DisplayChangelog()
         {
             var changelog = await Changelog.GetChangelogMarkdown(true);
-            Markdown = changelog;
+            Markdown = string.IsNullOrWhiteSpace(changelog) ?
+                EmptyChangelogMarkdown : changelog;
         }
     }
 }

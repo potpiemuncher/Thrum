@@ -1,0 +1,42 @@
+<Project>
+
+  <!--
+    Single source of the product version for every project in the repository.
+
+    Both the application and the test project inherit these; neither declares a
+    version of its own any more. The application's csproj used to carry the
+    four properties directly, which meant a release could ship an
+    AssemblyVersion and an InformationalVersion that disagreed because only one
+    of them got edited.
+
+    Version numbering restarts here. This product is a fork of hbashton's
+    DS4Windows 4.0.2.1, but it is not a 4.x continuation of it: it has its own
+    identity, its own release feed and no releases yet, so continuing upstream's
+    numbering would have promised a maturity that does not exist and made every
+    future version comparison against upstream meaningless.
+
+    InformationalVersion carries the base commit for two reasons that are worth
+    stating because they are the reason it must not be shortened:
+      * GPL correspondence - a user handed a binary must be able to identify the
+        upstream tree it derives from, not just this repository.
+      * Support triage - "which upstream fix is in this build" is otherwise
+        unanswerable from the binary alone.
+
+    Note for the release workflow: release.yml reads AssemblyVersion and Version
+    out of this file by XPath. If either element is renamed or moved, that step
+    has to move with it.
+  -->
+
+  <PropertyGroup>
+    <Version>0.9.0-beta.1</Version>
+    <!-- Win32 binary version fields cannot carry a prerelease suffix; they are
+         the numeric core of the same version. -->
+    <AssemblyVersion>0.9.0.0</AssemblyVersion>
+    <FileVersion>0.9.0.0</FileVersion>
+    <InformationalVersion>0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)</InformationalVersion>
+    <!-- Without this the SDK appends "+<commit sha>" to InformationalVersion,
+         which would land inside the parenthetical above. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+</Project>

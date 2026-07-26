@@ -241,14 +241,8 @@
   <data name="DS4Update" xml:space="preserve">
     <value>Доступна новая версия DS4Windows!</value>
   </data>
-  <data name="DS4W" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\DS4W.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="DS4WindowsCannotEditHere" xml:space="preserve">
     <value>DS4Windows не может изменить настройки! Это приведёт сейчас к закрытию!</value>
-  </data>
-  <data name="DS4W___White" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\DS4W - White.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="EditProfile" xml:space="preserve">
     <value>Редактировать</value>
@@ -396,9 +390,6 @@
   </data>
   <data name="OtherFileLocation" xml:space="preserve">
     <value>, старые настройки из другой папки будут удалены</value>
-  </data>
-  <data name="PleaseDownloadUpdater" xml:space="preserve">
-    <value>Пожалуйста, скачайте Updater, поместите его в папку с программой, переименуйте в DS4Updater.exe для x86 и снова проверьте наличие обновлений</value>
   </data>
   <data name="PleaseImport" xml:space="preserve">
     <value>Импортируйте или создайте профиль</value>

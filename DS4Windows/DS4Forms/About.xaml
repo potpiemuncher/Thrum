@@ -9,7 +9,13 @@
         Title="{lex:LocExtension HotkeysAbout}" Height="450" Width="800"
         Style="{DynamicResource WindowStyle}">
     <DockPanel>
-        <Label x:Name="headerLb" Content="DS4Windows - hbashton Build (Version " DockPanel.Dock="Top" HorizontalAlignment="Center" />
+        <!-- Content is assigned in the constructor from ProductInfo and the
+             assembly version. It is deliberately not a literal here: the old
+             one read "DS4Windows - hbashton Build (Version " and had the
+             version appended to it, which is exactly the shape of string that
+             survives a rebrand unnoticed. -->
+        <Label x:Name="headerLb" DockPanel.Dock="Top" HorizontalAlignment="Center"
+               FontSize="16" FontWeight="Bold" />
 
         <TabControl>
             <TabItem Header="Hotkeys">
@@ -709,27 +715,56 @@ Public License instead of this License.  But first, please read
                 </TextBox>
             </TabItem>
             <TabItem Header="Credits">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="10,0">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- <TextBlock><Hyperlink x:Name="siteLink" Click="SiteLink_Click" Foreground="{DynamicResource AccentColor}">Site</Hyperlink></TextBlock> -->
-                            <TextBlock Margin="20,0,0,0"><Hyperlink x:Name="sourceLink" Click="SourceLink_Click" Foreground="{DynamicResource AccentColor}">Source</Hyperlink></TextBlock>
-                            <TextBlock Margin="20,0,0,0"><Hyperlink Click="Ryochan7Link_Click" Foreground="{DynamicResource AccentColor}">Ryochan7</Hyperlink></TextBlock>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12,10,12,12">
+                        <TextBlock x:Name="licenceTb" TextWrapping="Wrap" />
+
+                        <TextBlock Margin="0,10,0,0">
+                            <Hyperlink x:Name="sourceLink" Click="SourceLink_Click" Foreground="{DynamicResource AccentColor}">Project repository and corresponding source</Hyperlink>
+                        </TextBlock>
+                        <TextBlock Margin="0,4,0,0">
+                            <Hyperlink Click="LicenceTextLink_Click" Foreground="{DynamicResource AccentColor}">GNU General Public License, version 3</Hyperlink>
+                        </TextBlock>
+                        <TextBlock Margin="0,4,0,0">
+                            <Hyperlink Click="ContributorsLink_OnClick" Foreground="{DynamicResource AccentColor}">Contributors</Hyperlink>
+                        </TextBlock>
+
+                        <TextBlock x:Name="lineageTb" Margin="0,22,0,0" FontWeight="Bold" />
+                        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">This is a fork of DS4Windows. Almost everything it knows about controllers was written by other people, over more than a decade, and is used here under the same licence.</TextBlock>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock><Hyperlink x:Name="hbashtonLink" Click="HbashtonLink_Click" Foreground="{DynamicResource AccentColor}">hbashton</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- DS4Windows DualSense fork, the base this product was forked from" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock><Hyperlink x:Name="viiperLink" Click="ViiperLink_Click" Foreground="{DynamicResource AccentColor}">VIIPER</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- virtual controller backend, by hbashton" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock><Hyperlink x:Name="schmaldeoLink" Click="SchmaldeoLink_Click" Foreground="{DynamicResource AccentColor}">Schmaldeo</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- DS4Windows maintainer" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock><Hyperlink Click="Ryochan7Link_Click" Foreground="{DynamicResource AccentColor}">Ryochan7</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- DS4Windows maintainer" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                             <TextBlock><Hyperlink x:Name="jays2KingsLink" Click="Jays2KingsLink_Click" Foreground="{DynamicResource AccentColor}">Jays2Kings</Hyperlink></TextBlock>
-                            <TextBlock Margin="20,0,0,0"><Hyperlink x:Name="inhexSTERLink" Click="InhexSTERLink_Click" Foreground="{DynamicResource AccentColor}">InhexSTER (Starter of DS4Tool)</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- DS4Windows" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock><Hyperlink x:Name="electrobrainsLink" Click="ElectrobrainsLink_Click" Foreground="{DynamicResource AccentColor}">electrobrains (Branched off of)</Hyperlink></TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock><Hyperlink x:Name="electrobrainsLink" Click="ElectrobrainsLink_Click" Foreground="{DynamicResource AccentColor}">electrobrains</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- branched off of" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock><Hyperlink Click="ContributorsLink_OnClick" Foreground="{DynamicResource AccentColor}">Contributors</Hyperlink></TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock><Hyperlink x:Name="inhexSTERLink" Click="InhexSTERLink_Click" Foreground="{DynamicResource AccentColor}">InhexSTER</Hyperlink></TextBlock>
+                            <TextBlock Margin="8,0,0,0" Text="- started DS4Tool, where the line begins" />
                         </StackPanel>
-                        <Label Content="Translators:" Margin="0,20,0,0" />
-                    </StackPanel>
-                    <TextBox TextWrapping="Wrap" xml:space="preserve" IsReadOnly="True"
-                             DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Auto" Margin="10,0,10,10">xLive - Arabic
+                        <TextBlock Margin="0,10,0,0" TextWrapping="Wrap">And everyone who has contributed code, translations, protocol research, bug reports and device testing to any project in that line. See the Extras tab for the third-party components this build ships.</TextBlock>
+
+                        <TextBlock Margin="0,22,0,0" FontWeight="Bold" Text="Translators" />
+                        <TextBox TextWrapping="Wrap" xml:space="preserve" IsReadOnly="True"
+                                 BorderThickness="0" Background="Transparent" Margin="0,6,0,0">xLive - Arabic
 mayawei - Chinese
 SyaoranChang - Chinese (Taiwan)
 Maikeru007 - Czech
@@ -744,8 +779,9 @@ Leomelati - Portuguese (Brazilian)
 peter9811 - Spanish
 dondrakon, DragonZX, shikulja - Russian
 dondrakon - Ukranian
-                    </TextBox>
-                </DockPanel>
+                        </TextBox>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
             <TabItem Header="Extras">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

@@ -953,3 +953,358 @@ nothing else is otherwise awkward and non-deterministic.
   maintainer. Items 1, 3, 7 and 9 are the ones that cannot be inferred from CI.
 - Offer a re-import from Settings as part of plan task 4.7's first-run rework,
   so declining is recoverable without deleting a marker file by hand.
+
+---
+
+## 2026-07-25 — Phase 1.6 + 1.7 + 1.9 (visual identity, release-feed cutover, version reset)
+
+**Session scope:** Phase 1, tasks 1.6, 1.7 and 1.9. Branch
+`phase1/icons-updater-version`.
+
+Three tasks in one pull request because they are one story: this is the change
+where the product stops borrowing another project's face, another project's
+update feed, and another project's version number. Task 1.7 is also the last
+genuinely unsafe thing the rebrand inherited — see below.
+
+### 1.7 first, because it is a safety fix rather than branding
+
+Before this change, `ProductInfo.ReleaseOwnerRepo` still pointed at
+`hbashton/DS4Windows`, and the update path still worked exactly as upstream
+wrote it:
+
+1. check `hbashton/DS4Windows` releases,
+2. offer the user an update,
+3. on "yes", download `DS4Updater.exe` from `hbashton/DS4Updater`,
+4. copy it next to our executable — **through an elevated `.bat` script** if the
+   install needs admin,
+5. launch it with `--launchExe Thrum.exe`.
+
+`DS4Updater` installs DS4Windows. So a Thrum user who clicked "yes" would have
+had this product downloaded over, overwritten by, and replaced with the product
+it was forked from, with a UAC prompt in the middle of it. The auto-check was
+live too: `CheckWhen` defaults to 24 hours, and the `#if !BETA_VERSION` guard
+around the startup check is inert because `BETA_VERSION` is not defined in any
+configuration in the csproj.
+
+**The whole pipeline is deleted, not repointed.** What remains: the manual
+"Check for updates" button and the startup auto-check still query *our*
+releases API and still compare through `ReleaseChannelPolicy`; if a newer
+release exists, the existing dialog appears with its release notes, and "yes"
+opens the releases page in the user's browser. No download, no elevated copy,
+no process launch. `Util.ElevatedCopyUpdater` — the only elevation anywhere in
+the update path — is gone entirely.
+
+Deleted with it, all provably dead once their callers went:
+`MainWindowsViewModel.RunUpdaterCheck`, `LauchDS4Updater`,
+`DownloadUpstreamUpdaterVersion`, `DownloadUpstreamVersionInfo`;
+`MainWindow.Check_Version` (a second, older copy of the update flow that had no
+callers at all); `Changelog.CheckNewerVersionExists` and its `_latestVersion`
+cache; five `ProductInfo` updater constants; and the `PleaseDownloadUpdater`
+resource string in four languages, which told the user to download and rename
+`DS4Updater.exe` by hand.
+
+Repointed rather than deleted: `ReleaseOwnerRepo` → `potpiemuncher/Thrum`.
+Every other release URL is composed from it, so they cannot disagree.
+
+**Exact user-visible flow after the cutover.**
+
+| Situation | What the user sees |
+|---|---|
+| Manual check, no releases published (today's reality) | Message box titled "Thrum": the app is up to date. An informational line is written to the log saying no releases have been published yet. |
+| Manual check, release feed unreachable | Message box titled "Thrum" reporting the failure; the HTTP status is logged. |
+| Manual check, newer release exists | The existing updater dialog, showing that release's notes. **Yes** opens `https://github.com/potpiemuncher/Thrum/releases` in the browser and the app keeps running. **No** / **Skip this version** behave as before. |
+| Startup auto-check (on by default, every 24 h) | Silent when up to date; otherwise the same dialog and the same browser-only outcome. |
+| Changelog button | Release notes from our repository, or "No release notes yet." while there are none. |
+
+### Zero releases: verified against the actual API shape, not assumed
+
+The task asked which shape our code hits, and the two endpoints differ in a way
+that matters. `GET /repos/{owner}/{repo}/releases` — the **list** endpoint —
+answers **200 with `[]`** for a repository that has published nothing.
+`/releases/latest` answers **404**. Our update check uses the list endpoint, so
+"no releases yet" arrives as an ordinary empty array rather than as something
+indistinguishable from a network failure.
+
+`SelectPreferredRelease([])` already returned null and `ShouldUpdate(null, …)`
+already returned false, so the *verdict* was correct before this change. What
+was missing was that it was silent: an empty feed, an unreachable feed and a
+malformed feed all produced the same "no update" with nothing in the log.
+`CheckNewerReleaseExists` now distinguishes them and logs the first two. A test
+pins that the update check does not depend on `/releases/latest`, since
+switching to it would turn today's normal state into an error path.
+
+`ChangelogWindow` and `UpdaterWindow` both render an empty feed as an explicit
+"No release notes yet." rather than a blank window, which reads as a broken
+feature rather than an accurate one.
+
+### `Changelog.json` — re-verified before deleting, and the verification mattered
+
+PR #1 recorded "no reader exists". That is the kind of finding that only has to
+be wrong once, and the task named the specific suspect: `ChangelogWindow`, which
+might read the JSON or might fetch remotely.
+
+Traced end to end. `ChangelogWindow` → `ChangelogViewModel.DisplayChangelog` →
+`Changelog.GetChangelogMarkdown(true)` → `GetChangelog(true)` → an HTTP GET of
+`GITHUB_RELEASES_API_URI`. It renders GitHub release bodies as markdown and
+never touches the file. (`ChangelogViewModel` still *imports* `System.Text.Json`
+and `System.IO` without using them — vestigial from the old local-file design,
+which is exactly what makes the file look live at a glance.)
+
+So the finding held. `Changelog.json` (123 KB) and `Changelog.min.json` (96 KB)
+are stale 3.3.3 data with no reader in the C#, the csproj, the workflows or the
+build scripts — they were not even copied to the output directory. **Both
+deleted.** Nothing needed pointing at a raw URL, because the changelog reader is
+the release feed, and the release feed moved in 1.7 on its own.
+
+### 1.6 — a placeholder icon set that is honest about being one
+
+`ApplicationIcon` was still `DS4W.ico`, the tray still showed DS4Windows's icon,
+and the eleven battery tray icons were upstream's.
+
+**What the mark is.** A rounded square in a deep violet with a bold white T. It
+is a placeholder and the notice file says so in those words. The colour brief
+was "not PlayStation blue"; violet is also clear of Xbox green and Nintendo red.
+
+**Generated, not drawn.** `utils/generate-thrum-icons/` is a committed
+`dotnet run` tool. It is deliberately **not** in `DS4WindowsWPF.sln`: it is
+authoring tooling, not a product component, and does not belong on the CI
+critical path. Verified idempotent — a second run produced byte-identical files.
+
+The reason the generator is committed rather than just its output is the frame
+recipe, and the frame recipe is the whole engineering content of this task.
+Each icon carries seven frames in two encodings: **uncompressed 32-bit BMP at
+16, 24, 32 and 48**, and **PNG at 64, 128 and 256**. WPF reads either. GDI —
+which is where H.NotifyIcon takes the tray icon — selects a frame by size
+*before* decoding, so the small BMP frames are load bearing. Recovering that
+recipe by inspecting a finished `.ico` is tedious and easy to get subtly wrong,
+so the intended way to replace these placeholders is to change the drawing code
+and re-run the tool.
+
+**Files.** `Thrum.ico`, `Thrum - White.ico`, `Thrum - Black.ico`, and
+`0.ico`…`100.ico`. The monochrome variants are a solid plate with the T knocked
+out to transparency, so one shape works on any taskbar tint. The battery icons
+keep their inherited numeric names on purpose — the tray view model composes
+those paths arithmetically from the percentage, the names describe a level
+rather than a brand, and renaming them would have meant rewriting that switch
+to buy nothing. They carry the base mark plus a proportional bottom bar,
+colour-coded red / amber / green, and no digits: legible numerals need about
+nine pixels of height and there are fourteen to spend on the entire icon at
+16x16.
+
+Deleted: `Resources/DS4W.ico`, `Resources/DS4W - White.ico`,
+`Resources/DS4W - Black.ico`, and `DS4Windows/DS4W.ico` — the last being a
+*second copy* of the application icon at the project root that `ApplicationIcon`
+named and that had to be kept in step with the `Resources` copy by hand.
+`ApplicationIcon` now points at `Resources\Thrum.ico`; there is one file.
+
+`Resources/ICONS.NOTICE.txt` states that the icons are project-owned, GPL,
+generated in-repo, and pending real design. It ships beside
+`ControllerArtwork.NOTICE.txt`.
+
+**About box.** Product name and version from `ProductInfo` and the assembly, a
+GPL-3.0-or-later notice carrying the warranty disclaimer that section 5(d)
+requires an interactive program to keep showing, lineage credits with links
+(hbashton for DS4Windows and VIIPER, Schmaldeo, Ryochan7, Jays2Kings,
+electrobrains, InhexSTER, plus the community and translators), and the
+repository link. The inherited `ryochan7.github.io/ds4windows-site` link and its
+dead handler are gone. The header label is the interesting one: it read
+`"DS4Windows - hbashton Build (Version "` with the version appended in the
+constructor — a half-sentence literal, which is exactly the shape of string a
+rebrand walks past. It is now assigned whole, in code, from `ProductInfo`.
+
+### 1.9 — version reset
+
+Root `Directory.Build.props` holds `0.9.0-beta.1` / `0.9.0.0` / `0.9.0.0` /
+`0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)`. Both projects
+inherit; the four per-csproj properties were removed and replaced with a comment
+saying why a local value must not come back (a local value silently wins, which
+is how upstream's four properties drifted apart in the first place).
+
+`release.yml` reads `AssemblyVersion` and `Version` **by XPath**, and pointed at
+the csproj. Repointed at `Directory.Build.props`. This is the trap in moving
+version properties: `ElementTree.find()` returns `None` rather than failing, so
+the step would have kept running against a csproj that no longer declares a
+version and produced an unhelpful `AttributeError` in the middle of a release.
+
+### The `app_version` compatibility question — verdict: **cannot misbehave**
+
+Required check, and the sharp end of the version reset: the product version went
+*backwards*, 4.0.2.1 → 0.9.0, while every settings file and every profile a
+DS4Windows user brings across — including everything the 1.4 importer copies —
+carries `app_version="4.0.2.1"` or older. From the running application's point
+of view those files were written by a newer build.
+
+Four independent findings, each sufficient on its own:
+
+1. **`app_version` has no reader.** All three DTO properties that bind the
+   attribute (`AppSettingsDTO`, `ProfileDTO`, `OutputSlotPersistDTO`) declare
+   `set { }` — an empty body. `XmlSerializer` parses the value off disk, hands
+   it to a method that does nothing, and it is gone. No field, no comparison,
+   no log. `ProfileMigration` reads `config_version` and never `app_version`.
+2. **`APP_CONFIG_VERSION` — the constant stamped into `Profiles.xml` — is never
+   compared to anything.** It is write-only. `BackingStore.Load()` contains no
+   version logic at all and does not construct a `ProfileMigration`; its only
+   failure path is `catch (InvalidOperationException)` on genuinely malformed
+   XML.
+3. **`CONFIG_VERSION` is compared exactly once and one-directionally**
+   (`ProfileMigration.cs:86`, `configFileVersion >= 1 && configFileVersion <
+   Global.CONFIG_VERSION`), and only for profile files. A value at or above ours
+   falls to the pass-through branch at `ScpUtil.cs:5571` and loads verbatim.
+   `Migrate()`'s switch has a `default: break;`, so even an out-of-range value
+   is a silent no-op.
+4. **No user-facing string anywhere mentions a newer or incompatible
+   configuration.** Swept `.cs`, `.xaml` and every `.resx` for
+   newer/downgrade/incompatible; every hit is updater plumbing, driver notices,
+   or GPL prose. No `XmlSerializer` `UnknownAttribute`/`UnknownElement` handler
+   is wired anywhere in the tree, so unrecognised header attributes are ignored
+   by design rather than by luck.
+
+Two things that look like risks and are not, named so nobody mistakes them
+later: `PostProcessLoad` does re-parse the stored `LastVersionChecked` string
+during load, but its only failure mode is blanking that update memo; and
+`Global.exeversion` feeds the *writer* side of all three DTOs, so the first save
+after upgrade simply rewrites the header to ours.
+
+The one real gap was test coverage: `AppSettingsTests`'s fixture root is a bare
+`<Profile>` with no header attributes at all, so nothing exercised a populated
+`app_version`. Closed — see below.
+
+`ReleaseChannelPolicy.IsPrereleaseBuild("0.9.0-beta.1")` → **true** (the regex
+alternation matches `beta`), and `TryParseReleaseVersion` extracts `0.9.0`.
+Worth checking rather than assuming: the marker moved from a trailing word
+("4.0.2.1 DualSense Beta") to a semver suffix, a different shape entirely. Now
+covered, including the negative case that plain `"0.9.0"` is *not* classified as
+a prerelease.
+
+### Tests: 548 → 570
+
+22 new, in three files.
+
+| File | Tests | What they pin |
+|---|---|---|
+| `IconResourceTests.cs` | 5 | Icon file names compose from `ProductInfo`; all five tray choices point at our own icons; all fourteen icons load through `System.Drawing.Icon` **and** `BitmapFrame`; all fourteen still carry uncompressed frames at 16/24/32/48. |
+| `UpdateFeedTests.cs` | 6 | The feed names `potpiemuncher/Thrum`; every release URL composes from one constant; the check uses the list endpoint and not `/releases/latest`; the five updater constants are absent by reflection; the five updater methods are absent by reflection; and no `DS4Updater` artefact appears anywhere in the compiled application. |
+| `VersionCompatibilityTests.cs` | 11 | A 4.0.2.1 header loads; four different headers produce identical state; saving rewrites the header from the running build; the format versions did not move with the product version; a newer-`config_version` profile passes through untouched (with an older-profile positive control); `0.9.0-beta.1` classifies as a prerelease; and the built assembly carries the reset version and the base commit. |
+
+**Negative controls, all run and all fired:**
+
+- Regenerated every icon with PNG-only frames:
+  `EveryIconCarriesUncompressedFramesAtTheShellSizes` failed with 56 specific
+  complaints. **The other four icon tests passed** — including the
+  `System.Drawing.Icon` load test, which accepted the PNG-only files. That is
+  the finding worth recording: the load test alone would *not* have caught the
+  regression it looks like it catches, and the frame-composition test is the
+  real guard. Generator restored and output verified byte-identical.
+- Added `"Thrum.release"` (genuinely present) to the updater needle list:
+  `NothingInTheApplicationCanNameTheExternalUpdater` failed, so the scan is not
+  looking at an empty haystack. It also carries a permanent positive control
+  asserting it can find our own releases URL.
+- Rebuilt the application with the old `4.0.2.1` / `"4.0.2.1 DualSense Beta"`
+  version and re-ran: `TheApplicationAssemblyCarriesTheResetVersion` and
+  `TheInformationalVersionRecordsTheUpstreamBaseCommit` both failed.
+  `TheBuiltAssemblyCarriesAPrereleaseInformationalVersion` correctly still
+  passed — both versions are prereleases, so it is a channel guard, not a
+  version-reset detector.
+- Made one settings fixture differ by header:
+  `TheHeaderVersionCannotInfluenceWhatIsLoaded` failed, so its comparison is
+  sensitive to what it claims to compare.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64 --no-incremental`
+  — **succeeded, 0 errors**. Ten distinct warnings, identical to the inherited
+  baseline; none new.
+- Full suite with the repository's CI filter: **570 passed / 0 failed**, up from
+  548 by exactly the 22 new tests.
+- CI's publish invocation and `utils/post-build.py` run locally. Packaged output
+  verified:
+  - `Thrum.exe` FileVersion **0.9.0.0**, ProductVersion **`0.9.0-beta.1 (base:
+    hbashton DS4Windows 4.0.2.1 @ 5d2724a)`**.
+  - The embedded application icon extracted from the packaged `Thrum.exe` is the
+    new mark.
+  - Both notices ship under `Resources\`.
+  - Zip named `Thrum_0.9.0-beta.1_x64.zip`.
+  - **Zero files matching `DS4W*`, `DS4Updater*` or `Changelog*` anywhere in the
+    package.**
+- `git grep -in "ds4windows"`: 1,754 hits, up 52. Every new hit is prose — this
+  entry, the revised identity-map rows, and the new tests' documentation
+  explaining why the updater is gone — plus four deliberate guard-test needles.
+  The literals removed outweigh those added.
+- The GUI application was **not** launched.
+
+### Deviations from the plan
+
+1. **`Changelog.json` was deleted rather than repointed.** The task offered
+   either outcome depending on what `ChangelogWindow` turned out to read. It
+   reads the releases API, so there was nothing to point at a raw URL and no
+   minimal changelog to commit; the changelog feed moved with `ReleaseOwnerRepo`
+   for free.
+2. **`DS4Windows/DS4W.ico` at the project root was deleted, not replaced.** It
+   was a duplicate of the `Resources` copy that `ApplicationIcon` named
+   separately. One file is now the source for both uses.
+3. **Two dead `ResXFileRef` entries were removed** (`DS4W`, `DS4W___White`, from
+   `Resources.resx`, `Resources.ru.resx` and the generated designer file).
+   Nothing read `Properties.Resources.DS4W*`, but a file reference to a deleted
+   `.ico` is a *build* failure, so they had to move with the files regardless.
+   The `DS4` entry stays: it points at `DS4.ico`, which is device artwork and
+   still exists.
+4. **`PleaseDownloadUpdater` was deleted from four `.resx` files**, although
+   `.resx` values otherwise belong to the localization pull request. The
+   justification is that it is *dead*, not that it is misbranded: it described a
+   feature that no longer exists. It was also the last thing in the neutral
+   resources naming `DS4Updater.exe`, which is what lets the guard test use that
+   as a needle.
+5. **`Resources.UpToDate` was left saying "DS4Windows application is
+   up-to-date."** This is visibly wrong prose in a flow this pull request owns,
+   and fixing it was tempting. Left alone deliberately: it is a `.resx` value
+   with 24 translations, and the reason 1.8 has sole ownership of those 223 hits
+   is so they get one scripted pass with a translator log instead of four pull
+   requests each fixing the English and abandoning the rest. Recorded as open
+   decision 5 in the identity map so 1.8 does not have to rediscover it.
+6. **Three hard-coded `"DS4Windows Updater"` message-box captions were
+   converted** to `ProductInfo.ProductName`. Same class as the five captions
+   found in 1.2 — code literals, not resources.
+7. **`ds4winwpf_screen_20200412.png` was deleted**, closing a DEFER the identity
+   map assigned to this pull request. Nothing referenced it and the README that
+   embedded it was replaced in 0.5, so it was an orphaned picture of another
+   product's user interface.
+8. **Root `/newest.txt` was added to `.gitignore`.** `post-build.py` writes it on
+   every local package run, so it appears as an untracked file inviting an
+   accidental commit of a build artifact. The tracked `DS4Windows/newest.txt` —
+   still dead, still not read by anything — is set to `0.9.0` as the task
+   specified.
+9. **`release.yml`'s version XPath was repointed** at `Directory.Build.props`.
+   Not called out in the task text, but moving the properties without it would
+   have broken the release workflow silently.
+10. **The generator is not in the solution.** It builds and runs via
+    `dotnet run --project utils/generate-thrum-icons`, inherits the root
+    `Directory.Build.props` like everything else, and is invisible to
+    `dotnet restore` / `dotnet build` of `DS4WindowsWPF.sln`.
+11. **The shell header monogram stayed a letter `T`.** 1.2 left a note that "a
+    real logo lands with the icons pull request". The icon set is an explicit
+    placeholder, so swapping one placeholder for another inside the shell chrome
+    would have been motion rather than progress.
+
+### Smoke items queued (need the GUI)
+
+- Tray icon appearance at 100% and 125%/150% DPI, on a light and a dark taskbar,
+  for all four non-battery choices — the 16px BMP frame is what the shell picks
+  and no test can judge how it *looks*.
+- Battery tray icon changing as a real controller discharges, including the
+  0-to-10% transition where the bar is one pixel of red.
+- "Check for updates" against the live (empty) feed: the up-to-date message box,
+  and the log line.
+- The About box's layout at the default window size, and every hyperlink.
+- The Changelog button with no releases published: "No release notes yet."
+
+### Next steps
+
+- **Phase 1.8 — string sweep.** The last Phase 1 task. It now also owns the
+  import dialog's English text (from 1.4), `Resources.UpToDate`, and the
+  `FakeExeName` tooltip that still names DS4Updater.
+- Run [`smoke-rebrand.md`](smoke-rebrand.md) and the icon items above once a
+  build is in front of the maintainer.
+- Phase 1 acceptance then needs a side-by-side run against a real DS4Windows
+  install.
+- Still open from earlier sessions: the `NOTICE.txt` audit (0.5 deviation 1),
+  the OSC address namespace, and the `DS4WINDOWS_*` environment variables.

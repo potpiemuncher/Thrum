@@ -197,13 +197,8 @@ namespace DS4Windows
         /// product's releases. Root of the release URLs below: point it at the
         /// wrong repository and the update check offers a different product's
         /// builds for download.
-        ///
-        /// Still points at the upstream repository: the update feed cutover is
-        /// a separate change from the assembly rename, because it also has to
-        /// disable auto-update until this product ships an updater of its own.
-        /// Until then a manual update check simply offers upstream's page.
         /// </summary>
-        public const string ReleaseOwnerRepo = "hbashton/DS4Windows";
+        public const string ReleaseOwnerRepo = "potpiemuncher/Thrum";
 
         /// <summary>Project page, used by the About window's source link.</summary>
         public const string ProjectUri =
@@ -223,40 +218,47 @@ namespace DS4Windows
         public const string ReleasesApiUri =
             "https://api.github.com/repos/" + ReleaseOwnerRepo + "/releases";
 
-        /// <summary>GitHub REST endpoint for the latest release only.</summary>
+        /// <summary>
+        /// GitHub REST endpoint for the latest release only.
+        /// </summary>
+        /// <remarks>
+        /// Note the shape difference from <see cref="ReleasesApiUri"/> when the
+        /// repository has no releases yet: the list endpoint answers 200 with an
+        /// empty array, this one answers 404. The update check deliberately uses
+        /// the list endpoint so "no releases published" is an ordinary empty
+        /// result rather than an error to special-case.
+        /// </remarks>
         public const string LatestReleaseApiUri = ReleasesApiUri + "/latest";
 
-        /// <summary>
-        /// <c>owner/repo</c> of the external updater executable's repository.
-        /// Separate from <see cref="ReleaseOwnerRepo"/> because the updater is
-        /// a different project; it is also the reason a rebranded build must
-        /// not keep this value, since running the upstream updater would
-        /// install the upstream product over this one.
-        /// </summary>
-        public const string UpdaterOwnerRepo = "hbashton/DS4Updater";
-
-        /// <summary>Releases page of the external updater project.</summary>
-        public const string UpdaterReleasesPageUri =
-            "https://github.com/" + UpdaterOwnerRepo + "/releases";
+        // There are deliberately no external-updater constants here.
+        //
+        // The inherited design downloaded and launched DS4Updater.exe from a
+        // second upstream repository. Keeping any part of that after the
+        // rename would have been actively dangerous: DS4Updater installs
+        // DS4Windows, so a Thrum user who accepted an update would have had
+        // this product replaced by the one it was forked from. The whole
+        // download-and-launch pipeline was removed rather than repointed;
+        // an updater of our own arrives in a later phase.
 
         /// <summary>
-        /// GitHub REST endpoint for the newest updater release, used to decide
-        /// whether the bundled updater is stale.
+        /// Coloured application icon. Used for the executable's own icon, for
+        /// the Default/Coloured tray choices, and as the tray fallback when no
+        /// battery level is known.
         /// </summary>
-        public const string UpdaterLatestReleaseApiUri =
-            "https://api.github.com/repos/" + UpdaterOwnerRepo +
-            "/releases/latest";
+        /// <remarks>
+        /// These three names are the only icon file names the application
+        /// composes at runtime, so they live here with everything else that
+        /// must not drift. The numbered battery icons are not listed: their
+        /// names are levels rather than identity, and the tray view model
+        /// derives them arithmetically from the percentage.
+        /// </remarks>
+        public const string AppIconFileName = ProductName + ".ico";
 
-        /// <summary>
-        /// File name of the 64-bit external updater. It is both the release
-        /// asset name to download and the file name to place next to the
-        /// executable, so the two uses must agree or the app re-downloads the
-        /// updater on every check.
-        /// </summary>
-        public const string UpdaterExeName = "DS4Updater.exe";
+        /// <summary>Monochrome tray icon for dark taskbars.</summary>
+        public const string WhiteTrayIconFileName = ProductName + " - White.ico";
 
-        /// <summary>32-bit counterpart of <see cref="UpdaterExeName"/>.</summary>
-        public const string UpdaterExeNameX86 = "DS4Updater_x86.exe";
+        /// <summary>Monochrome tray icon for light taskbars.</summary>
+        public const string BlackTrayIconFileName = ProductName + " - Black.ico";
 
         /// <summary>
         /// Absolute pack URI prefix for resources compiled into the app

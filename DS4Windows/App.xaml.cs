@@ -1030,6 +1030,26 @@ namespace DS4WinWPF
                     }
                 }
 
+                // Only now: rootHub.Stop unplugged every virtual pad, which is
+                // what detached the usbip ports and removed the devices from
+                // the backend. Stopping the backend before that point would
+                // pull the USB-IP peer out from under a device that is still
+                // attached. Skipped entirely when the teardown above timed out,
+                // because then we do not know that it finished.
+                if (!shutdownTimedOut)
+                {
+                    try
+                    {
+                        DS4Windows.ViiperSetupManager.StopOwnedBackendOnExit(
+                            line => logHolder?.Logger?.Info(line));
+                    }
+                    catch (Exception ex)
+                    {
+                        logHolder?.Logger?.Warn(
+                            "Could not stop the VIIPER backend on exit: " + ex.Message);
+                    }
+                }
+
                 if (!skipSave)
                 {
                     DS4Windows.Global.Save();

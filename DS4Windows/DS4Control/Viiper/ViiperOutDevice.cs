@@ -5302,6 +5302,12 @@ namespace DS4Windows
                 ViiperUsbipPortManager.UnregisterActivePort;
             this.detachStalePorts = detachStalePorts ??
                 ViiperUsbipPortManager.DetachStaleLocalViiperPorts;
+
+            // This object's lifetime *is* our claim on the device, so it is
+            // also the record of it. The exit-time backend stop reads the
+            // registry to tell "a device another consumer created" from "a
+            // device of ours that has not finished tearing down".
+            ViiperOwnedDeviceRegistry.Register(busId, this.devId);
         }
 
         internal uint BusId => busId;
@@ -5351,6 +5357,8 @@ namespace DS4Windows
             catch
             {
             }
+
+            ViiperOwnedDeviceRegistry.Unregister(busId, devId);
         }
 
     }

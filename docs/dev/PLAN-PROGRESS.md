@@ -1877,3 +1877,269 @@ upstream loses its translations under exactly the same conditions — including
 its own "run at logon" scheduled task. The fix is one self-contained file plus a
 test file and touches no engine code, which makes it a clean candidate for the
 contribution sequence.
+
+---
+
+## 2026-07-26 — Phase 1 smoke pass (acceptance) and the two issues it found
+
+**Session scope:** running `docs/dev/smoke-rebrand.md` end to end with the
+maintainer present, on build **`d644d33`**. This is the acceptance gate Phase 1
+was waiting on.
+
+### Result
+
+**Phase 1 accepted.**
+
+| Item | Result |
+|---|---|
+| 1 | PASS |
+| 2 | PASS |
+| 3 | PASS — all three dismissal paths (button, Escape, title-bar X) |
+| 4 | PASS |
+| 5 | PASS |
+| 6 | PASS |
+| 7 | PASS |
+| 8 | PASS |
+| 8a | PASS |
+| 9 | PASS |
+| 10 | **N/A** — HidHide is not installed on the test machine |
+| 11 | PASS |
+| 12 | PASS |
+
+One failure was found *during* the pass and fixed before it ended:
+[#6](https://github.com/potpiemuncher/Thrum/issues/6), satellite assemblies
+resolved against the working directory, fixed in
+[PR #7](https://github.com/potpiemuncher/Thrum/pull/7) — its own entry is above.
+
+Two issues were filed for later rather than fixed in the pass:
+
+- [#8](https://github.com/potpiemuncher/Thrum/issues/8) — the managed VIIPER
+  backend self-updates from the wrong repository through an elevated remote
+  script. Folded into plan task 2.4b, because it is fixed on the spawn path.
+- [#9](https://github.com/potpiemuncher/Thrum/issues/9) — orphaned `task.bat`.
+  Deferred to Phase 5.4.
+
+### Practical note for every future smoke pass: sample logs *after* the app exits
+
+NLog's async target buffers, so a running session's lines reach disk late. Read
+the log while the app is still up and it will look like the code never ran.
+This cost real debugging time during this pass — an event was observed in the UI
+and was simply absent from the file until the app was closed.
+
+Two consequences worth internalising:
+
+- **Close the app first, then read the log.** Not "wait a bit". The flush
+  happens in `App.CleanShutdown` (`LogManager.Flush()` / `LogManager.Shutdown()`).
+- **Each run rotates the previous file** into
+  `%APPDATA%\Thrum\Logs\thrum_log_<date>.<n>.txt`. Evidence from the run before
+  last is in an archived file, not in `thrum_log.txt`. Search the whole folder,
+  not just the live file.
+
+---
+
+## 2026-07-26 — Phase 2.4b (backend lifecycle ownership) + issue #8
+
+**Session scope:** plan task 2.4b in full, and
+[issue #8](https://github.com/potpiemuncher/Thrum/issues/8), which the plan
+folds into it because both live on the backend spawn path.
+
+The starting position, established by live testing earlier the same day: Thrum
+starts `viiper.exe server` on demand and the server **outlives the app** — a
+running server's parent process id belonged to a Thrum that had already exited.
+The machine has no VIIPER autostart of either kind, so the backend there is
+purely on-demand.
+
+### What was built
+
+**Ownership is (process id, process start time), in memory only.**
+`ViiperSetupManager` records the pair when it spawns the backend and exposes it
+as `OwnedBackend`. A process id on its own is not an identity — Windows reuses
+them, and the gap between spawning the backend and stopping it is a whole
+session — so a record resolves to a live process only when both halves still
+match. Nothing is persisted: a crashed session must not hand a later session a
+licence to kill a backend a third party has since started.
+
+**The consumer signal is the backend's own device census, and it fails safe.**
+By the time the stop is considered, every virtual device Thrum created has
+already been unplugged, detached and removed, so an idle backend is hosting
+nothing at all. `bus/list` plus `bus/{id}/list` answers "is it hosting
+anything?", and anything still registered blocks the stop:
+
+| What the census shows | Decision | Why |
+|---|---|---|
+| a device we did not create | leave running | another consumer — a real DS4Windows install, or a second copy of this app |
+| a device we *did* create | leave running | our own teardown has not finished; killing now is exactly the ordering the teardown exists to avoid |
+| an empty bus | leave running | state somebody asked the backend to hold; ours are gone by this point |
+| census failed for any reason | leave running | an unverifiable claim of idleness is not idleness |
+| nothing registered | **stop** | the only case that is affirmatively safe |
+
+Limits, recorded in the source next to the policy: this is a *device* census,
+not a *client* census — the API exposes no list of connected clients, so a
+consumer that is attached while holding no device is invisible to it, and a
+consumer could create a device in the window between the census and the stop.
+Neither is fixable from the client side and both are narrow. Everything else
+resolves toward leaving the process alone, because a backend left running costs
+a few megabytes and a backend killed under a live consumer costs that consumer
+its controller.
+
+**Graceful stop works; `Kill` is only the fallback.** VIIPER's server installs
+`signal.NotifyContext` for `os.Interrupt`/`SIGTERM`, and Go's Windows runtime
+raises `os.Interrupt` for `CTRL_BREAK_EVENT` as well as `CTRL_C_EVENT`. The
+backend is spawned windowless, but `CreateNoWindow` maps to `CREATE_NO_WINDOW`,
+which still gives the child a console — one that is simply never displayed. So
+the app joins that console with `AttachConsole` and raises the event there.
+
+Two details that are easy to get wrong, both verified rather than assumed:
+
+- The event reaches **every** process on that console, including ours. A
+  handler that swallows it is installed first.
+  `SetConsoleCtrlHandler(NULL, TRUE)` is *not* sufficient — it suppresses only
+  `CTRL_C_EVENT`, and the default handler for `CTRL_BREAK_EVENT` terminates the
+  process that receives it.
+- `--update-notify` is declared on VIIPER's root command, so it precedes the
+  `server` subcommand.
+
+This was proved before any of it was written into the app, with a throwaway
+`WinExe` harness (no console of its own, mirroring Thrum) that spawned the real
+backend and measured the result: `AttachConsole` succeeded, and the backend
+exited with code 0 **within 5 ms** of the console break, with the API port
+closed immediately afterwards. Escalation to `Process.Kill` exists and is
+acceptable for this backend — losing the USB-IP peer is the clean unplug path,
+cleaner than `usbip detach`, which can livelock while an audio pin is held — but
+it did not have to run.
+
+**Ordering.** The stop is called from `App.CleanShutdown`, after the
+`rootHub.Stop`/`ShutDown` task has completed, which is what unplugged the pads,
+detached the usbip ports and sent `bus/remove`. It is **skipped entirely** when
+that task times out, because a timeout means we do not know the teardown
+finished.
+
+**Issue #8 — the backend's self-updater is disabled at spawn.** Every backend
+Thrum starts is now started with `--update-notify none` *and*
+`VIIPER_UPDATE_NOTIFY=none`. The flag is what takes effect; the variable is what
+a re-exec would inherit. `cmd/viiper/viiper.go` guards the entire updater on
+`cli.UpdateNotify != none`, so this is a complete disable rather than a
+suppressed dialog. Three tests assert the argument vector and the environment,
+so it cannot regress silently.
+
+**Autostart visibility.** Settings now reports VIIPER's own logon entries — the
+`HKCU\...\Run` value `VIIPER` written by `viiper.exe install`, and the
+`RunVIIPER` logon task the setup script registers — with a one-click removal
+that is guarded by a confirmation naming exactly what will be deleted.
+Detection is read-only and unconditional; nothing is removed without that click.
+A lookup that throws is reported as *unchecked*, never as *absent*.
+
+**The setting.** "Stop the backend when Thrum exits", **default ON**, persisted
+as `<StopViiperBackendOnExit>` through the existing `AppSettingsDTO` pattern. It
+uses the string-proxy form (`[XmlIgnore] bool` + `[XmlElement] string`) rather
+than a plain `bool` element, for two reasons that both matter for a default-on
+flag: a config written before the element existed leaves the setter unrun so the
+`true` initializer survives, and a malformed value is ignored instead of
+throwing out of `Deserialize` — which `BackingStore.Load` handles by abandoning
+the entire settings file. The view model saves on change rather than on exit,
+because the setting is *read* during exit.
+
+### Tests: 587 → 626
+
+39 new tests across two files. `DS4WindowsTests/ViiperBackendLifecycleTests.cs`
+(27) and `DS4WindowsTests/ViiperAutostartTests.cs` (12). Everything runs against
+fakes: an injected request function for the census, an injected source for the
+autostart lookups. No test touches the registry, the task scheduler, or a real
+backend.
+
+The autostart tests are deliberately fake-only. Neither mechanism exists on the
+test machine, and creating one there in order to test deleting it would mean
+writing autostart entries onto somebody's PC to prove we can remove them.
+
+**Negative controls, all run, all fired, source restored afterwards:**
+
+- Dropped `--update-notify none` from the spawn vector → 2 failures, including
+  the one that names the consequence.
+- Made ownership compare the process id only, ignoring start time → 3 failures,
+  among them the test that builds a record from a live process and checks a
+  shifted start time no longer resolves. That is the control that matters: it
+  shows the reuse guard is exercised against the real API, not just arithmetic.
+- Made a foreign device stop blocking the shutdown →
+  `ADeviceWeDidNotCreateIsTreatedAsAnotherConsumer` failed.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, no
+  new warnings.
+- Full suite with the repository's CI filter: **626 passed / 0 failed**, up from
+  587 by exactly the 39 new tests.
+
+**The packaged application, run twice, with process evidence.** Both runs
+non-elevated (`-command shutdown` cannot reach an elevated instance from a
+non-elevated shell), both preceded by a confirmed-clean process table.
+
+*A backend Thrum started is stopped.* Thrum launched with no `viiper.exe`
+running; a child appeared with **parent process id equal to Thrum's own**, and a
+command line of `viiper.exe --update-notify none server` — the issue #8 fix,
+observed on the live process rather than inferred from the source. After
+`-command shutdown`: that process id gone, and no `viiper.exe` on the machine at
+all. The log line, read after exit:
+
+```
+VIIPER backend stop (pid <n> started <t>): we started it and it is hosting no
+buses or devices - console break accepted; backend exited on its own.
+```
+
+*A backend started externally is left alone.* `viiper.exe server` started
+directly from a shell (parent = that shell, no `--update-notify` argument), then
+Thrum launched and exited. Thrum did **not** spawn a second backend — one
+`viiper.exe` throughout — and after Thrum exited the external process was still
+running with an unchanged start time. Log line:
+
+```
+VIIPER backend left running: the backend was already running before Thrum
+started, so it is not ours to stop.
+```
+
+The settings file was backed up before the runs. Afterwards it differs by
+exactly two lines: the timestamp comment the app rewrites on every exit, and the
+new `<StopViiperBackendOnExit>True</StopViiperBackendOnExit>` persisting at its
+default. No other setting changed, and no `viiper.exe` or `Thrum.exe` was left
+behind.
+
+### Deviations and things left open
+
+1. **The "another consumer's device" branch is covered by unit tests only, not
+   live.** Exercising it for real needs a virtual device attached to a backend
+   Thrum owns, and Part 3's kernel-driver rule puts device attach behind a VM
+   checkpoint or explicit per-session approval. Neither applied to this session.
+   The branch is covered by tests plus a negative control that proves the guard
+   is load-bearing; the *ownership* branch was exercised live.
+2. **An empty bus blocks the stop.** Slightly stricter than "any device blocks
+   the stop". By the time the check runs, ours are gone, so a bus that is still
+   there was asked for by somebody else. In practice the idle backend reports
+   `{"buses":[]}` and the stop proceeds — confirmed in both packaged runs.
+3. **`AppSettingsTests.CheckSettingsSave` was left failing.** It compares
+   serialized output to a hardcoded XML literal, and that literal was already
+   stale before this change — it is missing `ProfileChangedNotification`,
+   `UseMoonlight`, `UseAdvancedMoonlight` and `VerboseStartupLogging`. It is one
+   of the three snapshot tests the CI filter excludes and that the plan
+   regenerates in Phase 6. Adding one more element to a fixture that cannot pass
+   would not have made it pass. The round trip *is* covered, by four new tests
+   that serialize and deserialize the DTO directly instead of comparing against
+   a snapshot.
+4. **Our own bundled `extras/install-viiper-backend.ps1` registers
+   `RunVIIPER`.** So the detection added here will fire for anyone who used it.
+   That is the installer's problem to fix, under task 2.4 and the Phase 5.3
+   constraint that the installer must not register autorun; noting it here so
+   the two tasks stay connected.
+5. **Log strings are ASCII.** NLog writes UTF-8 without a BOM and the rest of
+   the file is plain ASCII, so a dash outside ASCII in a decision line renders
+   as mojibake for anyone reading the log with a system-codepage editor. Caught
+   on the first packaged run and changed before the second.
+
+### Worth reporting upstream
+
+**Yes, one item, already written up.** The updater in hbashton/VIIPER pointing
+at `Alia5/VIIPER` is near-certainly an unintended fork leftover: the fork's
+updater checks the parent repository, whose version line is permanently ahead,
+and offers to install the parent's build over the fork. Issue #8 records the
+detail. Our fix protects backends *we* start; it does nothing for a backend
+started by the `RunVIIPER` task or by the user, which is the other half of why
+autostart entries are now surfaced in Settings. The upstream report stays [EXT]
+under the plan's contribution sequence.

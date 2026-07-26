@@ -396,6 +396,33 @@ namespace DS4WinWPF.DS4Control.DTOXml
             set;
         }
 
+        /// <summary>
+        /// Deliberately the string-proxy form rather than a plain
+        /// <c>bool</c> element. Two consequences matter for a default-on
+        /// setting: a config written before this element existed leaves the
+        /// setter unrun, so the initializer's <c>true</c> survives, and a
+        /// malformed value is ignored instead of throwing out of
+        /// <c>Deserialize</c> and aborting the whole settings load.
+        /// </summary>
+        [XmlIgnore]
+        public bool StopViiperBackendOnExit
+        {
+            get; private set;
+        } = BackingStore.DEFAULT_STOP_VIIPER_BACKEND_ON_EXIT;
+
+        [XmlElement("StopViiperBackendOnExit")]
+        public string StopViiperBackendOnExitString
+        {
+            get => StopViiperBackendOnExit.ToString();
+            set
+            {
+                if (bool.TryParse(value, out bool temp))
+                {
+                    StopViiperBackendOnExit = temp;
+                }
+            }
+        }
+
         [XmlIgnore]
         public bool CloseMinimizes
         {
@@ -872,6 +899,7 @@ namespace DS4WinWPF.DS4Control.DTOXml
             UseMoonlight = source.useMoonlight;
             UseAdvancedMoonlight = source.useAdvancedMoonlight;
             VerboseStartupLogging = source.verboseStartupLogging;
+            StopViiperBackendOnExit = source.stopViiperBackendOnExit;
             CloseMinimizes = source.closeMini;
             UseLang = source.useLang;
             DownloadLang = source.downloadLang;
@@ -973,6 +1001,7 @@ namespace DS4WinWPF.DS4Control.DTOXml
             destination.useMoonlight = UseMoonlight;
             destination.useAdvancedMoonlight = UseAdvancedMoonlight;
             destination.verboseStartupLogging = VerboseStartupLogging;
+            destination.stopViiperBackendOnExit = StopViiperBackendOnExit;
             destination.closeMini = CloseMinimizes;
             destination.useLang = UseLang;
             destination.downloadLang = DownloadLang;

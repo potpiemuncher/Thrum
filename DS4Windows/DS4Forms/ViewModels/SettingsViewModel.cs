@@ -158,6 +158,26 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
         }
 
+        /// <summary>
+        /// Saved on change rather than on exit, because the setting is read
+        /// during exit: relying on save-on-exit would mean a change made in
+        /// this session governs the session after it, not this one.
+        /// </summary>
+        public bool StopViiperBackendOnExit
+        {
+            get => DS4Windows.Global.StopViiperBackendOnExit;
+            set
+            {
+                if (DS4Windows.Global.StopViiperBackendOnExit == value)
+                {
+                    return;
+                }
+
+                DS4Windows.Global.StopViiperBackendOnExit = value;
+                DS4Windows.Global.Save();
+            }
+        }
+
         public int IconChoiceIndex
         {
             get => (int)DS4Windows.Global.UseIconChoice;

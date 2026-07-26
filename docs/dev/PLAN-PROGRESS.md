@@ -709,3 +709,247 @@ DS4Windows install.
 - **Phase 1.9 — version reset**, which also disposes of `newest.txt`.
 - Decide open decision 4 (the `DS4WINDOWS_*` environment variables) and the two
   older open items the map still carries.
+
+---
+
+## 2026-07-25 — Phase 1.4 + 1.5 remainder (settings import, startup-name and HidHide audits)
+
+**Session scope:** Phase 1, task 1.4 in full, plus the audits that close out
+task 1.5. Branch `phase1/import-and-startup`.
+
+**The problem this solves.** The rename moved the data folder to
+`%APPDATA%\Thrum`, so from the moment PR #2 merged, anyone with an existing
+DS4Windows configuration starts this product with nothing: no profiles, no
+auto-profile rules, no controller settings. That is the single worst first
+impression the rebrand could make, and it is entirely mechanical to fix,
+because the file format did not change with the name.
+
+### What the importer is, and what it deliberately is not
+
+It copies files. That is the whole design, and it is a decision rather than a
+shortcut: the profile and settings XML is byte-compatible between the two
+products (the root element is still `<DS4Windows>`, kept as a **file format**
+per the identity map), and the loader already runs `ProfileMigration` and
+`OutContTypeCompatibility.Normalize` over everything it reads. So the import
+runs before `Global.Load()` and then gets out of the way — an imported
+configuration migrates on load exactly as it would have migrated in place.
+Transforming content in the importer would mean maintaining a second migration
+path that only ever runs once, and diverges silently.
+
+**New code**, all under namespace `DS4Windows`:
+
+| File | Role |
+|---|---|
+| `DS4Control/SettingsImport/ImportFileSystem.cs` | The seam: `IImportFileSystem` + `PhysicalImportFileSystem`. The interface has **no delete and no move**, so "the source is read-only" is a property of the type rather than a promise in a comment. |
+| `DS4Control/SettingsImport/ImportPlan.cs` | `ImportItemKind`, `ImportItem`, `ImportPlan`. Immutable description of what would be copied where, with per-item collision flags. |
+| `DS4Control/SettingsImport/ImportPlanner.cs` | Discovery: source folder, the six single-file items, `Profiles\*.xml`. Also owns the pristine check and the decline marker. |
+| `DS4Control/SettingsImport/ImportExecutor.cs` | Copying, per-item outcomes, counts. |
+| `DS4Control/SettingsImport/ImportPlanSummary.cs` | The dialog's summary lines, kept out of the view so they are testable and reusable by a later Settings entry point. |
+| `DS4Forms/ImportSettingsDialog.xaml` (+ code-behind) | The offer. |
+
+Three execution rules, each of which is a test:
+
+1. **Skip, never overwrite.** Existence is re-checked immediately before every
+   copy, so a plan built minutes earlier cannot clobber a file created since.
+2. **A failure never unwinds what succeeded.** No rollback, no cleanup. A
+   half-done import leaves a configuration the application can still load.
+3. **Re-running finishes the job**, because everything that landed is now a
+   collision and gets skipped.
+
+The planner also filters `*.xml` results by their real extension: Win32 pattern
+matching still honours 8.3 short names, so a `Profiles\Old.xmlbackup` would
+otherwise be planned as a profile.
+
+### First-run wiring, and the ordering trap it had to avoid
+
+The offer sits in `App.Application_Startup` between the logger and
+`Global.Load()`. Four gates, all of which must pass: the resolved data folder is
+the appdata one, that folder held no configuration when this launch began, the
+user has not already declined, and the plan is non-empty.
+
+The non-obvious part is *when* "held no configuration" is sampled. It cannot be
+sampled at the offer site, because `SaveWhere`'s Appdata button calls
+`Global.SaveDefault`, which writes a stub `Profiles.xml` into the target — so by
+the time control reaches the offer, a genuinely empty configuration can already
+look like an existing one. The flag is therefore taken immediately after
+`Global.FindConfigLocation()`, before any dialog can run, and passed in. (On a
+truly fresh machine `SaveDefault` fails harmlessly because the folder does not
+exist yet, but relying on that would have been luck rather than design.)
+
+The second ordering hazard is on the way out. A successful import makes the
+configuration non-pristine, and the remaining first-run steps generate and save
+defaults — `AttemptSave()` writes `Profiles.xml` and `SaveAsNewProfile(0,
+"Default")` writes `Profiles\Default.xml`, both straight over what was just
+imported. So the helper returns the first-run flag, and clears it (and
+`Global.firstRun`, which `MainWindow` reads for window placement) once a
+configuration exists.
+
+**Dialog behaviour.** Title from `ProductInfo`; a summary listing the profile
+count and one line per other kind found, plus a line for any collisions;
+Import (default button, Alt+I) and Start fresh (`IsCancel`, Alt+F, Escape).
+`Start fresh` carries no click handler on purpose — `IsCancel` alone closes the
+window and leaves `ImportRequested` false, so nothing can race the built-in
+cancel behaviour into setting `DialogResult` twice. **Every exit that is not
+the Import button counts as declining**, including the title-bar close, which is
+what makes "asked exactly once" true however the dialog is dismissed. Declining
+writes `%APPDATA%\Thrum\import-declined.txt`; failing to write it is logged and
+tolerated, because a repeated offer is a nuisance and a crashed startup is not.
+
+**Portable mode never offers.** In exe-directory mode the configuration folder
+is the install folder: the user asked for something self-contained that can be
+moved to another machine or run beside a real DS4Windows install for testing.
+Seeding it from one roaming profile's per-user state would quietly carry that
+configuration wherever the folder travels, and the save-location dialog already
+offers to adopt a configuration sitting next to the executable. The reasoning is
+recorded on the dialog class, where the next person to wonder will look.
+
+A partial import raises one message box naming the counts, says what was kept,
+and says that nothing in the source changed. It does not ask the user to clean
+anything up, because there is nothing to clean up.
+
+### 1.5 remainder — startup-entry safety audit. Verdict: **already scoped; no legacy path existed**
+
+Every path that deletes or repairs a startup entry was re-read:
+`DeleteStartProgEntry`, `DeleteTaskEntry`, `DeleteOldTaskEntry`,
+`CheckStartupExeLocation`, the `SettingsViewModel` constructor's repair block
+(both entries present → delete the shortcut; executable moved → delete and
+rewrite; task branch → `DeleteOldTaskEntry` + `WriteTaskEntry`) and the three
+`RunAtStartup*` change handlers. All of them reach exactly two names, both from
+`ProductInfo`. **No legacy-cleanup path targeting `RunDS4Windows` or
+`DS4Windows.lnk` exists anywhere in the tree**, so there was nothing to delete
+or fence. `extras/install-viiper-backend.ps1` only ever *registers* `RunVIIPER`;
+nothing in the repository unregisters a scheduled task other than our own.
+
+Two findings worth recording rather than shrugging at:
+
+1. **`DeleteOldTaskEntry` is misleadingly named.** "Old" means a stale task *of
+   ours* pointing at a moved `task.bat` — not the product this one was forked
+   from. It now carries a doc comment saying so, because the obvious "fix" a
+   future reader might apply (make it look for the inherited name) is precisely
+   the bug this audit exists to prevent.
+2. **Two duplicated copies of the shortcut path were collapsed.**
+   `StartupMethods.HasStartProgEntry` and
+   `SettingsViewModel.CheckStartupOptions` each composed the Startup-folder path
+   independently instead of using `StartupMethods.lnkpath`. Both copies were
+   correct; the point is that a rename only has to miss one place, and the 1.1
+   sweep already caught this exact species of bug once in `SettingsViewModel`.
+
+The guard is `DS4WindowsTests/StartupEntryIdentityTests.cs` (4 tests). The
+load-bearing one reads the compiled application off disk and searches it for
+`RunDS4Windows` and `DS4Windows.lnk`, decoded as UTF-16 at both byte alignments
+because a metadata string literal can start at an odd offset. A hit means *some*
+code path can name a real DS4Windows install's startup entry — the scan does not
+care which class it lives in, which is the point. It carries a positive control
+asserting the same scan does find `RunThrum` and `Thrum.lnk`, so it cannot pass
+vacuously.
+
+*Negative control run:* with the test's `LegacyStartupTaskName` needle
+temporarily set to `RunThrum`, both the scan test and the name-difference test
+failed with the intended messages; restored and re-verified green.
+
+### 1.5 remainder — HidHide audit. Verdict: **no hard-coded name; nothing to fix**
+
+The whitelist path derives entirely from the running process.
+`Global.exelocation` is `Process.GetCurrentProcess().MainModule.FileName` with
+junction/symlink resolution (the Scoop case), `CheckHidHidePresence` converts
+that path to its DOS-device form and whitelists *that*, and
+`ProductInfo.ExeBaseName` appears only in the log line "… not found in HidHide
+whitelist. Adding to list" — it never reaches HidHide.
+`UpdateHidHideAttributes` deals in device instance IDs and no executable name at
+all; `HidHideAPIDevice` opens `\\.\HidHide`, which is HidHide's own device name
+and not ours to rename; `Global.hidHideInstalled` probes the `root\HidHide`
+system device. The auto-profile caller passes the user's chosen game path, which
+is unrelated to product identity. Recorded as a table in the identity map under
+the category *runtime-derived identity*.
+
+### Smoke checklist
+
+[`docs/dev/smoke-rebrand.md`](smoke-rebrand.md) — twelve items, each with steps
+and an expected result: import accepted, source provably untouched, import
+declined and remembered (including Escape and the title-bar close), portable
+mode never offering, imported profiles loading with legacy output types
+normalized, `-command` IPC and second-instance forwarding on the new object
+names, side-by-side with a real DS4Windows install, the language switch actually
+loading `Lang\<culture>\Thrum.resources.dll`, `RunThrum` and `Thrum.lnk`
+create/remove **with an explicit check that the DS4Windows entries are
+untouched**, HidHide showing `Thrum.exe` at its real path, `thrum_log.txt`, and
+tray/theme/window identity. No absolute paths.
+
+One correction while writing it: the plan (and the session brief) name
+`-command query.appversion` as the IPC smoke test. **That verb does not exist**
+in this tree. The handler's syntax is `query.<device#>.<property>` — the
+checklist uses `query.1.apprunning` and `query.1.profilename`, which are real.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **succeeded, 0
+  errors**, 17 warnings, all pre-existing and identical to the 1.1/1.2 baseline.
+- Full suite with the repository's CI filter: **548 passed / 0 failed**, up from
+  525 by exactly the 23 new tests (19 import, 4 startup-entry).
+- The GUI application was **not** launched. Everything the dialog and the
+  startup wiring do that a unit test cannot reach is in the smoke checklist.
+- `git grep -in "ds4windows"`: 1,702 hits, up 58 from the flip. Every new hit is
+  prose (the audit sections, the smoke checklist) or new-file boilerplate — a
+  GPL header plus a `namespace DS4Windows` line is three hits before a file
+  contains any logic. Exactly two new *literals* were added, both deliberate and
+  both catalogued: the import source folder name, and the inherited startup
+  names used as the guard test's needles.
+
+### Test inventory
+
+| Area | Tests | What they pin |
+|---|---|---|
+| Planning | 8 | Missing source → empty plan; present-but-empty source → empty plan; full source → all six single-file items plus every profile; partial source → only what exists; non-`.xml` files excluded (incl. the 8.3 `*.xmlbackup` case); collisions flagged; source == target → empty plan; the default source is `%APPDATA%\DS4Windows` **and differs from our own data folder name** |
+| Execution | 6 | Full plan copies everything and leaves the source byte-identical; collisions skipped without overwriting; re-run copies only what is missing; an injected copy failure leaves the other items copied, reports the failure, and does not touch the source; a re-run after a failure finishes the import; an empty plan does not even create the target folder |
+| Offer state | 3 | Absent/config-less target is pristine (`Actions.xml` alone does not count); either `Profiles.xml` or `Auto Profiles.xml` ends that; the decline marker survives across planner instances |
+| Summary text | 2 | Counts, plural/singular, collision warning |
+| Startup entries | 4 | Names composed from `ProductInfo`; both differ from the inherited ones; `lnkpath` is the product shortcut in the Startup folder; the inherited names appear nowhere in the compiled application |
+
+Real temporary directories throughout (`TestContext.TestRunDirectory`, falling
+back to the process temp path), never a hard-coded location, cleaned up in
+teardown. The one injected failure uses the `IImportFileSystem` seam — which is
+the reason the seam exists, since making one specific destination unwritable and
+nothing else is otherwise awkward and non-deterministic.
+
+### Deviations from the plan
+
+1. **`query.appversion` does not exist**; the smoke checklist uses the real
+   query syntax. See above.
+2. **The pristine check is sampled before the first-run dialogs, not at the
+   offer site.** The plan's wording ("after `FindConfigLocation()` resolves to
+   the appdata mode") would have put the sample after `SaveWhere` had already
+   been able to write a stub `Profiles.xml`. The offer still *runs* where the
+   plan says; only the flag is taken earlier.
+3. **`Global.firstRun` is cleared after a successful import.** Not in the task
+   text, but without it the first-run bootstrap overwrites the imported
+   `Profiles.xml` and `Profiles\Default.xml` with generated defaults, which
+   would have made the whole feature silently useless.
+4. **Two duplicated startup-path expressions were collapsed** (finding 2 in the
+   audit above). A two-line change outside the task's literal scope, taken
+   because the audit's verdict is "provably scoped" and three independent
+   spellings of one path is the opposite of provable.
+5. **A sixth importer file, `ImportPlanSummary.cs`, was added** beyond the
+   planner/executor pair the task named. The dialog's wording is worth testing
+   and worth reusing from a later Settings-page entry point; leaving it inside
+   the view would have made it neither.
+6. **The dialog has no `lex` localization bindings.** Its text is English in the
+   code-behind. Inventing `.resx` keys here would push untranslated entries into
+   24 language files ahead of the localization pull request that owns them;
+   recorded in the identity map so that pull request picks it up.
+7. **No `Settings` entry point for a later import.** The task scoped this to
+   first run, and the decline marker makes the offer one-shot. Anyone who
+   declines and changes their mind currently has to delete
+   `import-declined.txt`. A Settings button belongs with the first-run flow
+   rework in plan task 4.7; noted below.
+
+### Next steps
+
+- **Phase 1.6 / 1.7 — icons and update feed.** Still the highest-value
+  remaining Phase 1 work, and 1.7 is a safety item: the inherited
+  `DS4Updater.exe` path would install DS4Windows over this product.
+- **Phase 1.8 — string sweep.** It now also owns the import dialog's text.
+- **Phase 1.9 — version reset.**
+- Run [`smoke-rebrand.md`](smoke-rebrand.md) once a build is in front of the
+  maintainer. Items 1, 3, 7 and 9 are the ones that cannot be inferred from CI.
+- Offer a re-import from Settings as part of plan task 4.7's first-run rework,
+  so declining is recoverable without deleting a marker file by hand.

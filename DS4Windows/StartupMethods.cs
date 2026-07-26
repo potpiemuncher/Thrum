@@ -24,6 +24,21 @@ using Task = Microsoft.Win32.TaskScheduler.Task;
 
 namespace DS4WinWPF
 {
+    /// <summary>
+    /// Creates, repairs and removes this product's two Windows startup
+    /// entries: the elevated logon scheduled task and the Startup-folder
+    /// shortcut.
+    ///
+    /// <para><b>Every name here comes from <c>ProductInfo</c>, and that is a
+    /// safety property, not tidiness.</b> A user of this product very likely
+    /// also has a real DS4Windows install with its own <c>RunDS4Windows</c>
+    /// task and <c>DS4Windows.lnk</c> shortcut. Several paths below delete
+    /// startup entries — switching between task and shortcut, repairing a
+    /// moved executable, turning the option off — and none of them may be able
+    /// to name an entry we did not create. <c>StartupEntryIdentityTests</c>
+    /// asserts that the inherited names appear nowhere in the compiled
+    /// application at all.</para>
+    /// </summary>
     [System.Security.SuppressUnmanagedCodeSecurity]
     public static class StartupMethods
     {
@@ -32,8 +47,11 @@ namespace DS4WinWPF
 
         public static bool HasStartProgEntry()
         {
-            // Exception handling should not be needed here. Method handles most cases
-            bool exists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName);
+            // Exception handling should not be needed here. Method handles most cases.
+            // Deliberately the same path the writer and the deleter use: a
+            // second spelling of it is how the settings page once ended up
+            // checking for a different file than it created.
+            bool exists = File.Exists(lnkpath);
             return exists;
         }
 
@@ -84,6 +102,14 @@ namespace DS4WinWPF
             }
         }
 
+        /// <summary>
+        /// Repairs <b>our own</b> logon task when it points somewhere other
+        /// than the current <c>task.bat</c> — typically after the application
+        /// was moved. "Old" refers to a stale task of ours, not to a task
+        /// belonging to the product this one was forked from: the lookup is
+        /// <see cref="DS4Windows.ProductInfo.StartupTaskName"/> and must stay
+        /// that way.
+        /// </summary>
         public static void DeleteOldTaskEntry()
         {
             TaskService ts = new TaskService();

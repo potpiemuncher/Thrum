@@ -14,14 +14,20 @@ until a user does.
 **Sweep basis:** `git grep -in "ds4windows"` plus a targeted sweep for the
 `DS4W*` icon asset names. First taken on the branch that introduced
 `DS4Control/ProductInfo.cs`, then re-run and re-classified line by line on the
-flip branch; every row below carries a disposition and nothing is
-uncategorised.
+flip branch, and re-run again on the import branch; every row below carries a
+disposition and nothing is uncategorised.
 
-**Total raw hits: 1637 before the flip, 1644 after.** Most of that total is not
-identity at all — see [Bulk categories](#bulk-categories) — so the number to
-watch is the per-category breakdown below, not the total. The count *rose*
-because the flip added explanatory prose to this file and to `ProductInfo`,
-while the identity literals themselves went away.
+**Total raw hits: 1637 before the flip, 1644 after it, 1702 after the import
+pull request.** Most of that total is not identity at all — see
+[Bulk categories](#bulk-categories) — so the number to watch is the
+per-category breakdown below, not the total. The count keeps *rising* while the
+identity literals themselves go away: the flip added explanatory prose to this
+file and to `ProductInfo`, and the import change added the audit sections below,
+the [smoke checklist](smoke-rebrand.md), and six new source files whose GPL
+header and `namespace DS4Windows` line each contribute three hits before a line
+of logic is written. The genuinely new *literals* are two, both of them
+deliberate: the import source folder name, and the inherited startup entry names
+used as needles by the guard test that proves they appear nowhere else.
 
 The flip's re-sweep found eight anchors the first pass had missed. Each is
 marked **(found in 1.2)** below: a duplicated `%APPDATA%` folder literal, five
@@ -36,7 +42,7 @@ message-box captions outside `App.xaml.cs`, and a hard-coded assembly name in
 |---|---|
 | **DONE (1.1)** | Now reads from `ProductInfo`; value unchanged. |
 | **DONE (1.2+1.3)** | Landed by the flip pull request: `ProductInfo`'s values, the assembly rename, and the XAML / manifest / script sweep. Covers plan tasks 1.2, 1.3 and 1.5. |
-| **import-wizard PR** | Data-folder rename plus the one-time copy-import of the old configuration (plan task 1.4). |
+| **DONE (1.4+1.5)** | Landed by the import pull request: the one-time copy-import of an existing DS4Windows configuration, and the startup-name and HidHide audits that close out task 1.5. |
 | **icons+updater PR** | Icon and artwork assets, About box, update feed cutover (plan tasks 1.6, 1.7). |
 | **localization PR** | `.resx` user-visible strings (plan task 1.8). |
 | **KEEP** | Deliberately unchanged. Reason given per row. |
@@ -75,7 +81,7 @@ one commit.
 | `LANGUAGE_ASSEMBLY_NAME` | `DS4Control/ScpUtil.cs:683` | **DONE (1.1)** → `ProductInfo.LanguageAssemblyName` |
 | `assemblyIdentity name="Thrum.app"` | `DS4Windows/app.manifest:3` | **DONE (1.2)** — XML, cannot consume a constant |
 | 4 XAML pack URIs `/Thrum;component/Resources/*.png` | `DS4Forms/ProfileEditor.xaml:100,107,114,121` | **DONE (1.2)** |
-| 23 XAML `lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` | 23 `DS4Forms/*.xaml` files | **DONE (1.2)** — all 23. A missed one kills that page’s localization at runtime only, which is why the count is written down. |
+| 23 XAML `lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` | 23 `DS4Forms/*.xaml` files | **DONE (1.2)** — all 23. A missed one kills that page’s localization at runtime only, which is why the count is written down. The 1.4 import dialog is a 24th XAML file with **no** `lex` bindings: its text is English in the code-behind until the localization pull request gives it `.resx` keys, at which point it needs this attribute too. |
 | `ThemeResourceTests` relative pack URIs (2) | `DS4WindowsTests/ThemeResourceTests.cs` | **DONE (1.2)** — now composed from `ProductInfo.ExeBaseName` |
 | `PackageProjectUrl`, `RepositoryUrl` | `DS4WinWPF.csproj:29,31` | **DONE (1.2)** → `https://github.com/potpiemuncher/Thrum`. Package metadata only — `ProductInfo.ReleaseOwnerRepo` still points upstream until the update feed cuts over. |
 | Solution/project names `DS4WinWPF`, `DS4WindowsTests` | `DS4WindowsWPF.sln`, project files | **KEEP** — project/namespace identity, out of Phase 1 scope (no `RootNamespace` change) |
@@ -91,13 +97,26 @@ one commit.
 
 | Anchor | Location | Disposition |
 |---|---|---|
-| `%APPDATA%\Thrum` (`appDataPpath`) | `DS4Control/ScpUtil.cs:636` | **DONE (1.3)** → `ProductInfo.AppDataFolderName`, value flipped. The one-time copy-import from `%APPDATA%\DS4Windows` is the import-wizard pull request. |
+| `%APPDATA%\Thrum` (`appDataPpath`) | `DS4Control/ScpUtil.cs:636` | **DONE (1.3)** → `ProductInfo.AppDataFolderName`, value flipped. The one-time copy-import from `%APPDATA%\DS4Windows` landed in **1.4**, below. |
 | `%LOCALAPPDATA%\Thrum` (`localAppDataPpath`) | `DS4Control/ScpUtil.cs:637` | **DONE (1.3)** → `ProductInfo.LocalAppDataFolderName`, value flipped |
 | `%TEMP%\Thrum` diagnostic report folder | `DS4Control/Viiper/Validation/ViiperDriverValidationCommand.cs:50` | **DONE (1.3)** → `ProductInfo.TempFolderName`, value flipped |
 | `%TEMP%\<product>.GameBarProbe.*.txt` | `DS4Control/GameBarIntegration.cs:829` | **DONE (1.2)** → `ProductInfo.ProductName` |
 | `Update Files\DS4Windows` cleanup path in the elevated updater batch | `DS4Control/Util.cs:305` | icons+updater PR |
 | `%APPDATA%\<product>\Logs` for the Bluetooth speaker diagnostic dump | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4023` | **DONE (1.2)** — **(found in 1.2)**. An independent hard-coded copy of the AppData folder name that bypassed `Global.appDataPpath` entirely; a `ScpUtil`-only flip would have left these dumps in the old product's folder. Now `ProductInfo.AppDataFolderName`. (It still ignores portable mode — a pre-existing bug, out of scope here.) |
 | `%LOCALAPPDATA%\VIIPER` install dir | `extras/install-viiper-backend.ps1:9` | **KEEP** — VIIPER ecosystem state, shared with upstream installs |
+
+### Import source — a foreign name, deliberately hard-coded
+
+The one-time import (plan task 1.4) reads a configuration that belongs to a
+different product. Its folder name is therefore **not** identity in the sense
+the rest of this document uses: it must not track `ProductInfo`, and it must
+survive any future rename of ours unchanged.
+
+| Anchor | Location | Disposition |
+|---|---|---|
+| `LegacySourceFolderName = "DS4Windows"` — the `%APPDATA%` folder the import reads | `DS4Control/SettingsImport/ImportPlanner.cs` | **DONE (1.4)** — **KEEP the literal.** Both the ds4windowsapp lineage and the hbashton fork use this folder, so one constant covers both. A test asserts it differs from `ProductInfo.AppDataFolderName`, which is the mistake worth catching: deriving it from our own identity would make the importer read its own target. |
+| `import-declined.txt` marker in `%APPDATA%\Thrum` | `DS4Control/SettingsImport/ImportPlanner.cs` | **DONE (1.4)** — ours; sits in the product data folder, so it moves with `ProductInfo.AppDataFolderName` automatically. Its presence is the entire "asked exactly once" protocol. |
+| Config file names read by the importer (`Profiles.xml`, `Auto Profiles.xml`, `Actions.xml`, `LinkedProfiles.xml`, `ControllerConfigs.xml`, `OutputSlots.xml`, `Profiles\*.xml`) | `DS4Control/SettingsImport/ImportPlanner.cs` | **KEEP** — file-format names, identical in both products; see the file-format rule below. |
 
 ### Config file format — do not flip
 
@@ -130,10 +149,30 @@ table.
 | `--thrum-gamebar-probe` CLI switch | `DS4Control/GameBarIntegration.cs:60` | **DONE (1.2)** → composed from `ProductInfo.ExeBaseNameLowerInvariant`; self-invoked only, no external consumer |
 | Process-name comparison | `DS4Control/GameBarIntegration.cs:1114` | **DONE (1.2)** → `ProductInfo.ExeBaseName` |
 | Five message-box captions that are exactly the product name | `LanguagePackControl.xaml.cs:61`, `ProfileEditor.xaml.cs:2052,2931`, `SaveWhere.xaml.cs:85`, `StickCalibrationWindow.xaml.cs:41,53` | **DONE (1.2)** → `ProductInfo.ProductName` — **(found in 1.2)**. The 1.1 pass converted the four captions in `App.xaml.cs` but did not sweep the rest of the tree for the same pattern. |
-| HidHide fallback `ExeName` | `DS4Control/ControlService.cs:791` | **DONE (1.2)** → `ProductInfo.ExeBaseName` |
+| HidHide fallback `ExeName` | `DS4Control/ControlService.cs:791` | **DONE (1.2)** → `ProductInfo.ExeBaseName`. See the HidHide audit below. |
 | Worker thread names `"… Game Bar API Poll"`, `"… UIA Poll"` | `DS4Control/GameBarIntegration.cs:449,554` | **DONE (1.2)** → `ProductInfo.ProductName`; cosmetic (debugger only) |
 | Five `DS4WINDOWS_*` diagnostic environment variables: `…_DUALSENSE_PCM_TRACE_DIRECTORY`, `…_DS4_AUDIO_DRIFT_MODE`, `…_DS4_AUDIO_TRANSPORT_MODE`, `…_DS4_AUDIO_DIAGNOSTIC_CAPTURE`, `…_VIIPER_STATE_RATE_HZ` | `DualSenseBluetoothSpeakerPassthrough.cs:595`, `DualShock4AudioDrift.cs:21`, `DualShock4AudioTransport.cs:31`, `DualShock4BluetoothSpeakerPassthrough.cs:223`, `Viiper/ViiperOutDevice.cs:35` | **KEEP** — **(found in 1.2)**. Same class as the OSC namespace: an external control surface a human sets before launching, with no in-tree consumer that a rename would fix. Renaming them silently invalidates every debugging runbook that names them, and no test would catch it. See open decision 4. |
 | Audio pseudo-endpoint prefixes `DS4Windows:AudioHapticsApp:` and `DS4Windows:AudioHapticsAuto:` | `DS4Control/ProcessLoopbackWaveCapture.cs:18,19` | **KEEP** — **(found in 1.2)**. These are not display strings: the composed id is stored as a profile's capture-source setting, so they are on-disk file-format values in the same sense as the `<DS4Windows>` root element. Flipping them silently resets every per-app audio-haptics capture selection. |
+
+### HidHide audit — **verdict: no hard-coded name; nothing to fix** (1.5)
+
+Category: *runtime-derived identity*. The question the plan asks is whether the
+HidHide whitelist registration could register the wrong executable after a
+rename — for instance by naming `DS4Windows.exe`, or by composing a name from a
+constant instead of asking the OS what is running.
+
+| Path | What it uses | Verdict |
+|---|---|---|
+| `Global.exelocation` (`DS4Control/ScpUtil.cs:581`) | `Process.GetCurrentProcess().MainModule.FileName`, then resolves a junction/symlink directory to its real target (the Scoop case) | **Dynamic.** The whole chain starts from the OS's answer for *this* process. It cannot name a product it is not. |
+| `ControlService.CheckHidHidePresence` (`:778`) | On the startup call the arguments are empty, so it takes `ExePath = Global.exelocation` and `ExeName = ProductInfo.ExeBaseName`; converts the path to its DOS-device form and adds *that* to the whitelist | **Dynamic path, identity used only for the log line.** `ExeName` never reaches HidHide; it appears in "… not found in HidHide whitelist. Adding to list". |
+| `AutoProfilesViewModel:522` | Passes the user-chosen game executable path and file name | **Dynamic**, and unrelated to product identity. |
+| `ControlService.UpdateHidHideAttributes` (`:855`) | Reads the active state and the device blacklist; no executable name involved at all | **N/A.** |
+| `HidHideAPIDevice` (`DS4Control/HidHideAPIDevice.cs`) | Opens the control device `\\.\HidHide` and issues IOCTLs | **N/A.** The device name is HidHide's own and is not ours to rename. |
+| `Global.hidHideInstalled` → `IsHidHideInstalled()` (`ScpUtil.cs:1200`) | Probes for the system device `root\HidHide` | **N/A.** |
+
+No change was needed. The smoke checklist ([smoke-rebrand.md](smoke-rebrand.md),
+item 10) covers the part no unit test can: that the entry HidHide actually shows
+is this build's `Thrum.exe` at the folder it really runs from.
 
 ---
 
@@ -147,7 +186,35 @@ table.
 | NLog runtime file name `ds4windows_log.txt` + archive `ds4windows_log_{#}.txt` | `LoggerHolder.cs:42,43` | **DONE (1.1)** → `ProductInfo.LogFileName` / `LogArchiveFileName`. These are the *effective* names: the bootstrap overrides the config file. |
 | NLog config placeholder `fileName="thrum_log.txt"` | `DS4Windows/NLog.config:8` | **DONE (1.2)** — edited directly. It is XML consumed by NLog before any managed identity constant exists, so it cannot delegate to `ProductInfo`; NLog requires the attribute even though `LoggerHolder` replaces it. |
 | Bug-report instruction naming `thrum_log.txt` | `.github/ISSUE_TEMPLATE/bug_report.md:25` | **DONE (1.2)** |
-| VIIPER at-logon task `RunVIIPER` | `extras/install-viiper-backend.ps1` | **KEEP** — VIIPER's own task, shared with upstream DS4Windows installs. Uninstall may remove it only if we created it (ownership marker, plan task 5.4). |
+| VIIPER at-logon task `RunVIIPER` | `extras/install-viiper-backend.ps1` | **KEEP** — VIIPER's own task, shared with upstream DS4Windows installs. Uninstall may remove it only if we created it (ownership marker, plan task 5.4). The script only ever *registers* it; nothing in the tree unregisters a scheduled task other than our own. |
+
+### Startup-entry safety audit — **verdict: every delete path is scoped to us** (1.5)
+
+The renames in 1.2/1.3 are only half the job. The other half is that a user of
+this product very likely still has a real DS4Windows install, whose
+`RunDS4Windows` task and `DS4Windows.lnk` shortcut are **not ours to touch** —
+and several code paths here delete startup entries. Every one was re-read:
+
+| Path | Names it can reach | Verdict |
+|---|---|---|
+| `StartupMethods.DeleteStartProgEntry` | `lnkpath` only | Scoped |
+| `StartupMethods.DeleteTaskEntry` | `ProductInfo.StartupTaskName` | Scoped |
+| `StartupMethods.DeleteOldTaskEntry` | `ProductInfo.StartupTaskName` | Scoped. **Misleading name**: "old" means a stale task *of ours* pointing at a moved `task.bat`, not the product we forked from. A doc comment now says so, because the obvious "fix" — making it look for the inherited name — is exactly the bug. |
+| `StartupMethods.CheckStartupExeLocation` | Resolves `lnkpath` | Scoped |
+| `SettingsViewModel` constructor (`:480–517`) | Deletes the shortcut when both entries exist; deletes and rewrites it when the executable moved; `DeleteOldTaskEntry` + `WriteTaskEntry` for the task branch | Scoped — all through `StartupMethods` |
+| `SettingsViewModel_RunAtStartupChanged` / `_RunStartProgChanged` / `_RunStartTaskChanged` | Same | Scoped |
+
+**No legacy-cleanup path exists**, so there was nothing to fence or delete. Two
+duplicated path expressions were collapsed instead: `HasStartProgEntry` and
+`SettingsViewModel.CheckStartupOptions` each composed their own copy of the
+shortcut path, and both now read `StartupMethods.lnkpath`. Both copies happened
+to be correct; the point is that a rename has to be able to miss only one place.
+
+Guard: `DS4WindowsTests/StartupEntryIdentityTests.cs` (4 tests). The load-bearing
+one scans the compiled application for `RunDS4Windows` and `DS4Windows.lnk` and
+fails if either appears anywhere in it — not just in `StartupMethods` — with a
+positive control asserting the same scan does find `RunThrum` and `Thrum.lnk`,
+so a vacuous pass is impossible.
 
 ---
 
@@ -213,6 +280,8 @@ qualified type references, which stay. The identity-bearing ones:
 | Profile XML fixtures containing `<DS4Windows>` roots | `ProfileTests.cs`, `ProfileMigrationTests.cs`, `AppSettingsTests.cs`, `MappingTests.cs` | **KEEP** — file-format fixtures, see §3 |
 | Report formatter expectations | `ViiperDriverReportFormatterTests.cs` | **DONE (1.2)** — the header assertion and the `%TEMP%` fixture path are composed from `ProductInfo`, so they cannot drift again |
 | New guard tests | `ProductIdentityTests.cs` | n/a — these enforce the rest |
+| Startup-entry guard tests, incl. the literal scan for `RunDS4Windows` / `DS4Windows.lnk` | `StartupEntryIdentityTests.cs` | **DONE (1.5)** — the two inherited names appear here *on purpose*, as the needles. This is the only file in the repository that should contain them. |
+| Import tests | `SettingsImportTests.cs` | **DONE (1.4)** — the `DS4Windows` source folder name appears as the expected value of `ImportPlanner.LegacySourceFolderName`. |
 
 ---
 

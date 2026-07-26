@@ -590,6 +590,25 @@
                                            MaxWidth="420"
                                            Opacity="0.75"
                                            Margin="0,6,0,0" />
+                                <CheckBox Content="Stop the backend when Thrum exits"
+                                          IsChecked="{Binding StopViiperBackendOnExit}"
+                                          ToolTip="Only ever stops a backend Thrum started itself, and only when the backend reports no other virtual devices. A backend that was already running, or that another app is using, is always left alone."
+                                          Margin="0,10,0,0"
+                                          Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
+                                <TextBlock x:Name="viiperAutostartText"
+                                           Text=""
+                                           TextWrapping="Wrap"
+                                           MaxWidth="420"
+                                           Opacity="0.75"
+                                           Margin="0,8,0,0" />
+                                <Button x:Name="viiperAutostartRemoveBtn"
+                                        Content="Remove VIIPER autostart"
+                                        Padding="8,2"
+                                        HorizontalAlignment="Left"
+                                        Visibility="Collapsed"
+                                        Margin="0,6,0,0"
+                                        ToolTip="Deletes VIIPER's own logon entries. Nothing is removed until you click this."
+                                        Click="ViiperAutostartRemoveBtn_Click" />
                             </StackPanel>
                         </GroupBox>
                             </StackPanel>

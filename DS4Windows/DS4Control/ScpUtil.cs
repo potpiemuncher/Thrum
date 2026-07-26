@@ -1715,6 +1715,18 @@ namespace DS4Windows
             set => m_Config.verboseStartupLogging = value;
         }
 
+        /// <summary>
+        /// Stop a VIIPER backend this application started when it exits.
+        /// Consulted by <see cref="ViiperSetupManager.StopOwnedBackendOnExit"/>,
+        /// which additionally refuses when the backend is not ours or is still
+        /// in use.
+        /// </summary>
+        public static bool StopViiperBackendOnExit
+        {
+            get => m_Config.stopViiperBackendOnExit;
+            set => m_Config.stopViiperBackendOnExit = value;
+        }
+
         public static bool getQuickCharge()
         {
             return m_Config.quickCharge;
@@ -4099,6 +4111,14 @@ namespace DS4Windows
         public bool useMoonlight = false;
         public bool useAdvancedMoonlight = false;
         public bool verboseStartupLogging = false;
+
+        // Whether a VIIPER backend this application started is stopped again on
+        // exit. Default on: an on-demand backend that outlives the app is a
+        // surprise, and stopping it is also the clean way to unplug whatever it
+        // still holds. Never applies to a backend we did not start.
+        public const bool DEFAULT_STOP_VIIPER_BACKEND_ON_EXIT = true;
+        public bool stopViiperBackendOnExit = DEFAULT_STOP_VIIPER_BACKEND_ON_EXIT;
+
         public bool closeMini = false;
         public List<SpecialAction> actions = new List<SpecialAction>();
         public List<DS4ControlSettings>[] ds4settings = new List<DS4ControlSettings>[Global.TEST_PROFILE_ITEM_COUNT]

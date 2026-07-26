@@ -2017,6 +2017,69 @@ Suspend support not enabled.", true);
                 $"VIIPER helper: {(status.ViiperInstalled ? "installed" : "missing")}; " +
                 $"usbip-win2: {(status.UsbipInstalled ? "installed" : "missing")}; " +
                 $"server: {(status.ServerRunning ? "running" : "not running")}.";
+
+            RefreshViiperAutostartText();
+        }
+
+        /// <summary>
+        /// Read-only report of VIIPER's own logon entries. Detection runs on
+        /// its own; the removal button only becomes visible when there is
+        /// something to remove, and removes nothing until it is clicked.
+        /// </summary>
+        private void RefreshViiperAutostartText()
+        {
+            if (viiperAutostartText == null)
+            {
+                return;
+            }
+
+            ViiperAutostartStatus autostart = ViiperAutostart.Inspect();
+            viiperAutostartText.Text = autostart.DisplayText;
+            viiperAutostartRemoveBtn.Visibility = autostart.Any
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            viiperAutostartRemoveBtn.Tag = autostart;
+        }
+
+        private void ViiperAutostartRemoveBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (viiperAutostartRemoveBtn.Tag is not ViiperAutostartStatus autostart ||
+                !autostart.Any)
+            {
+                return;
+            }
+
+            string entries = string.Join(Environment.NewLine,
+                autostart.Entries.Select(entry =>
+                    "- " + entry.Description + " -> " + entry.Target));
+            MessageBoxResult answer = MessageBox.Show(this,
+                "Remove VIIPER's own startup entries?" + Environment.NewLine +
+                Environment.NewLine + entries + Environment.NewLine +
+                Environment.NewLine +
+                "These belong to the VIIPER install, not to " +
+                ProductInfo.ProductName + ". Removing them stops VIIPER " +
+                "launching at logon; " + ProductInfo.ProductName +
+                " will still start it on demand. VIIPER itself is not " +
+                "uninstalled.",
+                "VIIPER autostart", MessageBoxButton.YesNo,
+                MessageBoxImage.Warning, MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            IReadOnlyList<string> outcomes =
+                ViiperAutostart.Remove(autostart.Entries);
+            foreach (string outcome in outcomes)
+            {
+                AppLogger.LogToGui("VIIPER autostart: " + outcome, false);
+            }
+
+            RefreshViiperAutostartText();
+            MessageBox.Show(this,
+                string.Join(Environment.NewLine, outcomes),
+                "VIIPER autostart", MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
 
         private void CheckUpdatesBtn_Click(object sender, RoutedEventArgs e)

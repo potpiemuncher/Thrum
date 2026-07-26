@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -61,6 +62,63 @@ namespace DS4Windows
         }
     }
 
+    /// <summary>
+    /// One request, one connection, NUL-terminated path, response read until
+    /// the server closes the socket. That is the whole VIIPER API framing, and
+    /// this is the single place it is spelled out for callers that are not
+    /// holding a device stream.
+    /// </summary>
+    public static class ViiperApiProbe
+    {
+        /// <summary>
+        /// Sends <paramref name="path"/> and returns the response body, or null
+        /// if the backend could not be reached or did not answer in time.
+        /// </summary>
+        public static string Request(string path, int timeoutMilliseconds = 1500)
+        {
+            try
+            {
+                using TcpClient tcp = new TcpClient
+                {
+                    NoDelay = true,
+                    SendTimeout = timeoutMilliseconds,
+                    ReceiveTimeout = timeoutMilliseconds,
+                };
+
+                IAsyncResult result = tcp.BeginConnect(
+                    ViiperSetupManager.ApiHost, ViiperSetupManager.ApiPort, null, null);
+                if (!result.AsyncWaitHandle.WaitOne(
+                    TimeSpan.FromMilliseconds(timeoutMilliseconds)))
+                {
+                    return null;
+                }
+
+                tcp.EndConnect(result);
+                NetworkStream stream = tcp.GetStream();
+                byte[] request = Encoding.UTF8.GetBytes(path + "\0");
+                stream.Write(request, 0, request.Length);
+
+                using MemoryStream body = new MemoryStream();
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    body.Write(buffer, 0, read);
+                    if (body.Length > 512 * 1024)
+                    {
+                        break;
+                    }
+                }
+
+                return Encoding.UTF8.GetString(body.ToArray()).Trim();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
     public static class ViiperSetupManager
     {
         public const string ApiHost = "127.0.0.1";
@@ -68,11 +126,33 @@ namespace DS4Windows
         public const string UsbipWin2ReleasesUrl = "https://github.com/vadimgrn/usbip-win2/releases";
         public const string ViiperReleasesUrl = "https://github.com/hbashton/VIIPER/releases";
 
+        /// <summary>
+        /// How long the backend is given to leave on its own after a console
+        /// break before it is killed. Generous next to the few milliseconds it
+        /// actually takes, and bounded because it runs inside the application's
+        /// shutdown budget.
+        /// </summary>
+        private static readonly TimeSpan BackendStopGracePeriod =
+            TimeSpan.FromSeconds(3);
+
         private const string InstallerScriptName = "install-viiper-backend.ps1";
         private static readonly object serverStartLock = new object();
         private static DateTime lastServerStartAttemptUtc = DateTime.MinValue;
         private static int promptShownThisSession;
         private static int installerRunning;
+
+        /// <summary>
+        /// The backend process this application started, if it started one.
+        /// In-memory only, and never written for a server we merely found
+        /// running — see <see cref="ViiperOwnedBackend"/>.
+        /// </summary>
+        private static ViiperOwnedBackend ownedBackend;
+
+        /// <summary>
+        /// Identity of the backend process this application started, or null
+        /// when the backend was already running (or has not been started).
+        /// </summary>
+        public static ViiperOwnedBackend OwnedBackend => Volatile.Read(ref ownedBackend);
 
         public static bool IsViiperOutputType(OutContType type) => ViiperOutDevice.IsViiperType(type);
 
@@ -293,15 +373,18 @@ namespace DS4Windows
         {
             try
             {
-                ProcessStartInfo startInfo = new ProcessStartInfo
+                // The argument vector, including the mandatory
+                // --update-notify none, comes from ViiperBackendSpawn so that a
+                // test can assert it. See that class for why the flag is not
+                // optional.
+                Process process = Process.Start(
+                    ViiperBackendSpawn.BuildServerStartInfo(viiperPath));
+                if (process == null)
                 {
-                    FileName = viiperPath,
-                    Arguments = "server",
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    UseShellExecute = false,
-                };
-                Process.Start(startInfo);
+                    return false;
+                }
+
+                RecordOwnership(process);
                 System.Threading.Thread.Sleep(750);
                 return true;
             }
@@ -311,42 +394,96 @@ namespace DS4Windows
             }
         }
 
-        private static bool CanPingServer()
+        /// <summary>
+        /// Remembers a backend process as ours. Ownership is (id, start time):
+        /// a process id on its own is reused by Windows and would eventually
+        /// name somebody else's process.
+        /// </summary>
+        private static void RecordOwnership(Process process)
         {
             try
             {
-                using TcpClient tcp = new TcpClient
-                {
-                    NoDelay = true,
-                    SendTimeout = 500,
-                    ReceiveTimeout = 1000,
-                };
-
-                IAsyncResult result = tcp.BeginConnect(ApiHost, ApiPort, null, null);
-                if (!result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(750)))
-                {
-                    return false;
-                }
-
-                tcp.EndConnect(result);
-                NetworkStream stream = tcp.GetStream();
-                byte[] request = Encoding.UTF8.GetBytes("ping\0");
-                stream.Write(request, 0, request.Length);
-
-                byte[] buffer = new byte[256];
-                int read = stream.Read(buffer, 0, buffer.Length);
-                if (read <= 0)
-                {
-                    return false;
-                }
-
-                string response = Encoding.UTF8.GetString(buffer, 0, read);
-                return response.IndexOf("VIIPER", StringComparison.OrdinalIgnoreCase) >= 0;
+                Volatile.Write(ref ownedBackend,
+                    new ViiperOwnedBackend(process.Id, process.StartTime));
             }
             catch
             {
-                return false;
+                // A process we cannot describe is a process we will not later
+                // claim to own.
+                Volatile.Write(ref ownedBackend, null);
             }
+        }
+
+        /// <summary>
+        /// Stops the backend on application exit, if the setting allows it, if
+        /// we started it, and if nothing else is using it.
+        ///
+        /// <para>Call this only once every virtual device has been unplugged
+        /// and every usbip port detached. The policy re-checks that with the
+        /// backend itself and refuses if anything is still registered, but the
+        /// ordering is the caller's to get right: this must never run while one
+        /// of our virtual devices is still attached.</para>
+        /// </summary>
+        /// <param name="log">Receives one line describing what was decided and why.</param>
+        /// <param name="censusSource">Test seam; defaults to the live API.</param>
+        public static ViiperBackendStopMethod StopOwnedBackendOnExit(
+            Action<string> log = null, IViiperBackendCensusSource censusSource = null)
+        {
+            ViiperOwnedBackend owned = OwnedBackend;
+            Process process = owned?.TryResolve();
+            try
+            {
+                bool alive = process != null;
+                ViiperBackendCensus census = null;
+                if (alive && Global.StopViiperBackendOnExit)
+                {
+                    census = (censusSource ?? new ViiperApiBackendCensusSource())
+                        .TakeCensus();
+                }
+
+                ViiperBackendStopDecision decision = ViiperBackendStopPolicy.Decide(
+                    Global.StopViiperBackendOnExit, owned, alive, census,
+                    ViiperOwnedDeviceRegistry.Snapshot());
+
+                if (!decision.ShouldStop)
+                {
+                    log?.Invoke("VIIPER backend left running: " + decision.Reason + ".");
+                    return ViiperBackendStopMethod.None;
+                }
+
+                ViiperBackendStopResult result = ViiperBackendStopper.Stop(
+                    process, BackendStopGracePeriod);
+                // ASCII only: NLog writes UTF-8 without a BOM and this file is
+                // otherwise plain ASCII, so a reader defaulting to the system
+                // codepage would render a dash here as mojibake.
+                log?.Invoke(string.Format(CultureInfo.InvariantCulture,
+                    "VIIPER backend stop ({0}): {1} - {2}.",
+                    owned, decision.Reason, result.Detail));
+
+                if (result.Method == ViiperBackendStopMethod.Graceful ||
+                    result.Method == ViiperBackendStopMethod.Killed)
+                {
+                    Volatile.Write(ref ownedBackend, null);
+                }
+
+                return result.Method;
+            }
+            catch (Exception ex)
+            {
+                log?.Invoke("VIIPER backend left running: stopping it threw " +
+                    ex.GetType().Name + ": " + ex.Message + ".");
+                return ViiperBackendStopMethod.Failed;
+            }
+            finally
+            {
+                try { process?.Dispose(); } catch { }
+            }
+        }
+
+        private static bool CanPingServer()
+        {
+            string response = ViiperApiProbe.Request("ping", timeoutMilliseconds: 1000);
+            return response?.IndexOf("VIIPER", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsUsbipWin2Installed()

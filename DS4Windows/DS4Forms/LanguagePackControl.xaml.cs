@@ -30,6 +30,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using DS4Windows;
 using DS4WinWPF.DS4Forms.ViewModels;
 
 namespace DS4WinWPF.DS4Forms
@@ -58,7 +59,7 @@ namespace DS4WinWPF.DS4Forms
             if (langPackVM.ChangeLanguagePack())
             {
                 MessageBox.Show(Properties.Resources.LanguagePackApplyRestartRequired,
-                    "DS4Windows", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ProductInfo.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 

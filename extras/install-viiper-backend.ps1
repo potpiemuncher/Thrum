@@ -9,7 +9,7 @@ $script:RebootRecommended = $false
 $script:InstallDir = Join-Path $env:LOCALAPPDATA "VIIPER"
 $script:LogPath = Join-Path $script:InstallDir "install.log"
 $script:TempDir = Join-Path ([IO.Path]::GetTempPath()) (
-    "DS4Windows-VIIPER-Setup-" + [Guid]::NewGuid().ToString("N"))
+    "Thrum-VIIPER-Setup-" + [Guid]::NewGuid().ToString("N"))
 
 function Write-SetupLog([string]$message, [ConsoleColor]$color =
         [ConsoleColor]::Gray) {
@@ -67,7 +67,7 @@ function Invoke-Download([string]$url, [string]$outFile) {
             Write-SetupLog "Downloading $url (attempt $attempt of 3)"
             Invoke-WebRequest -Uri $url -OutFile $outFile -UseBasicParsing `
                 -TimeoutSec 60 -Headers @{ "User-Agent" =
-                    "DS4Windows-VIIPER-Setup" }
+                    "Thrum-VIIPER-Setup" }
             if (-not (Test-Path -LiteralPath $outFile) -or
                 (Get-Item -LiteralPath $outFile).Length -le 0) {
                 throw "The downloaded file was empty."
@@ -86,7 +86,7 @@ function Invoke-Download([string]$url, [string]$outFile) {
 function Get-GithubReleaseAsset([string]$repo, [string]$assetPattern) {
     $apiUrl = "https://api.github.com/repos/$repo/releases?per_page=20"
     $releases = Invoke-RestMethod -Uri $apiUrl -TimeoutSec 30 -Headers @{
-        "User-Agent" = "DS4Windows-VIIPER-Setup"
+        "User-Agent" = "Thrum-VIIPER-Setup"
         "Accept" = "application/vnd.github+json"
     }
     if (-not $releases) { throw "No releases were found in $repo." }
@@ -174,7 +174,7 @@ function Install-ViiperAtomically([string]$candidatePath,
     Copy-Item -LiteralPath $candidatePath -Destination $newPath -Force
 
     # An explicit repair/update may replace a running backend. Stop only the
-    # VIIPER process and leave DS4Windows and every physical Bluetooth device
+    # VIIPER process and leave Thrum and every physical Bluetooth device
     # alone.
     Get-Process -Name "viiper" -ErrorAction SilentlyContinue |
         Stop-Process -Force -ErrorAction SilentlyContinue
@@ -235,13 +235,13 @@ function Start-AndVerifyViiper([string]$viiperPath) {
 
 try {
     if (-not (Test-Administrator)) {
-        throw "Administrator permission is required. Launch setup from DS4Windows so Windows can request it automatically."
+        throw "Administrator permission is required. Launch setup from Thrum so Windows can request it automatically."
     }
 
     New-Item -ItemType Directory -Path $script:InstallDir -Force | Out-Null
     New-Item -ItemType Directory -Path $script:TempDir -Force | Out-Null
     Write-SetupLog ""
-    Write-SetupLog "DS4Windows VIIPER virtual controller setup" Green
+    Write-SetupLog "Thrum VIIPER virtual controller setup" Green
     Write-SetupLog "Installing or repairing VIIPER and usbip-win2."
 
     Write-Step "Checking usbip-win2"
@@ -320,7 +320,7 @@ try {
     $finish = if ($script:RebootRecommended) {
         "Setup complete. Restart Windows once before using a virtual controller."
     } else {
-        "Setup complete. VIIPER is ready for DS4Windows."
+        "Setup complete. VIIPER is ready for Thrum."
     }
     Write-SetupLog $finish Green
 }

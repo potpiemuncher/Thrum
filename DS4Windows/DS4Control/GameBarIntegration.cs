@@ -54,7 +54,11 @@ namespace DS4Windows
         private const int LiveGameBarApiHangMs = 2500;
         private const int LiveAutomationPollMs = 1000;
         private const int LiveAutomationCacheMs = 3000;
-        public const string ProbeArgument = "--ds4windows-gamebar-probe";
+        // Self-invoked only: the app re-launches itself with this switch to run
+        // the probe out of process. No external consumer, so it tracks the
+        // product name rather than being pinned to a legacy spelling.
+        public const string ProbeArgument =
+            "--" + ProductInfo.ExeBaseNameLowerInvariant + "-gamebar-probe";
         private static readonly object detectionStatusLock = new object();
         private static readonly object gameBarApiPollLock = new object();
         private static bool gameBarApiPollRunning;
@@ -446,7 +450,7 @@ namespace DS4Windows
                     });
 
                     worker.IsBackground = true;
-                    worker.Name = "DS4Windows Game Bar API Poll";
+                    worker.Name = ProductInfo.ProductName + " Game Bar API Poll";
                     worker.Priority = ThreadPriority.BelowNormal;
                     worker.Start();
                 }
@@ -551,7 +555,7 @@ namespace DS4Windows
                     });
 
                     worker.IsBackground = true;
-                    worker.Name = "DS4Windows Game Bar UIA Poll";
+                    worker.Name = ProductInfo.ProductName + " Game Bar UIA Poll";
                     worker.SetApartmentState(ApartmentState.STA);
                     worker.Start();
                 }
@@ -826,7 +830,7 @@ namespace DS4Windows
                 return false;
             }
 
-            string resultPath = Path.Combine(Path.GetTempPath(), "DS4Windows.GameBarProbe." + Guid.NewGuid().ToString("N") + ".txt");
+            string resultPath = Path.Combine(Path.GetTempPath(), ProductInfo.ProductName + ".GameBarProbe." + Guid.NewGuid().ToString("N") + ".txt");
             try
             {
                 if (!TryRunProbeProcess(exePath, resultPath, timeoutMs, out int exitCode, out string launchStatus))
@@ -1111,7 +1115,7 @@ namespace DS4Windows
                 processName.Equals("brave", StringComparison.OrdinalIgnoreCase) ||
                 processName.Equals("Code", StringComparison.OrdinalIgnoreCase) ||
                 processName.Equals("Codex", StringComparison.OrdinalIgnoreCase) ||
-                processName.Equals("DS4Windows", StringComparison.OrdinalIgnoreCase);
+                processName.Equals(ProductInfo.ExeBaseName, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string TruncateDiagnosticText(string text)

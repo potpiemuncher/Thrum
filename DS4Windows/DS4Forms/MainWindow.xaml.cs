@@ -101,8 +101,8 @@ namespace DS4WinWPF.DS4Forms
         {
             InitializeComponent();
             // The -command client finds this window by title, so the title has
-            // to come from the same constant the client searches with. This
-            // overrides the Title set in XAML with the identical value.
+            // to come from the same constant the client searches with. XAML
+            // deliberately declares no Title, so this is its only source.
             Title = ProductInfo.WindowTitle;
             profileEditorReturnTabIndex = mainTabCon.Items.IndexOf(profilesTab);
 

@@ -127,13 +127,14 @@ namespace DS4Windows
             ViiperDriverRelease expected = report.ExpectedRelease;
             ViiperDriverValidationResult result = report.Result;
 
-            text.AppendLine("DS4Windows VIIPER driver validation " +
-                "(read-only diagnostic)");
+            text.AppendLine(ProductInfo.ProductName +
+                " VIIPER driver validation (read-only diagnostic)");
             text.AppendLine(new string('=', 62));
             AppendHeaderLine(text, "generated (UTC)",
                 context.TimestampUtc.ToUniversalTime()
                     .ToString("yyyy-MM-dd HH:mm:ss'Z'"));
-            AppendHeaderLine(text, "DS4Windows version", context.AppVersion);
+            AppendHeaderLine(text, ProductInfo.ProductName + " version",
+                context.AppVersion);
             AppendHeaderLine(text, "process architecture",
                 context.ProcessArchitecture);
             AppendHeaderLine(text, "elevated", YesNo(context.Elevated));

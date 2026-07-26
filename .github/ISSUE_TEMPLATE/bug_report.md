@@ -22,12 +22,12 @@ A clear and concise description of what you expected to happen.
 
 **Screenshots and Logs**
 If applicable, add screenshots to help explain your problem. Also, please add the most
-log file (ds4windows_log.txt) from the Logs folder in your DS4Windows config folder.
+log file (thrum_log.txt) from the Logs folder in your Thrum config folder.
 
 **Desktop (please complete the following information):**
  - Controller Make and Model: Sony DS4 v.2 (CUH-ZCT2U)
  - OS: [e.g. Windows 10 Pro Build 2004]
- - DS4Windows Version [e.g. 3.0.3]
+ - Thrum Version [e.g. 3.0.3]
 
 **Additional context**
 Add any other context about the problem here.

@@ -6,7 +6,7 @@
         xmlns:lex="http://wpflocalizeextension.codeplex.com"
         xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
         lex:LocalizeDictionary.DesignCulture=""
-        lex:ResxLocalizationProvider.DefaultAssembly="DS4Windows"
+        lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
         lex:ResxLocalizationProvider.DefaultDictionary="Strings"
         mc:Ignorable="d"
         Title="{lex:Loc Welcome.WinTitle}" Height="440" Width="418" MinWidth="500" MinHeight="500"

@@ -4020,7 +4020,7 @@ namespace DS4Windows
                     string logDirectory = Path.Combine(
                         Environment.GetFolderPath(
                             Environment.SpecialFolder.ApplicationData),
-                        "DS4Windows", "Logs");
+                        ProductInfo.AppDataFolderName, "Logs");
                     Directory.CreateDirectory(logDirectory);
                     string stem = Path.Combine(logDirectory,
                         $"ds4-bt-audio-{startedUtc:yyyyMMdd-HHmmss}");

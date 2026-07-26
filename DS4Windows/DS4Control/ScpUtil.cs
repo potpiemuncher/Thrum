@@ -4654,8 +4654,8 @@ namespace DS4Windows
 
                 // Write header explicitly
                 //xmlWriter.WriteStartDocument();
-                xmlWriter.WriteComment(string.Format(" DS4Windows Configuration Data. {0} ", DateTime.Now));
-                xmlWriter.WriteComment(string.Format(" Made with DS4Windows version {0} ", Global.exeversion));
+                xmlWriter.WriteComment(string.Format(" " + ProductInfo.ProductName + " Configuration Data. {0} ", DateTime.Now));
+                xmlWriter.WriteComment(string.Format(" Made with " + ProductInfo.ProductName + " version {0} ", Global.exeversion));
                 xmlWriter.WriteWhitespace("\r\n");
                 xmlWriter.WriteWhitespace("\r\n");
 
@@ -4710,10 +4710,10 @@ namespace DS4Windows
                 tmpNode = m_Xdoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
                 m_Xdoc.AppendChild(tmpNode);
 
-                tmpNode = m_Xdoc.CreateComment(string.Format(" DS4Windows Configuration Data. {0} ", DateTime.Now));
+                tmpNode = m_Xdoc.CreateComment(string.Format(" " + ProductInfo.ProductName + " Configuration Data. {0} ", DateTime.Now));
                 m_Xdoc.AppendChild(tmpNode);
 
-                tmpNode = m_Xdoc.CreateComment(string.Format(" Made with DS4Windows version {0} ", Global.exeversion));
+                tmpNode = m_Xdoc.CreateComment(string.Format(" Made with " + ProductInfo.ProductName + " version {0} ", Global.exeversion));
                 m_Xdoc.AppendChild(tmpNode);
 
                 tmpNode = m_Xdoc.CreateWhitespace("\r\n");
@@ -8757,7 +8757,7 @@ namespace DS4Windows
                 // Write header explicitly
                 xmlWriter.WriteStartDocument();
                 xmlWriter.WriteComment(string.Format(" Profile Configuration Data. {0} ", DateTime.Now));
-                xmlWriter.WriteComment(string.Format(" Made with DS4Windows version {0} ", Global.exeversion));
+                xmlWriter.WriteComment(string.Format(" Made with " + ProductInfo.ProductName + " version {0} ", Global.exeversion));
                 xmlWriter.WriteWhitespace("\r\n");
                 xmlWriter.WriteWhitespace("\r\n");
 
@@ -8817,7 +8817,7 @@ namespace DS4Windows
             Node = m_Xdoc.CreateComment(String.Format(" Profile Configuration Data. {0} ", DateTime.Now));
             m_Xdoc.AppendChild(Node);
 
-            Node = m_Xdoc.CreateComment(string.Format(" Made with DS4Windows version {0} ", Global.exeversion));
+            Node = m_Xdoc.CreateComment(string.Format(" Made with " + ProductInfo.ProductName + " version {0} ", Global.exeversion));
             m_Xdoc.AppendChild(Node);
 
             Node = m_Xdoc.CreateWhitespace("\r\n");

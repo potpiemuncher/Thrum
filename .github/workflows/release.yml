@@ -51,9 +51,9 @@ jobs:
     - name: Name release asset
       shell: pwsh
       run: |
-        $source = ".\bin\x64\Release\DS4Windows_${{ env.VERSION }}_x64.zip"
+        $source = ".\bin\x64\Release\Thrum_${{ env.VERSION }}_x64.zip"
         $asset = if ("${{ env.VERSION }}" -like "VIIPER*") {
-          ".\bin\x64\Release\DS4Windows_VIIPER_x64.zip"
+          ".\bin\x64\Release\Thrum_VIIPER_x64.zip"
         } else {
           $source
         }

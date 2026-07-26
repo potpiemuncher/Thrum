@@ -82,22 +82,22 @@ jobs:
         run: |
           $artifactRoot = ".\bin\${{ matrix.platform }}\Release\artifact"
           New-Item -ItemType Directory -Path $artifactRoot -Force | Out-Null
-          Copy-Item -Path ".\bin\${{ matrix.platform }}\Release\DS4Windows" -Destination $artifactRoot -Recurse -Force
+          Copy-Item -Path ".\bin\${{ matrix.platform }}\Release\Thrum" -Destination $artifactRoot -Recurse -Force
 
       - name: Upload ${{ matrix.platform }} artifact
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: DS4Windows_${{ env.VERSION }}_${{ matrix.platform }}
+          name: Thrum_${{ env.VERSION }}_${{ matrix.platform }}
           path: .\bin\${{ matrix.platform }}\Release\artifact
           if-no-files-found: error
 
       - name: Publish artifact link to run summary
         shell: bash
         run: |
-          echo "### DS4Windows ${{ matrix.platform }} build" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Thrum ${{ matrix.platform }} build" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Version: \`${{ env.VERSION }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "[Download DS4Windows_${{ env.VERSION }}_${{ matrix.platform }} (contains DS4Windows folder)](${{ steps.upload.outputs.artifact-url }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Download Thrum_${{ env.VERSION }}_${{ matrix.platform }} (contains Thrum folder)](${{ steps.upload.outputs.artifact-url }})" >> "$GITHUB_STEP_SUMMARY"
 

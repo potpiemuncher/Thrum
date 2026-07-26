@@ -788,7 +788,7 @@ namespace DS4Windows
                     }
                     // Catch Blank Values and initialize for Startup. Also catches empty Values.
                     // Also Catches Empty values in auto-profiler, and defaults to trying to re-add D4W. Will fail harmlessly later.
-                    if (ExePath == "") { ExePath = Global.exelocation; ExeName = "DS4Windows"; AddExe = true; }
+                    if (ExePath == "") { ExePath = Global.exelocation; ExeName = ProductInfo.ExeBaseName; AddExe = true; }
 
                     // Check for inverse application cloak. If setting is being used in HidHide,
                     // skip checking HidHide whitelist for DS4Windows.

@@ -7,7 +7,7 @@
 		<Platforms>x64;x86</Platforms>
 		<RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
 		<RootNamespace>DS4WinWPF</RootNamespace>
-		<AssemblyName>DS4Windows</AssemblyName>
+		<AssemblyName>Thrum</AssemblyName>
 		<ApplicationIcon>DS4W.ico</ApplicationIcon>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<StartupObject>DS4WinWPF.App</StartupObject>
@@ -22,13 +22,13 @@
 		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 		<Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
 		<Platform Condition=" '$(Platform)' == '' ">x64</Platform>
-		<Copyright>Copyright © Scarlet.Crush Productions 2012, 2013; InhexSTER, HecticSeptic, electrobrains 2013, 2014; Jays2Kings 2013, 2014, 2015, 2016; Ryochan7 2017-2023, schmaldeo 2024</Copyright>
+		<Copyright>Copyright © Thrum project 2026; DS4Windows contributors — Scarlet.Crush Productions 2012, 2013; InhexSTER, HecticSeptic, electrobrains 2013, 2014; Jays2Kings 2013, 2014, 2015, 2016; Ryochan7 2017-2023; schmaldeo 2024; hbashton 2025, 2026. Licensed under the GNU GPL version 3 or later.</Copyright>
 		<Description>Sony DualShock 4 to Microsoft Xinput controller mapper</Description>
-		<Authors>hbashton</Authors>
-		<Company>hbashton</Company>
-		<PackageProjectUrl>https://github.com/hbashton/DS4Windows</PackageProjectUrl>
+		<Authors>Thrum project</Authors>
+		<Company>Thrum project</Company>
+		<PackageProjectUrl>https://github.com/potpiemuncher/Thrum</PackageProjectUrl>
 		<PackageLicenseUrl>https://www.gnu.org/licenses/gpl-3.0.txt</PackageLicenseUrl>
-		<RepositoryUrl>https://github.com/hbashton/DS4Windows</RepositoryUrl>
+		<RepositoryUrl>https://github.com/potpiemuncher/Thrum</RepositoryUrl>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

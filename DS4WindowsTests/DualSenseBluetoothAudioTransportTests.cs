@@ -99,7 +99,7 @@ namespace DS4WindowsTests
         public void DiagnosticPcmTraceHasRecoverableStreamingHeaderImmediately()
         {
             string path = Path.Combine(Path.GetTempPath(),
-                $"ds4windows-dualsense-trace-{Guid.NewGuid():N}.wav");
+                $"thrum-dualsense-trace-{Guid.NewGuid():N}.wav");
             try
             {
                 using Pcm16WaveTraceWriter writer =
@@ -134,7 +134,7 @@ namespace DS4WindowsTests
         public void DiagnosticPcmTraceDrainsAndFinalizesExactWaveLengths()
         {
             string path = Path.Combine(Path.GetTempPath(),
-                $"ds4windows-dualsense-trace-{Guid.NewGuid():N}.wav");
+                $"thrum-dualsense-trace-{Guid.NewGuid():N}.wav");
             byte[] pcm = Enumerable.Range(0, 4096)
                 .Select(index => (byte)(index * 31)).ToArray();
             try

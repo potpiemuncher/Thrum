@@ -40,7 +40,8 @@ function Get-UsbipInstalledVersion {
         try {
             $versionText = (Get-Item -LiteralPath $driverPath).
                 VersionInfo.FileVersion
-            if ($versionText) { return [Version]$versionText }
+            $version = ConvertTo-VersionFromObject $versionText
+            if ($version) { return $version }
         }
         catch { }
     }
@@ -50,11 +51,43 @@ function Get-UsbipInstalledVersion {
         "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
     )) {
         $entry = Get-ItemProperty $root -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -match "USB/IP|USBip" } |
+            Where-Object {
+                $displayName = $_.DisplayName
+                if ($null -eq $displayName) { return $false }
+                $nameText = $displayName -as [string]
+                return $nameText -match "USB/IP|USBip"
+            } |
             Select-Object -First 1
         if ($entry -and $entry.DisplayVersion) {
-            try { return [Version]$entry.DisplayVersion } catch { }
+            $version = ConvertTo-VersionFromObject $entry.DisplayVersion
+            if ($version) { return $version }
         }
+    }
+
+    return $null
+}
+
+function ConvertTo-VersionFromObject([object]$value) {
+    if ($null -eq $value) { return $null }
+    if ($value -is [Version]) { return $value }
+
+    try {
+        if ($value -is [string]) {
+            $text = $value.Trim()
+        }
+        else {
+            $text = [string]$value
+            if ($null -eq $text) { return $null }
+            $text = $text.Trim()
+        }
+    }
+    catch { return $null }
+
+    if ($text.Length -eq 0) { return $null }
+
+    $parsed = $null
+    if ([Version]::TryParse($text, [ref]$parsed)) {
+        return $parsed
     }
 
     return $null
@@ -176,8 +209,11 @@ function Install-ViiperAtomically([string]$candidatePath,
     # An explicit repair/update may replace a running backend. Stop only the
     # VIIPER process and leave Thrum and every physical Bluetooth device
     # alone.
-    Get-Process -Name "viiper" -ErrorAction SilentlyContinue |
-        Stop-Process -Force -ErrorAction SilentlyContinue
+    $stopped = Stop-ViiperProcesses "backend replacement"
+    if (-not $stopped) {
+        throw "Unable to stop the currently running VIIPER process automatically during install. " +
+              "Please close viiper.exe manually and try again."
+    }
     Start-Sleep -Milliseconds 300
 
     try {
@@ -194,6 +230,64 @@ function Install-ViiperAtomically([string]$candidatePath,
         }
         throw
     }
+}
+
+function Get-RunningViiperProcesses {
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='viiper.exe'" -ErrorAction SilentlyContinue
+    }
+    catch {
+        @()
+    }
+}
+
+function Stop-ViiperProcesses([string]$operation) {
+    $attempts = 12
+    for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+        $processes = @(Get-RunningViiperProcesses)
+        if ($processes.Count -eq 0) { return $true }
+
+        if ($attempt -eq 1) {
+            Write-SetupLog "Stopping VIIPER process(es) for $operation..." Yellow
+        }
+
+        foreach ($process in $processes) {
+            if ($process.ProcessId -eq $PID) { continue }
+            try {
+                $identifier = if ($process.ExecutablePath) {
+                    $process.ExecutablePath
+                }
+                else {
+                    $process.ProcessId
+                }
+                Write-SetupLog "Stopping viiper PID=$($process.ProcessId) ($identifier)." Yellow
+                Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            catch { }
+        }
+
+        Start-Sleep -Milliseconds 300
+
+        $remaining = @(Get-RunningViiperProcesses)
+        if ($remaining.Count -eq 0) { return $true }
+
+        if ($attempt -ge 3) {
+            foreach ($process in $remaining) {
+                if ($process.ProcessId -eq $PID) { continue }
+                try {
+                    & taskkill.exe /PID $process.ProcessId /T /F | Out-Null
+                }
+                catch { }
+            }
+            Start-Sleep -Milliseconds 200
+        }
+    }
+
+    Write-SetupLog (
+        "A VIIPER process is still running after stop attempts. " +
+        "Please close viiper.exe manually and rerun Install/Repair."
+    ) Yellow
+    return $false
 }
 
 function Test-ViiperApi([int]$timeoutMilliseconds = 1000) {
@@ -233,6 +327,46 @@ function Start-AndVerifyViiper([string]$viiperPath) {
     return $false
 }
 
+function Register-ViiperRunTask([string]$viiperPath, [string]$taskName) {
+    try {
+        $taskAction = New-ScheduledTaskAction -Execute $viiperPath `
+            -Argument "server"
+        $taskTrigger = New-ScheduledTaskTrigger -AtLogOn
+        $taskPrincipal = New-ScheduledTaskPrincipal `
+            -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+            -RunLevel Highest -LogonType Interactive
+        $taskSettings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
+            -MultipleInstances IgnoreNew
+
+        Register-ScheduledTask -TaskName $taskName -Action $taskAction `
+            -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings `
+            -Force | Out-Null
+        return $true
+    }
+    catch {
+        Write-SetupLog "Failed modern scheduled task registration: $($_.Exception.Message)" Yellow
+    }
+
+    try {
+        $runCommand = '"{0}" server' -f $viiperPath
+        $scheduledResult = Start-Process -FilePath "schtasks.exe" `
+            -ArgumentList "/Create /F /TN `"$taskName`" /SC ONLOGON /RL HIGHEST /IT /TR `"$runCommand`"" `
+            -WindowStyle Hidden -PassThru -Wait
+        if ($scheduledResult.ExitCode -eq 0) {
+            return $true
+        }
+
+        Write-SetupLog "Fallback schtasks command exited with code $($scheduledResult.ExitCode)." Yellow
+    }
+    catch {
+        Write-SetupLog "Failed fallback scheduled task registration: $($_.Exception.Message)" Yellow
+    }
+
+    return $false
+}
+
 try {
     if (-not (Test-Administrator)) {
         throw "Administrator permission is required. Launch setup from Thrum so Windows can request it automatically."
@@ -246,7 +380,13 @@ try {
 
     Write-Step "Checking usbip-win2"
     $requiredUsbipVersion = [Version]"0.9.7.7"
-    $usbipVersion = Get-UsbipInstalledVersion
+    try {
+        $usbipVersion = Get-UsbipInstalledVersion
+    }
+    catch {
+        Write-SetupLog "usbip-win2 version check failed: $($_.Exception.Message)" Yellow
+        $usbipVersion = $null
+    }
     if ($usbipVersion -and $usbipVersion -ge $requiredUsbipVersion) {
         Write-SetupLog "usbip-win2 is ready: $usbipVersion" Green
     }
@@ -280,26 +420,28 @@ try {
     Write-SetupLog "VIIPER installed to $viiperPath" Green
 
     Write-Step "Registering VIIPER"
+    $registrationSafeToRun = $true
+    if (-not (Stop-ViiperProcesses "install registration")) {
+        $registrationSafeToRun = $false
+    }
+
     $registration = Start-Process -FilePath $viiperPath `
         -ArgumentList "install" -WindowStyle Hidden -PassThru -Wait
     if ($registration.ExitCode -ne 0) {
+        if (-not $registrationSafeToRun) {
+            throw "VIIPER registration could not proceed because a VIIPER process could not be closed automatically. " +
+                  "Please close viiper.exe manually, then run Install / Repair again."
+        }
         throw "VIIPER registration failed with exit code $($registration.ExitCode)."
     }
 
     $taskName = "RunVIIPER"
-    $taskAction = New-ScheduledTaskAction -Execute $viiperPath `
-        -Argument "server"
-    $taskUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User $taskUser
-    $taskPrincipal = New-ScheduledTaskPrincipal -UserId $taskUser `
-        -RunLevel Highest -LogonType Interactive
-    $taskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
-        -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
-        -MultipleInstances IgnoreNew
-    Register-ScheduledTask -TaskName $taskName -Action $taskAction `
-        -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings `
-        -Force | Out-Null
-    Write-SetupLog "Registered hidden logon task '$taskName'." Green
+    if (Register-ViiperRunTask $viiperPath $taskName) {
+        Write-SetupLog "Registered hidden logon task '$taskName'." Green
+    }
+    else {
+        Write-SetupLog "Could not create hidden logon task. Setup will continue; VIIPER can still be started by Thrum when needed." Yellow
+    }
 
     Write-Step "Verification"
     if (Start-AndVerifyViiper $viiperPath) {

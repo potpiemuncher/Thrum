@@ -2143,3 +2143,167 @@ detail. Our fix protects backends *we* start; it does nothing for a backend
 started by the `RunVIIPER` task or by the user, which is the other half of why
 autostart entries are now surfaced in Settings. The upstream report stays [EXT]
 under the plan's contribution sequence.
+
+---
+
+## 2026-07-26 — First upstream merge cycle (`5d2724a..8a2b715`), a Phase 2 prerequisite
+
+**Session scope:** the first merge cycle under
+[ADR-0002](ADR-0002-upstream-tracking.md), plus the written analysis that makes
+it worth doing. No feature work: the code diff is conflict resolution only.
+
+Full analysis: [`upstream-delta-2026-07-26.md`](upstream-delta-2026-07-26.md).
+
+### The merge
+
+`upstream-track` fast-forwarded `5d2724a` → **`8a2b715`**, four commits, all
+VIIPER installer hardening, 2 files, +214/-23:
+
+| Commit | Subject |
+|---|---|
+| `db21d7e` | Harden VIIPER installer against conversion and task registration failures |
+| `fac5467` | Use only hbashton VIIPER repo in installer source lookup |
+| `3937d26` | Make VIIPER setup close running viiper before registration |
+| `8a2b715` | Improve VIIPER install completion behavior |
+
+`git merge --no-ff upstream-track` produced **zero textual conflicts**. Every
+file flagged as high-risk before the merge — `ScpUtil.cs`, `ProductInfo.cs`,
+`App.xaml.cs`, `StartupMethods.cs`, `Directory.Build.props`, the workflows, the
+resx set, the rest of `DS4Control/Viiper/` — was untouched upstream. Our 2.4b
+additions to `ViiperSetupManager.cs` and upstream's edits landed in disjoint
+regions, and our installer-script changes are branding-only against upstream's
+functional ones.
+
+Which is exactly the case worth being suspicious of. The real conflicts were
+semantic, and a clean `git merge` reported none of them.
+
+### The three semantic conflicts
+
+1. **`8a2b715` reintroduced our product's old identity.** Its new
+   `RestartDs4Windows` composes `Path.Combine(Global.exedirpath,
+   "DS4Windows.exe")` and names DS4Windows in four user-visible strings. In our
+   tree that path does not exist, so the feature would have silently degraded to
+   a log line naming a product that is not installed. **Ours wins**, on the
+   ground that this is precisely the coupling `ProductInfo` exists to own.
+   Resolved with `Global.exelocation` rather than a composed
+   `ExeBaseName + ".exe"` — it is the executable actually running, so it also
+   survives a portable copy under a different filename and the junction/Scoop
+   case that `exelocation` already resolves and that upstream's own comment says
+   it cares about. Method renamed `RestartApplication`.
+2. **`{logPath}` shown literally.** `3937d26` split the failure dialog into
+   three concatenated fragments and put the `$` only on the first. One
+   character, fixed here, reported as an upstream defect.
+3. **Upstream's auto-restart cannot restart — taken as-is, recorded, not
+   fixed.** `RestartApplication` starts the replacement process *before*
+   shutting the current one down, so the new instance finds the single-instance
+   event still held and exits immediately while the old one finishes
+   `CleanShutdown`. In our tree it is worse: the restart is reached right after
+   `GetStatus(tryStartServer: true)`, which may have started and recorded
+   ownership of the backend, so `StopOwnedBackendOnExit` then stops it — leaving
+   no app and no backend after an install whose purpose was to provide one.
+   Fixing the ordering is a behaviour change to upstream's new feature and was
+   out of scope for a merge PR; it must land before any release.
+
+Nothing of ours was dropped to take upstream's version. Two upstream changes are
+genuinely better than what we had and are kept verbatim: `Stop-ViiperProcesses`
+turning a best-effort `Stop-Process` into a retrying, escalating, **fail-closed**
+check, and `ConvertTo-VersionFromObject` making a version probe total.
+
+### Task 2.4: what upstream did and did not do for us
+
+Of 2.4's seven requirements, **one** is satisfied upstream (the pinned exact
+usbip-win2 release URL), **two** are partial (atomic install with `.previous` —
+atomic yes, but the backup is deleted on success; and decision logging — good
+for the decisions that exist, and the verification decisions do not exist yet),
+and **four** are still entirely ours: SHA-256 before execution, Authenticode
+subject verification before execution, post-install validation of the actual
+package *pair* (only `usbip2_ude.sys`'s FileVersion is read; `usbip2_filter.sys`
+never is, and a version floor is not a validation), and no-silent-acceptance —
+which is two separate holes, an `-ge 0.9.7.7` floor that silently accepts the
+known-risk 0.9.7.8, and a VIIPER asset resolver that installs whatever the newest
+non-draft release happens to be. There is no `Get-FileHash` and no
+`Get-AuthenticodeSignature` anywhere in `extras/`.
+
+So 2.4's scope barely shrinks — but its *shape* changes, because it now has to be
+written on top of `Stop-ViiperProcesses`, `Register-ViiperRunTask` and
+`ConvertTo-VersionFromObject` instead of the code it was drafted against.
+
+### `RunVIIPER`: still registered, and now harder
+
+**Yes, and upstream pushed in the opposite direction from our 5.3 constraint.**
+The merged script creates **two** autostart mechanisms, unconditionally, on every
+install and repair: the `HKCU\…\Run` value `VIIPER` written by
+`viiper.exe install`, and the `RunVIIPER` at-logon task. `db21d7e` gave the task
+a `schtasks.exe` fallback so registration now succeeds where it previously
+aborted; `3937d26` made the `viiper.exe install` step more mandatory, stopping
+every backend first and throwing an actionable error if it still fails.
+
+Three consequences for 2.4, none implemented here:
+
+- The removal is not "delete one block". The `viiper.exe install` invocation must
+  go or be replaced too, and it is currently load-bearing for upstream's new
+  error handling — so 2.4 has to decide what "Registering VIIPER" still means.
+- Neither entry passes `--update-notify none`, and neither does the script's own
+  `Start-AndVerifyViiper` (pre-existing, untouched by upstream and by 2.4b). A
+  backend started by any of the three has the issue #8 updater fully live. Our
+  2.4b fix covers only backends we spawn — which is why 2.4b surfaces both
+  autostart entries in Settings, and why that detection is not transitional.
+- Mergeability: our removal will rewrite lines upstream has just worked on. Per
+  ADR-0002 §4, prefer a shape that leaves upstream's functions intact and changes
+  only whether they are *called*.
+
+`fac5467` is the one upstream change that helps directly: it reverts a same-day
+addition of `Alia5/VIIPER` as a second release source, so the bundled script will
+not install a foreign VIIPER build. That is the installer-side complement to our
+runtime issue #8 fix.
+
+### Effect on the rest of Phase 2
+
+2.2, 2.3 and 2.5: no change. 2.1: no design change, but `8a2b715` added a second
+consumer of readiness (the restart branches on `refreshed.Ready`), so the
+four-state enum needs a usable "ready" projection and that decision should key
+off the new states. 2.4b: every conclusion holds, and its recorded open
+follow-up — our own script registers `RunVIIPER` — is confirmed and strengthened.
+Phase 5.3 inherits the two-mechanism finding.
+
+### Verification
+
+All seven regression-critical invariants re-checked after the merge and intact:
+`--update-notify none` on spawn (with its three assertions), stop-on-exit
+ownership and its `StopViiperBackendOnExit` round trip, the `[ModuleInitializer]`
+satellite resolver, `ProductInfo` values, the identity sweep, and the import
+wizard plus its `import-declined.txt` marker.
+
+The identity sweep is the one that moved: the merge added **8** `DS4Windows`
+occurrences and the resolution removed exactly those 8, so `git grep -ic
+ds4windows` totals **1715** on both `main` and the merge branch. A targeted
+anchor sweep returns only the pre-existing documented residue — historical
+comments, and the `DS4Updater` mention in the custom-exe-name help string across
+22 translations that the 1.8 sweep left alone because it names a different
+product.
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, 17
+  pre-existing warnings.
+- Full suite with the CI filter — **626 passed / 0 failed**. No delta: upstream
+  added no tests, and neither of its two files has coverage upstream or here.
+- Divergence budget (ADR-0002 §5): **11,987** added lines outside `docs/` and
+  `*.md`, against the ~15,000 alarm. No review triggered.
+
+### Deviations and things left open
+
+1. **The auto-restart defect is merged, not fixed** (above). Highest-priority
+   follow-up on the installer path; must not reach a release.
+2. **Nothing in the installer script was executed.** Running it installs the
+   usbip-win2 kernel driver, which Part 3 rule 1 puts behind a TESTENV
+   checkpoint. The whole 2.4 and `RunVIIPER` analysis is source-level reading of
+   the merged script. When 2.4 takes its [VM] pass, the restart defect and both
+   autostart registrations should be observed directly rather than inferred.
+3. **`Stop-ViiperProcesses` contradicts 2.4b's ownership policy** — the script
+   kills every `viiper.exe`, including another consumer's, where the app refuses
+   to. Defensible for an explicit elevated install (you cannot replace a running
+   image otherwise) and left alone, but 2.4 should state the two policies
+   together. Our ownership record is safe against it: matching on (pid, start
+   time) means a killed backend simply fails to resolve and the exit path does
+   nothing.
+4. **Three upstream reports are drafted and unfiled [EXT]:** the restart
+   ordering, the `{logPath}` fragment, and the three unflagged backend spawns.

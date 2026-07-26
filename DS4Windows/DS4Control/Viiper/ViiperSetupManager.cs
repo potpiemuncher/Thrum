@@ -305,9 +305,11 @@ namespace DS4Windows
                 if (exitCode == 0 && refreshed.Ready)
                 {
                     Interlocked.Exchange(ref promptShownThisSession, 0);
-                    ShowInstallerMessage(owner,
-                        "VIIPER setup finished successfully. Virtual controllers are ready.",
-                        "VIIPER is ready", MessageBoxImage.Information);
+                    AppLogger.LogToGui(
+                        "SUCCESSFUL: VIIPER setup finished successfully. Virtual controllers are ready. Restarting " +
+                        ProductInfo.ProductName + ".",
+                        false, false);
+                    RestartApplication();
                     return;
                 }
 
@@ -317,11 +319,65 @@ namespace DS4Windows
                     "VIIPER", "install.log");
                 string message = exitCode == 0
                     ? "VIIPER was installed, but Windows is not reporting every component as ready yet. Restart Windows once, then click Refresh."
-                    : $"VIIPER setup could not finish (exit code {exitCode}). Review the setup log and try Repair again.\n\n{logPath}";
+                    : $"VIIPER setup could not finish (exit code {exitCode}).\n\n" +
+                      "If a viiper.exe process was still running, it may have blocked the VIIPER registration step. " +
+                      $"Close viiper.exe manually and run Repair again.\n\nReview the setup log for details:\n{logPath}";
                 ShowInstallerMessage(owner, message, "VIIPER setup",
                     exitCode == 0 ? MessageBoxImage.Warning :
                         MessageBoxImage.Error);
             }));
+        }
+
+        private static void RestartApplication()
+        {
+            // Global.exelocation, not a composed "<product>.exe" under
+            // exedirpath: it is the executable actually running, so it survives
+            // a rename, a portable copy, and the junction/Scoop case that
+            // exelocation already resolves.
+            string exePath = Global.exelocation;
+            if (!File.Exists(exePath))
+            {
+                AppLogger.LogToGui("VIIPER setup succeeded, but " +
+                    ProductInfo.ExeBaseName +
+                    ".exe was not found for automatic restart.", true, true);
+                return;
+            }
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                Thread.Sleep(2000);
+
+                try
+                {
+                    ProcessStartInfo startInfo = new ProcessStartInfo
+                    {
+                        FileName = exePath,
+                        UseShellExecute = true,
+                    };
+                    Process.Start(startInfo);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogToGui(
+                        $"Could not restart {ProductInfo.ProductName} automatically after VIIPER install: {ex.Message}",
+                        true, true);
+                    return;
+                }
+
+                try
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        Application.Current.Shutdown();
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogToGui(
+                        $"{ProductInfo.ProductName} failed to restart automatically after VIIPER install: {ex.Message}",
+                        true, true);
+                }
+            });
         }
 
         private static void ShowInstallerMessage(Window owner, string message,

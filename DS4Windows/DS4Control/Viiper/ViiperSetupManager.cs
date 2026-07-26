@@ -31,6 +31,30 @@ namespace DS4Windows
         public string ViiperPath { get; set; }
         public string SetupScriptPath { get; set; }
 
+        /// <summary>
+        /// How far the installed usbip-win2 package pair could be validated.
+        /// Deliberately separate from <see cref="Ready"/>: readiness answers
+        /// "can the backend run", the tier answers "how much do we know about
+        /// the kernel package it will run on". Null only before the first
+        /// evaluation.
+        /// </summary>
+        public ViiperDriverReadiness DriverReadiness { get; set; }
+
+        /// <summary>
+        /// The backend can run: a USB/IP server is answering and a usbip-win2
+        /// driver is installed.
+        ///
+        /// <para>Unchanged by the four-state driver validation on purpose.
+        /// <see cref="Ready"/> has existing consumers — the profile-time
+        /// prerequisite prompt, the output-device attach paths, the debugger,
+        /// the first-run dialog, and the post-install restart branch — and all
+        /// of them are asking the transport question, not the trust question.
+        /// Making <see cref="Ready"/> false for
+        /// <see cref="ViiperDriverReadinessState.DetectedUnvalidated"/> would
+        /// silently turn a validation result into a functional refusal in
+        /// flows that never opted into one. Refusal behaviour is a separate,
+        /// explicit decision; read <see cref="DriverReadiness"/> for it.</para>
+        /// </summary>
         public bool Ready => ServerRunning && UsbipInstalled;
 
         public string DisplayText
@@ -156,6 +180,24 @@ namespace DS4Windows
 
         public static bool IsViiperOutputType(OutContType type) => ViiperOutDevice.IsViiperType(type);
 
+        /// <summary>
+        /// The session's usbip-win2 driver validation result, evaluated once on
+        /// first use. Read-only with respect to the system: it enumerates
+        /// driver packages and verifies catalog trust, and does nothing else.
+        /// </summary>
+        public static ViiperDriverReadiness DriverReadiness =>
+            ViiperDriverReadinessProvider.Default.Get();
+
+        /// <summary>
+        /// Re-reads the machine and replaces the cached driver validation
+        /// result. The entry point behind the Settings re-check button and the
+        /// post-install refresh; ordinary status polling must use
+        /// <see cref="DriverReadiness"/> so the SetupAPI and WinVerifyTrust work
+        /// happens once.
+        /// </summary>
+        public static ViiperDriverReadiness RefreshDriverReadiness() =>
+            ViiperDriverReadinessProvider.Default.Refresh();
+
         public static ViiperPrerequisiteStatus GetStatus(bool tryStartServer = false)
         {
             string viiperPath = GetViiperExePath();
@@ -166,8 +208,13 @@ namespace DS4Windows
                 SetupScriptPath = setupScriptPath,
                 ViiperInstalled = File.Exists(viiperPath),
                 SetupScriptFound = File.Exists(setupScriptPath),
+                // Unchanged, and deliberately not derived from the gate:
+                // UsbipInstalled feeds Ready, and Ready is the transport
+                // question. The gate's answer rides alongside in
+                // DriverReadiness.
                 UsbipInstalled = IsUsbipWin2Installed(),
                 ServerRunning = CanPingServer(),
+                DriverReadiness = DriverReadiness,
             };
 
             if (tryStartServer && !status.ServerRunning && status.ViiperInstalled)
@@ -300,6 +347,10 @@ namespace DS4Windows
 
             application.Dispatcher.BeginInvoke(new Action(() =>
             {
+                // The install is the one event that can change the answer, so
+                // the session cache has to be discarded here rather than
+                // reported stale to the restart branch below.
+                RefreshDriverReadiness();
                 ViiperPrerequisiteStatus refreshed = GetStatus(
                     tryStartServer: true);
                 if (exitCode == 0 && refreshed.Ready)

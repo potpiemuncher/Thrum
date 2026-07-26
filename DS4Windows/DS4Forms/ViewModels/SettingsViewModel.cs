@@ -37,6 +37,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 {
     public class SettingsViewModel
     {
+        /// <summary>
+        /// The usbip-win2 driver-status card. Constructed empty: it reads
+        /// nothing until the view calls Load, so opening Settings never pays
+        /// for a driver enumeration on the dispatcher thread.
+        /// </summary>
+        public ViiperDriverStatusViewModel ViiperDriverStatus { get; } =
+            new ViiperDriverStatusViewModel();
+
         // Re-Enable Ex Mode
         public bool HideDS4Controller
         {

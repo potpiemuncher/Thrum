@@ -609,6 +609,125 @@
                                         Margin="0,6,0,0"
                                         ToolTip="Deletes VIIPER's own logon entries. Nothing is removed until you click this."
                                         Click="ViiperAutostartRemoveBtn_Click" />
+
+                                <!--
+                                    Driver-status card. Reports what usbip-win2
+                                    package is installed and how far it could be
+                                    validated. Read-only: nothing here installs,
+                                    elevates, attaches, or changes a setting.
+                                -->
+                                <Border Style="{StaticResource BridgeCardStyle}"
+                                        DataContext="{Binding ViiperDriverStatus}"
+                                        MaxWidth="560"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                            <TextBlock Text="usbip-win2 kernel driver"
+                                                       Style="{StaticResource BridgeSectionTitleStyle}"
+                                                       Margin="0"
+                                                       VerticalAlignment="Center" />
+                                            <Border Style="{StaticResource BridgeStatusBadgeStyle}"
+                                                    Margin="10,0,0,0">
+                                                <TextBlock Text="{Binding BadgeText}"
+                                                           Style="{StaticResource BridgeStatusBadgeTextStyle}" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding Headline}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0,0,0,10" />
+
+                                        <TextBlock Text="{Binding TierNote}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0,0,0,10"
+                                                   Visibility="{Binding HasTierNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                        <TextBlock Text="{Binding RestrictionText}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0,0,0,10"
+                                                   Visibility="{Binding HasRestriction, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                        <StackPanel Margin="0,0,0,6"
+                                                    Visibility="{Binding HasReasons, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="What could not be confirmed"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ForegroundColor}"
+                                                       Margin="0,0,0,4" />
+                                            <ItemsControl ItemsSource="{Binding Reasons}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding}"
+                                                                   Style="{StaticResource BridgeCardListItemStyle}" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,6"
+                                                    Visibility="{Binding HasIdentities, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="Detected package identity"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ForegroundColor}"
+                                                       Margin="0,0,0,4" />
+                                            <ItemsControl ItemsSource="{Binding Identities}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,0,0,8">
+                                                            <TextBlock Text="{Binding Component}"
+                                                                       Foreground="{DynamicResource ForegroundColor}"
+                                                                       FontSize="12"
+                                                                       Margin="0,0,0,2" />
+                                                            <ItemsControl ItemsSource="{Binding Fields}" Margin="12,0,0,0">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <TextBlock Text="{Binding Display}"
+                                                                                   Style="{StaticResource BridgeCardListItemStyle}" />
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <WrapPanel Margin="0,2,0,0" IsEnabled="{Binding CanInteract}">
+                                            <Button x:Name="viiperDriverRecheckBtn"
+                                                    Content="Re-check"
+                                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                                    Margin="0,0,8,8"
+                                                    ToolTip="Reads the installed driver packages again. Nothing is installed or changed."
+                                                    Click="ViiperDriverRecheckBtn_Click" />
+                                            <Button x:Name="viiperDriverDiagnosticBtn"
+                                                    Content="Run full diagnostic"
+                                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                                    Margin="0,0,8,8"
+                                                    ToolTip="Produces the same read-only report as the -viiperdriverdiagnostic command and saves it under %TEMP%."
+                                                    Click="ViiperDriverDiagnosticBtn_Click" />
+                                            <Button x:Name="viiperDriverCopyReportBtn"
+                                                    Content="Copy report"
+                                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                                    Margin="0,0,8,8"
+                                                    Visibility="{Binding HasReport, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                    Click="ViiperDriverCopyReportBtn_Click" />
+                                            <Button x:Name="viiperDriverOpenReportBtn"
+                                                    Content="Open report"
+                                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                                    Margin="0,0,8,8"
+                                                    Visibility="{Binding CanOpenReport, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                    Click="ViiperDriverOpenReportBtn_Click" />
+                                        </WrapPanel>
+
+                                        <TextBlock Text="{Binding ReportStatusText}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0,0,0,4"
+                                                   Visibility="{Binding HasReportStatus, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <TextBlock Text="{Binding CheckedAtText}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0" />
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </GroupBox>
                             </StackPanel>

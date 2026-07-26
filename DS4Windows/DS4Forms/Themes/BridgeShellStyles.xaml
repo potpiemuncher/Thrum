@@ -741,4 +741,61 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!--
+        Status badge.
+
+        Colour carries meaning here, so it is stated once: green only for a
+        production-approved package, amber for a package we recognise but that
+        is still experimental, red for one we could not verify, and neutral grey
+        for "absent" and for "not established yet". Amber is deliberately not
+        green: a manifest match is identity evidence, never approval.
+
+        Triggers bind to the view model's BadgeKind token rather than to the
+        readiness enum, because "Checking" and "Unknown" are not readiness
+        states and a nullable enum does not trigger reliably.
+    -->
+    <Style x:Key="BridgeStatusBadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MutedForegroundColor}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="10,3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding BadgeKind}" Value="Unverified">
+                <Setter Property="BorderBrush" Value="{DynamicResource DangerColor}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding BadgeKind}" Value="Experimental">
+                <Setter Property="BorderBrush" Value="{DynamicResource WarningColor}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding BadgeKind}" Value="Approved">
+                <Setter Property="BorderBrush" Value="{DynamicResource SuccessColor}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="BridgeStatusBadgeTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource MutedForegroundColor}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding BadgeKind}" Value="Unverified">
+                <Setter Property="Foreground" Value="{DynamicResource DangerColor}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding BadgeKind}" Value="Experimental">
+                <Setter Property="Foreground" Value="{DynamicResource WarningColor}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding BadgeKind}" Value="Approved">
+                <Setter Property="Foreground" Value="{DynamicResource SuccessColor}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- One "why" line in a reason or identity list. -->
+    <Style x:Key="BridgeCardListItemStyle" TargetType="TextBlock"
+           BasedOn="{StaticResource BridgeSectionDescriptionStyle}">
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
 </ResourceDictionary>

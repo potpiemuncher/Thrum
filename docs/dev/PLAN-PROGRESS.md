@@ -2307,3 +2307,207 @@ product.
    nothing.
 4. **Three upstream reports are drafted and unfiled [EXT]:** the restart
    ordering, the `{logPath}` fragment, and the three unflagged backend spawns.
+
+---
+
+## 2026-07-26 — Phase 2.1 + 2.2: four-state driver readiness and the Settings status card
+
+**Session scope:** tasks **2.1** (wire `ViiperDriverGate` into readiness) and
+**2.2** (Settings driver-status card). Explicitly not 2.3, 2.4 or 2.5: this PR
+computes and shows the state and changes no behaviour that depends on it.
+
+The fail-closed validation layer landed in Phase 0 and has been reachable only
+from `-viiperdriverdiagnostic` and its tests ever since. It is now part of the
+product.
+
+### The four-state mapping
+
+`ViiperDriverReadinessResolver.Resolve` maps one read-only
+`ViiperDriverValidationReport` onto the state. The order of the checks *is* the
+fail-closed policy, so it is written out rather than left implicit:
+
+| # | Condition | State |
+|---|---|---|
+| 1 | report is null | `DetectedUnvalidated` |
+| 2 | package enumeration threw | `DetectedUnvalidated` |
+| 3 | enumeration completed, neither package found | `Missing` |
+| 4 | client read threw, or no validation result | `DetectedUnvalidated` |
+| 5 | validation passed, matched tier `Production` | `Approved` |
+| 6 | validation passed, matched tier `ExperimentalBaseline` | `ValidatedExperimental` |
+| 7 | anything else (one of the pair missing, mixed pair, unlisted version, wrong provider/INF/architecture, unhealthy node, test-signed, expired, revoked, developer-signed, untrusted, wrong publisher, trust verification threw) | `DetectedUnvalidated` |
+
+Two properties this ordering is chosen for:
+
+- **Only rows 5 and 6 can produce a state better than `DetectedUnvalidated`,
+  and both require the authoritative `ViiperDriverValidator.Validate` to have
+  passed.** No amount of partial evidence gets there.
+- **Only row 3 can produce `Missing`, and it requires the enumeration to have
+  completed.** An unreadable machine is not an empty one — that distinction is
+  the reason row 2 sits above row 3, and it has its own test.
+
+`Approved` is unreachable in the shipped product: the manifest has no
+`Production` entry, and `RealManifest_HasNoProductionEntry` guards that it
+cannot appear by accident. The tier is exercised through
+`ViiperDriverManifest.FromReleases` with a fabricated 9.9.9.9 Production entry —
+a new `internal` seam, so proving the path did not require weakening the real
+manifest.
+
+Reasons are carried on every non-`Missing` state and are deliberately **not**
+cleared on a match: a passing result with a leftover trust concern would be a
+contradiction worth showing rather than erasing. Identity is exposed as a
+projection (`ViiperDriverComponentIdentity`), never the raw
+`ViiperDriverPackageInfo`, because that record carries `TrustEvaluationPath` — a
+driver-store path that must not reach the UI, a log, or a report. A test walks
+every rendered string to assert it never does.
+
+### What `Ready` means now, and who was affected
+
+**`ViiperPrerequisiteStatus.Ready` is unchanged: `ServerRunning &&
+UsbipInstalled`.** The tier rides alongside as a new `DriverReadiness` property.
+`UsbipInstalled` also keeps its existing weak heuristic rather than being
+re-derived from the gate.
+
+This is a deliberate decision, not an oversight. `Ready` has six kinds of
+consumer — `EnsureReadyWithPrompt` (the profile-time prompt), `ViiperOutDevice`
+×2 (attach paths), `ViiperBackendDebugger` ×5, `WelcomeDialog` ×2,
+`MainWindowsViewModel`, and upstream's new `InstallerProcess_Exited` restart
+branch — and every one of them is asking the *transport* question: can the
+backend run. Making `Ready` false for `DetectedUnvalidated` would silently
+convert a validation result into a functional refusal in flows that never opted
+into one, inside a PR whose whole point is that it changes no behaviour.
+Refusal is 2.3 and 2.5, where it is an explicit, disclosed decision.
+
+Callers affected in this PR: **none behaviourally**. Two mechanical changes:
+
+1. `GetStatus` now also populates `DriverReadiness` from the session cache.
+2. `InstallerProcess_Exited` calls `RefreshDriverReadiness()` before
+   `GetStatus`. An install is the one event that can change the answer, so the
+   cache must not be reported stale to the `refreshed.Ready` branch that
+   `8a2b715` added. The restart condition itself is untouched — it is upstream's
+   new feature and it has a known ordering defect
+   (`upstream-delta-2026-07-26.md` §3.3) that belongs to whoever fixes that.
+
+### Caching
+
+`ViiperDriverReadinessProvider` evaluates once per session and hands out the
+cached answer; `Refresh()` is the only thing that re-reads the machine. Measured
+cost of one pass on the dev PC: the whole `-viiperdriverdiagnostic` process runs
+in ~1.0 s wall clock including .NET startup, so the inspection itself is a few
+hundred milliseconds — against the up-to-1000 ms TCP timeout `CanPingServer`
+already spends in the same method.
+
+`Adopt(report)` publishes a readiness derived from a report somebody already
+paid for, so "Run full diagnostic" refreshes the card without a second
+enumeration.
+
+### The card
+
+In the existing VIIPER group in Settings, as a `BridgeCardStyle` card: state
+badge, headline, tier note, restriction line, reason list, detected package
+identity per component, and Re-check / Run full diagnostic / Copy report / Open
+report.
+
+Wording is enforced by tests, not by review habit:
+
+- `NoStateRecommendsInstallingAnUnlistedPackage` walks all four states and fails
+  on "download", "latest version", "newest", "upgrade to", "usbip-win2
+  releases", "github.com". The only install path the card points at is the
+  existing bundled setup, which targets a listed release.
+- `ValidatedExperimental` badges as **"Experimental - known package"** and is
+  asserted never to contain "approved"; only `Approved` may say "Production
+  approved". The tier note states plainly that a match is not production
+  approval and names the kernel request-lifetime risk.
+- `Missing` and `DetectedUnvalidated` both say what will be restricted. The
+  restriction does not exist yet — that is 2.3 — so the text is future tense and
+  accurate today.
+
+Colour carries meaning and is stated once in `BridgeShellStyles`: green only for
+production-approved, **amber** for a recognised experimental package, red for
+unverified, grey for absent and for not-yet-checked. Amber is deliberately not
+green. That needed a new `WarningColor` brush, added to **both** theme
+dictionaries; `ThemeResourceTests` gained a `[DataTestMethod]` that asserts
+light and dark define the same 14 brush keys, so the next new brush cannot land
+in one dictionary only.
+
+`RunDiagnostic()` is a new public entry point on
+`ViiperDriverValidationCommand`; `Run()` (the CLI) now calls it. There is one
+implementation, so the card's report and the command's report cannot diverge.
+`RedactUserPath` and the `%TEMP%`-relative display path are untouched, and the
+card shows the display path, never the real one.
+
+### Reuse, not forks
+
+- `ViiperDriverReportFormatter` — not touched. The card reuses the report
+  through `RunDiagnostic()`.
+- `ViiperDriverValidator.RejectTrust` was extracted to a public
+  `DescribeTrustRejection` and now backs both the fail-closed decision and every
+  trust string the card shows, so the decision and its explanation cannot drift.
+- `ResolveUsbipExecutablePath()` became `internal` so readiness resolves the
+  same path the diagnostic does instead of reimplementing the lookup.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**,
+  14 pre-existing warnings.
+- Full suite with the CI filter — **663 passed / 0 failed**, from a 626
+  baseline: +24 readiness/mapping/provider tests, +11 view-model tests, +2 theme
+  parity rows. `AppSettingsTests.CheckSettingsSave` remains excluded and remains
+  stale for the reason recorded in the 2.4b entry.
+- **Manual check on the packaged build, non-elevated** (`dotnet publish` +
+  `utils/post-build.py`, driven through UI Automation). Settings → VIIPER →
+  the card rendered:
+  - badge **"Experimental - known package"** in amber;
+  - "The installed packages exactly match a package identity Thrum knows:
+    usbip-win2 0.9.7.8, an experimental baseline.";
+  - the not-production-approval note in full;
+  - UDE host controller — `USBIP-WIN2` / `usbip2_ude.inf` / `1.45.29.368` /
+    `usbip2_ude` / `usbip2_ude.cat: trusted, signed by Microsoft Windows
+    Hardware Compatibility Publisher`;
+  - filter extension — `usbip2_filter.inf` / `1.45.28.868` / service
+    `(not reported)` / same catalog trust;
+  - usbip.exe client — `0.9.7.8`, `trusted, signed by Cloudyne Systems
+    (Scheibling Consulting AB)`;
+  - no reason list, which is correct for a match.
+
+  Re-check updated the timestamp; Run full diagnostic wrote
+  `%TEMP%\Thrum\viiper-driver-validation-20260726-174707Z.txt` (5,778 bytes),
+  opened the report window with content identical to the CLI run, and the card
+  gained "Report saved to %TEMP%\...". Copy report put all 5,778 characters on
+  the clipboard; Open report opened the saved file. App shut down via
+  `-command shutdown`; no Thrum process and no orphaned `viiper.exe` left
+  behind (2.4b stopped the backend it had started).
+
+### Deviations
+
+1. **This machine has usbip-win2 0.9.7.8 installed, not 0.9.7.7.** The task
+   brief predicted 0.9.7.7. The observed DriverVers are `1.45.29.368` /
+   `1.45.28.868` and the client reports `0.9.7.8`, which is the manifest's
+   known-risk baseline, not the installer-targeted one. Both are
+   `ExperimentalBaseline`, so the state is the predicted
+   `ValidatedExperimental` — but the identities on screen are the other
+   release's. Worth knowing before any [VM] matrix work assumes the dev PC
+   mirrors the 0.9.7.7 checkpoint. **Nothing was installed, changed, or
+   upgraded to establish this.**
+2. **The Settings VIIPER refresh moved off the dispatcher thread.** Not in the
+   task's scope, but forced by it: `GetStatus` now also does a SetupAPI
+   enumeration and catalog verification, and that method was already being
+   called synchronously from the `MainWindow` constructor alongside a
+   1000 ms-timeout TCP ping and a Task Scheduler query. The probes now run on a
+   background task and apply to the UI through the dispatcher. Strictly less
+   blocking than before.
+3. **Reasons are not suppressed on a match**, where a stricter reading of "the
+   reason list when not ValidatedExperimental/Approved" would suppress them. A
+   passing result carrying a trust concern should be visible, not hidden; the
+   card binds the list to whether it is empty. In practice it is empty on every
+   match.
+4. **`ViiperDriverValidationCommand.ShowReportWindow` gained an owner
+   parameter** so the card's report window centres on the main window. The
+   command path passes null and is unchanged.
+5. **Not verified, and cannot be here:** every state other than
+   `ValidatedExperimental`. `Missing`, `DetectedUnvalidated` and `Approved` are
+   covered by unit tests against fakes; seeing them rendered against a real
+   machine needs the TESTENV no-driver and tampered-INF checkpoints, which is
+   the [VM] pass Phase 2's verification section already schedules.
+6. **Spotted in passing, not fixed:** the Settings "Run At Startup" helper text
+   still reads "Tells Windows to start DS4Windows after login" — a Phase 1.8
+   localization-sweep miss in the string resources.

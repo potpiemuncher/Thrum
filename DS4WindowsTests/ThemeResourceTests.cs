@@ -18,6 +18,76 @@ namespace DS4WindowsTests
         private static readonly string ComponentPrefix =
             $"/{ProductInfo.ExeBaseName};component";
 
+        /// <summary>
+        /// Brushes the shell styles resolve with DynamicResource. Every one of
+        /// them has to exist in both dictionaries or a theme switch leaves an
+        /// unresolved reference at runtime, which WPF reports as nothing at all.
+        /// </summary>
+        private static readonly string[] ThemeBrushKeys =
+        {
+            "ForegroundColor",
+            "BackgroundColor",
+            "BorderColor",
+            "AccentColor",
+            "SecondaryColor",
+            "SurfaceBackgroundColor",
+            "SidebarBackgroundColor",
+            "CardBackgroundColor",
+            "RaisedBackgroundColor",
+            "NavigationSelectionColor",
+            "MutedForegroundColor",
+            "SuccessColor",
+            "WarningColor",
+            "DangerColor",
+        };
+
+        [DataTestMethod]
+        [DataRow("DefaultTheme")]
+        [DataRow("DarkTheme")]
+        public void ThemeDefinesEveryBrushTheShellStylesBindTo(string theme)
+        {
+            RunOnStaThread(() =>
+            {
+                var dictionary = new ResourceDictionary
+                {
+                    Source = new Uri(
+                        ComponentPrefix + "/DS4Forms/Themes/" + theme + ".xaml",
+                        UriKind.Relative),
+                };
+
+                foreach (string key in ThemeBrushKeys)
+                {
+                    Assert.IsTrue(dictionary.Contains(key),
+                        theme + " is missing the brush \"" + key +
+                        "\". Light and dark must define the same keys.");
+                }
+            });
+        }
+
+        private static void RunOnStaThread(Action body)
+        {
+            Exception failure = null;
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    body();
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(15)),
+                "Theme resource loading did not finish.");
+            if (failure != null)
+            {
+                Assert.Fail(failure.ToString());
+            }
+        }
+
         [TestMethod]
         public void DefaultThemeLoadsBridgeShellStylesOnFreshConfiguration()
         {
@@ -48,6 +118,16 @@ namespace DS4WindowsTests
                         "BridgeProfileComboBoxStyle"));
                     Assert.IsNotNull(application.TryFindResource(
                         "BridgeDescribedCheckBoxStyle"));
+
+                    // Driver-status card (plan task 2.2). Asserted here rather
+                    // than in its own test because WPF allows exactly one
+                    // Application per AppDomain.
+                    Assert.IsNotNull(application.TryFindResource(
+                        "BridgeStatusBadgeStyle"));
+                    Assert.IsNotNull(application.TryFindResource(
+                        "BridgeStatusBadgeTextStyle"));
+                    Assert.IsNotNull(application.TryFindResource(
+                        "BridgeCardListItemStyle"));
                     application.Shutdown();
                 }
                 catch (Exception ex)

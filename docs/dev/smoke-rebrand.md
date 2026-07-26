@@ -178,12 +178,24 @@ item is process identity, not input.
 4. While in that language, read three strings the 1.8 sweep edited: the
    Settings "check for updates at startup" checkbox, the anti-deadzone tooltip
    in the profile editor, and the auto-profile "turn off temporarily" label.
+5. Exit, then start the packaged executable again **from a different working
+   directory** — `Start-Process <install>\Thrum.exe -WorkingDirectory C:\`, or
+   a shortcut with an empty "Start in" field. Confirm the interface is still in
+   the selected language.
 
 **Expected** Interface strings change to the selected language. The
 corresponding `Lang\<culture>\Thrum.resources.dll` exists under `<install>`.
 No log entry about a missing resource assembly, and no page that stays English
 while the rest translates — that is the failure mode of a missed
 `DefaultAssembly` attribute and it shows up one page at a time.
+
+Step 5 is [issue #6](https://github.com/potpiemuncher/Thrum/issues/6), which
+this checklist item found: the host resolves the `"./Lang/"` probing path
+against the working directory, so before `SatelliteAssemblyResolver` every
+launch that was not from the install folder — a logon scheduled task, a
+shortcut with no "Start in", a terminal elsewhere — lost all 23 satellites
+silently. `(Get-Process Thrum).Modules` counting `Thrum.resources.dll` is the
+mechanical version of the check: it must be non-zero in both cases.
 
 The three strings from step 4 read normally and name **Thrum** in the middle of
 otherwise translated text. No mojibake, no doubled or missing characters around

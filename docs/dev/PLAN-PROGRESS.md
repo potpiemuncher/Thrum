@@ -1666,3 +1666,214 @@ from a translation or invented in English.
   `DS4WINDOWS_*` environment variables (4), the "Support DS4Windows" PayPal card
   (6, new), the 142 dead resource keys (7, new), and shipping the Indonesian
   translation (8, new). Plus the `NOTICE.txt` audit from 0.5.
+
+---
+
+## 2026-07-26 — Issue #6: satellite assemblies resolved against the working directory
+
+**Session scope:** [issue #6](https://github.com/potpiemuncher/Thrum/issues/6),
+found by the Phase 1 smoke pass ([`smoke-rebrand.md`](smoke-rebrand.md) item 8).
+Branch `fix/satellite-probing`. Not a plan task: an inherited bug the rebrand
+smoke checklist surfaced.
+
+### The bug
+
+Changing the UI language did nothing. The setting persisted, the app restarted,
+the interface stayed English — and nothing anywhere said why.
+
+The satellites live at `<install>\Lang\<culture>\Thrum.resources.dll`, because
+`utils/post-build.py` sweeps every culture folder MSBuild emits into one `Lang`
+folder rather than scattering 25 of them through the install root. Nothing in
+the CLR looks there, so `runtimeconfig.template.json` declares
+
+```json
+"additionalProbingPaths": [ "./Lang/" ]
+```
+
+That path is **relative**, and the host turns it into an absolute path against
+the process **current working directory**, at startup, before any managed code
+runs. Start the application anywhere else and it finds none of its 23
+translations.
+
+The `Environment.CurrentDirectory = exeDir` that `App.Application_Startup`
+already performs is not a fix and is in fact the proof: by the time it runs the
+host has long since baked the probing path.
+
+The failure is silent by construction. A missing satellite is not an error — it
+is the signal to fall back to the neutral resources, which is exactly what a
+correctly configured English install looks like.
+
+### Where it bites
+
+- **Logon scheduled task** (`RunThrum`, the elevated startup option) — Task
+  Scheduler gives the process `C:\Windows\System32`.
+- **Startup shortcut** or any `.lnk` with an empty "Start in".
+- **A terminal in another folder**, which is how the smoke pass hit it.
+
+Every one of those is a normal way to start this application.
+
+### The fix
+
+New `DS4Windows/DS4Control/SatelliteAssemblyResolver.cs`: an
+`AssemblyLoadContext.Default.Resolving` handler that maps a requested
+`<name>.resources` assembly onto
+`Path.Combine(AppContext.BaseDirectory, Global.PROBING_PATH, <culture>, <name>.dll)`.
+`AppContext.BaseDirectory` is the folder holding the executable regardless of
+where the process was started, which is the whole of the change.
+
+**Registered from a `[ModuleInitializer]`, not from startup.** The handler has
+to be in place before the first resource lookup, and `Application_Startup` is
+already too late to guarantee that: by then the WPF entry point has constructed
+`App` — running its static field initializers — and `InitializeComponent` has
+applied `App.xaml`, whose merged dictionaries and `WPFLocalizeExtension` markup
+can reach the resource manager. A static constructor on `App` is earlier but
+still runs after that type's own field initializers. A module initializer is
+emitted into the module's `.cctor`, which the runtime runs before *any* method
+of this assembly executes, `Main` included. Nothing in this assembly is earlier.
+
+The price of being that early is that it must not fail: an exception there is a
+`TypeInitializationException` before `Main` and the process never starts. So it
+does one thing and swallows, and `Installed` records whether it worked.
+
+Four properties the handler has to have, and why:
+
+| Property | Reason |
+|---|---|
+| Answers only for simple names ending `.resources`, null otherwise | A resolving handler that answers for ordinary assemblies can shadow the real one. This one is inert for everything else. |
+| Walks parent cultures, `pt-BR` → `pt`, stopping before invariant | `CultureInfo.Parent`, not "strip the last segment", because they disagree (`zh-TW`'s parent is `zh-Hant`). Falls back to the textual walk for a culture ICU does not know. |
+| Never throws | Returning null is what lets the runtime fall back to the neutral resources. Throwing out of assembly resolution takes the lookup, and whatever was rendering, with it. |
+| Refuses a culture name that is not a legal folder name | The culture arrives inside the requested assembly name, so it is untrusted input; it is checked before it is combined into a path. |
+
+It also runs after everything else, by construction: the default context raises
+`Resolving` only once the host probing paths *and* the CLR's own
+`<base>\<culture>\` satellite probe have both failed, so it can never shadow an
+assembly the runtime would otherwise have found.
+
+**The satellite file name is composed from the requested simple name, not from
+`ProductInfo.LanguageAssemblyName`.** That is deliberate and it fixes more than
+it was aimed at: `post-build.py` moves *every* culture folder under `Lang/`, so
+a dependency's satellites end up there too. The packaged x64 build contains
+eight `Microsoft.Win32.TaskScheduler.resources.dll` files under
+`Lang\{de,es,fr,it,pl,ru,zh-CN,zh-Hant}\` which were unreachable in exactly the
+same way and are now resolved by the same handler. A test pins that the
+composition still produces `ProductInfo.LanguageAssemblyName` for our own
+satellites, so the general form cannot drift away from the specific one
+unnoticed. The probing folder is `Global.PROBING_PATH`, split on `;` the way
+`LanguagePackViewModel` splits it — the folder the language packs are *listed*
+from and the folder they are *loaded* from now cannot disagree.
+
+### `additionalProbingPaths` was kept
+
+Three reasons, none of them inertia. It still resolves everything in the common
+case — launch from the install folder and this handler is never called at all.
+It cannot conflict: the handler only ever runs after host probing has failed, so
+there is no path on which both fire. And the template is inherited verbatim from
+upstream, so removing it would add a fork delta for no gain, against the
+mergeability rule.
+
+### Tests: 577 → 587
+
+New `DS4WindowsTests/SatelliteAssemblyResolutionTests.cs`, 10 tests. The primary
+guard is the **pure mapping function**: `CandidatePaths` takes the base
+directory as an argument, so no working directory can enter the answer even in
+principle, and it touches no file system. One narrow integration test then shows
+the mapping is not merely self-consistent — a real satellite really loads
+through it — with the working directory moved to `C:\Windows\System32`.
+
+| Test | What it pins |
+|---|---|
+| `TheHandlerIsInstalledBeforeAnyOfThisAssemblysCodeRuns` | reading `Installed` is itself a call into the module, so the runtime must have run the module initializer to answer it — a true here *is* the "registered before `Main`" guarantee |
+| `ASatelliteMapsUnderTheBaseDirectorysProbingFolder` | the one candidate is composed from `Global.PROBING_PATH` and `ProductInfo.LanguageAssemblyName`, the same constants the packaging uses |
+| `EveryCandidateIsRootedAtTheGivenBaseDirectory` | every candidate is absolute and under the given base — a relative candidate is one the working directory can still move |
+| `TheAnswerDoesNotDependOnTheWorkingDirectory` | identical output either side of a `SetCurrentDirectory` |
+| `AParentCultureIsTriedAfterTheSpecificOne` | `pt-BR` then `pt`, in that order |
+| `TheChainStopsBeforeTheInvariantCulture` | no `Lang\<empty>` candidate; a request with no culture is not a satellite request |
+| `NothingButASatelliteIsHandled` | inert for `Thrum`, `NAudio`, `Thrum.resourcesx`, `resources`, empty, null name and null base |
+| `ACultureNameThatIsNotAFolderNameIsRefused` | a culture reporting `..\..\Windows\System32` yields no candidate |
+| `TheHandlerLoadsARealSatelliteWithTheWorkingDirectoryElsewhere` | a genuine `de` satellite, in the packaged `Lang\<culture>\` layout, loads with the working directory in `System32` |
+| `AMissingSatelliteIsNullAndNotAnException` | absent file ⇒ null, so the neutral fallback still applies |
+
+The class is `[DoNotParallelize]`. This assembly declares no
+`[assembly: Parallelize]`, so MSTest already runs it sequentially and the two
+tests that move the working directory cannot race; the attribute states the
+requirement so that enabling parallelism later fails loudly instead of flaking.
+Both restore the previous directory in a `finally`. The integration test loads
+into a collectible context of its own, because the same satellite is already in
+the default context in this process and a second copy of one identity there
+would fail for reasons unrelated to what is being tested.
+
+**Negative controls, all run, all fired, source restored byte-identical
+afterwards:**
+
+- Removed `[ModuleInitializer]` → the registration test failed, naming the
+  consequence.
+- Made the candidate relative again — `Path.Combine(probingPath, …)`, i.e. the
+  behaviour being fixed → **5 tests failed**, the integration test among them.
+  That is the control that matters: with a relative path and the working
+  directory in `System32`, the satellite is not found.
+- Dropped the `.resources` suffix check → `NothingButASatelliteIsHandled` failed
+  with `The resolver claimed a non-satellite assembly: 'Thrum'`.
+- Dropped the folder-name guard → the hostile-culture test failed.
+- Dropped the parent-culture walk → `AParentCultureIsTriedAfterTheSpecificOne`
+  failed.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**,
+  17 warnings, identical to the inherited baseline.
+- Full suite with the repository's CI filter: **587 passed / 0 failed**, up from
+  577 by exactly the 10 new tests.
+- CI's publish invocation and `utils/post-build.py` run locally: 23
+  `Lang\<culture>\Thrum.resources.dll` in the packaged output, unchanged.
+
+**The packaged application, launched twice, satellites counted in the live
+process** with `(Get-Process Thrum).Modules`. Same package layout, same
+persisted `UseLang=de`, same 20-second settle, only the working directory
+differs. The "before" row is a build of this same tree with the resolver file
+removed, measured the same way, so the two rows are directly comparable rather
+than quoted from the issue:
+
+| Build | `-WorkingDirectory <install>` | `-WorkingDirectory C:\` |
+|---|---:|---:|
+| before (no resolver) | 23 | **0** |
+| after (resolver) | 23 | **23** |
+
+In the fixed `C:\` run the loaded modules report their real paths as
+`<install>\Lang\<culture>\Thrum.resources.dll`, so they came through the
+handler and not through some other probe. Each run was shut down with
+`Thrum.exe -command shutdown` and confirmed gone before the next; no process was
+left running.
+
+`%APPDATA%\Thrum` was backed up before the runs. `UseLang` was already `de`, so
+nothing had to be set; the only difference afterwards is the timestamp comment
+the app rewrites into `Profiles.xml` on every exit. No setting changed.
+
+### Deviations
+
+1. **The packaging step ran in `bin\x64\Release2\` for the measurements, not
+   `bin\x64\Release\`.** An unrelated process on this machine held a handle to
+   the pre-existing `bin\x64\Release\Thrum` folder — almost certainly a File
+   Explorer window left open by the smoke pass that found this bug — so
+   `post-build.py`'s `rmtree`/`rename` could not replace it. The script ran
+   unmodified against a sibling path, which changes nothing about the package it
+   produces. The canonical folder was repopulated from the fresh build
+   afterwards; the empty directory entry itself could not be removed and will
+   clear when the holder does.
+2. **The handler is general over `.resources`, not specific to this product.**
+   Scoping it to `ProductInfo.LanguageAssemblyName` would have left the eight
+   `Microsoft.Win32.TaskScheduler` satellites broken, for no safety gained — the
+   handler is a fallback that runs only after the runtime has already failed.
+3. **A smoke-checklist step was added rather than only a code fix.** Item 8 of
+   `smoke-rebrand.md` now has a step 5 that starts the packaged executable from
+   another working directory. The checklist found this bug once by accident; it
+   should find it on purpose next time.
+
+### Worth reporting upstream
+
+**Yes.** The `Lang/` layout, the relative `additionalProbingPaths` and the
+absence of any resolving handler are all inherited unchanged from
+hbashton/DS4Windows, and the mechanism does not depend on the assembly name, so
+upstream loses its translations under exactly the same conditions — including
+its own "run at logon" scheduled task. The fix is one self-contained file plus a
+test file and touches no engine code, which makes it a clean candidate for the
+contribution sequence.

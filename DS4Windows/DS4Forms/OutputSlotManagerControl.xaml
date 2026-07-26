@@ -19,6 +19,26 @@
             <Button x:Name="unplugBtn" MinWidth="60" Content="{lex:Loc Unplug}" IsEnabled="{Binding UnpluginEnabled}" Click="UnplugBtn_Click" Margin="30,0,0,0" />
         </StackPanel>
 
+        <!--
+            Runtime-guardrail banner (plan task 2.5). This is the page where a
+            user plugs a virtual controller in by hand, so a refusal has to be
+            readable here rather than discovered by pressing Plug and watching
+            nothing happen.
+        -->
+        <Border x:Name="gateBanner"
+                Style="{StaticResource BridgeInlineBannerStyle}"
+                DockPanel.Dock="Top"
+                Margin="0,0,0,10"
+                Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+            <StackPanel>
+                <TextBlock Text="{Binding Headline}"
+                           Style="{StaticResource BridgeInlineBannerHeadlineStyle}" />
+                <TextBlock Text="{Binding Text}"
+                           Style="{StaticResource BridgeSectionDescriptionStyle}"
+                           Margin="0" />
+            </StackPanel>
+        </Border>
+
         <DockPanel>
             <StackPanel x:Name="sideStackPanel" Orientation="Vertical" Width="100" DockPanel.Dock="Right" Visibility="{Binding SidePanelVisibility}" Margin="10,0,10,0">
                 <StackPanel x:Name="outSlotStackPanel">

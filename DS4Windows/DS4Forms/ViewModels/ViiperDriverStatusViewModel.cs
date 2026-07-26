@@ -228,10 +228,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                             "above, which installs the exact package version " +
                             ProductInfo.ProductName + " lists.";
                     case ViiperDriverReadinessState.DetectedUnvalidated:
+                        // Present tense since plan task 2.5: the runtime
+                        // guardrail now actually refuses, so promising a future
+                        // restriction would understate what is happening.
                         return ProductInfo.ProductName +
-                            " cannot vouch for this package, so virtual " +
-                            "controller features will be restricted while it is " +
-                            "in this state. " + ProductInfo.ProductName +
+                            " cannot vouch for this package, so no new virtual " +
+                            "controller is created while it is in this state. " +
+                            "Controllers that are already plugged in keep " +
+                            "running. " + ProductInfo.ProductName +
                             " does not recommend installing " +
                             "any package it does not list; the diagnostic below " +
                             "shows exactly what was found.";

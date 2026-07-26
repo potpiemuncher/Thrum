@@ -67,7 +67,12 @@ public class ViiperDriverStatusViewModelTests
             "Filter extension: the package is test-signed.");
 
         Assert.IsTrue(viewModel.HasRestriction);
-        StringAssert.Contains(viewModel.RestrictionText, "will be restricted");
+        // Present tense since the runtime guardrail landed (plan task 2.5), and
+        // paired with the promise the guardrail actually keeps: live sessions
+        // are not taken away.
+        StringAssert.Contains(viewModel.RestrictionText,
+            "no new virtual controller is created");
+        StringAssert.Contains(viewModel.RestrictionText, "keep running");
         Assert.IsFalse(viewModel.HasTierNote,
             "Nothing matched, so there is no tier to describe.");
     }

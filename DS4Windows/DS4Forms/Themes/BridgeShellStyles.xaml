@@ -798,4 +798,41 @@
            BasedOn="{StaticResource BridgeSectionDescriptionStyle}">
         <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
+
+    <!--
+        Inline notice above a page's content. Same colour vocabulary as the
+        status badge, one step louder: red when the page cannot do its job,
+        amber when it can but a capability is deliberately switched off.
+        Triggers on the view model's Severity token for the same reason the
+        badge triggers on BadgeKind.
+    -->
+    <Style x:Key="BridgeInlineBannerStyle" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MutedForegroundColor}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="10,8" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Severity}" Value="Blocked">
+                <Setter Property="BorderBrush" Value="{DynamicResource DangerColor}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Severity}" Value="Limited">
+                <Setter Property="BorderBrush" Value="{DynamicResource WarningColor}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="BridgeInlineBannerHeadlineStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource MutedForegroundColor}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Severity}" Value="Blocked">
+                <Setter Property="Foreground" Value="{DynamicResource DangerColor}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Severity}" Value="Limited">
+                <Setter Property="Foreground" Value="{DynamicResource WarningColor}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

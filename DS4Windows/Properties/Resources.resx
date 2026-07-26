@@ -419,7 +419,7 @@
     <value>Right Click to set presets for a set of controls</value>
   </data>
   <data name="RunAtStartup" xml:space="preserve">
-    <value>Tells Windows to start DS4Windows after login</value>
+    <value>Tells Windows to start Thrum after login</value>
   </data>
   <data name="SaveRecordedMacro" xml:space="preserve">
     <value>Save Recorded Macro?</value>
@@ -557,7 +557,7 @@
     <value>type profile name here</value>
   </data>
   <data name="UACTask" xml:space="preserve">
-    <value>You need to run DS4Windows as the Administrator in order to activate this mode.</value>
+    <value>You need to run Thrum as the Administrator in order to activate this mode.</value>
   </data>
   <data name="Unassigned" xml:space="preserve">
     <value>Unassigned</value>

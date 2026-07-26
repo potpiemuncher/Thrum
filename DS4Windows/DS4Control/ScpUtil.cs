@@ -1727,6 +1727,33 @@ namespace DS4Windows
             set => m_Config.stopViiperBackendOnExit = value;
         }
 
+        /// <summary>
+        /// The user has acknowledged that virtual controller output depends on
+        /// an experimental third-party kernel driver. Read by
+        /// <see cref="ViiperVirtualDeviceGuard"/>; setting it without having
+        /// shown <see cref="ViiperExperimentalDisclosure.AcknowledgementBody"/>
+        /// defeats the point of recording it.
+        /// </summary>
+        public static bool ViiperExperimentalAcknowledged
+        {
+            get => m_Config.viiperExperimentalAcknowledged;
+            set => m_Config.viiperExperimentalAcknowledged = value;
+        }
+
+        /// <summary>
+        /// Whether virtual USB audio and microphone endpoints may be created.
+        /// Default off. This is the switch that keeps ordinary use off the
+        /// kernel path the confirmed usbip-win2 defect lives on, so it is only
+        /// ever turned on from a flow that showed
+        /// <see cref="ViiperExperimentalDisclosure.BuildAudioClassBody"/>.
+        /// Turning it off never tears down an endpoint that is already live.
+        /// </summary>
+        public static bool AllowExperimentalAudioEndpoints
+        {
+            get => m_Config.allowExperimentalAudioEndpoints;
+            set => m_Config.allowExperimentalAudioEndpoints = value;
+        }
+
         public static bool getQuickCharge()
         {
             return m_Config.quickCharge;
@@ -4118,6 +4145,22 @@ namespace DS4Windows
         // still holds. Never applies to a backend we did not start.
         public const bool DEFAULT_STOP_VIIPER_BACKEND_ON_EXIT = true;
         public bool stopViiperBackendOnExit = DEFAULT_STOP_VIIPER_BACKEND_ON_EXIT;
+
+        // The user has been shown, and accepted, that virtual controllers run
+        // on an experimental third-party kernel driver. Default off: consent
+        // that was never given must never be inferred from an old config file.
+        public const bool DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED = false;
+        public bool viiperExperimentalAcknowledged =
+            DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED;
+
+        // Whether virtual USB audio/microphone endpoints may be created at all.
+        // Default off, and it stays off until a Production-tier driver exists:
+        // this is the only feature class that reaches the confirmed usbip-win2
+        // request-lifetime defect (upstream issue #181), and it is not needed
+        // for any controller function.
+        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = false;
+        public bool allowExperimentalAudioEndpoints =
+            DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS;
 
         public bool closeMini = false;
         public List<SpecialAction> actions = new List<SpecialAction>();

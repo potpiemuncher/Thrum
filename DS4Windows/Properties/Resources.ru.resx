@@ -172,7 +172,7 @@
     <value>Закрыть DS4Windows?</value>
   </data>
   <data name="CloseMinimize" xml:space="preserve">
-    <value>Закрывать DS4Windows через значок уведомления</value>
+    <value>Закрывать Thrum через значок уведомления</value>
   </data>
   <data name="Color" xml:space="preserve">
     <value>Цвет</value>
@@ -420,7 +420,7 @@
     <value>Правый клик для выбора пресета</value>
   </data>
   <data name="RunAtStartup" xml:space="preserve">
-    <value>Windows запустит DS4Windows после входа</value>
+    <value>Windows запустит Thrum после входа</value>
   </data>
   <data name="SaveRecordedMacro" xml:space="preserve">
     <value>Сохранить записанный макрос?</value>
@@ -558,7 +558,7 @@
     <value>введите сюда имя профиля</value>
   </data>
   <data name="UACTask" xml:space="preserve">
-    <value>Вам нужно запустить DS4Windows от имени Администратора, чтобы активировать этот режим.</value>
+    <value>Вам нужно запустить Thrum от имени Администратора, чтобы активировать этот режим.</value>
   </data>
   <data name="Unassigned" xml:space="preserve">
     <value>Не назначено</value>

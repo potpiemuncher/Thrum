@@ -186,6 +186,65 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
         }
 
+        /// <summary>
+        /// Recorded consent that virtual controllers run on an experimental
+        /// third-party kernel driver.
+        ///
+        /// <para>Saved immediately, like the setting above and for the same
+        /// reason: the gate reads it on the next device connection, which can
+        /// happen long before this session's settings would otherwise be
+        /// written. The view is responsible for having shown
+        /// <see cref="DS4Windows.ViiperExperimentalDisclosure.AcknowledgementBody"/>
+        /// before setting this to true; a silent set records consent nobody
+        /// gave.</para>
+        /// </summary>
+        public bool ViiperExperimentalAcknowledged
+        {
+            get => DS4Windows.Global.ViiperExperimentalAcknowledged;
+            set
+            {
+                if (DS4Windows.Global.ViiperExperimentalAcknowledged == value)
+                {
+                    return;
+                }
+
+                DS4Windows.Global.ViiperExperimentalAcknowledged = value;
+                DS4Windows.Global.Save();
+                ViiperGateConsentChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Whether virtual USB audio and microphone endpoints may be created.
+        /// Default off; see
+        /// <see cref="DS4Windows.Global.AllowExperimentalAudioEndpoints"/>.
+        ///
+        /// <para>Turning this off is a decision about future connections only.
+        /// Nothing here disconnects a live endpoint, because tearing one down is
+        /// precisely the operation the kernel defect is reached through.</para>
+        /// </summary>
+        public bool AllowExperimentalAudioEndpoints
+        {
+            get => DS4Windows.Global.AllowExperimentalAudioEndpoints;
+            set
+            {
+                if (DS4Windows.Global.AllowExperimentalAudioEndpoints == value)
+                {
+                    return;
+                }
+
+                DS4Windows.Global.AllowExperimentalAudioEndpoints = value;
+                DS4Windows.Global.Save();
+                ViiperGateConsentChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Raised when either consent flag moves, so views showing the gate's
+        /// answer (the Output Slots banner) can re-ask instead of going stale.
+        /// </summary>
+        public event EventHandler ViiperGateConsentChanged;
+
         public int IconChoiceIndex
         {
             get => (int)DS4Windows.Global.UseIconChoice;

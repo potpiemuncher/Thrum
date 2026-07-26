@@ -451,20 +451,9 @@ public class ViiperBackendLifecycleTests
         Assert.IsTrue(dto.StopViiperBackendOnExit);
     }
 
-    private static AppSettingsDTO RoundTrip(AppSettingsDTO source)
-    {
-        XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
-        using StringWriter writer = new StringWriter();
-        source.SerializeAppAttrs = false;
-        serializer.Serialize(writer, source,
-            new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty }));
-        return Deserialize(writer.ToString());
-    }
+    private static AppSettingsDTO RoundTrip(AppSettingsDTO source) =>
+        AppSettingsRoundTrip.Write(source);
 
-    private static AppSettingsDTO Deserialize(string xml)
-    {
-        XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
-        using StringReader reader = new StringReader(xml);
-        return (AppSettingsDTO)serializer.Deserialize(reader);
-    }
+    private static AppSettingsDTO Deserialize(string xml) =>
+        AppSettingsRoundTrip.Read(xml);
 }

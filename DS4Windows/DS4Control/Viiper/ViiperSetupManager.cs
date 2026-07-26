@@ -226,6 +226,56 @@ namespace DS4Windows
             return status;
         }
 
+        /// <summary>
+        /// The one-time acknowledgement that virtual controllers depend on an
+        /// experimental third-party kernel driver, asked at the moment the user
+        /// first chooses a VIIPER output in a profile.
+        ///
+        /// <para>Once accepted it is persisted and never asked again; the switch
+        /// in Settings is the way back out. Declining is recorded as nothing —
+        /// the gate keeps refusing and the Output Slots banner keeps saying
+        /// why — so a user who says no is not asked again in a loop by this
+        /// path either: the flag stays false and the prompt only fires from a
+        /// deliberate output-type change.</para>
+        ///
+        /// <para>Says nothing about audio. Controller-only emulation does not
+        /// reach the known kernel defect, and folding the two disclosures
+        /// together would make the audio one routine.</para>
+        /// </summary>
+        /// <returns>True when virtual controller output is acknowledged.</returns>
+        public static bool EnsureExperimentalAcknowledgedWithPrompt(Window owner)
+        {
+            if (Global.ViiperExperimentalAcknowledged)
+            {
+                return true;
+            }
+
+            MessageBoxResult result = owner != null
+                ? MessageBox.Show(owner,
+                    ViiperExperimentalDisclosure.AcknowledgementBody,
+                    ViiperExperimentalDisclosure.AcknowledgementTitle,
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                    MessageBoxResult.No)
+                : MessageBox.Show(
+                    ViiperExperimentalDisclosure.AcknowledgementBody,
+                    ViiperExperimentalDisclosure.AcknowledgementTitle,
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                    MessageBoxResult.No);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                AppLogger.LogToGui(
+                    "Virtual controller output stays disabled: the experimental " +
+                    "kernel driver notice was declined. It can be accepted later " +
+                    "in Settings.", false);
+                return false;
+            }
+
+            Global.ViiperExperimentalAcknowledged = true;
+            Global.Save();
+            return true;
+        }
+
         public static bool EnsureReadyWithPrompt(Window owner, bool forcePrompt = false)
         {
             ViiperPrerequisiteStatus status = GetStatus(tryStartServer: true);

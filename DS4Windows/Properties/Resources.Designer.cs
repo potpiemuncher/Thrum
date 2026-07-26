@@ -1052,7 +1052,7 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Tells Windows to start DS4Windows after login.
+        ///   Looks up a localized string similar to Tells Windows to start Thrum after login.
         /// </summary>
         public static string RunAtStartup {
             get {
@@ -1502,7 +1502,7 @@ namespace DS4WinWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You need to run DS4Windows as the Administrator in order to activate this mode..
+        ///   Looks up a localized string similar to You need to run Thrum as the Administrator in order to activate this mode..
         /// </summary>
         public static string UACTask {
             get {

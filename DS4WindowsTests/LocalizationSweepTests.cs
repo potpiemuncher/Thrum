@@ -102,6 +102,16 @@ namespace DS4WindowsTests
                 ["Resources.StoppedDS4Windows"] =
                     DS4WinWPF.Properties.Resources.StoppedDS4Windows,
                 ["Resources.UpToDate"] = DS4WinWPF.Properties.Resources.UpToDate,
+
+                // Found during the 2.2 manual pass and fixed in 2.3. The 1.8
+                // sweep classified these as dead because its reference scan
+                // looked for "Resources.<Key>" in C# only; both are reached from
+                // XAML as "{lex:Loc Resources:<Key>}", a form the scan did not
+                // know about. See XamlReachableResourcesKeys below, which is now
+                // the list that keeps the two families honest.
+                ["Resources.RunAtStartup"] =
+                    DS4WinWPF.Properties.Resources.RunAtStartup,
+                ["Resources.UACTask"] = DS4WinWPF.Properties.Resources.UACTask,
             };
 
             var wrong = new List<string>();
@@ -225,6 +235,127 @@ namespace DS4WindowsTests
                 CollectionAssert.AreEqual(Enumerable.Range(0, entry.Value).ToArray(), indexes,
                     $"Placeholder set is wrong in: {entry.Key}");
             }
+        }
+
+        /// <summary>
+        /// Every key in the <c>Properties/Resources</c> family that a XAML
+        /// binding can reach, in the form it is reached by:
+        /// <c>{lex:Loc Resources:&lt;Key&gt;}</c>.
+        ///
+        /// <para>This list exists because its absence caused the miss this test
+        /// class now guards. The 1.8 sweep decided a key was dead if no C# file
+        /// said <c>Resources.&lt;Key&gt;</c>; two live tooltips are reached only
+        /// from XAML, so both kept telling the user the app was called
+        /// DS4Windows for two phases after the rename.</para>
+        ///
+        /// <para>Kept by hand rather than derived at run time: the XAML is
+        /// compiled into BAML and the source tree is not present when the tests
+        /// run. Adding a <c>lex:Loc Resources:</c> binding without adding its key
+        /// here costs nothing today and only means the next sweep has to find it
+        /// again — which is exactly what this list is insurance against, so it
+        /// is worth the twenty seconds.</para>
+        /// </summary>
+        private static readonly string[] XamlReachableResourcesKeys =
+        {
+            "AlwaysRainbow", "BestUsedRightSide", "BtPollRate", "CloseMinimize",
+            "EnableTouchToggle", "FlashAtTip", "GyroTriggerBehavior",
+            "LightByBatteryTip", "QuickCharge", "QuitOtherPrograms",
+            "RunAtStartup", "TapAndHold", "TouchpadOffTip", "TwoFingerSwipe",
+            "TypeNewName", "UACTask", "UseControllerForMapping",
+        };
+
+        /// <summary>
+        /// Keys whose value legitimately still contains the old name, with the
+        /// reason. Anything not listed here must be clean.
+        /// </summary>
+        private static readonly Dictionary<string, string> AllowedLegacyMentions =
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["QuitOtherPrograms"] =
+                    "the only occurrence is inside an upstream wiki URL; " +
+                    "rewriting it produces a 404",
+            };
+
+        /// <summary>
+        /// XAML-reachable keys that no resource file defines, with the reason.
+        ///
+        /// <para><c>BtPollRate</c> is inherited from upstream: two
+        /// <c>ProfileEditor.xaml</c> tooltips bind to it and neither resource
+        /// family declares it, so both render empty. Recorded rather than
+        /// silently dropped from the list above — it is a real (small) upstream
+        /// bug, and removing the entry would hide it.</para>
+        /// </summary>
+        private static readonly Dictionary<string, string> KnownMissingResourcesKeys =
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["BtPollRate"] =
+                    "inherited from upstream: bound twice in ProfileEditor.xaml " +
+                    "but declared in no resource file, so the tooltip is empty",
+            };
+
+        /// <summary>
+        /// The re-run of the identity sweep over the neighbourhood the 1.8 pass
+        /// missed. Every XAML-reachable tooltip in the
+        /// <c>Properties/Resources</c> family, checked with URLs stripped so the
+        /// upstream documentation link is not mistaken for a stale brand name.
+        /// </summary>
+        [TestMethod]
+        public void NoXamlReachableTooltipStillNamesTheOldProduct()
+        {
+            var stale = new List<string>();
+            var missing = new List<string>();
+
+            foreach (string key in XamlReachableResourcesKeys)
+            {
+                string value = DS4WinWPF.Properties.Resources.ResourceManager
+                    .GetString(key, CultureInfo.InvariantCulture);
+                if (value == null)
+                {
+                    if (!KnownMissingResourcesKeys.ContainsKey(key))
+                    {
+                        missing.Add(key);
+                    }
+
+                    continue;
+                }
+
+                if (KnownMissingResourcesKeys.ContainsKey(key))
+                {
+                    missing.Add($"{key}: recorded as missing (" +
+                        KnownMissingResourcesKeys[key] +
+                        ") but the key now exists; drop the entry");
+                    continue;
+                }
+
+                string withoutUrls = Regex.Replace(value, @"https?://\S*",
+                    string.Empty);
+                if (!withoutUrls.Contains(LegacyProductName,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (AllowedLegacyMentions.ContainsKey(key))
+                {
+                    stale.Add($"{key}: allow-listed as \"" +
+                        AllowedLegacyMentions[key] +
+                        "\", but the name now appears outside a URL");
+                    continue;
+                }
+
+                stale.Add($"{key}: \"{value}\"");
+            }
+
+            Assert.AreEqual(0, missing.Count,
+                "A key this list claims XAML binds to does not exist. Either " +
+                "the binding was removed and the entry is stale, or the key was " +
+                "renamed and the tooltip now renders nothing:\n" +
+                string.Join("\n", missing));
+
+            Assert.AreEqual(0, stale.Count,
+                $"A user-visible tooltip still names {LegacyProductName} " +
+                $"instead of {ProductInfo.ProductName}:\n" +
+                string.Join("\n", stale));
         }
 
         [TestMethod]

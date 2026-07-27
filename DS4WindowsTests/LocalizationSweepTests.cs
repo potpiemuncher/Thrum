@@ -257,7 +257,7 @@ namespace DS4WindowsTests
         /// </summary>
         private static readonly string[] XamlReachableResourcesKeys =
         {
-            "AlwaysRainbow", "BestUsedRightSide", "BtPollRate", "CloseMinimize",
+            "AlwaysRainbow", "BestUsedRightSide", "BTPollRate", "CloseMinimize",
             "EnableTouchToggle", "FlashAtTip", "GyroTriggerBehavior",
             "LightByBatteryTip", "QuickCharge", "QuitOtherPrograms",
             "RunAtStartup", "TapAndHold", "TouchpadOffTip", "TwoFingerSwipe",
@@ -279,19 +279,24 @@ namespace DS4WindowsTests
         /// <summary>
         /// XAML-reachable keys that no resource file defines, with the reason.
         ///
-        /// <para><c>BtPollRate</c> is inherited from upstream: two
-        /// <c>ProfileEditor.xaml</c> tooltips bind to it and neither resource
-        /// family declares it, so both render empty. Recorded rather than
-        /// silently dropped from the list above — it is a real (small) upstream
-        /// bug, and removing the entry would hide it.</para>
+        /// <para>Empty, and worth keeping that way. Its one entry was
+        /// <c>BtPollRate</c>, recorded as an upstream key that no resource file
+        /// declared. It was not missing: the two <c>ProfileEditor.xaml</c>
+        /// tooltips misspelled the existing <c>BTPollRate</c> key, and
+        /// <see cref="System.Resources.ResourceManager.GetString(string)"/> is
+        /// case-sensitive, so the lookup returned null and both tooltips
+        /// rendered empty. Fixing the bindings restored the neutral text and its
+        /// existing ru and zh-hans translations. Authoring a second key would
+        /// have shipped a near-duplicate English-only string beside a translated
+        /// one.</para>
+        ///
+        /// <para>The lesson for the next entry added here: confirm the key is
+        /// absent case-sensitively before recording it as missing. A
+        /// case-insensitive search says it exists; a case-insensitive
+        /// <em>comparison</em> says the wrong spelling exists too.</para>
         /// </summary>
         private static readonly Dictionary<string, string> KnownMissingResourcesKeys =
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["BtPollRate"] =
-                    "inherited from upstream: bound twice in ProfileEditor.xaml " +
-                    "but declared in no resource file, so the tooltip is empty",
-            };
+            new Dictionary<string, string>(StringComparer.Ordinal);
 
         /// <summary>
         /// The re-run of the identity sweep over the neighbourhood the 1.8 pass

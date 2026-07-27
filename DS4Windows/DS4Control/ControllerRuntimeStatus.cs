@@ -94,6 +94,45 @@ namespace DS4Windows
 
     public static class ControllerRuntimeStatusPolicy
     {
+        /// <summary>
+        /// Lane state for the DualSense atomic audio+haptics carrier.
+        ///
+        /// <para>The lane rides the V4 frame type, which only exists on the
+        /// audio-capable VIIPER persona. When audio-class consent is absent the
+        /// persona ladder deliberately selects a HID-only variant, so the lane
+        /// is <em>switched off</em>, not broken, and must not be reported as a
+        /// fault. Deriving the requirement from the output persona alone —
+        /// which is what this method replaces — produced a permanent amber
+        /// "Needs attention" for the default, safe configuration, training
+        /// users to ignore the status card and inviting them to "fix" it by
+        /// enabling the one feature defaulted off for kernel-safety reasons.
+        /// </para>
+        ///
+        /// <para><paramref name="laneLive"/> wins over the policy check: if the
+        /// carrier really is up (consent was granted earlier in the session, or
+        /// turned off while a device stayed attached) the lane is genuinely
+        /// required, and a later failure must still surface as a fault.</para>
+        /// </summary>
+        public static ControllerRuntimeLaneState EvaluateAdvancedHapticsLane(
+            bool virtualRequired, bool personaCarriesAdvancedHaptics,
+            bool audioClassPermitted, bool laneLive, bool virtualConnected)
+        {
+            if (laneLive)
+            {
+                return ControllerRuntimeLaneState.Ready;
+            }
+
+            if (!virtualRequired || !personaCarriesAdvancedHaptics ||
+                !audioClassPermitted)
+            {
+                return ControllerRuntimeLaneState.NotRequired;
+            }
+
+            return virtualConnected
+                ? ControllerRuntimeLaneState.Unavailable
+                : ControllerRuntimeLaneState.Starting;
+        }
+
         public static ControllerStartupStatus Evaluate(
             ControllerRuntimeSignals signals)
         {

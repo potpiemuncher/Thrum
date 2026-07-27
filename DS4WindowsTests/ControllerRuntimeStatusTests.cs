@@ -80,5 +80,83 @@ namespace DS4WindowsTests
             Assert.IsTrue(status.NeedsAttention);
             Assert.IsFalse(status.IsReady);
         }
+
+        /// <summary>
+        /// The regression behind issue #17: without audio-class consent the
+        /// persona ladder picks a HID-only variant, so the atomic
+        /// audio+haptics carrier is absent by policy. Reporting that as a
+        /// failed lane put the default, safe configuration into a permanent
+        /// "Needs attention".
+        /// </summary>
+        [TestMethod]
+        public void AdvancedHapticsLaneIsNotRequiredWhenAudioClassIsOff()
+        {
+            ControllerRuntimeLaneState lane =
+                ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane(
+                    virtualRequired: true, personaCarriesAdvancedHaptics: true,
+                    audioClassPermitted: false, laneLive: false,
+                    virtualConnected: true);
+
+            Assert.AreEqual(ControllerRuntimeLaneState.NotRequired, lane);
+            Assert.IsFalse(ControllerRuntimeStatusPolicy
+                .Evaluate(Signals(haptics: lane)).NeedsAttention);
+        }
+
+        /// <summary>
+        /// The other half: consent given and the carrier still absent is a
+        /// genuine failure, and must keep surfacing. A fix that silenced this
+        /// case would have hidden real breakage instead of a false alarm.
+        /// </summary>
+        [TestMethod]
+        public void AdvancedHapticsLaneStillFailsWhenPermittedButAbsent()
+        {
+            ControllerRuntimeLaneState lane =
+                ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane(
+                    virtualRequired: true, personaCarriesAdvancedHaptics: true,
+                    audioClassPermitted: true, laneLive: false,
+                    virtualConnected: true);
+
+            Assert.AreEqual(ControllerRuntimeLaneState.Unavailable, lane);
+            Assert.IsTrue(ControllerRuntimeStatusPolicy
+                .Evaluate(Signals(haptics: lane)).NeedsAttention);
+        }
+
+        [TestMethod]
+        public void AdvancedHapticsLaneIsStartingWhileTheVirtualPadIsComingUp()
+        {
+            Assert.AreEqual(ControllerRuntimeLaneState.Starting,
+                ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane(
+                    virtualRequired: true, personaCarriesAdvancedHaptics: true,
+                    audioClassPermitted: true, laneLive: false,
+                    virtualConnected: false));
+        }
+
+        /// <summary>
+        /// Consent turned off while a carrier stayed attached. The lane is up,
+        /// so it is required and healthy; the setting governs the next
+        /// connection, never this one.
+        /// </summary>
+        [TestMethod]
+        public void ALiveLaneOutranksTheConsentFlag()
+        {
+            Assert.AreEqual(ControllerRuntimeLaneState.Ready,
+                ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane(
+                    virtualRequired: true, personaCarriesAdvancedHaptics: true,
+                    audioClassPermitted: false, laneLive: true,
+                    virtualConnected: true));
+        }
+
+        [DataTestMethod]
+        [DataRow(false, true, DisplayName = "no virtual output at all")]
+        [DataRow(true, false, DisplayName = "persona has no haptics carrier")]
+        public void AdvancedHapticsLaneIsNotRequiredOffTheDualSensePersonas(
+            bool virtualRequired, bool personaCarriesAdvancedHaptics)
+        {
+            Assert.AreEqual(ControllerRuntimeLaneState.NotRequired,
+                ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane(
+                    virtualRequired, personaCarriesAdvancedHaptics,
+                    audioClassPermitted: true, laneLive: false,
+                    virtualConnected: true));
+        }
     }
 }

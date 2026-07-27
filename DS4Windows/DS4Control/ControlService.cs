@@ -3254,17 +3254,24 @@ namespace DS4Windows
             bool virtualTypeMatches = !virtualRequired ||
                 Global.activeOutDevType[index].Normalize() == desiredType;
 
-            bool advancedHapticsRequired = virtualRequired &&
-                (desiredType == OutContType.ViiperDualSense ||
-                    desiredType == OutContType.ViiperDualSenseEdge);
+            bool personaCarriesAdvancedHaptics =
+                desiredType == OutContType.ViiperDualSense ||
+                desiredType == OutContType.ViiperDualSenseEdge;
+            bool laneLive = viiperOutput?.SupportsAtomicAudioHaptics == true;
+
+            // Ask the same gate the persona ladder asked, rather than
+            // re-deriving "is this lane wanted" from the output type. Without
+            // audio-class consent the ladder picks a HID-only variant, so the
+            // carrier is absent by policy and reporting it as a failed lane is
+            // wrong. alreadyAttached is the live carrier itself: a lane that is
+            // genuinely up stays required, so a real failure still surfaces.
+            bool audioClassPermitted = ViiperVirtualDeviceGuard.Decide(
+                ViiperFeatureClass.Audio, alreadyAttached: laneLive).Allowed;
+
             ControllerRuntimeLaneState advancedHaptics =
-                !advancedHapticsRequired
-                    ? ControllerRuntimeLaneState.NotRequired
-                    : viiperOutput?.SupportsAtomicAudioHaptics == true
-                        ? ControllerRuntimeLaneState.Ready
-                        : virtualConnected
-                            ? ControllerRuntimeLaneState.Unavailable
-                            : ControllerRuntimeLaneState.Starting;
+                ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane(
+                    virtualRequired, personaCarriesAdvancedHaptics,
+                    audioClassPermitted, laneLive, virtualConnected);
 
             bool speakerRequired = physicalPresent &&
                 IsControllerSpeakerEnabled(index);

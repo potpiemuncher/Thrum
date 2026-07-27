@@ -3031,3 +3031,38 @@ by calling `Thrum.exe -viiperinstallerpolicy verify-file --component usbip
 gates on. To exercise them through the script instead, pass
 `-UsbipInstallerFile <staged>`. B4's "no autostart was created" assertion is now
 also covered by a unit test, but the live enumeration is still worth capturing.
+
+## 2026-07-26 — Fix #17: advanced-haptics lane reported a policy choice as a fault
+
+Seen live minutes after the [HW] verification: with the DualSense persona and
+audio-class consent absent — the new default — the Overview card sat on
+**"Needs attention — The enabled advanced haptics lane could not be armed."**
+Nothing was broken. The lane was switched off on purpose.
+
+`advancedHapticsRequired` in `GetControllerRuntimeSignals` derived the
+requirement from the output persona alone. It predates the 2.3 consent gate, so
+it did not know that without audio-class consent the persona ladder selects a
+HID-only variant and the V4 atomic audio+haptics carrier is deliberately absent.
+`EvaluateLane` then mapped `Unavailable` to a fault in `Attention`.
+
+Fix: the requirement now asks the same gate the persona ladder asked, via
+`ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio, alreadyAttached:
+laneLive)`, and the decision moved into a pure
+`ControllerRuntimeStatusPolicy.EvaluateAdvancedHapticsLane` so it is testable
+without a `ControlService`. A live carrier outranks the flag: consent turned off
+mid-session leaves the lane up, required, and healthy, so a later real failure
+still surfaces.
+
+**The microphone lane was checked and deliberately left alone.** It has a
+similar shape — requirement from a user toggle, no reference to consent — but it
+is not the same defect: `dualSenseMicrophonePassthrough` routes the *physical*
+pad's microphone over Bluetooth and does not depend on virtual audio endpoints,
+so a failure there is genuine and must keep surfacing. Silencing it would have
+hidden real breakage to quiet a false alarm.
+
+Six tests, including the inverse case (consent given, carrier still absent ⇒
+still `Attention`). Negative control run: dropping the `audioClassPermitted`
+term reproduced the bug — `Expected:<NotRequired>. Actual:<Unavailable>` — and
+the guard test failed; restored and re-verified.
+
+Suite: **769 passed / 0 failed** (CI filter), from 763.

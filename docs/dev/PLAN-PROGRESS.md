@@ -2810,3 +2810,41 @@ from the list, because dropping it would hide it.
   Default profile on an X360 output: confirm exactly one usbip port for the pad
   and **no** `054c:0ce6` sidecar with audio consent absent, then confirm normal
   controller input. Roughly five minutes with the maintainer present.
+
+## 2026-07-26 — Fix: two ProfileEditor tooltips bound to a misspelled resource key
+
+Reported as "`BtPollRate` is declared in no resource file", with the fix being to
+author the key. Investigation contradicted the premise, so the fix is different
+and smaller.
+
+`BTPollRate` **already exists** — neutral, `.ru` and `.zh-hans`, plus a checked-in
+designer property — carrying "Determines the poll rate used for the DS4 hardware
+when connected via Bluetooth. (Applies on profile save)". The two
+`ProfileEditor.xaml` tooltips bound to `BtPollRate` (lower-case `t`), and
+`ResourceManager.GetString` is case-sensitive, so both resolved to null and
+rendered empty.
+
+Authoring a second key would have shipped a near-duplicate English-only string
+beside an already-translated one, and left two keys one character apart for the
+next reader to trip over. Fixed the two bindings instead: one character each,
+and the Russian and Chinese translations come back with them.
+
+- `DS4Windows/DS4Forms/ProfileEditor.xaml` — both `Resources:BtPollRate`
+  bindings now `Resources:BTPollRate`.
+- `DS4WindowsTests/LocalizationSweepTests.cs` — `XamlReachableResourcesKeys`
+  retargeted to the real key; the `KnownMissingResourcesKeys` entry dropped, so
+  the dictionary is now empty. Its doc comment records why, and warns that a
+  key must be confirmed absent **case-sensitively** before being recorded as
+  missing — a case-insensitive comparison reports the wrong spelling as present.
+
+The neutral English text was deliberately left as-is. Enriching it (poll interval
+versus bandwidth and battery, default of 4 ms / 250 Hz) was considered and not
+done unilaterally: it would leave the `ru` and `zh-hans` values describing less
+than the English one, and translation drift is a decision for the maintainer, not
+a side effect of a typo fix.
+
+No new key, so the neutral-only policy for new keys does not apply here.
+
+Suite: **696 passed / 0 failed** (CI filter), unchanged from baseline — the pass
+is itself the check, since the key is listed as XAML-reachable with no
+known-missing entry, so a null lookup would fail the test.

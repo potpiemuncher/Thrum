@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+using System;
 using System.Collections.Generic;
 using DS4Windows.DS4Control;
 
@@ -27,6 +28,8 @@ namespace DS4WinWPF
         private bool stop;
         private bool driverinstall;
         private bool viiperDriverDiagnostic;
+        private bool viiperInstallerPolicy;
+        private string[] viiperInstallerPolicyArgs = Array.Empty<string>();
         private bool reenableDevice;
         private string deviceInstanceId;
         private bool runtask;
@@ -41,6 +44,15 @@ namespace DS4WinWPF
         public bool Stop { get => stop; }
         public bool Driverinstall { get => driverinstall; }
         public bool ViiperDriverDiagnostic { get => viiperDriverDiagnostic; }
+        public bool ViiperInstallerPolicy { get => viiperInstallerPolicy; }
+
+        /// <summary>
+        /// Everything after <c>-viiperinstallerpolicy</c>, in order: the verb
+        /// and its options. Passed through verbatim rather than parsed here,
+        /// because the verb set belongs to the command, not to this switch
+        /// table.
+        /// </summary>
+        public string[] ViiperInstallerPolicyArgs { get => viiperInstallerPolicyArgs; }
         public bool ReenableDevice { get => reenableDevice; }
         public bool Runtask { get => runtask; }
         public bool Command { get => command; }
@@ -70,6 +82,18 @@ namespace DS4WinWPF
                     case "viiperdriverdiagnostic":
                     case "-viiperdriverdiagnostic":
                         viiperDriverDiagnostic = true;
+                        break;
+
+                    // The decision service the bundled VIIPER setup script
+                    // consults. Everything that follows belongs to the verb, so
+                    // the remaining arguments are taken whole and parsing stops.
+                    case "viiperinstallerpolicy":
+                    case "-viiperinstallerpolicy":
+                        viiperInstallerPolicy = true;
+                        viiperInstallerPolicyArgs = new string[args.Length - i - 1];
+                        Array.Copy(args, i + 1, viiperInstallerPolicyArgs, 0,
+                            viiperInstallerPolicyArgs.Length);
+                        i = args.Length;
                         break;
 
                     case "re-enabledevice":

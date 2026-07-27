@@ -643,6 +643,19 @@ namespace DS4WinWPF
                 exitApp = true;
                 Current.Shutdown(diagnosticExitCode);
             }
+            else if (parser.ViiperInstallerPolicy)
+            {
+                // The bundled setup script asking what it is allowed to do.
+                // Runs before the ControlService or any window exists, and
+                // touches nothing except the file it is told to write (plus the
+                // autostart entries, and only when explicitly asked).
+                int policyExitCode =
+                    DS4Windows.ViiperInstallerPolicyCommand.Run(
+                        parser.ViiperInstallerPolicyArgs);
+                runShutdown = false;
+                exitApp = true;
+                Current.Shutdown(policyExitCode);
+            }
             else if (parser.ReenableDevice)
             {
                 DS4Windows.DS4Devices.reEnableDevice(parser.DeviceInstanceId);
@@ -1070,6 +1083,16 @@ namespace DS4WinWPF
                     threadComEvent.Close();
                 }
 
+                // The named single-instance event is gone only now. A queued
+                // restart may start its replacement from here and no earlier:
+                // starting it while the event was still open is issue #12, in
+                // which the replacement saw us as the running instance, exited,
+                // and left the user with nothing (and, once the backend became
+                // ours to stop, with no backend either).
+                DS4Windows.PendingApplicationRestart.Current
+                    .MarkSingleInstanceReleased();
+                LaunchPendingRestart();
+
                 if (ipcClassNameMMF != null) ipcClassNameMMF.Dispose();
 
                 LogManager.Flush();
@@ -1079,6 +1102,25 @@ namespace DS4WinWPF
                 {
                     Environment.Exit(0);
                 }
+            }
+        }
+
+        private void LaunchPendingRestart()
+        {
+            try
+            {
+                DS4Windows.PendingApplicationRestart.Current.Launch(
+                    path => Process.Start(new ProcessStartInfo
+                    {
+                        FileName = path,
+                        UseShellExecute = true,
+                    }),
+                    line => logHolder?.Logger?.Info(line));
+            }
+            catch (Exception ex)
+            {
+                logHolder?.Logger?.Warn(
+                    "Could not restart after VIIPER setup: " + ex.Message);
             }
         }
     }

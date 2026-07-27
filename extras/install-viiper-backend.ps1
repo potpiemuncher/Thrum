@@ -1,15 +1,79 @@
+<#
+.SYNOPSIS
+    Installs or repairs the VIIPER backend, and — only on explicit terms — the
+    usbip-win2 kernel driver it depends on.
+
+.DESCRIPTION
+    Every decision that can end with something being executed, installed or
+    replaced is made by the application, not by this script. The script fetches
+    bytes, runs installers and swaps files; Thrum's installer policy decides
+    whether it may. That split exists because the release manifest, the pinned
+    digests and the driver gate already live in the application, are covered by
+    its test suite, and must not be duplicated into a copy that then gets to
+    decide whether a kernel driver is installed.
+
+    Consequences worth stating plainly:
+
+      * Nothing downloaded is executed before its SHA-256 — and, where the
+        publisher signs, its Authenticode chain and signer — have been checked
+        against a pinned identity.
+      * Nothing newer is accepted just because it is newer. A usbip-win2 release
+        this build does not recognise is left exactly as it is, and setup says
+        so rather than "repairing" it.
+      * The package pair Windows actually bound is validated after the driver
+        step, through the same gate as the -viiperdriverdiagnostic switch.
+      * No autostart entry is created. Thrum starts the backend when a profile
+        needs it and stops it on exit. A pre-existing entry is reported, never
+        adopted, and removed only when asked.
+      * Every backend this script starts is started with the update notifier
+        disabled.
+
+.PARAMETER NoPause
+    Do not wait for a key press at the end. Passed by Thrum.
+
+.PARAMETER RemoveViiperAutostart
+    Remove any pre-existing VIIPER logon entry (the HKCU Run value and/or the
+    RunVIIPER task). Without this, an existing entry is only reported.
+
+.PARAMETER AppExecutable
+    Full path to the application executable that provides the installer policy.
+    Defaults to the executable next to this script's parent folder. Setup
+    refuses to continue without it: it is what performs every verification.
+
+.PARAMETER UsbipInstallerFile
+    Use an already-downloaded usbip-win2 installer instead of fetching it. The
+    file is verified against the pin exactly as a download would be, so this is
+    an offline convenience and a test hook, never a way past a check.
+
+.PARAMETER ViiperBackendFile
+    The same, for the VIIPER backend executable.
+
+.NOTES
+    Exit codes: 0 success (driver pair validated), 1 refused or failed,
+    3 installed but validation deferred until Windows restarts.
+#>
 param(
-    [switch]$NoPause
+    [switch]$NoPause,
+    [switch]$RemoveViiperAutostart,
+    [string]$AppExecutable,
+    [string]$UsbipInstallerFile,
+    [string]$ViiperBackendFile
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $script:ExitCode = 0
 $script:RebootRecommended = $false
+$script:DriverValidated = $false
+$script:Refused = $false
 $script:InstallDir = Join-Path $env:LOCALAPPDATA "VIIPER"
 $script:LogPath = Join-Path $script:InstallDir "install.log"
 $script:TempDir = Join-Path ([IO.Path]::GetTempPath()) (
     "Thrum-VIIPER-Setup-" + [Guid]::NewGuid().ToString("N"))
+
+# Kept in step with ProductInfo.ExeBaseName by a guard test; this script cannot
+# read a C# constant, and the executable is what makes every check possible.
+$script:DefaultAppExecutableName = "Thrum.exe"
 
 function Write-SetupLog([string]$message, [ConsoleColor]$color =
         [ConsoleColor]::Gray) {
@@ -32,39 +96,6 @@ function Test-Administrator {
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     return $principal.IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-function Get-UsbipInstalledVersion {
-    $driverPath = Join-Path $env:SystemRoot "System32\drivers\usbip2_ude.sys"
-    if (Test-Path -LiteralPath $driverPath) {
-        try {
-            $versionText = (Get-Item -LiteralPath $driverPath).
-                VersionInfo.FileVersion
-            $version = ConvertTo-VersionFromObject $versionText
-            if ($version) { return $version }
-        }
-        catch { }
-    }
-
-    foreach ($root in @(
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )) {
-        $entry = Get-ItemProperty $root -ErrorAction SilentlyContinue |
-            Where-Object {
-                $displayName = $_.DisplayName
-                if ($null -eq $displayName) { return $false }
-                $nameText = $displayName -as [string]
-                return $nameText -match "USB/IP|USBip"
-            } |
-            Select-Object -First 1
-        if ($entry -and $entry.DisplayVersion) {
-            $version = ConvertTo-VersionFromObject $entry.DisplayVersion
-            if ($version) { return $version }
-        }
-    }
-
-    return $null
 }
 
 function ConvertTo-VersionFromObject([object]$value) {
@@ -93,6 +124,111 @@ function ConvertTo-VersionFromObject([object]$value) {
     return $null
 }
 
+<#
+    The only usbip-win2 probe this script still performs, and it answers one
+    narrow question: does an uninstall entry claim a release label?
+
+    It is deliberately not used to decide anything. The release label is a hint
+    that something is registered even when no packages are bound; the identity
+    decision belongs to the driver gate, which reads the packages Windows
+    actually loaded. Reading usbip2_ude.sys's FileVersion, as this script used
+    to, answers neither question: that file carries a DriverVer such as
+    1.45.29.368, which is not the 0.9.7.x release label and compares greater
+    than every floor anyone would write.
+#>
+function Get-UsbipRegisteredRelease {
+    foreach ($root in @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )) {
+        $entry = Get-ItemProperty $root -ErrorAction SilentlyContinue |
+            Where-Object {
+                $displayName = $_.DisplayName
+                if ($null -eq $displayName) { return $false }
+                $nameText = $displayName -as [string]
+                return $nameText -match "USB/IP|USBip"
+            } |
+            Select-Object -First 1
+        if ($entry -and $entry.DisplayVersion) {
+            $version = ConvertTo-VersionFromObject $entry.DisplayVersion
+            if ($version) { return $version.ToString() }
+            return ([string]$entry.DisplayVersion).Trim()
+        }
+    }
+
+    return ""
+}
+
+function Resolve-AppExecutable([string]$explicitPath) {
+    if ($explicitPath) {
+        if (Test-Path -LiteralPath $explicitPath) { return $explicitPath }
+        throw "The application executable was not found at '$explicitPath'."
+    }
+
+    $candidate = Join-Path (Split-Path -Parent $PSScriptRoot) `
+        $script:DefaultAppExecutableName
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+
+    throw (
+        "Setup could not find $($script:DefaultAppExecutableName) next to the " +
+        "'extras' folder. That executable performs every digest, signature and " +
+        "driver-package check this script depends on, so setup stops here " +
+        "rather than installing anything unverified. Run setup from inside the " +
+        "application, or pass -AppExecutable.")
+}
+
+<#
+    Runs one installer-policy verb and returns its exit code plus the key/value
+    result. Fail-closed at every step: a missing helper, a missing result file,
+    an unreadable result, or a result whose reported exit code disagrees with
+    the process exit code all throw. Setup never proceeds on silence.
+#>
+function Invoke-InstallerPolicy([string[]]$policyArgs) {
+    $outFile = Join-Path $script:TempDir (
+        "policy-" + [Guid]::NewGuid().ToString("N") + ".txt")
+    $arguments = @("-viiperinstallerpolicy") + $policyArgs + @("--out", $outFile)
+
+    $quoted = @()
+    foreach ($argument in $arguments) {
+        if ($argument -match '\s') { $quoted += ('"' + $argument + '"') }
+        else { $quoted += $argument }
+    }
+
+    $process = Start-Process -FilePath $script:AppExecutable `
+        -ArgumentList $quoted -Wait -PassThru -WindowStyle Hidden
+    $exitCode = $process.ExitCode
+
+    if (-not (Test-Path -LiteralPath $outFile)) {
+        throw (
+            "The verification helper produced no result for " +
+            "'$($policyArgs -join ' ')' (exit code $exitCode). Setup cannot " +
+            "continue without one.")
+    }
+
+    $data = @{}
+    $reportedExit = $null
+    foreach ($line in [IO.File]::ReadAllLines($outFile,
+            [Text.Encoding]::UTF8)) {
+        if ([string]::IsNullOrEmpty($line)) { continue }
+        $separator = $line.IndexOf('=')
+        if ($separator -lt 1) { continue }
+        $key = $line.Substring(0, $separator)
+        $value = $line.Substring($separator + 1)
+        if ($key -eq "log") { Write-SetupLog $value }
+        elseif ($key -eq "exitcode") { $reportedExit = $value }
+        else { $data[$key] = $value }
+    }
+
+    if ($reportedExit -ne ([string]$exitCode)) {
+        throw (
+            "The verification helper's result does not match its exit code " +
+            "(reported '$reportedExit', process $exitCode). Setup treats that " +
+            "as unverified and stops.")
+    }
+
+    return @{ ExitCode = $exitCode; Data = $data }
+}
+
 function Invoke-Download([string]$url, [string]$outFile) {
     $lastError = $null
     for ($attempt = 1; $attempt -le 3; $attempt++) {
@@ -116,88 +252,55 @@ function Invoke-Download([string]$url, [string]$outFile) {
     throw "Download failed after three attempts: $($lastError.Message)"
 }
 
-function Get-GithubReleaseAsset([string]$repo, [string]$assetPattern) {
-    $apiUrl = "https://api.github.com/repos/$repo/releases?per_page=20"
-    $releases = Invoke-RestMethod -Uri $apiUrl -TimeoutSec 30 -Headers @{
-        "User-Agent" = "Thrum-VIIPER-Setup"
-        "Accept" = "application/vnd.github+json"
-    }
-    if (-not $releases) { throw "No releases were found in $repo." }
+<#
+    Fetches a pinned artefact and hands it to the verifier before anything is
+    done with it. There is no code path that returns an unverified file: a
+    refusal deletes the download and throws.
 
-    foreach ($release in @($releases | Where-Object { -not $_.draft })) {
-        $asset = @($release.assets) |
-            Where-Object { $_.name -match $assetPattern } |
-            Sort-Object @{ Expression = {
-                if ($_.name -match
-                    '(?i)^viiper-(windows|win)-(amd64|x64)\.zip$') { 0 }
-                elseif ($_.name -match '(?i)^viiper\.exe$') { 1 }
-                elseif ($_.name -match
-                    '(?i)(windows|win).*(amd64|x64).*\.(exe|zip)$') { 2 }
-                elseif ($_.name -match '(?i)\.(exe|zip)$') { 3 }
-                else { 4 }
-            }}, name | Select-Object -First 1
-        if ($asset) {
-            $label = if ($release.tag_name) { $release.tag_name }
-                elseif ($release.name) { $release.name } else { $release.id }
-            Write-SetupLog (
-                "Using '$($asset.name)' from $repo release '$label'.")
-            return $asset.browser_download_url
-        }
+    A caller-supplied local file takes the place of the download and nothing
+    else. It is copied in and verified against the same pin by the same call,
+    so staging a corrupted or wrongly-signed artefact exercises the refusal
+    rather than bypassing it — which is exactly what the VM run sheet's
+    negative cases need.
+#>
+function Get-VerifiedPinnedFile([string]$component, [hashtable]$pins,
+        [string]$destination, [string]$stagedFile) {
+    $url = $pins["$component.url"]
+    $expected = $pins["$component.sha256"]
+    if (-not $url -or -not $expected) {
+        throw "No pinned download is defined for '$component'."
     }
 
-    $names = @($releases | ForEach-Object { $_.assets } |
-        ForEach-Object { $_.name }) -join ", "
-    throw "No supported Windows VIIPER asset was found. Assets seen: $names"
-}
+    Write-SetupLog (
+        "Pinned $component release $($pins["$component.release"]): " +
+        "$($pins["$component.filename"]), expected SHA-256 $expected.")
 
-function Get-ViiperAssetUrl {
-    $errors = @()
-    foreach ($repo in @("hbashton/VIIPER")) {
-        try {
-            Write-SetupLog "Checking release assets in $repo"
-            return Get-GithubReleaseAsset $repo (
-                "(?i)^(?!.*(libviiper|client|headers|linux|arm64|\.nupkg|" +
-                "\.crate|\.tgz)).*\.(exe|zip)$")
+    if ($stagedFile) {
+        if (-not (Test-Path -LiteralPath $stagedFile)) {
+            throw "The staged $component file '$stagedFile' was not found."
         }
-        catch {
-            $errors += "${repo}: $($_.Exception.Message)"
-            Write-SetupLog "Could not use ${repo}: $($_.Exception.Message)" Yellow
-        }
-    }
-    throw "Could not locate VIIPER. $($errors -join '; ')"
-}
-
-function Expand-ViiperAsset([string]$assetUrl, [string]$candidatePath) {
-    $extension = [IO.Path]::GetExtension(([Uri]$assetUrl).AbsolutePath)
-    $downloadPath = Join-Path $script:TempDir ("viiper-download" + $extension)
-    Invoke-Download $assetUrl $downloadPath
-
-    if ($extension -ieq ".exe") {
-        Copy-Item -LiteralPath $downloadPath -Destination $candidatePath -Force
-    }
-    elseif ($extension -ieq ".zip") {
-        $extractDir = Join-Path $script:TempDir "viiper-extract"
-        Expand-Archive -LiteralPath $downloadPath -DestinationPath $extractDir `
-            -Force
-        $executable = Get-ChildItem -LiteralPath $extractDir -Recurse `
-            -Filter "viiper.exe" | Select-Object -First 1
-        if (-not $executable) {
-            throw "The VIIPER archive did not contain viiper.exe."
-        }
-        Copy-Item -LiteralPath $executable.FullName `
-            -Destination $candidatePath -Force
+        Write-SetupLog (
+            "Using a staged local file instead of downloading. It is verified " +
+            "against the same pin.")
+        Copy-Item -LiteralPath $stagedFile -Destination $destination -Force
     }
     else {
-        throw "Unsupported VIIPER asset type '$extension'."
+        Invoke-Download $url $destination
     }
 
-    $candidate = Get-Item -LiteralPath $candidatePath
-    if ($candidate.Length -lt 65536) {
-        throw "The downloaded VIIPER executable is unexpectedly small."
+    $verification = Invoke-InstallerPolicy @(
+        "verify-file", "--component", $component, "--path", $destination)
+    if ($verification.ExitCode -ne 0) {
+        try {
+            Remove-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
+        }
+        catch { }
+        throw (
+            "$($verification.Data['summary']) " +
+            "The downloaded file was discarded and nothing was run from it.")
     }
-    if ($candidate.Extension -ine ".exe") {
-        throw "The downloaded VIIPER payload is not a Windows executable."
-    }
+
+    Write-SetupLog $verification.Data['summary'] Green
 }
 
 function Install-ViiperAtomically([string]$candidatePath,
@@ -241,6 +344,17 @@ function Get-RunningViiperProcesses {
     }
 }
 
+<#
+    Stops every viiper.exe on the machine, retrying and escalating, and returns
+    false rather than pretending.
+
+    Worth knowing next to Thrum's runtime policy, which is the opposite: at
+    runtime the application refuses to stop a backend it did not start or that
+    is hosting a device. Here the rule is different on purpose — an install is
+    an explicit, elevated, user-initiated act, and a running image cannot be
+    replaced on Windows while it is held. The two policies are not in conflict;
+    they answer different questions.
+#>
 function Stop-ViiperProcesses([string]$operation) {
     $attempts = 12
     for ($attempt = 1; $attempt -le $attempts; $attempt++) {
@@ -316,54 +430,40 @@ function Test-ViiperApi([int]$timeoutMilliseconds = 1000) {
     finally { if ($client) { $client.Dispose() } }
 }
 
-function Start-AndVerifyViiper([string]$viiperPath) {
+<#
+    Starts the backend for the verification step with the update notifier
+    disabled.
+
+    The argument vector is not written here: it comes from the same constant the
+    application spawns with. VIIPER's bundled updater still points at the parent
+    project's releases and its "Update Now" pipes a remote script into an
+    elevated shell, so every path that starts a backend has to disable it —
+    including this one, which is not an autostart entry and was missed by the
+    runtime fix (issue #8).
+#>
+function Start-AndVerifyViiper([string]$viiperPath, [hashtable]$pins) {
     if (Test-ViiperApi) { return $true }
-    Start-Process -FilePath $viiperPath -ArgumentList "server" `
+
+    $serverArgs = $pins['viiper.serverargs']
+    if (-not $serverArgs) {
+        throw "The backend start arguments were not reported by the policy helper."
+    }
+
+    Write-SetupLog "Starting the backend for verification: viiper.exe $serverArgs"
+    $environmentName = $pins['viiper.updatenotifyenv']
+    $environmentValue = $pins['viiper.updatenotifyvalue']
+    if ($environmentName) {
+        # Belt and braces, exactly as the application does it: the flag is what
+        # takes effect, the variable is what a re-exec would inherit.
+        Set-Item -Path ("Env:" + $environmentName) -Value $environmentValue
+    }
+
+    Start-Process -FilePath $viiperPath -ArgumentList $serverArgs `
         -WindowStyle Hidden | Out-Null
     for ($attempt = 0; $attempt -lt 10; $attempt++) {
         Start-Sleep -Milliseconds 500
         if (Test-ViiperApi) { return $true }
     }
-    return $false
-}
-
-function Register-ViiperRunTask([string]$viiperPath, [string]$taskName) {
-    try {
-        $taskAction = New-ScheduledTaskAction -Execute $viiperPath `
-            -Argument "server"
-        $taskTrigger = New-ScheduledTaskTrigger -AtLogOn
-        $taskPrincipal = New-ScheduledTaskPrincipal `
-            -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) `
-            -RunLevel Highest -LogonType Interactive
-        $taskSettings = New-ScheduledTaskSettingsSet `
-            -AllowStartIfOnBatteries `
-            -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
-            -MultipleInstances IgnoreNew
-
-        Register-ScheduledTask -TaskName $taskName -Action $taskAction `
-            -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings `
-            -Force | Out-Null
-        return $true
-    }
-    catch {
-        Write-SetupLog "Failed modern scheduled task registration: $($_.Exception.Message)" Yellow
-    }
-
-    try {
-        $runCommand = '"{0}" server' -f $viiperPath
-        $scheduledResult = Start-Process -FilePath "schtasks.exe" `
-            -ArgumentList "/Create /F /TN `"$taskName`" /SC ONLOGON /RL HIGHEST /IT /TR `"$runCommand`"" `
-            -WindowStyle Hidden -PassThru -Wait
-        if ($scheduledResult.ExitCode -eq 0) {
-            return $true
-        }
-
-        Write-SetupLog "Fallback schtasks command exited with code $($scheduledResult.ExitCode)." Yellow
-    }
-    catch {
-        Write-SetupLog "Failed fallback scheduled task registration: $($_.Exception.Message)" Yellow
-    }
-
     return $false
 }
 
@@ -378,77 +478,109 @@ try {
     Write-SetupLog "Thrum VIIPER virtual controller setup" Green
     Write-SetupLog "Installing or repairing VIIPER and usbip-win2."
 
+    $script:AppExecutable = Resolve-AppExecutable $AppExecutable
+    Write-SetupLog "Verification helper: $script:AppExecutable"
+
+    Write-Step "Pinned packages"
+    $pins = (Invoke-InstallerPolicy @("pins")).Data
+
     Write-Step "Checking usbip-win2"
-    $requiredUsbipVersion = [Version]"0.9.7.7"
-    try {
-        $usbipVersion = Get-UsbipInstalledVersion
+    $registered = Get-UsbipRegisteredRelease
+    $usbipDecision = Invoke-InstallerPolicy @(
+        "usbip-decision", "--uninstall-version", $registered)
+    $action = $usbipDecision.Data['action']
+
+    switch ($action) {
+        "InstallPinned" {
+            $installerPath = Join-Path $script:TempDir $pins['usbip.filename']
+            Get-VerifiedPinnedFile "usbip" $pins $installerPath $UsbipInstallerFile
+
+            Write-SetupLog "Windows may briefly restart USB hub devices." Yellow
+            $installer = Start-Process -FilePath $installerPath `
+                -ArgumentList "/S" -PassThru -Wait
+            if ($installer.ExitCode -notin @(0, 1641, 3010)) {
+                throw "usbip-win2 setup failed with exit code $($installer.ExitCode)."
+            }
+            if ($installer.ExitCode -in @(1641, 3010)) {
+                $script:RebootRecommended = $true
+                Write-SetupLog "The installer asked for a Windows restart." Yellow
+            }
+        }
+        "AlreadyPinned" {
+            Write-SetupLog $usbipDecision.Data['summary'] Green
+        }
+        "LeaveRecognisedReleaseAlone" {
+            Write-SetupLog $usbipDecision.Data['summary'] Yellow
+        }
+        "RefuseUnrecognisedInstall" {
+            $script:Refused = $true
+            Write-SetupLog $usbipDecision.Data['summary'] Red
+        }
+        default {
+            # An action nobody wrote a branch for is not a licence to guess.
+            throw (
+                "The installer policy returned an unrecognised usbip-win2 " +
+                "action '$action'. Setup stops rather than guessing what it " +
+                "means.")
+        }
     }
-    catch {
-        Write-SetupLog "usbip-win2 version check failed: $($_.Exception.Message)" Yellow
-        $usbipVersion = $null
-    }
-    if ($usbipVersion -and $usbipVersion -ge $requiredUsbipVersion) {
-        Write-SetupLog "usbip-win2 is ready: $usbipVersion" Green
+
+    Write-Step "Validating the installed driver packages"
+    $validation = Invoke-InstallerPolicy @("validate-installed")
+    if ($validation.ExitCode -eq 0) {
+        $script:DriverValidated = $true
+        Write-SetupLog $validation.Data['summary'] Green
     }
     else {
-        $state = if ($usbipVersion) { "old ($usbipVersion)" } else { "missing" }
-        Write-SetupLog "usbip-win2 is $state; installing $requiredUsbipVersion." Yellow
-        $usbipUrl = "https://github.com/vadimgrn/usbip-win2/releases/download/v.0.9.7.7/USBip-0.9.7.7-x64.exe"
-        $usbipInstaller = Join-Path $script:TempDir "USBip-0.9.7.7-x64.exe"
-        Invoke-Download $usbipUrl $usbipInstaller
-        Write-SetupLog "Windows may briefly restart USB hub devices." Yellow
-        $installer = Start-Process -FilePath $usbipInstaller `
-            -ArgumentList "/S" -PassThru -Wait
-        if ($installer.ExitCode -notin @(0, 1641, 3010)) {
-            throw "usbip-win2 setup failed with exit code $($installer.ExitCode)."
-        }
-        if ($installer.ExitCode -in @(1641, 3010)) {
+        Write-SetupLog $validation.Data['summary'] Yellow
+        if (-not $script:Refused -and $action -eq "InstallPinned") {
+            # A pair that is not bound yet is the ordinary outcome of installing
+            # a kernel driver, not evidence of a bad one.
             $script:RebootRecommended = $true
-        }
-        $usbipVersion = Get-UsbipInstalledVersion
-        if (-not $usbipVersion) {
-            $script:RebootRecommended = $true
-            Write-SetupLog "The driver will finish registering after a Windows restart." Yellow
+            Write-SetupLog (
+                "Restart Windows, then run Install / Repair again so the " +
+                "installed packages can be validated.") Yellow
         }
     }
 
     Write-Step "Installing VIIPER"
     $viiperPath = Join-Path $script:InstallDir "viiper.exe"
     $candidatePath = Join-Path $script:TempDir "viiper.exe"
-    Expand-ViiperAsset (Get-ViiperAssetUrl) $candidatePath
+    Get-VerifiedPinnedFile "viiper" $pins $candidatePath $ViiperBackendFile
     Install-ViiperAtomically $candidatePath $viiperPath
     Write-SetupLog "VIIPER installed to $viiperPath" Green
 
-    Write-Step "Registering VIIPER"
-    $registrationSafeToRun = $true
-    if (-not (Stop-ViiperProcesses "install registration")) {
-        $registrationSafeToRun = $false
+    Write-Step "Startup behaviour"
+    # No autostart entry is created here, by either mechanism. Thrum starts the
+    # backend when a profile needs it and stops it again on exit, so a logon
+    # entry would start a backend the application never owns, never stops, and
+    # whose self-updater is enabled.
+    $autostartArgs = @("autostart")
+    if ($RemoveViiperAutostart) { $autostartArgs += "--remove" }
+    $autostart = Invoke-InstallerPolicy $autostartArgs
+    if ($autostart.ExitCode -ne 0) {
+        Write-SetupLog $autostart.Data['summary'] Yellow
     }
-
-    $registration = Start-Process -FilePath $viiperPath `
-        -ArgumentList "install" -WindowStyle Hidden -PassThru -Wait
-    if ($registration.ExitCode -ne 0) {
-        if (-not $registrationSafeToRun) {
-            throw "VIIPER registration could not proceed because a VIIPER process could not be closed automatically. " +
-                  "Please close viiper.exe manually, then run Install / Repair again."
-        }
-        throw "VIIPER registration failed with exit code $($registration.ExitCode)."
-    }
-
-    $taskName = "RunVIIPER"
-    if (Register-ViiperRunTask $viiperPath $taskName) {
-        Write-SetupLog "Registered hidden logon task '$taskName'." Green
+    elseif ($autostart.Data['action'] -eq "OfferRemoval") {
+        Write-SetupLog $autostart.Data['summary'] Yellow
+        Write-SetupLog (
+            "To remove it now, rerun setup with -RemoveViiperAutostart, or use " +
+            "Settings -> VIIPER in Thrum.") Yellow
     }
     else {
-        Write-SetupLog "Could not create hidden logon task. Setup will continue; VIIPER can still be started by Thrum when needed." Yellow
+        Write-SetupLog $autostart.Data['summary']
     }
 
     Write-Step "Verification"
-    if (Start-AndVerifyViiper $viiperPath) {
+    if (Start-AndVerifyViiper $viiperPath $pins) {
         Write-SetupLog "VIIPER API is ready." Green
+        # The .previous backup is kept deliberately. Rollback that only exists
+        # inside the install window is not rollback: the failure this protects
+        # against is a backend that installs cleanly and then misbehaves.
         $backupPath = "$viiperPath.previous"
         if (Test-Path -LiteralPath $backupPath) {
-            Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+            Write-SetupLog (
+                "The previous backend was kept at $backupPath for rollback.")
         }
     }
     elseif ($script:RebootRecommended) {
@@ -458,13 +590,29 @@ try {
         throw "VIIPER installed, but its local API did not start. See $script:LogPath"
     }
 
-    Write-Host ""
-    $finish = if ($script:RebootRecommended) {
-        "Setup complete. Restart Windows once before using a virtual controller."
-    } else {
-        "Setup complete. VIIPER is ready for Thrum."
+    if ($script:Refused) {
+        $script:ExitCode = 1
+        Write-SetupLog (
+            "Setup finished, but the usbip-win2 packages on this machine are " +
+            "not ones this build recognises. Virtual controllers stay blocked " +
+            "until that is resolved; nothing was installed over them.") Red
     }
-    Write-SetupLog $finish Green
+    elseif ($script:DriverValidated) {
+        $script:ExitCode = 0
+        Write-SetupLog "Setup complete. VIIPER is ready for Thrum." Green
+    }
+    elseif ($script:RebootRecommended) {
+        $script:ExitCode = 3
+        Write-SetupLog (
+            "Setup complete. Restart Windows once, then run Install / Repair " +
+            "again so the driver packages can be validated.") Yellow
+    }
+    else {
+        $script:ExitCode = 1
+        Write-SetupLog (
+            "Setup finished, but the installed driver packages could not be " +
+            "validated. Virtual controllers stay blocked until they are.") Red
+    }
 }
 catch {
     $script:ExitCode = 1

@@ -403,82 +403,75 @@ namespace DS4Windows
                 RefreshDriverReadiness();
                 ViiperPrerequisiteStatus refreshed = GetStatus(
                     tryStartServer: true);
-                if (exitCode == 0 && refreshed.Ready)
+
+                ViiperInstallerPolicy.ViiperInstallerExitReport report =
+                    ViiperInstallerPolicy.DescribeInstallerExit(exitCode,
+                        refreshed.Ready, InstallLogPath);
+
+                if (report.Succeeded)
                 {
                     Interlocked.Exchange(ref promptShownThisSession, 0);
-                    AppLogger.LogToGui(
-                        "SUCCESSFUL: VIIPER setup finished successfully. Virtual controllers are ready. Restarting " +
-                        ProductInfo.ProductName + ".",
-                        false, false);
-                    RestartApplication();
+                }
+
+                AppLogger.LogToGui((report.Succeeded ? "SUCCESSFUL: " : string.Empty) +
+                    report.Message.Replace("\n", " "), report.IsError, false);
+
+                if (report.RestartApplication && RequestRestart())
+                {
                     return;
                 }
 
-                string logPath = Path.Combine(
-                    Environment.GetFolderPath(
-                        Environment.SpecialFolder.LocalApplicationData),
-                    "VIIPER", "install.log");
-                string message = exitCode == 0
-                    ? "VIIPER was installed, but Windows is not reporting every component as ready yet. Restart Windows once, then click Refresh."
-                    : $"VIIPER setup could not finish (exit code {exitCode}).\n\n" +
-                      "If a viiper.exe process was still running, it may have blocked the VIIPER registration step. " +
-                      $"Close viiper.exe manually and run Repair again.\n\nReview the setup log for details:\n{logPath}";
-                ShowInstallerMessage(owner, message, "VIIPER setup",
-                    exitCode == 0 ? MessageBoxImage.Warning :
-                        MessageBoxImage.Error);
+                if (!report.Succeeded)
+                {
+                    ShowInstallerMessage(owner, report.Message, "VIIPER setup",
+                        report.IsError ? MessageBoxImage.Error :
+                            MessageBoxImage.Warning);
+                }
             }));
         }
 
-        private static void RestartApplication()
+        /// <summary>Where the setup script records every decision it made.</summary>
+        public static string InstallLogPath => Path.Combine(
+            Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData),
+            "VIIPER", "install.log");
+
+        /// <summary>
+        /// Queues the restart and begins shutting down. The replacement is
+        /// started by the shutdown path itself, once the single-instance handle
+        /// is released — see <see cref="PendingApplicationRestart"/> for why
+        /// starting it here instead is issue #12.
+        /// </summary>
+        /// <returns>False when there was nothing to restart.</returns>
+        private static bool RequestRestart()
         {
             // Global.exelocation, not a composed "<product>.exe" under
             // exedirpath: it is the executable actually running, so it survives
             // a rename, a portable copy, and the junction/Scoop case that
             // exelocation already resolves.
-            string exePath = Global.exelocation;
-            if (!File.Exists(exePath))
+            if (!PendingApplicationRestart.Current.Request(Global.exelocation))
             {
                 AppLogger.LogToGui("VIIPER setup succeeded, but " +
                     ProductInfo.ExeBaseName +
                     ".exe was not found for automatic restart.", true, true);
-                return;
+                return false;
             }
 
-            ThreadPool.QueueUserWorkItem(_ =>
+            try
             {
-                Thread.Sleep(2000);
-
-                try
+                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                 {
-                    ProcessStartInfo startInfo = new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        UseShellExecute = true,
-                    };
-                    Process.Start(startInfo);
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogToGui(
-                        $"Could not restart {ProductInfo.ProductName} automatically after VIIPER install: {ex.Message}",
-                        true, true);
-                    return;
-                }
-
-                try
-                {
-                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
-                    {
-                        Application.Current.Shutdown();
-                    }));
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogToGui(
-                        $"{ProductInfo.ProductName} failed to restart automatically after VIIPER install: {ex.Message}",
-                        true, true);
-                }
-            });
+                    Application.Current.Shutdown();
+                }));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogToGui(
+                    $"{ProductInfo.ProductName} failed to restart automatically after VIIPER install: {ex.Message}",
+                    true, true);
+                return false;
+            }
         }
 
         private static void ShowInstallerMessage(Window owner, string message,

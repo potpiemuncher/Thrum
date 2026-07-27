@@ -2848,3 +2848,186 @@ No new key, so the neutral-only policy for new keys does not apply here.
 Suite: **696 passed / 0 failed** (CI filter), unchanged from baseline — the pass
 is itself the check, since the key is listed as XAML-reachable with no
 known-missing entry, so a null lookup would fail the test.
+
+---
+
+## 2026-07-26 — Phase 2.4: installer hardening (pins, verification, autostart removal, issue #12)
+
+**Session scope:** plan task **2.4**, written on top of the upstream merge
+analysed in `upstream-delta-2026-07-26.md`. Nothing in this session installed,
+upgraded, removed or touched a driver, service, scheduled task, registry Run
+value or the VIIPER install directory. The setup script was never executed; it
+was parsed (AST only), and the decision layer it consults was exercised
+directly.
+
+### The shape of the change, and why
+
+Upstream's four commits left four of the seven 2.4 requirements entirely ours,
+and the honest reading of the remaining three is that the script was making
+security decisions it had no way to make well: a `-ge 0.9.7.7` floor against a
+version probe that reads the FileVersion of `usbip2_ude.sys` — a DriverVer such
+as `1.45.29.368`, which is not the release label and compares greater than every
+floor anyone would write. The floor passed trivially on every install it has
+ever seen, including this machine's.
+
+So the decisions moved into C# and the script kept the mechanical half. The
+deciding argument is not "C# is nicer to test": it is that the admission rule is
+*the manifest decides*, the manifest is `ViiperDriverManifest`, and its own
+contract says it must not be duplicated into the UI, the broker or the
+installer. A PowerShell copy of the version table would have been exactly that
+duplicate — and it would have been the copy deciding whether a kernel driver
+gets installed.
+
+New surface:
+
+| File | What it owns |
+|---|---|
+| `Viiper/Validation/ViiperInstallerPins.cs` | The two exact artefacts setup may fetch: URL, SHA-256, size, whether Authenticode is required and from whom, and **how the digest was obtained**. |
+| `Viiper/Validation/ViiperInstallerPolicy.cs` | Pure, total decisions: download verdict, usbip install action, post-install verdict, script exit code, the app-side reading of that exit code, autostart plan. |
+| `Viiper/Validation/ViiperInstallerPolicyCommand.cs` | The read-only `-viiperinstallerpolicy` verb surface the script consults. |
+| `DS4Control/PendingApplicationRestart.cs` | Issue #12's ordering, enforced rather than commented. |
+
+### Testing approach, and why it is not Pester
+
+The brief offered (a) dot-sourceable script functions plus a Pester suite in CI,
+or (b) decisions in testable C# with the script as thin orchestration, and asked
+for whichever puts the fail-closed logic under real tests.
+
+(b), for three reasons. The manifest argument above is the first and decisive
+one. Second, MSTest already gates every merge here; a Pester job would be a
+second harness, a second runner dependency and a second place a filter can go
+stale, bought for logic that would still have to reach into C# for the version
+table. Third — and this is the part worth stating plainly — the *shape* of (b)
+is what makes the properties testable at all: `DecideDownloadVerification` is a
+function from observed facts to a verdict, so "valid signature, unexpected
+subject" is three lines of test instead of a signing fixture.
+
+67 new tests, all pure:
+
+- `ViiperInstallerPolicyTests` (46) — correct digest; wrong digest; missing
+  file; null observation; uncomputable digest; valid signature with an
+  unexpected subject; untrusted signature; absent signature; **a signature that
+  was never evaluated** (the failure shape that reads exactly like a pass);
+  unsigned component approved on its digest alone and refused on a wrong one;
+  version not in the manifest (three spellings); version newer than pinned;
+  already-installed pinned version; already-installed recognised-but-different
+  version; registered-but-not-bound in all four flavours; unknown enum value;
+  post-install 0/1/2, an undocumented code, and never-started; every exit-code
+  mapping in both directions; the autostart plan including an unreadable state.
+- `PendingApplicationRestartTests` (10) — the #12 ordering, below.
+- `ViiperInstallerScriptTests` (11) — **the weakest tests here, and labelled as
+  such in the file.** Matching text in a script proves the text is there. They
+  exist for the four properties that are properties of *absent* code — no
+  autostart creation, no backend start without the update flag, no URL or digest
+  outside the pins, no deletion of the rollback backup — where a regression is
+  silent: the script keeps working, it just stops being safe.
+
+### Requirement by requirement
+
+1. **Pinned + digest + Authenticode before execution.** `Get-VerifiedPinnedFile`
+   is the only way an artefact reaches disk, and its next statement is the
+   verification call. Refusal deletes the file and throws. Verified live against
+   the genuine signed installer: digest and subject both matched and were logged
+   expected-beside-actual; a one-byte-flipped copy was refused with both digests
+   in the log.
+2. **Post-install validation of the pair.** A `validate-installed` verb runs
+   `ViiperDriverValidationCommand.RunDiagnostic()` — the same implementation and
+   the same 0/1/2 the `-viiperdriverdiagnostic` switch runs — and the script
+   branches on it. Deliberately not launched as `-viiperdriverdiagnostic` in a
+   second process: that switch prints to an attached parent console and, when
+   there is none, opens a **modal report window**. A setup step that can block
+   on a dialog nobody can see is not a verification step. Exit 2 and "could not
+   run at all" are both failures.
+3. **No silent acceptance of an unlisted release.** The floor is gone; the
+   primary input is the gate's four-state answer, not a file version. Verified
+   live on this machine: `readiness=ValidatedExperimental`,
+   `matchedrelease=0.9.7.8`, `action=LeaveRecognisedReleaseAlone` —
+   *"It is a release this build recognises as an experimental baseline, and it
+   is left exactly as it is."* Nothing was installed over it and no downgrade
+   was attempted. VIIPER is pinned to an exact asset by version **and** digest;
+   `Get-GithubReleaseAsset` and the newest-non-draft walk are deleted.
+4. **Atomic install, rollback retained.** `.previous` is no longer deleted on
+   success, and its path is logged. Rollback that exists only inside the install
+   window is not rollback — the failure it guards against is a backend that
+   installs cleanly and then misbehaves.
+5. **Log every decision.** Every decision function returns its audit lines
+   together with its verdict, from the same call, so the two cannot disagree.
+   The script copies every `log=` line into `install.log` verbatim.
+6. **Both autostart mechanisms removed.** `viiper.exe install` and
+   `Register-ViiperRunTask` are gone, and with them the `$registrationSafeToRun`
+   dance they were load-bearing for. `Stop-ViiperProcesses` survives, now needed
+   only by the atomic install, keeping upstream's retry/escalate/fail-closed
+   behaviour verbatim. A pre-existing entry is detected through 2.4b's read-only
+   detector, reported, and removed only with `-RemoveViiperAutostart` or the
+   Settings button — never adopted.
+7. **Issue #8 closed on every path.** `Start-AndVerifyViiper` takes its argument
+   vector from `ViiperBackendSpawn.ServerArguments` (via the `pins` verb) rather
+   than spelling out `server`, so the script cannot drift from the application,
+   and it sets `VIIPER_UPDATE_NOTIFY` as well. With both autostart entries gone,
+   no path remains that starts an update-nagging backend.
+8. **Issue #12 fixed.** Below.
+
+### Issue #12: the ordering, and what happens to the backend
+
+`RestartApplication` no longer starts anything. It records intent;
+`CleanShutdown` starts the replacement **after** `threadComEvent.Close()`, and
+`PendingApplicationRestart.Launch` refuses outright until
+`MarkSingleInstanceReleased()` has been called. The ordering is a precondition,
+not a comment: an edit that moves the launch earlier fails a test that says why.
+
+**The backend across the restart is deliberately not special-cased.**
+Stop-on-exit runs as usual, the owned backend goes down with the app, and the
+new instance starts a fresh one on demand. The alternative — exempting an
+install-driven restart — would leave a backend running that the new instance
+does not own and would therefore never stop, turning a temporary special case
+into a permanent orphan. A few hundred milliseconds of downtime during a restart
+nobody is playing through is the cheaper side of that trade.
+
+### Verification
+
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, 14
+  pre-existing warnings.
+- Full suite with the CI filter — **763 passed / 0 failed**, from the 696
+  baseline (+67). `AppSettingsTests.CheckSettingsSave` remains excluded and
+  remains stale for the reason recorded in the 2.4b entry.
+- Script **parsed** with `[Parser]::ParseFile` — 0 errors, 2,609 tokens, five
+  declared parameters. Parsing is not execution; the script was never run.
+- **Live read-only pass** of every policy verb against the packaged build, using
+  the genuine artefacts already retained in the workspace. Results as quoted
+  above, plus: the pinned VIIPER asset approved on its digest with the
+  "unsigned upstream" line; a missing file reported as `Unavailable` rather than
+  as a mismatch; `validate-installed` returning `Validated`; `autostart`
+  returning `NothingToDo` with count 0, matching this machine's known state.
+
+### Deviations
+
+1. **Post-install validation goes through `validate-installed`, not a second
+   `-viiperdriverdiagnostic` process.** Same implementation, same exit codes, no
+   modal-dialog hazard. Recorded because the brief named the switch.
+2. **VIIPER is pinned to the public v0.0.5 asset, not to a bundled copy.** The
+   plan allowed bundling ours until hbashton/VIIPER#3 lands. Unnecessary: the
+   public asset has a stable digest that two independent sources agree on, and
+   pinning by digest already immunises us against the mis-stamp. The mis-stamped
+   embedded version is recorded in the pin so nothing ever validates by it.
+   Bundling stays available for Phase 5.2 through `-ViiperBackendFile`.
+3. **`-UsbipInstallerFile` / `-ViiperBackendFile` added.** Not in the brief.
+   They let the VM run sheet's negative cases travel the real code path rather
+   than a parallel one, and they are not a bypass: a staged file replaces the
+   download and nothing else, verified by the same call against the same pin.
+4. **A third exit code (3) exists.** "Installed, but the pair cannot be
+   validated until Windows restarts" is neither success nor failure, and
+   collapsing it into either would have meant lying in one direction.
+5. **Not verified, and cannot be here:** the script end to end. Running it
+   installs a kernel driver, which Part 3 rule 1 puts behind a TESTENV
+   checkpoint. The decision layer it consults is verified live; the
+   orchestration around it is source-level only.
+
+### For the VM run sheet
+
+`PHASE2-VM-VALIDATION-PREP-20260726.md` Phase B needs no change to be runnable,
+and gains a cheaper route: B1 and B2 can be done **without installing anything**
+by calling `Thrum.exe -viiperinstallerpolicy verify-file --component usbip
+--path <staged> --out <report>` directly — that is the exact call the script
+gates on. To exercise them through the script instead, pass
+`-UsbipInstallerFile <staged>`. B4's "no autostart was created" assertion is now
+also covered by a unit test, but the live enumeration is still worth capturing.

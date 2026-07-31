@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 
 namespace DS4Windows
@@ -88,6 +89,14 @@ namespace DS4Windows
     /// </summary>
     public sealed class ViiperDownloadObservation
     {
+        /// <summary>
+        /// Name of the file that was actually inspected — the base name only,
+        /// never a full path, because observations end up verbatim in reports
+        /// and logs that must not carry user paths. Null or empty when no name
+        /// was recorded.
+        /// </summary>
+        public string FileName { get; init; }
+
         /// <summary>The file exists and could be opened.</summary>
         public bool Exists { get; init; }
 
@@ -349,10 +358,24 @@ namespace DS4Windows
         {
             if (pin == null) throw new ArgumentNullException(nameof(pin));
 
+            // Every sentence about the file names the file that was examined,
+            // not the file the pin expected: a corrupted staged copy reported
+            // under the pinned name reads as an accusation against the
+            // official artefact. Path.GetFileName is re-applied here so a
+            // report can never carry a user path even if a caller records one.
+            string observedName = Path.GetFileName(
+                observation?.FileName ?? string.Empty).Trim();
+            string inspected = observedName.Length == 0
+                ? "the downloaded file"
+                : observedName;
+
             List<string> lines = new List<string>
             {
-                "Verifying " + pin.FileName + " against pinned release " +
+                "Verifying " + inspected + " against pinned release " +
                     pin.ReleaseLabel + ".",
+                "File name: expected " + pin.FileName + ", actual " +
+                    (observedName.Length == 0
+                        ? "(not recorded)" : observedName) + ".",
                 "Source: " + pin.Url,
             };
 
@@ -364,7 +387,7 @@ namespace DS4Windows
                         ? " (" + missingError + ")"
                         : string.Empty) + ".");
                 return Decide(ViiperDownloadVerdict.Unavailable,
-                    "Verification failed: " + pin.FileName +
+                    "Verification failed: " + inspected +
                     " is not present, so nothing about it can be verified.",
                     lines);
             }
@@ -390,7 +413,7 @@ namespace DS4Windows
                 }
 
                 return Decide(ViiperDownloadVerdict.Unavailable,
-                    "Verification failed: the SHA-256 of " + pin.FileName +
+                    "Verification failed: the SHA-256 of " + inspected +
                     " could not be computed, so it is treated as unverified.",
                     lines);
             }
@@ -398,7 +421,7 @@ namespace DS4Windows
             if (!pin.MatchesDigest(actualDigest))
             {
                 return Decide(ViiperDownloadVerdict.DigestMismatch,
-                    "Verification failed: " + pin.FileName + " does not have " +
+                    "Verification failed: " + inspected + " does not have " +
                     "the pinned SHA-256. The file is discarded and nothing is " +
                     "run from it.",
                     lines);
@@ -410,7 +433,7 @@ namespace DS4Windows
                     "upstream publishes it unsigned), so the pinned SHA-256 is " +
                     "the whole identity check.");
                 return Decide(ViiperDownloadVerdict.Approved,
-                    pin.FileName + " matches the pinned SHA-256 for release " +
+                    inspected + " matches the pinned SHA-256 for release " +
                     pin.ReleaseLabel + ".",
                     lines);
             }
@@ -421,7 +444,7 @@ namespace DS4Windows
                     "(not evaluated).");
                 return Decide(ViiperDownloadVerdict.Unavailable,
                     "Verification failed: the Authenticode signature of " +
-                    pin.FileName + " was never evaluated, and an unevaluated " +
+                    inspected + " was never evaluated, and an unevaluated " +
                     "signature is not a valid one.",
                     lines);
             }
@@ -437,7 +460,7 @@ namespace DS4Windows
             {
                 return Decide(ViiperDownloadVerdict.SignatureNotTrusted,
                     "Verification failed: Windows does not accept the " +
-                    "Authenticode signature on " + pin.FileName + ".",
+                    "Authenticode signature on " + inspected + ".",
                     lines);
             }
 
@@ -451,13 +474,13 @@ namespace DS4Windows
                     StringComparison.OrdinalIgnoreCase))
             {
                 return Decide(ViiperDownloadVerdict.UnexpectedSigner,
-                    "Verification failed: " + pin.FileName + " carries a valid " +
+                    "Verification failed: " + inspected + " carries a valid " +
                     "signature from a different publisher than the pinned one.",
                     lines);
             }
 
             return Decide(ViiperDownloadVerdict.Approved,
-                pin.FileName + " matches the pinned SHA-256 and is signed by " +
+                inspected + " matches the pinned SHA-256 and is signed by " +
                 "the pinned publisher.",
                 lines);
         }

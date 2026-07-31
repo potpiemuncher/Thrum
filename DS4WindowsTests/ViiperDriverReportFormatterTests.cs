@@ -327,6 +327,44 @@ public class ViiperDriverReportFormatterTests
             ViiperDriverReportFormatter.RedactUserPath(null));
     }
 
+    [DataTestMethod]
+    [DataRow(
+        @"Access to the path 'C:\Users\somebody\AppData\Local\Temp\x.exe' is denied.",
+        @"Access to the path 'C:\Users\<user>\AppData\Local\Temp\x.exe' is denied.")]
+    [DataRow(
+        @"Could not find a part of the path 'C:\Users\somebody'.",
+        @"Could not find a part of the path 'C:\Users\<user>'.")]
+    [DataRow(
+        @"moved C:\Users\one\a.exe to C:\Users\two\b.exe",
+        @"moved C:\Users\<user>\a.exe to C:\Users\<user>\b.exe")]
+    [DataRow(
+        @"cannot open C:\Users\somebody because it is a directory",
+        @"cannot open C:\Users\<user> because it is a directory")]
+    public void RedactUserPathsInText_RedactsEveryEmbeddedAccountName(
+        string text, string expected)
+    {
+        Assert.AreEqual(expected,
+            ViiperDriverReportFormatter.RedactUserPathsInText(text));
+    }
+
+    [DataTestMethod]
+    [DataRow("There is not enough space on the disk.")]
+    [DataRow(@"could not read 'C:\Program Files\USBip\usbip.exe'")]
+    public void RedactUserPathsInText_LeavesPathFreeTextAlone(string text)
+    {
+        Assert.AreEqual(text,
+            ViiperDriverReportFormatter.RedactUserPathsInText(text));
+    }
+
+    [TestMethod]
+    public void RedactUserPathsInText_HandlesMissingText()
+    {
+        Assert.AreEqual(string.Empty,
+            ViiperDriverReportFormatter.RedactUserPathsInText(null));
+        Assert.AreEqual(string.Empty,
+            ViiperDriverReportFormatter.RedactUserPathsInText(string.Empty));
+    }
+
     // ---- Header ----------------------------------------------------------
 
     [TestMethod]

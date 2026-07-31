@@ -3231,3 +3231,35 @@ Nine tests pin the ready line, the bare-machine line, the stopped-server line, R
 transport-not-helper semantics, the shared component readout, and the 0/1/N/blank
 query-failure forms. Suite: **783 passed / 0 failed** (CI filter), from 774 after the
 defect-4 fix merged alongside.
+
+---
+
+## 2026-07-30 — Fix: report text quoted from outside could carry the account name
+
+The follow-up the defect-4 fix flagged. `Observe` recorded raw exception messages in
+`ViiperDownloadObservation.ObservationError`, and Windows I/O messages embed the full path they
+failed on (*"Access to the path 'C:\Users\&lt;name&gt;\...' is denied."*), so a locked or
+unreadable download would have written the account name into the decision lines the setup
+script copies into `install.log`. The same shape existed in three more places: the WinTrust
+verifier's catch-all diagnostic (`"trust verification threw: " + ex.Message`), the policy
+command's top-level `error=`/`log=` lines, and the autostart lines that quote an entry's
+target — a command line that frequently lives under the profile.
+
+The rule stays the formatter's: `RedactUserPath` replaces the account segment with `<user>`
+and keeps the rest of the path, because the path shape is the triage value. The new
+`ViiperDriverReportFormatter.RedactUserPathsInText` applies that same rule to every profile
+path embedded in prose (in text, the account name is also ended by a quote or whitespace, not
+only by the next separator). Producers redact at the source — `Observe` and the command's
+`Run` catch now record `ExceptionType: redacted message`, and the WinTrust catch redacts its
+diagnostic — and `ViiperInstallerPolicy` redacts again at every line that quotes outside text,
+so a report does not depend on every producer remembering. Fixed diagnostics ("certificate
+expired", "no valid signature") and path-free error text pass through unchanged;
+`DisplayPath` was already built redacted and needed nothing.
+
+Negative control: neutering the policy's `Redacted` helper failed all three new report-flow
+tests; restored and re-verified. One test needed its probe account renamed to
+`leakedaccountname` — the first choice, "somebody", is a word the autostart prose
+legitimately contains, which the failing run pointed out.
+
+Suite: **793 passed / 0 failed** (CI filter) in a clean worktree of this commit, from 783.
+(The shared tree also carries unrelated in-flight work, so its totals are larger.)

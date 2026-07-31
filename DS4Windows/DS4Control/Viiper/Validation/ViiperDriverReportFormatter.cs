@@ -120,6 +120,54 @@ namespace DS4Windows
             return path.Substring(0, nameStart) + "<user>" + tail;
         }
 
+        /// <summary>
+        /// Applies <see cref="RedactUserPath"/>'s rule to every profile path
+        /// embedded in free text. For wording that arrives from outside —
+        /// exception messages, API diagnostics — where Windows routinely
+        /// embeds the full path it failed on, so the text can be quoted in a
+        /// report without carrying the account name. Unlike
+        /// <see cref="RedactUserPath"/> the input is prose, so the account
+        /// name is also ended by a quote or whitespace, not only by the next
+        /// path separator.
+        /// </summary>
+        public static string RedactUserPathsInText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+
+            const string usersSegment = @"\Users\";
+            StringBuilder result = null;
+            int position = 0;
+
+            while (true)
+            {
+                int index = text.IndexOf(usersSegment, position,
+                    StringComparison.OrdinalIgnoreCase);
+                if (index < 0)
+                {
+                    if (result == null)
+                        return text;
+
+                    result.Append(text, position, text.Length - position);
+                    return result.ToString();
+                }
+
+                int nameStart = index + usersSegment.Length;
+                int nameEnd = nameStart;
+                while (nameEnd < text.Length && text[nameEnd] != '\\' &&
+                    text[nameEnd] != '\'' && text[nameEnd] != '"' &&
+                    !char.IsWhiteSpace(text[nameEnd]))
+                {
+                    nameEnd++;
+                }
+
+                result ??= new StringBuilder(text.Length);
+                result.Append(text, position, nameStart - position);
+                result.Append("<user>");
+                position = nameEnd;
+            }
+        }
+
         private static void AppendHeader(StringBuilder text,
             ViiperDriverValidationReport report,
             ViiperDriverReportContext context, int mismatches)

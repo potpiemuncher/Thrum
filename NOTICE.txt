@@ -1,82 +1,265 @@
-This project includes the source code of some third party projects. This file
-will attempt to document some third party source code that is used in the
-DS4Windows source code and state the original source.
-
-Crc32:
-https://github.com/dariogriffo/Crc32
-
-Font Awesome:
-https://fontawesome.com/license
-
-1€ Filter (C# version):
-http://cristal.univ-lille.fr/~casiez/1euro/OneEuroFilter.cs
-
-vJoyInterfaceCS:
-https://github.com/shauleiz/vJoy/tree/master/apps/common/vJoyInterfaceCS
-
-RNNoise:
-https://github.com/xiph/rnnoise
-
-RNNoise.NET wrapper and Windows native package:
-https://github.com/Yellow-Dog-Man/RNNoise.Net
-Switch 2 Pro Controller remapping artwork is an adapted project asset based on
-"Nintendo Switch 2 Pro Controller.jpg" by Kyu3a, licensed under CC BY-SA 4.0:
-https://commons.wikimedia.org/wiki/File:Nintendo_Switch_2_Pro_Controller.jpg
-https://creativecommons.org/licenses/by-sa/4.0/
-
-================================================================================
-TO AUDIT (added 2026-07-25)
+Thrum — third-party notices
 ================================================================================
 
-The entries above were inherited with this source tree and are incomplete. The
-items below are known to be used by, bundled with, vendored into, or required
-by this project but are NOT yet documented above. Each one still needs its
-license identified and confirmed against the actual distributed artifact
-before a release is published. Nothing is asserted about their license terms
-here; these are placeholders recording an outstanding audit, not notices.
+Thrum is licensed under the GNU General Public License, version 3 or later
+(GPL-3.0-or-later). See LICENSE.txt.
 
-Runtime dependencies and backends
-- VIIPER (virtual-controller backend) - https://github.com/hbashton/VIIPER
-  Stated by the project as GPL-3.0. Consumed as a separately downloaded,
-  pinned release binary; not vendored into this repository. Confirm the
-  license text shipped with the pinned release asset.
-- usbip-win2 (kernel USB/IP driver) - https://github.com/vadimgrn/usbip-win2
-  External prerequisite, installed by the user, not redistributed here.
-  Understood to be BSD-2-Clause; confirm against the release package.
-- HidHide (device-hiding filter driver) - external optional prerequisite,
-  installed by the user from its own official installer. Not redistributed.
+This file documents third-party material that Thrum redistributes, vendors,
+or requires. Every entry below was verified on 2026-07-31 against the actual
+distributed artifact — the licence file inside each NuGet package, the licence
+text in each vendored source tree, or the upstream project's own licence — not
+against secondary sources. The method and the evidence are recorded in
+docs/dev/third-party-audit.md.
 
-NuGet package references (see DS4Windows/DS4WinWPF.csproj for versions)
-- NAudio
-- Concentus
-- WPFLocalizeExtension
-- H.NotifyIcon.Wpf
-- MdXaml
-- Ookii.Dialogs.Wpf
-- DotNetProjects.Extended.Wpf.Toolkit
-  (The csproj also references bloomtom.HttpProgress, Microsoft.Windows.CsWin32,
-  NLog, System.Management, System.Memory, TaskScheduler, WpfScreenHelper and
-  YellowDogMan.RRNoise.NET; the full package set is audited together.)
+Three items could not be resolved to a clean licence grant. They are listed in
+the UNRESOLVED section at the end of this file and are release-blocking. Do not
+publish a binary release while that section is non-empty without a deliberate,
+recorded decision about each item.
 
-Vendored source
-- SbcSharp - vendored under DS4Windows/ThirdParty/SbcSharp/, which carries its
-  own LICENSE.txt and NOTICE.md. Those files are authoritative; this file
-  should cross-reference them.
+Two files in the tree carry their own notices and are authoritative for what
+they cover; this file does not restate them:
 
-Bundled binaries
-- FakerInputWrapper (FakerInputWrapper.dll, FakerInputDll.dll) - shipped under
-  DS4Windows/libs/{x64,x86}/FakerInputWrapper/.
-- SharpOSC (SharpOSC.dll) - shipped under DS4Windows/libs/{x64,x86}/SharpOSC/.
+    DS4Windows/ThirdParty/SbcSharp/LICENSE.txt and NOTICE.md
+    DS4Windows/Resources/ControllerArtwork.NOTICE.txt
+    DS4Windows/Resources/ICONS.NOTICE.txt
 
-Artwork
-- Controller artwork - DS4Windows/Resources/ControllerArtwork.NOTICE.txt
-  carries the artwork notices for the controller images. That file is
-  authoritative; this file should cross-reference it. The Switch 2 Pro entry
-  above is one item from that set and is not the whole of it.
 
-Protocol research credit
-- egormanga (SAxense) - DualSense protocol research.
-- awalol (DS5Dongle) - DualSense protocol research.
-  Credited for reverse-engineering work relied on by the DualSense transport
-  and audio paths. Confirm whether any code, as opposed to knowledge, is
-  derived from these sources, and record the applicable terms if so.
+--------------------------------------------------------------------------------
+1. NuGet packages redistributed as assemblies in the application package
+--------------------------------------------------------------------------------
+
+Licence identifiers are taken from each package's own metadata or bundled
+licence file. Versions are those referenced by DS4Windows/DS4WinWPF.csproj.
+
+MIT
+    bloomtom.HttpProgress 2.3.2 — HttpProgress.dll
+        https://github.com/bloomtom/HttpProgress
+    H.NotifyIcon.Wpf 2.0.74 — H.NotifyIcon.dll, H.NotifyIcon.Wpf.dll
+        Copyright (c) havendv; based on work by Lakritzator and Philipp Sumi
+        https://github.com/HavenDV/H.NotifyIcon
+    MdXaml 1.27.0 — MdXaml.dll, MdXaml.Plugins.dll
+        Copyright (c) Bevan Arps (original), whistyun
+        https://github.com/whistyun/MdXaml
+    AvalonEdit — ICSharpCode.AvalonEdit.dll
+        Transitive dependency of MdXaml.
+        https://github.com/icsharpcode/AvalonEdit
+    NAudio 2.2.1 — NAudio.dll, NAudio.Asio.dll, NAudio.Core.dll, NAudio.Midi.dll,
+                   NAudio.Wasapi.dll, NAudio.WinForms.dll, NAudio.WinMM.dll
+        Copyright 2020 Mark Heath
+        https://github.com/naudio/NAudio
+    TaskScheduler 2.10.1 — Microsoft.Win32.TaskScheduler.dll
+        Copyright (c) David Hall. NOTE: despite the assembly name, this is not a
+        Microsoft product; it is the community "TaskScheduler" library.
+        https://github.com/dahall/TaskScheduler
+    WpfScreenHelper 2.1.0 — WpfScreenHelper.dll
+        Copyright (c) Michael Denny and contributors
+        https://github.com/micdenny/WpfScreenHelper
+    YellowDogMan.RRNoise.NET 0.1.9 — ships the native rnnoise.dll
+        Copyright (c) Yellow Dog Man Studios s.r.o. The wrapper is MIT; the
+        native RNNoise library it embeds is BSD-3-Clause — see section 3.
+        https://github.com/Yellow-Dog-Man/RNNoise.Net
+
+BSD-3-Clause
+    Concentus 2.2.2 — Concentus.dll
+        Managed Opus implementation. Copyright held by various parties including
+        Skype Limited, Xiph.Org Foundation, CSIRO, Microsoft Corporation,
+        Jean-Marc Valin, Gregory Maxwell, Mark Borgerding, Timothy B. Terriberry
+        and Logan Stromberg. Licence text ships in the package.
+        https://github.com/lostromb/concentus
+    NLog 5.1.1 — NLog.dll
+        Copyright (c) Jarek Kowalski, Kim Christensen, Julian Verdurmen
+        https://github.com/NLog/NLog
+    Ookii.Dialogs.Wpf 5.0.1 — Ookii.Dialogs.Wpf.dll
+        Copyright (c) Ookii Dialogs contributors
+        https://github.com/ookii-dialogs/ookii-dialogs-wpf
+
+Microsoft Public License (Ms-PL)  ** SEE UNRESOLVED ITEM 2 **
+    DotNetProjects.Extended.Wpf.Toolkit 5.0.106
+        — DotNetProjects.Wpf.Extended.Toolkit.dll
+        https://github.com/dotnetprojects/WpfExtendedToolkit
+    WPFLocalizeExtension 3.9.4 — WPFLocalizeExtension.dll
+        Copyright (c) Bernhard Millauer, Uwe Mayer, Konrad Mattheis
+        https://github.com/XAMLMarkupExtensions/WPFLocalizationExtension
+    XAMLMarkupExtensions 2.1.3 — XAMLMarkupExtensions.dll
+        Transitive dependency of WPFLocalizeExtension.
+        https://github.com/XAMLMarkupExtensions/XAMLMarkupExtensions
+
+Published by Microsoft, MIT
+    System.Management 7.0.2 — System.Management.dll
+    System.Memory 4.5.5 — licence at https://github.com/dotnet/corefx/blob/master/LICENSE.TXT
+    Microsoft.Windows.SDK.NET.dll — Windows SDK projections shipped with the
+        net8.0-windows target framework.
+    Microsoft.Windows.CsWin32 0.3.106 — build-time source generator only
+        (PrivateAssets=all); no assembly is redistributed.
+
+
+--------------------------------------------------------------------------------
+2. Source vendored into this repository
+--------------------------------------------------------------------------------
+
+Apache-2.0
+    SbcSharp — DS4Windows/ThirdParty/SbcSharp/
+        Derived from https://github.com/Ylianst/SbcSharp at commit
+        8fd1417b142bb1be69b119c23ccfac360ee15ef4. That directory carries its own
+        LICENSE.txt and NOTICE.md, which are authoritative.
+    Crc32 — DS4Windows/DS4Library/Crc32.cs
+        Implementation credited to Damien Guard, packaged by dariogriffo.
+        The file header states the Apache-2.0 grant.
+        https://github.com/dariogriffo/Crc32
+
+Public domain (dedication by the upstream author)
+    vJoyInterfaceCS — DS4Windows/VJoyFeeder/vJoyFeeder.cs
+        C# interface to Shaul Eizikovich's vJoy driver. The file header records
+        the author's public-domain statement and links to it.
+        https://github.com/shauleiz/vJoy/tree/master/apps/common/vJoyInterfaceCS
+
+MIT — vendored web asset
+    Bezier curve editor — DS4Windows/BezierCurveEditor/index.html and build.js
+        build.js is a pre-built webpack bundle of
+        https://github.com/gre/bezier-easing-editor (MIT), and embeds that
+        project's npm dependencies, including React (MIT). The bundle is
+        minified and carries no per-dependency licence manifest, so the full set
+        of embedded packages cannot be enumerated from the artifact; one
+        embedded package declares ISC. See UNRESOLVED item 3 for the
+        consequence. The C# port of the easing maths in
+        DS4Windows/BezierCurveEditor/BezierCurve.cs carries its own MIT grant in
+        its header and credits https://github.com/gre/bezier-easing.
+
+
+--------------------------------------------------------------------------------
+3. Pre-built binaries bundled in this repository
+--------------------------------------------------------------------------------
+
+    DS4Windows/libs/{x64,x86}/SharpOSC/SharpOSC.dll — MIT
+        Copyright (c) 2012 Valdemar Örn Erlingsson. Verified against the
+        upstream License.txt, which is the MIT text.
+        https://github.com/ValdemarOrn/SharpOSC
+
+    DS4Windows/libs/{x64,x86}/FakerInputWrapper/FakerInputDll.dll — MIT
+        Native library from https://github.com/Ryochan7/FakerInput
+
+    DS4Windows/libs/{x64,x86}/FakerInputWrapper/FakerInputWrapper.dll
+        ** NO LICENCE — SEE UNRESOLVED ITEM 1 **
+
+    rnnoise.dll (via the YellowDogMan.RRNoise.NET package) — BSD-3-Clause
+        The native RNNoise library. Copyright (c) Jean-Marc Valin and the
+        Xiph.Org Foundation.
+        https://github.com/xiph/rnnoise
+
+
+--------------------------------------------------------------------------------
+4. External components Thrum requires but does NOT redistribute
+--------------------------------------------------------------------------------
+
+These are downloaded or installed by the user on their own machine. No copy of
+any of them is contained in this repository or in a Thrum release package.
+
+    VIIPER — GPL-3.0 — https://github.com/hbashton/VIIPER
+        The virtual-controller backend. Thrum downloads a pinned release binary
+        and runs it as a separate process, communicating over a local socket.
+        It is not linked into Thrum and no part of it is redistributed here.
+
+    usbip-win2 — BSD-2-Clause — https://github.com/vadimgrn/usbip-win2
+        Kernel USB/IP driver. Installed by the user from the upstream signed
+        installer, which Thrum verifies by digest and Authenticode before
+        running. Not redistributed.
+
+    HidHide — https://github.com/nefarius/HidHide
+        Optional device-hiding filter driver, installed by the user from its own
+        official installer. Not redistributed.
+
+
+--------------------------------------------------------------------------------
+5. Artwork and icons
+--------------------------------------------------------------------------------
+
+    Controller artwork — see DS4Windows/Resources/ControllerArtwork.NOTICE.txt,
+        which is authoritative. It includes the Switch 2 Pro Controller artwork
+        adapted from "Nintendo Switch 2 Pro Controller.jpg" by Kyu3a,
+        CC BY-SA 4.0:
+        https://commons.wikimedia.org/wiki/File:Nintendo_Switch_2_Pro_Controller.jpg
+        https://creativecommons.org/licenses/by-sa/4.0/
+
+    Application and tray icons — original Thrum work, GPL-3.0-or-later. See
+        DS4Windows/Resources/ICONS.NOTICE.txt.
+
+
+--------------------------------------------------------------------------------
+6. Protocol research credit
+--------------------------------------------------------------------------------
+
+Not a licence obligation; recorded because the work is relied upon.
+
+    egormanga (SAxense) — DualSense protocol research.
+    awalol (DS5Dongle) — DualSense protocol research.
+
+The DualSense Bluetooth transport and audio paths in Thrum were implemented
+from protocol knowledge published by these projects. No source code from either
+project is copied into this repository; the SBC codec used on that path is
+SbcSharp (section 2), and the Opus codec is Concentus (section 1).
+
+
+================================================================================
+UNRESOLVED — release-blocking
+================================================================================
+
+1. FakerInputWrapper.dll has no licence grant.
+
+   https://github.com/Ryochan7/FakerInputWrapper contains no LICENSE file, no
+   per-file licence headers, no licence metadata in its .csproj, and an empty
+   README (checked 2026-07-31). The assembly is authored by "Ryodigi Solutions
+   LLC". Thrum redistributes this binary in every release package.
+
+   Absent a grant, default copyright reserves all rights, so there is no
+   permission to redistribute it. Options: ask the author to add a licence;
+   drop the dependency; or replace it. The related native FakerInputDll.dll,
+   from Ryochan7/FakerInput, IS MIT-licensed — only the .NET wrapper is
+   affected. Inherited from upstream DS4Windows, not introduced by Thrum.
+
+2. Three Ms-PL components ship inside a GPL-3.0 program.
+
+   DotNetProjects.Extended.Wpf.Toolkit, WPFLocalizeExtension and its transitive
+   XAMLMarkupExtensions are all Microsoft Public License. The Free Software
+   Foundation states of Ms-PL: "This is a free software license; it has a
+   copyleft that is not strong, but incompatible with the GNU GPL."
+   (https://www.gnu.org/licenses/license-list.en.html)
+
+   Thrum is GPL-3.0-or-later and links these assemblies, so this is a genuine
+   compatibility question rather than a paperwork gap. It is inherited from
+   upstream DS4Windows, which is also GPL-3.0 and ships the same three
+   components, so the exposure is not new — but it is unresolved, and a first
+   public release is the point at which it starts to matter.
+
+   This needs a decision by the maintainer, and the wording above is a summary
+   of the FSF's published position, not legal advice. Options: obtain counsel's
+   view; replace the three components; or relicense. Note that the Apache-2.0
+   components (SbcSharp, Crc32) are fine — Apache-2.0 is GPLv3-compatible,
+   though not GPLv2-compatible.
+
+3. Two vendored items cannot be fully enumerated or licensed.
+
+   a) DS4Windows/OneEuroFilter.cs carries no licence header. The 1€ filter
+      authors' own page lists the C# implementation under "other implementations
+      not verified yet" with no licence stated, while their Python, C++, Java,
+      JavaScript, TypeScript and Arduino versions are BSD or MIT
+      (https://gery.casiez.net/1euro/). The algorithm is published research
+      (Casiez, Roussel, Vogel, CHI 2012); the specific C# port's terms are
+      unknown. 105 lines. Cheapest resolution is to reimplement from the paper
+      or port from a BSD-licensed reference version.
+
+   b) DS4Windows/BezierCurveEditor/build.js is a 431 KB minified webpack bundle.
+      The top-level project is MIT, but the bundle embeds npm dependencies whose
+      individual notices are not recoverable from the minified artifact. If the
+      editor is still wanted, rebuild it from source so a dependency licence
+      manifest can be generated; if it is not, delete it. It is a vendored web
+      asset with no other role in the application.
+
+
+================================================================================
+Removed in the 2026-07-31 audit
+================================================================================
+
+    Font Awesome — the inherited notice credited Font Awesome, but no font file
+    and no Font Awesome reference of any kind exists anywhere in this tree; the
+    only occurrence of the name was in the notice itself. Nothing from that
+    project is shipped, so the entry was removed rather than carried forward.

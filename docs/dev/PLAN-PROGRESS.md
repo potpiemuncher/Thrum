@@ -3166,3 +3166,35 @@ bundle the runtime, detect and offer it, or ship self-contained. It belongs to P
 4. Verification refusals name the pinned filename rather than the file actually inspected, so a
    corrupted staged copy is reported as *"USBip-0.9.7.7-x64.exe does not have the pinned
    SHA-256"* — which reads as an accusation against the official artefact.
+
+---
+
+## 2026-07-30 — Fix: startup log claimed a VIIPER backend the machine did not have
+
+Phase 2's incidental defects 1 and 2, both visible in `phaseA-thrum-log.txt` from the bare VM:
+`INFO|VIIPER virtual-controller backend ready` on a machine with no helper, no driver and no
+server, followed by the same `usbip.exe was not found` warning ten times in one second.
+
+**The "ready" line** (`ControlService.Start`) was unconditional — it announced its neighbour,
+the KB+M handler line, not a probe. It now reads `ViiperSetupManager.GetStatus()` — the same
+probe the Settings card reads — and claims ready only when `Ready` (server answering + driver
+installed) is true; otherwise it names what is missing:
+`VIIPER virtual-controller backend not ready (VIIPER and usbip-win2 need setup). VIIPER helper:
+missing; usbip-win2: missing; server: not running.` The component readout moved onto
+`ViiperPrerequisiteStatus.ComponentSummary` and the Settings card now composes its text from the
+same property, so the log and the card cannot drift apart. The probe result also lands in the
+verbose startup diagnostic, timed, since `GetStatus` can spend up to a second on the API ping.
+
+**The tenfold warning** came from the stale-port sweep: with no active ports it demands ten
+consecutive clean snapshots 100 ms apart, and `GetImportedPorts` logged every failed query on
+its own. Failed queries are now handed to the caller: the two retry loops
+(`DetachStaleLocalViiperPorts`, `FindLocalViiperPort`) count them and log one summary after the
+pass — `VIIPER could not query usbip ports (10 attempts): usbip.exe was not found.` — through
+`DescribePortQueryFailures`, whose single-failure form is byte-identical to the old line so
+existing triage notes still match. The single-shot caller (`DetachDuplicateLocalViiperPorts`)
+still warns immediately. Sweep behaviour — attempt caps, sleeps, the clean-snapshot rule — is
+deliberately unchanged; this entry is about what the log says, not what the sweep does.
+
+Nine tests pin the ready line, the bare-machine line, the stopped-server line, Ready's
+transport-not-helper semantics, the shared component readout, and the 0/1/N/blank
+query-failure forms. Suite: **780 passed / 0 failed** (CI filter), from 771.

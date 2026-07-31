@@ -1658,7 +1658,14 @@ namespace DS4Windows
                 }
 
                 LogDebug($"Using output KB+M handler: {Global.outputKBMHandler.GetFullDisplayName()}");
-                LogDebug("VIIPER virtual-controller backend ready");
+
+                // Probed, not proclaimed: this is the same status the Settings
+                // card reads, so the log cannot claim a backend the UI says is
+                // missing.
+                StartupDiag("Viiper status probe begin");
+                ViiperPrerequisiteStatus viiperStatus = ViiperSetupManager.GetStatus();
+                StartupDiag($"Viiper status probe end ready={viiperStatus.Ready} helper={viiperStatus.ViiperInstalled} usbip={viiperStatus.UsbipInstalled} server={viiperStatus.ServerRunning}");
+                LogDebug(viiperStatus.StartupLogLine);
 
                 DS4Devices.isExclusiveMode = getUseExclusiveMode(); //Re-enable Exclusive Mode
 

@@ -2205,10 +2205,7 @@ Suspend support not enabled.", true);
                 return;
             }
 
-            viiperStatusText.Text = $"{status.DisplayText}. " +
-                $"VIIPER helper: {(status.ViiperInstalled ? "installed" : "missing")}; " +
-                $"usbip-win2: {(status.UsbipInstalled ? "installed" : "missing")}; " +
-                $"server: {(status.ServerRunning ? "running" : "not running")}.";
+            viiperStatusText.Text = $"{status.DisplayText}. {status.ComponentSummary}.";
         }
 
         /// <summary>

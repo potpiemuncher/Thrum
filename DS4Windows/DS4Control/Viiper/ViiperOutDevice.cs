@@ -5091,10 +5091,20 @@ namespace DS4Windows
             // can use one clean snapshot; registered ports protect the native
             // device and PnP is already established.
             int requiredCleanSnapshots = activePorts.Count > 0 ? 1 : 10;
+            // With usbip.exe absent every snapshot fails the same way; report
+            // that once after the loop, not once per attempt.
+            int failedQueries = 0;
+            string lastQueryError = null;
+            void RecordQueryFailure(string error)
+            {
+                failedQueries++;
+                lastQueryError = error;
+            }
+
             for (int attempt = 0; attempt < 32 && cleanSnapshots < requiredCleanSnapshots; attempt++)
             {
                 bool detachedAny = false;
-                foreach (UsbipPortBlock port in GetImportedPorts())
+                foreach (UsbipPortBlock port in GetImportedPorts(RecordQueryFailure))
                 {
                     if (!activePorts.Contains(port.Port) &&
                         IsLocalViiperPort(port, null))
@@ -5111,28 +5121,45 @@ namespace DS4Windows
                     Thread.Sleep(100);
                 }
             }
+
+            WarnPortQueryFailures(failedQueries, lastQueryError);
         }
 
         public static int FindLocalViiperPort(uint busId, string devId)
         {
             string remoteBusId = $"{busId}-{devId}";
-            for (int attempt = 0; attempt < 15; attempt++)
+            int failedQueries = 0;
+            string lastQueryError = null;
+            void RecordQueryFailure(string error)
             {
-                foreach (UsbipPortBlock port in GetImportedPorts())
+                failedQueries++;
+                lastQueryError = error;
+            }
+
+            try
+            {
+                for (int attempt = 0; attempt < 15; attempt++)
                 {
-                    if (IsLocalViiperPort(port, remoteBusId))
+                    foreach (UsbipPortBlock port in GetImportedPorts(RecordQueryFailure))
                     {
-                        return port.Port;
+                        if (IsLocalViiperPort(port, remoteBusId))
+                        {
+                            return port.Port;
+                        }
+                    }
+
+                    if (attempt < 14)
+                    {
+                        Thread.Sleep(100);
                     }
                 }
 
-                if (attempt < 14)
-                {
-                    Thread.Sleep(100);
-                }
+                return -1;
             }
-
-            return -1;
+            finally
+            {
+                WarnPortQueryFailures(failedQueries, lastQueryError);
+            }
         }
 
         public static void DetachDuplicateLocalViiperPorts(uint busId, string devId, int keepPort)
@@ -5207,13 +5234,23 @@ namespace DS4Windows
             AppLogger.LogToGui($"VIIPER detached usbip port {port} ({reason}).", false);
         }
 
-        private static IReadOnlyList<UsbipPortBlock> GetImportedPorts()
+        private static IReadOnlyList<UsbipPortBlock> GetImportedPorts() =>
+            GetImportedPorts(error => WarnPortQueryFailures(1, error));
+
+        /// <summary>
+        /// Lists the imported usbip ports. A failed query is handed to
+        /// <paramref name="onQueryError"/> rather than logged here, so retry
+        /// loops can fold identical failures into one warning instead of one
+        /// per attempt (Phase 2 VM validation, incidental defect 2).
+        /// </summary>
+        private static IReadOnlyList<UsbipPortBlock> GetImportedPorts(
+            Action<string> onQueryError)
         {
             if (!TryRunUsbip(new[] { "port" }, out string output, out string error))
             {
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    AppLogger.LogToGui($"VIIPER could not query usbip ports: {error}", true);
+                    onQueryError(error);
                 }
 
                 return Array.Empty<UsbipPortBlock>();
@@ -5249,6 +5286,32 @@ namespace DS4Windows
                     ports.Add(new UsbipPortBlock(currentPort, currentBlock.ToString()));
                 }
             }
+        }
+
+        private static void WarnPortQueryFailures(int attempts, string lastError)
+        {
+            string summary = DescribePortQueryFailures(attempts, lastError);
+            if (summary != null)
+            {
+                AppLogger.LogToGui(summary, true);
+            }
+        }
+
+        /// <summary>
+        /// One warning for a whole retry pass; null when nothing failed. The
+        /// single-failure form is byte-identical to the line it replaced so
+        /// existing triage notes and greps still match.
+        /// </summary>
+        internal static string DescribePortQueryFailures(int attempts, string lastError)
+        {
+            if (attempts <= 0 || string.IsNullOrWhiteSpace(lastError))
+            {
+                return null;
+            }
+
+            return attempts == 1
+                ? $"VIIPER could not query usbip ports: {lastError}"
+                : $"VIIPER could not query usbip ports ({attempts} attempts): {lastError}";
         }
 
         private static bool IsLocalViiperPort(UsbipPortBlock port, string remoteBusId)

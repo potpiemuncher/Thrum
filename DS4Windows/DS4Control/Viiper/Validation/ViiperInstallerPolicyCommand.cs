@@ -222,13 +222,21 @@ namespace DS4Windows
         private static ViiperDownloadObservation Observe(string path,
             ViiperPinnedDownload pin)
         {
+            // Base name only: the observation is quoted verbatim in reports
+            // and logs, and those must not carry user paths.
+            string fileName = Path.GetFileName(path);
+
             FileInfo info;
             try
             {
                 info = new FileInfo(path);
                 if (!info.Exists)
                 {
-                    return new ViiperDownloadObservation { Exists = false };
+                    return new ViiperDownloadObservation
+                    {
+                        FileName = fileName,
+                        Exists = false,
+                    };
                 }
             }
             catch (Exception ex) when (ex is IOException ||
@@ -237,6 +245,7 @@ namespace DS4Windows
             {
                 return new ViiperDownloadObservation
                 {
+                    FileName = fileName,
                     Exists = false,
                     ObservationError = ex.Message,
                 };
@@ -253,6 +262,7 @@ namespace DS4Windows
             {
                 return new ViiperDownloadObservation
                 {
+                    FileName = fileName,
                     Exists = true,
                     SizeInBytes = info.Length,
                     ObservationError = ex.Message,
@@ -263,6 +273,7 @@ namespace DS4Windows
             {
                 return new ViiperDownloadObservation
                 {
+                    FileName = fileName,
                     Exists = true,
                     SizeInBytes = info.Length,
                     Sha256 = digest,
@@ -274,6 +285,7 @@ namespace DS4Windows
                 new WinTrustAuthenticodeVerifier().VerifyFile(path);
             return new ViiperDownloadObservation
             {
+                FileName = fileName,
                 Exists = true,
                 SizeInBytes = info.Length,
                 Sha256 = digest,

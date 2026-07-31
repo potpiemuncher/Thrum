@@ -3157,15 +3157,46 @@ bundle the runtime, detect and offer it, or ship self-contained. It belongs to P
 
 1. `thrum_log.txt` records `INFO|VIIPER virtual-controller backend ready` when no helper and no
    driver are installed, one line before ten warnings that `usbip.exe` does not exist. The UI is
-   correct; the log would mislead support triage.
+   correct; the log would mislead support triage. *(Fixed below, 2026-07-30.)*
 2. That warning is emitted ten times in one second (~100 ms apart) then stops. Bounded, but one
-   line or a summary is enough.
+   line or a summary is enough. *(Fixed below, 2026-07-30.)*
 3. Accessibility: Output Slots rows and the driver card's identity rows expose raw .NET type
    names (`DS4WinWPF.DS4Forms.ViewModels.SlotDeviceEntry`,
    `DS4Windows.ViiperDriverComponentIdentity`) as their accessible names, on more than one page.
 4. Verification refusals name the pinned filename rather than the file actually inspected, so a
    corrupted staged copy is reported as *"USBip-0.9.7.7-x64.exe does not have the pinned
-   SHA-256"* — which reads as an accusation against the official artefact.
+   SHA-256"* — which reads as an accusation against the official artefact. *(Fixed below,
+   2026-07-30.)*
+
+---
+
+## 2026-07-30 — Fix: verification refusals named the pinned file, not the file inspected
+
+Incidental defect 4 from the VM pass above. `DecideDownloadVerification` built every sentence
+about the file from `pin.FileName`, so verifying the corrupted staged copy
+`USBip-0.9.7.7-x64.CORRUPT.exe` produced *"Verification failed: USBip-0.9.7.7-x64.exe does not
+have the pinned SHA-256"* — an accusation against the official artefact the policy never looked
+at. The decision function could not do better: the observation carried size, digest and
+signature facts, but not the name of the file they were observed on.
+
+`ViiperDownloadObservation` now records `FileName` — the base name only, never a full path,
+because decision lines are copied verbatim into `install.log` and reports must not carry user
+paths — and `Observe` fills it from `--path` on every return path, including the file-missing
+and unreadable ones. Summaries name that file; the pin's filename stays in the audit trail as
+the expected side of a new `File name: expected …, actual …` line, the same
+expected-beside-actual shape the size, digest and signer lines already use. `Path.GetFileName`
+is re-applied inside the decision function itself, so a future caller that records a full path
+still cannot put one into a report. When no name was recorded at all (a null observation), the
+text says "the downloaded file" rather than guessing.
+
+The setup script needs no change: it copies `summary` and `log=` lines verbatim and parses
+neither.
+
+Negative control: reverting the digest-mismatch summary to `pin.FileName` failed both new
+regression tests (`ARefusalNamesTheFileItInspectedNotThePinnedArtefact`,
+`AFullPathRecordedInTheObservationNeverReachesTheReport`); restored and re-verified.
+
+Suite: **774 passed / 0 failed** (CI filter), from 771.
 
 ---
 
@@ -3183,7 +3214,8 @@ installed) is true; otherwise it names what is missing:
 missing; usbip-win2: missing; server: not running.` The component readout moved onto
 `ViiperPrerequisiteStatus.ComponentSummary` and the Settings card now composes its text from the
 same property, so the log and the card cannot drift apart. The probe result also lands in the
-verbose startup diagnostic, timed, since `GetStatus` can spend up to a second on the API ping.
+verbose startup diagnostic, bracketed by begin/end lines, since `GetStatus` can spend up to a
+second on the API ping.
 
 **The tenfold warning** came from the stale-port sweep: with no active ports it demands ten
 consecutive clean snapshots 100 ms apart, and `GetImportedPorts` logged every failed query on
@@ -3197,4 +3229,5 @@ deliberately unchanged; this entry is about what the log says, not what the swee
 
 Nine tests pin the ready line, the bare-machine line, the stopped-server line, Ready's
 transport-not-helper semantics, the shared component readout, and the 0/1/N/blank
-query-failure forms. Suite: **780 passed / 0 failed** (CI filter), from 771.
+query-failure forms. Suite: **783 passed / 0 failed** (CI filter), from 774 after the
+defect-4 fix merged alongside.

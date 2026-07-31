@@ -84,6 +84,28 @@ namespace DS4Windows
                 return ServerRunning ? "VIIPER status unknown" : "VIIPER server not running";
             }
         }
+
+        /// <summary>
+        /// The component-by-component readout: which of the three legs
+        /// (helper, driver, server) is present. Shared between the Settings
+        /// card and the service-start log line so the two can never tell
+        /// different stories about the same machine.
+        /// </summary>
+        public string ComponentSummary =>
+            $"VIIPER helper: {(ViiperInstalled ? "installed" : "missing")}; " +
+            $"usbip-win2: {(UsbipInstalled ? "installed" : "missing")}; " +
+            $"server: {(ServerRunning ? "running" : "not running")}";
+
+        /// <summary>
+        /// The line the service logs when it starts. "Ready" is claimed only
+        /// when <see cref="Ready"/> is true — the API probe answered and the
+        /// driver is installed — because a log that says "ready" on a machine
+        /// with neither misleads support triage (Phase 2 VM validation,
+        /// incidental defect 1).
+        /// </summary>
+        public string StartupLogLine => Ready
+            ? "VIIPER virtual-controller backend ready"
+            : $"VIIPER virtual-controller backend not ready ({DisplayText}). {ComponentSummary}.";
     }
 
     /// <summary>

@@ -134,5 +134,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             this.name = name;
             this.nativeName = nativeName;
         }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the language instead of the type name.
+        /// </summary>
+        public override string ToString() => nativeName;
     }
 }

@@ -260,5 +260,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             ActionNameChanged?.Invoke(this, EventArgs.Empty);
             ControlsChanged?.Invoke(this, EventArgs.Empty);
         }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list row's accessible name, so
+        /// screen readers announce the action instead of the raw type name.
+        /// Composed from the same values the row's cells display.
+        /// </summary>
+        public override string ToString() => $"{ActionName}: {TypeName}, {Controls}";
     }
 }

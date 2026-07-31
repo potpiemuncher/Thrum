@@ -1,4 +1,4 @@
-﻿/*
+/*
 DS4Windows
 Copyright (C) 2023  Travis Nickles
 
@@ -327,6 +327,22 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             reserveChoiceIndex = DetermineReserveChoiceIdx();
 
             SetupEvents();
+        }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list row's accessible name, so
+        /// screen readers announce this instead of the raw type name. Composed
+        /// from the same values the row's cells display.
+        /// </summary>
+        public override string ToString()
+        {
+            string result = $"Slot {idx + 1}: {CurrentType}, requested {DesiredType}";
+            if (!string.IsNullOrEmpty(InputSlotDisplayString))
+            {
+                result += $", input {InputSlotDisplayString}";
+            }
+
+            return result;
         }
 
         private void SetupEvents()

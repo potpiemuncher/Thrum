@@ -40,5 +40,12 @@ namespace DS4WinWPF
                 return warning ? "Red" : "Black";
             }
         }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list row's accessible name, so
+        /// screen readers announce the log line instead of the type name.
+        /// "G" matches the Log tab's Time column format.
+        /// </summary>
+        public override string ToString() => $"{datetime:G} {message}";
     }
 }

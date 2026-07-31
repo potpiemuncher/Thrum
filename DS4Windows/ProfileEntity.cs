@@ -43,6 +43,12 @@ namespace DS4WinWPF
         public event EventHandler ProfileSaved;
         public event EventHandler ProfileDeleted;
 
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the profile name instead of the type name.
+        /// </summary>
+        public override string ToString() => name;
+
         public void DeleteFile()
         {
             if (!string.IsNullOrWhiteSpace(name))

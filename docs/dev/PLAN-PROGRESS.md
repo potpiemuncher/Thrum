@@ -3163,6 +3163,7 @@ bundle the runtime, detect and offer it, or ship self-contained. It belongs to P
 3. Accessibility: Output Slots rows and the driver card's identity rows expose raw .NET type
    names (`DS4WinWPF.DS4Forms.ViewModels.SlotDeviceEntry`,
    `DS4Windows.ViiperDriverComponentIdentity`) as their accessible names, on more than one page.
+   *(Fixed below, 2026-07-30.)*
 4. Verification refusals name the pinned filename rather than the file actually inspected, so a
    corrupted staged copy is reported as *"USBip-0.9.7.7-x64.exe does not have the pinned
    SHA-256"* — which reads as an accusation against the official artefact. *(Fixed below,
@@ -3231,3 +3232,49 @@ Nine tests pin the ready line, the bare-machine line, the stopped-server line, R
 transport-not-helper semantics, the shared component readout, and the 0/1/N/blank
 query-failure forms. Suite: **783 passed / 0 failed** (CI filter), from 774 after the
 defect-4 fix merged alongside.
+
+---
+
+## 2026-07-30 — Fix: list rows announced raw .NET type names to screen readers
+
+Incidental defect 3 from the VM pass above. WPF's `ItemAutomationPeer` derives a list item's
+UIA Name from, in order: `AutomationProperties.Name` on the generated container, the
+container's plain text, then the data item's `ToString()`. A `ListView` row whose columns come
+from cell templates has no container name and no plain text, so every Output Slots row was
+announced as `DS4WinWPF.DS4Forms.ViewModels.SlotDeviceEntry`, and the driver card's plain
+`ItemsControl`s announced `DS4Windows.ViiperDriverComponentIdentity` /
+`…ViiperDriverIdentityField` for every identity row.
+
+Every affected class now overrides `ToString()` with the text the row already displays —
+`TriggerLabControl.ProfileChoice` set the repo precedent. The tempting XAML alternative
+(`ItemContainerStyle` binding `AutomationProperties.Name`) is wrong for the two `GridView`
+lists here: the dark theme ships an implicit app-level `ListViewItem` style whose template is
+the `GridViewRowPresenter`, the default theme has none and falls back to the OS style, and
+themes swap at runtime — any `BasedOn` choice renders rows wrong in one theme or the other.
+`ToString()` is theme-independent, covers every current and future list of the same class, and
+is what the peer's fallback reads live on each query.
+
+The sweep (heuristic: every `ItemsSource` in XAML and code-behind whose element type lacked
+both a `DisplayMemberPath` at the binding site and a `ToString()` override) found the same
+defect on twelve more classes, all fixed the same way: `LogItem` (Log tab rows announced only
+the type name — time and message composed now), `ProfileEntity` (Profiles tab cards and every
+profile dropdown), `CompositeDeviceModel` (Controllers tab cards and the sidebar controller
+list), `DeviceListItem` (controller-options device list), `ProgramItem` (Auto Profiles rules),
+`SpecialActionItem` (special actions rows), `MappedControl` (profile editor mapping cards),
+`MacroStepItem` (macro recorder steps), `SwipeProfileItem` (swipe-profiles checklist),
+`PresetOption` (preset picker), `LangPackItem` (language picker), plus `SlotDeviceEntry` and
+the two driver-identity records above.
+
+Verified live against the Release build run from a scratch copy with a portable config marker
+(the machine's real configuration untouched): UIA dumps of the Output Slots, Settings,
+Profiles, Auto Profiles and Log pages contain zero names matching `DS4Win(WPF|dows)\.`, where
+the VM evidence (`uia-outputslots-missing.txt`, `uia-settings-validated.txt`) showed one per
+row. Output Slots rows now read `Slot 1: Empty, requested Dynamic`; the driver card rows read
+`UDE host controller`, `INF name: usbip2_ude.inf`, and so on; Log rows read the timestamped
+message; the Profiles card reads the profile name.
+
+Eight `AccessibleNameTests` pin the composed strings for the classes constructible without
+hardware or a WPF `Application` (slot entries empty and input-bound, both identity records,
+log item, profile entity, swipe item, language item). Negative control: renaming the
+`SlotDeviceEntry.ToString()` override failed exactly its two tests; restored and re-verified.
+Suite: **791 passed / 0 failed** (CI filter), from 783.

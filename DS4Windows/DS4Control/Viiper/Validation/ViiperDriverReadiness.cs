@@ -83,6 +83,12 @@ namespace DS4Windows
         /// "Label : Value".
         /// </summary>
         public string Display => Label + ": " + Value;
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the rendered line instead of the type name.
+        /// </summary>
+        public override string ToString() => Display;
     }
 
     /// <summary>
@@ -108,6 +114,12 @@ namespace DS4Windows
         public bool Found { get; }
 
         public IReadOnlyList<ViiperDriverIdentityField> Fields { get; }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the component name instead of the type name.
+        /// </summary>
+        public override string ToString() => Component;
     }
 
     /// <summary>

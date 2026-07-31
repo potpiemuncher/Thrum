@@ -42,6 +42,12 @@ namespace DS4WinWPF.DS4Control
         public string Name { get => name; }
         public string Description { get => description; }
         public bool OutputControllerChoice { get => outputControllerChoice; }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the preset name instead of the type name.
+        /// </summary>
+        public override string ToString() => name;
         public OutputContChoice OutputCont
         {
             get => outputCont;

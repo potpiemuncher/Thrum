@@ -240,6 +240,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public event EventHandler MappingNameChanged;
 
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the mapping instead of the type name.
+        /// </summary>
+        public override string ToString() => $"{controlName}: {mappingName}";
+
         public MappedControl(int devIndex, DS4Controls control, string controlName,
             OutContType devType, bool initMap = false)
         {

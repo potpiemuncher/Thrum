@@ -600,6 +600,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public event EventHandler FilenameChanged;
         public ImageSource Exeicon { get => exeicon; }
 
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the rule's program instead of the type name.
+        /// </summary>
+        public override string ToString() => Filename;
+
         public bool Turnoff
         {
             get

@@ -425,6 +425,13 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         }
         public event EventHandler IdTextChanged;
 
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the controller identity instead of the raw
+        /// type name (Controllers tab cards and the sidebar controller list).
+        /// </summary>
+        public override string ToString() => IdText;
+
         public string IsExclusiveText
         {
             get

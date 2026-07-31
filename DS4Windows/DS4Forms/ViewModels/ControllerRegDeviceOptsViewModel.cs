@@ -236,6 +236,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         {
             this.device = device;
         }
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the device identity instead of the type name.
+        /// </summary>
+        public override string ToString() => IdText;
     }
 
 

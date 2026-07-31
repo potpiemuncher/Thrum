@@ -128,5 +128,11 @@ namespace DS4WinWPF.DS4Forms
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
+        /// UI Automation uses ToString() as a list item's accessible name, so
+        /// screen readers announce the profile name instead of the type name.
+        /// </summary>
+        public override string ToString() => name;
     }
 }

@@ -3310,3 +3310,75 @@ hardware or a WPF `Application` (slot entries empty and input-bound, both identi
 log item, profile entity, swipe item, language item). Negative control: renaming the
 `SlotDeviceEntry.ToString()` override failed exactly its two tests; restored and re-verified.
 Suite: **791 passed / 0 failed** (CI filter), from 783.
+
+---
+
+## 2026-07-31 — Third-party licence audit (closes the Phase 0 `TO AUDIT` section)
+
+**Session scope:** the `NOTICE.txt` audit opened as deviation 1 of the Phase 0 entry on
+2026-07-25 and carried since as the top release blocker. Branch
+`chore/third-party-notice-audit`.
+
+**Method: the distributed artifact is the authority.** Licences were read from each NuGet
+package's own `.nuspec` or bundled licence file in the local cache, from in-tree licence files
+and source headers for vendored code, and from the upstream repository for bundled binaries that
+carry no metadata. GPL compatibility was checked against the FSF's published licence list rather
+than from memory. Full working, including a per-entry evidence table, is in
+[`third-party-audit.md`](third-party-audit.md).
+
+**The inventory came from a publish, not the csproj**, because the two differ. Two traps that
+cost real attention: `Microsoft.Win32.TaskScheduler.dll` is **not** a Microsoft product (its
+`CompanyName` is "GitHub Community" — it is dahall/TaskScheduler), so filtering an inventory by
+`Microsoft.*` hides it; and `ICSharpCode.AvalonEdit.dll` and `XAMLMarkupExtensions.dll` appear in
+no `PackageReference` at all because they are transitive.
+
+### What the audit resolved
+
+24 components now carry a verified licence with recorded provenance — MIT, BSD-3-Clause,
+Apache-2.0, Ms-PL, one public-domain dedication — covering every NuGet package that ships an
+assembly, every vendored source tree, every bundled binary, the native RNNoise library, and the
+three external components Thrum requires but does not redistribute (VIIPER GPL-3.0, usbip-win2
+BSD-2-Clause, HidHide).
+
+### What the audit found that nobody had catalogued
+
+1. **The inherited notice was wrong in both directions.** It credited **Font Awesome**, which is
+   not in the product — a full-tree search for the name and for any `.ttf`/`.otf`/`.woff` file
+   returned exactly one hit, the notice itself. Entry removed.
+2. **A 431 KB vendored JavaScript bundle ships uncredited.**
+   `DS4Windows/BezierCurveEditor/build.js` is a webpack build of `gre/bezier-easing-editor` (MIT)
+   embedding its npm dependency tree including React. It was not in the 2026-07-25 `TO AUDIT`
+   list either.
+
+### Three items are unresolved and are stated in NOTICE.txt as release-blocking
+
+1. **`FakerInputWrapper.dll` has no licence grant at all.** `Ryochan7/FakerInputWrapper` has no
+   LICENSE file, no source headers, no csproj licence metadata and an empty README. We
+   redistribute the assembly in every release; absent a grant there is no permission to do so.
+   The native `FakerInputDll.dll` from the separate `Ryochan7/FakerInput` repo **is** MIT — only
+   the managed wrapper is affected. Inherited from upstream, not introduced here.
+2. **Three Ms-PL assemblies link into a GPL-3.0 program** (DotNetProjects.Extended.Wpf.Toolkit,
+   WPFLocalizeExtension, transitive XAMLMarkupExtensions). The FSF states Ms-PL is "incompatible
+   with the GNU GPL". Also inherited from upstream DS4Windows, which ships the same three, so the
+   exposure is not new — but a first public release is when it starts to matter. Needs a
+   maintainer decision, informed by counsel if wanted; the notice states the FSF's position, not
+   legal advice. Apache-2.0 components are fine (GPLv3-compatible).
+3. **Two vendored items cannot be cleanly licensed as they stand**: `OneEuroFilter.cs` has no
+   header and the 1€ filter authors list the C# port as unverified with no licence stated
+   (105 lines; reimplement from the CHI 2012 paper or port a BSD version), and the Bezier bundle
+   above cannot have its embedded dependencies enumerated from a minified artifact.
+
+### Guard tests
+
+`DS4WindowsTests/ThirdPartyNoticeTests.cs`, 4 tests: every `PackageReference` and every DLL under
+`DS4Windows/libs` must be named in `NOTICE.txt`; the three authoritative notice files
+(SbcSharp, ControllerArtwork, ICONS) must exist and stay cross-referenced; the UNRESOLVED section
+must keep saying it is release-blocking while it exists.
+
+They verify **presence of an entry, not correctness of a licence** — correctness needs the
+artifact, which is what the audit document is for. They exist to prevent the silent case, which
+is precisely how Font Awesome came to be credited for something absent while a 431 KB bundle
+shipped uncredited. Negative control: stripping every occurrence of `WpfScreenHelper` and
+`SharpOSC` fails both list tests with their intended messages; restored and re-verified.
+
+Suite: **805 passed / 0 failed**, from 801.

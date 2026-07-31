@@ -570,8 +570,13 @@ namespace DS4Windows
             }
             catch (Exception ex)
             {
+                // The message can embed the path being verified; the
+                // diagnostic is quoted in reports, so the account name is
+                // redacted before it is recorded anywhere.
                 return ViiperSignatureTrust.Untrusted(
-                    "trust verification threw: " + ex.Message);
+                    "trust verification threw: " +
+                    ViiperDriverReportFormatter.RedactUserPathsInText(
+                        ex.Message));
             }
             finally
             {

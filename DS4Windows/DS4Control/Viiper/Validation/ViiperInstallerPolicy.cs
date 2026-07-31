@@ -121,7 +121,12 @@ namespace DS4Windows
         /// <summary>Short non-sensitive reason a signature was rejected.</summary>
         public string SignatureDiagnostic { get; init; }
 
-        /// <summary>Why the file could not be examined at all, or null.</summary>
+        /// <summary>
+        /// Why the file could not be examined at all, or null. Producers
+        /// redact account names before recording (exception messages embed
+        /// the path they failed on), and the decision redacts again before
+        /// quoting.
+        /// </summary>
         public string ObservationError { get; init; }
     }
 
@@ -384,7 +389,7 @@ namespace DS4Windows
                 lines.Add("File present: expected yes, actual no" +
                     (observation?.ObservationError is string missingError &&
                         missingError.Length > 0
-                        ? " (" + missingError + ")"
+                        ? " (" + Redacted(missingError) + ")"
                         : string.Empty) + ".");
                 return Decide(ViiperDownloadVerdict.Unavailable,
                     "Verification failed: " + inspected +
@@ -409,7 +414,7 @@ namespace DS4Windows
                 if (!string.IsNullOrWhiteSpace(observation.ObservationError))
                 {
                     lines.Add("Digest could not be computed: " +
-                        observation.ObservationError + ".");
+                        Redacted(observation.ObservationError) + ".");
                 }
 
                 return Decide(ViiperDownloadVerdict.Unavailable,
@@ -454,7 +459,8 @@ namespace DS4Windows
                 (observation.SignatureTrusted ? "trusted" : "not trusted") +
                 (string.IsNullOrWhiteSpace(observation.SignatureDiagnostic)
                     ? string.Empty
-                    : " (" + observation.SignatureDiagnostic + ")") + ".");
+                    : " (" + Redacted(observation.SignatureDiagnostic) + ")") +
+                ".");
 
             if (!observation.SignatureTrusted)
             {
@@ -685,10 +691,10 @@ namespace DS4Windows
             if (!string.IsNullOrEmpty(status.InspectionError))
             {
                 lines.Add("VIIPER autostart: inspection error - " +
-                    status.InspectionError + ".");
+                    Redacted(status.InspectionError) + ".");
                 return Decide(ViiperAutostartPlanAction.CouldNotInspect,
                     "Setup could not check whether VIIPER starts at logon: " +
-                    status.InspectionError + ".",
+                    Redacted(status.InspectionError) + ".",
                     lines);
             }
 
@@ -706,7 +712,7 @@ namespace DS4Windows
             foreach (ViiperAutostartEntry entry in status.Entries)
             {
                 lines.Add("VIIPER autostart found: " + entry.Description +
-                    " -> " + entry.Target);
+                    " -> " + Redacted(entry.Target));
             }
 
             lines.Add("Neither autostart mechanism passes --update-notify none, " +
@@ -739,6 +745,16 @@ namespace DS4Windows
             return new ViiperInstallerDecision<T>(action, summary,
                 lines.ToArray());
         }
+
+        /// <summary>
+        /// Everything this policy quotes from outside itself — exception
+        /// messages, signature diagnostics, autostart targets — passes
+        /// through the report redaction rule here, whatever its producer
+        /// already did. A report must not depend on every producer
+        /// remembering to redact.
+        /// </summary>
+        private static string Redacted(string text) =>
+            ViiperDriverReportFormatter.RedactUserPathsInText(text);
 
         private static bool LabelsMatch(string left, string right)
         {

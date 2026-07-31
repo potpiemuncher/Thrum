@@ -191,6 +191,50 @@ public class ViiperInstallerPolicyTests
     }
 
     [TestMethod]
+    public void AnObservationErrorNeverCarriesAnAccountNameIntoTheReport()
+    {
+        // Windows I/O exception messages embed the full path they failed on,
+        // and the observation error is quoted in the decision lines the
+        // setup script copies into install.log. The account name must not
+        // survive that trip, whatever the producer recorded.
+        const string leaky = @"Access to the path " +
+            @"'C:\Users\leakedaccountname\stage\USBip-0.9.7.7-x64.exe' is denied.";
+
+        foreach (ViiperDownloadObservation observation in new[]
+        {
+            new ViiperDownloadObservation
+            {
+                FileName = "USBip-0.9.7.7-x64.exe",
+                Exists = false,
+                ObservationError = leaky,
+            },
+            With(GoodUsbipObservation(), sha256: null,
+                observationError: leaky),
+        })
+        {
+            var decision = ViiperInstallerPolicy.DecideDownloadVerification(
+                ViiperInstallerPins.UsbipWin2, observation);
+
+            Assert.AreEqual(ViiperDownloadVerdict.Unavailable, decision.Action);
+            AssertNoLineCarriesTheAccountName(decision);
+        }
+    }
+
+    [TestMethod]
+    public void ASignatureDiagnosticNeverCarriesAnAccountNameIntoTheReport()
+    {
+        var decision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.UsbipWin2,
+            With(GoodUsbipObservation(), signatureTrusted: false,
+                signatureDiagnostic: @"trust verification threw: Access to " +
+                    @"the path 'C:\Users\leakedaccountname\stage\x.exe' is denied."));
+
+        Assert.AreEqual(ViiperDownloadVerdict.SignatureNotTrusted,
+            decision.Action);
+        AssertNoLineCarriesTheAccountName(decision);
+    }
+
+    [TestMethod]
     public void AWrongDigestIsRefusedEvenWithAPerfectSignature()
     {
         var decision = ViiperInstallerPolicy.DecideDownloadVerification(
@@ -672,6 +716,25 @@ public class ViiperInstallerPolicyTests
     }
 
     [TestMethod]
+    public void AnAutostartTargetNeverCarriesAnAccountNameIntoTheReport()
+    {
+        // An autostart target is whatever command line somebody registered,
+        // and viiper.exe frequently lives under the profile. The target stays
+        // in the report — it says which backend would start — but the account
+        // name does not.
+        var decision = ViiperInstallerPolicy.PlanAutostartRemoval(
+            new ViiperAutostartStatus(new List<ViiperAutostartEntry>
+            {
+                new ViiperAutostartEntry(ViiperAutostartKind.RegistryRunValue,
+                    "VIIPER", @"C:\Users\leakedaccountname\viiper\viiper.exe server"),
+            }),
+            removalRequested: false);
+
+        Assert.AreEqual(ViiperAutostartPlanAction.OfferRemoval, decision.Action);
+        AssertNoLineCarriesTheAccountName(decision);
+    }
+
+    [TestMethod]
     public void AnUnreadableAutostartStateIsNeverReportedAsAbsent()
     {
         foreach (ViiperAutostartStatus status in new[]
@@ -748,5 +811,22 @@ public class ViiperInstallerPolicyTests
             "expected the decision to record: " + expected +
             Environment.NewLine + "actual lines:" + Environment.NewLine +
             string.Join(Environment.NewLine, decision.Lines));
+    }
+
+    /// <summary>
+    /// The account name in these tests is always "leakedaccountname" — a
+    /// token no policy prose can contain by accident. A redacted path keeps
+    /// its shape for triage but carries "&lt;user&gt;" in the name's place.
+    /// </summary>
+    private static void AssertNoLineCarriesTheAccountName<T>(
+        ViiperInstallerDecision<T> decision)
+    {
+        string all = decision.Summary + Environment.NewLine +
+            string.Join(Environment.NewLine, decision.Lines);
+        Assert.IsFalse(all.Contains("leakedaccountname"),
+            "an account name reached the report:" + Environment.NewLine + all);
+        Assert.IsTrue(all.Contains(@"\Users\<user>\"),
+            "the redacted path should stay in the report for triage:" +
+            Environment.NewLine + all);
     }
 }

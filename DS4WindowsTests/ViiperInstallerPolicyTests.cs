@@ -124,10 +124,70 @@ public class ViiperInstallerPolicyTests
             ViiperInstallerPins.UsbipWin2, GoodUsbipObservation());
 
         Assert.AreEqual(ViiperDownloadVerdict.Approved, decision.Action);
+        AssertLogged(decision, "File name: expected USBip-0.9.7.7-x64.exe, " +
+            "actual USBip-0.9.7.7-x64.exe.");
         AssertLogged(decision, "SHA-256: expected " + PinnedUsbipDigest +
             ", actual " + PinnedUsbipDigest + ".");
         AssertLogged(decision, "Authenticode signer: expected \"" +
             PinnedSigner + "\", actual \"" + PinnedSigner + "\".");
+    }
+
+    [TestMethod]
+    public void ARefusalNamesTheFileItInspectedNotThePinnedArtefact()
+    {
+        // The Phase 2 VM pass verified a corrupted staged copy named
+        // USBip-0.9.7.7-x64.CORRUPT.exe and the refusal read "Verification
+        // failed: USBip-0.9.7.7-x64.exe does not have the pinned SHA-256" —
+        // an accusation against the official artefact it never looked at.
+        var decision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.UsbipWin2,
+            With(GoodUsbipObservation(), sha256: new string('A', 64),
+                fileName: "USBip-0.9.7.7-x64.CORRUPT.exe"));
+
+        Assert.AreEqual(ViiperDownloadVerdict.DigestMismatch, decision.Action);
+        StringAssert.Contains(decision.Summary,
+            "USBip-0.9.7.7-x64.CORRUPT.exe");
+        Assert.IsFalse(decision.Summary.Contains("USBip-0.9.7.7-x64.exe"),
+            "the summary must not name the pinned artefact as the file that " +
+            "failed: " + decision.Summary);
+        AssertLogged(decision, "File name: expected USBip-0.9.7.7-x64.exe, " +
+            "actual USBip-0.9.7.7-x64.CORRUPT.exe.");
+    }
+
+    [TestMethod]
+    public void AFullPathRecordedInTheObservationNeverReachesTheReport()
+    {
+        // Belt and braces for the no-PII rule: even if a caller records the
+        // whole path instead of the base name, only the base name may appear
+        // in the decision text.
+        var decision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.UsbipWin2,
+            With(GoodUsbipObservation(), sha256: new string('A', 64),
+                fileName: @"C:\p2\stage\USBip-0.9.7.7-x64.CORRUPT.exe"));
+
+        StringAssert.Contains(decision.Summary,
+            "USBip-0.9.7.7-x64.CORRUPT.exe");
+        Assert.IsFalse(decision.Summary.Contains(@"C:\"), decision.Summary);
+        Assert.IsFalse(decision.Lines.Any(line => line.Contains(@"C:\")),
+            string.Join(Environment.NewLine, decision.Lines));
+    }
+
+    [TestMethod]
+    public void AnObservationWithoutAFileNameNeverBlamesThePinnedArtefact()
+    {
+        foreach (ViiperDownloadObservation observation in
+            new[] { null, new ViiperDownloadObservation { Exists = false } })
+        {
+            var decision = ViiperInstallerPolicy.DecideDownloadVerification(
+                ViiperInstallerPins.UsbipWin2, observation);
+
+            Assert.AreEqual(ViiperDownloadVerdict.Unavailable, decision.Action);
+            StringAssert.Contains(decision.Summary, "the downloaded file");
+            Assert.IsFalse(decision.Summary.Contains("USBip-0.9.7.7-x64.exe"),
+                decision.Summary);
+            AssertLogged(decision, "File name: expected " +
+                "USBip-0.9.7.7-x64.exe, actual (not recorded).");
+        }
     }
 
     [TestMethod]
@@ -235,6 +295,7 @@ public class ViiperInstallerPolicyTests
             ViiperInstallerPins.ViiperBackend,
             new ViiperDownloadObservation
             {
+                FileName = "viiper.exe",
                 Exists = true,
                 SizeInBytes = ViiperInstallerPins.ViiperBackend.SizeInBytes,
                 Sha256 = PinnedViiperDigest,
@@ -242,6 +303,7 @@ public class ViiperInstallerPolicyTests
             });
 
         Assert.AreEqual(ViiperDownloadVerdict.Approved, decision.Action);
+        StringAssert.StartsWith(decision.Summary, "viiper.exe matches");
         Assert.IsTrue(decision.Lines.Any(line => line.Contains(
             "not required for this component")));
     }
@@ -273,6 +335,10 @@ public class ViiperInstallerPolicyTests
         {
             var decision = ViiperInstallerPolicy.DecideDownloadVerification(
                 ViiperInstallerPins.UsbipWin2, observation);
+            Assert.IsTrue(decision.Lines.Any(line =>
+                line.StartsWith("File name: expected ",
+                    StringComparison.Ordinal)),
+                "every verification has to record which file it examined");
             Assert.IsTrue(decision.Lines.Any(line =>
                 line.StartsWith("SHA-256: expected ", StringComparison.Ordinal)),
                 "every verification has to record the digest it compared");
@@ -634,6 +700,7 @@ public class ViiperInstallerPolicyTests
     private static ViiperDownloadObservation GoodUsbipObservation() =>
         new ViiperDownloadObservation
         {
+            FileName = "USBip-0.9.7.7-x64.exe",
             Exists = true,
             SizeInBytes = ViiperInstallerPins.UsbipWin2.SizeInBytes,
             Sha256 = PinnedUsbipDigest,
@@ -647,9 +714,10 @@ public class ViiperInstallerPolicyTests
         ViiperDownloadObservation source, string sha256 = "\0",
         bool? signatureEvaluated = null, bool? signatureTrusted = null,
         string signerCommonName = "\0", string signatureDiagnostic = "\0",
-        string observationError = "\0") =>
+        string observationError = "\0", string fileName = "\0") =>
         new ViiperDownloadObservation
         {
+            FileName = fileName == "\0" ? source.FileName : fileName,
             Exists = source.Exists,
             SizeInBytes = source.SizeInBytes,
             Sha256 = sha256 == "\0" ? source.Sha256 : sha256,

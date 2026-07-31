@@ -81,10 +81,10 @@ namespace DS4Windows
             }
             catch (Exception ex)
             {
-                output.Add("error=" + Sanitize(ex.GetType().Name + ": " +
-                    ex.Message));
+                output.Add("error=" + Sanitize(DescribeException(ex)));
                 output.Add("log=Installer policy could not run: " +
-                    Sanitize(ex.Message));
+                    Sanitize(ViiperDriverReportFormatter.RedactUserPathsInText(
+                        ex.Message)));
                 exitCode = ExitCouldNotRun;
             }
 
@@ -247,7 +247,7 @@ namespace DS4Windows
                 {
                     FileName = fileName,
                     Exists = false,
-                    ObservationError = ex.Message,
+                    ObservationError = DescribeException(ex),
                 };
             }
 
@@ -265,7 +265,7 @@ namespace DS4Windows
                     FileName = fileName,
                     Exists = true,
                     SizeInBytes = info.Length,
-                    ObservationError = ex.Message,
+                    ObservationError = DescribeException(ex),
                 };
             }
 
@@ -406,6 +406,17 @@ namespace DS4Windows
 
         private static string Key(ViiperInstallerComponent component) =>
             component == ViiperInstallerComponent.UsbipWin2 ? "usbip" : "viiper";
+
+        /// <summary>
+        /// The one form an exception may take in an observation or an
+        /// out-file: its type name for triage, and its message with any
+        /// account name redacted, because Windows I/O messages embed the full
+        /// path they failed on and everything recorded here is quoted
+        /// verbatim in reports.
+        /// </summary>
+        private static string DescribeException(Exception ex) =>
+            ex.GetType().Name + ": " +
+            ViiperDriverReportFormatter.RedactUserPathsInText(ex.Message);
 
         /// <summary>
         /// The out-file is line-oriented, so a value may not contain a line

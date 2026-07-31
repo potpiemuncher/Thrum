@@ -134,8 +134,8 @@ public class ViiperInstallerScriptTests
     {
         int verified = script.IndexOf("Get-VerifiedPinnedFile \"usbip\"",
             StringComparison.Ordinal);
-        int executed = script.IndexOf("-ArgumentList \"/S\"",
-            StringComparison.Ordinal);
+        int executed = script.IndexOf(
+            "-ArgumentList $script:UsbipSilentArguments", StringComparison.Ordinal);
 
         Assert.IsTrue(verified >= 0, "the driver installer must be verified.");
         Assert.IsTrue(executed >= 0, "the driver installer is still run silently.");
@@ -143,8 +143,23 @@ public class ViiperInstallerScriptTests
             "the pinned installer must be verified before it is executed.");
 
         Assert.AreEqual(1, Regex.Matches(script,
-            Regex.Escape("-ArgumentList \"/S\"")).Count,
+            Regex.Escape("-ArgumentList $script:UsbipSilentArguments")).Count,
             "there must be exactly one place the driver installer is run.");
+    }
+
+    [TestMethod]
+    public void TheDriverInstallerIsSilencedWithInnoSetupSwitches()
+    {
+        // Found live in the VM pass (2026-07-30): the script passed "/S", which is
+        // NSIS's silent switch. usbip-win2 ships an Inno Setup installer, and Inno
+        // ignores switches it does not recognise -- so setup launched the wizard and
+        // waited for a human who, in the real flow, never sees the window. Nothing was
+        // installed and nothing unsafe happened; setup simply hung until killed.
+        StringAssert.Contains(script,
+            "$script:UsbipSilentArguments = @(\"/VERYSILENT\", \"/SUPPRESSMSGBOXES\", " +
+            "\"/NORESTART\")");
+        Assert.IsFalse(Regex.IsMatch(script, @"-ArgumentList\s+""/S"""),
+            "\"/S\" is NSIS's switch and leaves the Inno Setup wizard interactive.");
     }
 
     [TestMethod]
@@ -193,6 +208,36 @@ public class ViiperInstallerScriptTests
             @"\$verification\s*=\s*Invoke-InstallerPolicy").Count,
             "there must be exactly one verification call site, shared by the " +
             "download path and the staged-file path.");
+    }
+
+    [TestMethod]
+    public void NoPolicyArgumentCanBeHandedToStartProcessEmpty()
+    {
+        // Found live in the VM pass (2026-07-30), not by these tests: on a machine
+        // with no usbip-win2 installed, Get-UsbipRegisteredRelease returns "" and the
+        // script passed it straight through as the value of --uninstall-version.
+        // Start-Process validates -ArgumentList as not-null-or-empty PER ELEMENT, so
+        // setup died with "Cannot validate argument on parameter 'ArgumentList'" before
+        // verifying anything -- on every clean machine, which is the ordinary
+        // first-time install. It failed closed, so nothing unsafe happened; the
+        // feature was simply unusable.
+        //
+        // Two independent guards, because either alone would have prevented it.
+        StringAssert.Contains(script, "if ([string]::IsNullOrEmpty($argument)) { continue }",
+            "Invoke-InstallerPolicy must drop empty arguments before they reach " +
+            "Start-Process -ArgumentList.");
+        // The bug's exact shape was one array literal carrying both the verb and the
+        // possibly-empty option. Guarded code cannot express it that way, so its absence
+        // is the discriminating check -- asserting on "--uninstall-version", $registered
+        // alone would match the fixed code too, since the guarded call contains the same
+        // text.
+        Assert.IsFalse(Regex.IsMatch(script,
+                @"""usbip-decision"",\s*""--uninstall-version"""),
+            "--uninstall-version must not be built into the same array literal as the " +
+            "verb: on a clean machine its value is the empty string.");
+        StringAssert.Contains(script,
+            "if (-not [string]::IsNullOrEmpty($registered))",
+            "the caller must omit --uninstall-version when no release is registered.");
     }
 
     private static string FindScript()

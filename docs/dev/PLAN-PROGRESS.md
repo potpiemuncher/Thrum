@@ -3066,3 +3066,103 @@ term reproduced the bug — `Expected:<NotRequired>. Actual:<Unavailable>` — a
 the guard test failed; restored and re-verified.
 
 Suite: **769 passed / 0 failed** (CI filter), from 763.
+
+---
+
+## 2026-07-30 — Phase 2 VM validation pass (and the two installer blockers it found)
+
+**Session scope:** the deferred Phase 2 VM pass, run against `7b87d1e` on the Windows 11 25H2
+test VM under the hardened posture (Secure Boot on, test signing off, VBS and Memory Integrity
+running). Branch `fix/installer-clean-machine-blockers`.
+
+**Outcome: Phases A, B and D pass; Phase C is half-blocked. Two blocking defects were found in
+`extras/install-viiper-backend.ps1`, both fixed here.** Zero bugchecks, zero dumps, zero PnP
+faults across the whole run. No virtual audio endpoint was created at any point, so nothing in
+this pass went near the usbip-win2 #181 teardown path.
+
+### The two blockers
+
+Task 2.4 recorded that the setup script end to end was "not verified, and cannot be here"
+because running it installs a kernel driver. This is what was behind that gap. Both failed
+**closed** — nothing was installed either time — so they were broken features, not unsafe ones.
+
+1. **Setup could not start on a clean machine.** `Get-UsbipRegisteredRelease` returns `""`
+   when no USB/IP uninstall entry exists — the ordinary first-time case — and that empty
+   string was passed as the value of `--uninstall-version`. `Start-Process` validates
+   `-ArgumentList` as not-null-or-empty *per element*, so setup aborted with
+   `Cannot validate argument on parameter 'ArgumentList'` before verifying anything.
+2. **The driver installer was launched interactively.** `/S` is NSIS's silent switch;
+   usbip-win2 ships an Inno Setup installer, which ignores unrecognised switches. The wizard
+   opened and waited for a human — observed as process `USBip-0.9.7.7-x64.tmp`, window title
+   `Setup - USBip`, blocking eleven minutes until killed.
+
+Fixed with two guards for the first (empty arguments dropped in `Invoke-InstallerPolicy`, and
+the option omitted at the call site) and Inno's own switches for the second, hoisted into
+`$script:UsbipSilentArguments`. Suite **771 passed / 0 failed**, from 769.
+
+**Neither was detectable by the tests that exist.** Every guard on this script is static text
+analysis — the file's own header calls them the weakest tests in the change set. One defect is
+a runtime parameter-validation rule, the other a third-party installer's command-line dialect.
+The two new tests are also static: they pin the fixes but would not have found the bugs. A
+scripted end-to-end install in the VM belongs in the release gate.
+
+### What passed
+
+- **Phase A (`Missing`).** Card reads *Not installed* with no package identity and no version
+  recommendation; both consent checkboxes off by default, the audio one naming issue #181 and
+  the blue-screen consequence. Output Slots carries *"New virtual controllers are blocked"*.
+  `-viiperdriverdiagnostic` exits 1 with no side effects, and a restricted-token run recorded
+  `elevated : no`, proving it never asks for elevation.
+- **Phase B (installer).** Corrupt and bad-signature artefacts refused fail-closed with
+  expected-vs-actual logged; genuine file approved (positive control). After the fixes: install
+  completes exit 0, pair validation confirms **UDE 21.14.27.907 / filter 21.14.27.661** with
+  both catalogs trusted, no autostart of either kind, zero VIIPER processes at logon after
+  reboot, backend starts with `--update-notify none`, and a repair skips the driver step
+  (`AlreadyPinned`) while retaining `viiper.exe.previous`.
+- **Phase C (2.4b only).** The deferred ownership branch passes live: a backend Thrum did not
+  start survives Thrum's exit, same PID and start time, logged as *"the backend was already
+  running before Thrum started, so it is not ours to stop."*
+- **Phase D (`DetectedUnvalidated`).** Under a deliberately weakened posture on its own branch,
+  a test-signed `develop@63e5c8f0` build was installed and **loaded**. The gate refused it:
+  `readiness=DetectedUnvalidated`, `action=RefuseUnrecognisedInstall`, `verdict=Refused`,
+  diagnostic exit 1, on both `DriverVer` and publisher. The decisive line is
+  `signature trusted: yes` next to `publisher accepted: no` — Windows considered the driver
+  validly signed because the test certificate was trusted, and the gate refused anyway. It does
+  not delegate its decision to whatever the machine has been told to trust. The mixed-pair case
+  came free: the two packages carry different `DriverVer`s and both were reported independently.
+
+### What is still open
+
+- **C1–C4 live gating** needs a physical controller in the guest; the VM has none and the run
+  sheet scopes passthrough out. The VIIPER local API was probed as a workaround and does not
+  answer plain HTTP on `:3242`.
+- **The 2.4b census branch** ("Thrum-owned backend + a foreign device ⇒ backend survives")
+  cannot be isolated without a controller, because Thrum only starts a backend when a profile
+  needs one.
+- **Installer exit code 3** (installed, validation deferred to a restart) was never reached —
+  the pair bound without a reboot.
+- **B2's signature branch cannot be exercised by a negative:** both bad artefacts were refused
+  on the digest first, and reaching the signature comparison needs a file whose SHA-256 already
+  matches the pin. The branch is live and runs on the genuine file, where both lines match.
+
+### Release finding outside Phase 2's scope
+
+The CI and release packages are **framework-dependent**, and the guest could not start
+`Thrum.exe` at all: *"You must install .NET Desktop Runtime to run this application."* The pass
+proceeded with a self-contained publish, as the 2026-07-25 pass did. A first-time user without
+.NET 8 Desktop Runtime meets that dialog, and nothing in the plan currently owns the decision to
+bundle the runtime, detect and offer it, or ship self-contained. It belongs to Phase 5.
+
+### Incidental defects logged (not fixed here)
+
+1. `thrum_log.txt` records `INFO|VIIPER virtual-controller backend ready` when no helper and no
+   driver are installed, one line before ten warnings that `usbip.exe` does not exist. The UI is
+   correct; the log would mislead support triage.
+2. That warning is emitted ten times in one second (~100 ms apart) then stops. Bounded, but one
+   line or a summary is enough.
+3. Accessibility: Output Slots rows and the driver card's identity rows expose raw .NET type
+   names (`DS4WinWPF.DS4Forms.ViewModels.SlotDeviceEntry`,
+   `DS4Windows.ViiperDriverComponentIdentity`) as their accessible names, on more than one page.
+4. Verification refusals name the pinned filename rather than the file actually inspected, so a
+   corrupted staged copy is reported as *"USBip-0.9.7.7-x64.exe does not have the pinned
+   SHA-256"* — which reads as an accusation against the official artefact.

@@ -75,6 +75,12 @@ $script:TempDir = Join-Path ([IO.Path]::GetTempPath()) (
 # read a C# constant, and the executable is what makes every check possible.
 $script:DefaultAppExecutableName = "Thrum.exe"
 
+# Inno Setup's silent switches, in one place so the driver installer can never be
+# launched interactively by accident. /VERYSILENT suppresses the wizard and the
+# progress window, /SUPPRESSMSGBOXES answers its message boxes, and /NORESTART keeps
+# the reboot decision here rather than in the installer.
+$script:UsbipSilentArguments = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART")
+
 function Write-SetupLog([string]$message, [ConsoleColor]$color =
         [ConsoleColor]::Gray) {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -188,8 +194,13 @@ function Invoke-InstallerPolicy([string[]]$policyArgs) {
         "policy-" + [Guid]::NewGuid().ToString("N") + ".txt")
     $arguments = @("-viiperinstallerpolicy") + $policyArgs + @("--out", $outFile)
 
+    # Start-Process validates -ArgumentList as not-null-or-empty per element, so one
+    # empty argument aborts setup before anything is verified. An absent option and an
+    # empty one mean the same thing to the policy (ReadOption returns null either way),
+    # so dropping empties here loses no information and removes the landmine.
     $quoted = @()
     foreach ($argument in $arguments) {
+        if ([string]::IsNullOrEmpty($argument)) { continue }
         if ($argument -match '\s') { $quoted += ('"' + $argument + '"') }
         else { $quoted += $argument }
     }
@@ -485,9 +496,14 @@ try {
     $pins = (Invoke-InstallerPolicy @("pins")).Data
 
     Write-Step "Checking usbip-win2"
+    # On a machine with no usbip-win2 installed - the ordinary first-time case - there is
+    # no registered release, so the option is omitted rather than passed empty.
     $registered = Get-UsbipRegisteredRelease
-    $usbipDecision = Invoke-InstallerPolicy @(
-        "usbip-decision", "--uninstall-version", $registered)
+    $usbipPolicyArgs = @("usbip-decision")
+    if (-not [string]::IsNullOrEmpty($registered)) {
+        $usbipPolicyArgs += @("--uninstall-version", $registered)
+    }
+    $usbipDecision = Invoke-InstallerPolicy $usbipPolicyArgs
     $action = $usbipDecision.Data['action']
 
     switch ($action) {
@@ -496,8 +512,11 @@ try {
             Get-VerifiedPinnedFile "usbip" $pins $installerPath $UsbipInstallerFile
 
             Write-SetupLog "Windows may briefly restart USB hub devices." Yellow
+            # usbip-win2 ships an Inno Setup installer. "/S" is NSIS's silent switch;
+            # Inno ignores unknown switches and shows its wizard, so setup would block
+            # forever on a dialog the caller may never see. These are Inno's.
             $installer = Start-Process -FilePath $installerPath `
-                -ArgumentList "/S" -PassThru -Wait
+                -ArgumentList $script:UsbipSilentArguments -PassThru -Wait
             if ($installer.ExitCode -notin @(0, 1641, 3010)) {
                 throw "usbip-win2 setup failed with exit code $($installer.ExitCode)."
             }

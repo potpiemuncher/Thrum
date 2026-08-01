@@ -199,6 +199,13 @@ namespace DS4Windows
         private readonly object virtualSpeakerSubscriberLock = new object();
         private readonly ReaderWriterLockSlim feedbackDispatchGenerationBarrier =
             new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+
+        // The state writer needs the same drain the feedback dispatchers get. Its
+        // generation check narrows the window but cannot close it: a writer can pass
+        // IsStateWriterCurrent, be descheduled, and wake up after Disconnect has
+        // disposed the stream it is about to write to.
+        private readonly ReaderWriterLockSlim stateWriteGenerationBarrier =
+            new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
         private readonly object physicalDualSenseIdentityLock = new object();
         private readonly object microphoneSourceLock = new object();
         private readonly object microphoneControlTransitionLock = new object();
@@ -776,6 +783,26 @@ namespace DS4Windows
 
         private ViiperDeviceStream CreateDeviceStream()
         {
+            // Unproven removal blocks reuse: creating a device while a previous import
+            // may still be attached is what this refuses. "The port list could not be
+            // read" is not evidence that nothing is there, and the sweep tells those
+            // apart. IOException matches how the audio gate above refuses, so the
+            // callers that already handle a refused creation handle this one too.
+            //
+            // Done here, at the ladder entry, rather than inside
+            // CreateDeviceAndOpenStream: every persona rung calls that, and sweeping
+            // per rung repeated a loop that can run for seconds.
+            ViiperStalePortSweep sweep =
+                ViiperUsbipPortManager.DetachStaleLocalViiperPorts();
+            if (!sweep.Cleared)
+            {
+                throw new IOException(
+                    "Refusing to create a virtual controller: " + sweep.Reason +
+                    ". A previous virtual controller may still be attached, and " +
+                    "creating another before that is settled risks two devices " +
+                    "claiming the same identity.");
+            }
+
             activeStreamUsesFramedProtocol = false;
             activeStreamSupportsMicrophone = false;
             activeStreamSupportsDirectSpeaker = false;
@@ -1144,6 +1171,10 @@ namespace DS4Windows
             feedbackSpeakerSignal.Set();
             feedbackControlSignal.Set();
             WaitForFeedbackDispatchCallbacks();
+            // Drain the state writer for the same reason, and before the stream is
+            // disposed below: its generation check alone leaves a writer able to pass
+            // the check and then meet a disposed stream.
+            WaitForStateWriteCallbacks();
             // A real output-device disconnect must not inherit the interface
             // monitor's debounce period. The generation change prevents the
             // old monitor from reattaching after this synchronous detach.
@@ -1581,6 +1612,26 @@ namespace DS4Windows
                 generation == Interlocked.Read(ref feedbackDispatchGeneration);
         }
 
+        /// <summary>
+        /// Blocks until no state write from a retired generation is still in flight.
+        /// Taking the write lease and dropping it waits out every read lease held by
+        /// <see cref="StateWriteLoop"/>, so once this returns the stream can be
+        /// disposed without a writer already past its generation check reaching it.
+        /// </summary>
+        private void WaitForStateWriteCallbacks()
+        {
+            // The writer cannot wait for its own read lease. Nothing on the write path
+            // calls Disconnect today, but keep the guard so a future one cannot
+            // self-deadlock - the feedback barrier carries the same protection.
+            if (ReferenceEquals(Thread.CurrentThread, stateWriterThread))
+            {
+                return;
+            }
+
+            stateWriteGenerationBarrier.EnterWriteLock();
+            stateWriteGenerationBarrier.ExitWriteLock();
+        }
+
         private void FeedbackSpeakerDispatchLoop(long generation)
         {
             byte[] payload = new byte[FeedbackSpeakerSlotLength];
@@ -1901,42 +1952,66 @@ namespace DS4Windows
                             break;
                         }
 
+                        // Seeded before the lease so the recovery path below always has
+                        // a meaningful generation, even in the pathological case where
+                        // the lease itself throws; the in-lease read is authoritative.
                         long writeStreamGeneration = Volatile.Read(
                             ref streamGeneration);
-                        ViiperDeviceStream writeStream = deviceStream;
-                        if (!IsStateWriterCurrent(writerGeneration))
-                        {
-                            return;
-                        }
+                        ViiperDeviceStream writeStream = null;
+
+                        // The generation check and the write it authorises have to sit
+                        // inside one read lease. Checking outside it would leave the
+                        // same gap the barrier exists to remove: Disconnect could bump
+                        // the generation and dispose the stream between the check and
+                        // WriteState.
                         try
                         {
-                            long writeStartedAt = Stopwatch.GetTimestamp();
-                            long previousWriteStartedAt = Interlocked.Exchange(
-                                ref lastRateLimitedStateWriteStartedTimestamp,
-                                writeStartedAt);
-                            if (previousWriteStartedAt > 0)
+                            // Recovery deliberately sits OUTSIDE this lease: it can
+                            // dispose and rebuild the stream, and holding a read lease
+                            // while Disconnect waits for the write lease would risk a
+                            // deadlock rather than prevent one.
+                            stateWriteGenerationBarrier.EnterReadLock();
+                            try
                             {
-                                RecordMinimum(ref minimumStateWriteStartGapTicks,
-                                    writeStartedAt - previousWriteStartedAt);
-                            }
-                            if (queuedAt > 0)
-                            {
-                                RecordMaximum(ref maximumStatePacketAgeTicks,
-                                    writeStartedAt - queuedAt);
-                            }
+                                writeStreamGeneration = Volatile.Read(
+                                    ref streamGeneration);
+                                writeStream = deviceStream;
+                                if (!IsStateWriterCurrent(writerGeneration))
+                                {
+                                    return;
+                                }
+                                long writeStartedAt = Stopwatch.GetTimestamp();
+                                long previousWriteStartedAt = Interlocked.Exchange(
+                                    ref lastRateLimitedStateWriteStartedTimestamp,
+                                    writeStartedAt);
+                                if (previousWriteStartedAt > 0)
+                                {
+                                    RecordMinimum(ref minimumStateWriteStartGapTicks,
+                                        writeStartedAt - previousWriteStartedAt);
+                                }
+                                if (queuedAt > 0)
+                                {
+                                    RecordMaximum(ref maximumStatePacketAgeTicks,
+                                        writeStartedAt - queuedAt);
+                                }
 
-                            WriteState(writeStream, packet);
-                            long writtenAt = Stopwatch.GetTimestamp();
-                            RecordMaximum(ref maximumStateWriteDurationTicks,
-                                writtenAt - writeStartedAt);
-                            long previousWrittenAt = Interlocked.Exchange(
-                                ref lastStateWrittenTimestamp, writtenAt);
-                            if (previousWrittenAt > 0)
-                            {
-                                RecordMaximum(ref maximumStateWriteGapTicks,
-                                    writtenAt - previousWrittenAt);
+                                WriteState(writeStream, packet);
+                                long writtenAt = Stopwatch.GetTimestamp();
+                                RecordMaximum(ref maximumStateWriteDurationTicks,
+                                    writtenAt - writeStartedAt);
+                                long previousWrittenAt = Interlocked.Exchange(
+                                    ref lastStateWrittenTimestamp, writtenAt);
+                                if (previousWrittenAt > 0)
+                                {
+                                    RecordMaximum(ref maximumStateWriteGapTicks,
+                                        writtenAt - previousWrittenAt);
+                                }
+                                Interlocked.Increment(ref writtenPacketCount);
                             }
-                            Interlocked.Increment(ref writtenPacketCount);
+                            finally
+                            {
+                                stateWriteGenerationBarrier.ExitReadLock();
+                            }
 
                             Interlocked.Exchange(ref streamRecoveryAttempts, 0);
                             LogWriterHealthIfNeeded();
@@ -4745,8 +4820,8 @@ namespace DS4Windows
         public ViiperDeviceStream CreateDeviceAndOpenStream(string deviceName,
             ushort? idProduct = null)
         {
-            ViiperUsbipPortManager.DetachStaleLocalViiperPorts();
-
+            // The sweep that gates this now runs once per creation attempt, at the
+            // ladder entry in CreateDeviceStream, rather than once per persona rung.
             ViiperBusCreateResponse bus = SendRequest<ViiperBusCreateResponse>("bus/create", "0");
             ViiperDeviceResponse device = null;
             int usbipPort = -1;
@@ -5058,6 +5133,31 @@ namespace DS4Windows
         }
     }
 
+    /// <summary>
+    /// Outcome of a stale-import sweep. <see cref="Cleared"/> means the machine was
+    /// observed free of stale local VIIPER imports — not merely that nothing went
+    /// wrong. An unproven sweep carries the reason so a refusal can say it.
+    /// </summary>
+    internal readonly struct ViiperStalePortSweep
+    {
+        private ViiperStalePortSweep(bool cleared, string reason)
+        {
+            Cleared = cleared;
+            Reason = reason;
+        }
+
+        public bool Cleared { get; }
+
+        /// <summary>Why absence could not be established; null when it was.</summary>
+        public string Reason { get; }
+
+        public static ViiperStalePortSweep Clear() =>
+            new ViiperStalePortSweep(true, null);
+
+        public static ViiperStalePortSweep Unproven(string reason) =>
+            new ViiperStalePortSweep(false, reason);
+    }
+
     internal static class ViiperUsbipPortManager
     {
         private static readonly string[] KnownViiperDeviceIds =
@@ -5073,7 +5173,17 @@ namespace DS4Windows
         private static readonly object ActivePortsLock = new object();
         private static readonly HashSet<int> ActivePorts = new HashSet<int>();
 
-        public static void DetachStaleLocalViiperPorts()
+        /// <summary>
+        /// Sweeps stale local VIIPER imports and reports whether the machine was
+        /// afterwards <em>proven</em> free of them.
+        ///
+        /// <para>The distinction matters more than the sweep does. If every
+        /// <c>usbip port</c> query fails, the loop sees no ports, concludes nothing was
+        /// detached, and would otherwise report a clean window — turning "could not
+        /// look" into "looked and saw nothing". A caller about to create a device needs
+        /// those told apart, because only one of them is evidence.</para>
+        /// </summary>
+        public static ViiperStalePortSweep DetachStaleLocalViiperPorts()
         {
             HashSet<int> activePorts;
             lock (ActivePortsLock)
@@ -5101,18 +5211,31 @@ namespace DS4Windows
                 lastQueryError = error;
             }
 
+            int observedSnapshots = 0;
+            int staleRemaining = 0;
             for (int attempt = 0; attempt < 32 && cleanSnapshots < requiredCleanSnapshots; attempt++)
             {
                 bool detachedAny = false;
+                int queryFailuresBefore = failedQueries;
+                int staleThisSnapshot = 0;
                 foreach (UsbipPortBlock port in GetImportedPorts(RecordQueryFailure))
                 {
                     if (!activePorts.Contains(port.Port) &&
                         IsLocalViiperPort(port, null))
                     {
+                        staleThisSnapshot++;
                         DetachPort(port.Port,
                             "stale local VIIPER controller import");
                         detachedAny = true;
                     }
+                }
+
+                // Only a snapshot whose query actually succeeded is evidence about
+                // what is imported; a failed query says nothing either way.
+                if (failedQueries == queryFailuresBefore)
+                {
+                    observedSnapshots++;
+                    staleRemaining = staleThisSnapshot;
                 }
 
                 cleanSnapshots = detachedAny ? 0 : cleanSnapshots + 1;
@@ -5123,6 +5246,41 @@ namespace DS4Windows
             }
 
             WarnPortQueryFailures(failedQueries, lastQueryError);
+
+            return DecideStaleSweep(observedSnapshots, cleanSnapshots,
+                requiredCleanSnapshots, staleRemaining, lastQueryError);
+        }
+
+        /// <summary>
+        /// Turns the sweep's observations into a verdict. Pure, so the rule that
+        /// matters — an unobserved machine is not a clean one — is testable without
+        /// a usbip client.
+        /// </summary>
+        /// <param name="observedSnapshots">Snapshots whose port query actually
+        /// succeeded. Zero means nothing was ever seen, however many attempts ran.</param>
+        internal static ViiperStalePortSweep DecideStaleSweep(int observedSnapshots,
+            int cleanSnapshots, int requiredCleanSnapshots, int staleRemaining,
+            string lastQueryError)
+        {
+            if (observedSnapshots <= 0)
+            {
+                // Every query failed. The loop saw no ports and detached nothing, which
+                // looks identical to a clean machine and is not the same thing.
+                return ViiperStalePortSweep.Unproven(
+                    "the imported-port list could not be read" +
+                    (string.IsNullOrWhiteSpace(lastQueryError)
+                        ? string.Empty
+                        : " (" + lastQueryError.Trim() + ")"));
+            }
+
+            if (cleanSnapshots < requiredCleanSnapshots)
+            {
+                return ViiperStalePortSweep.Unproven(
+                    "stale local VIIPER imports were still present after every attempt (" +
+                    staleRemaining + " left at the last look)");
+            }
+
+            return ViiperStalePortSweep.Clear();
         }
 
         public static int FindLocalViiperPort(uint busId, string devId)
@@ -5487,8 +5645,10 @@ namespace DS4Windows
             this.detachPort = detachPort ?? ViiperUsbipPortManager.DetachPort;
             this.unregisterPort = unregisterPort ??
                 ViiperUsbipPortManager.UnregisterActivePort;
+            // The sweep now reports whether absence was proven; this teardown path
+            // only needs it attempted, so the result is deliberately discarded here.
             this.detachStalePorts = detachStalePorts ??
-                ViiperUsbipPortManager.DetachStaleLocalViiperPorts;
+                (() => ViiperUsbipPortManager.DetachStaleLocalViiperPorts());
 
             // This object's lifetime *is* our claim on the device, so it is
             // also the record of it. The exit-time backend stop reads the

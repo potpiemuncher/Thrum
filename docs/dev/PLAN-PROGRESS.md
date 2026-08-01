@@ -3382,3 +3382,54 @@ shipped uncredited. Negative control: stripping every occurrence of `WpfScreenHe
 `SharpOSC` fails both list tests with their intended messages; restored and re-verified.
 
 Suite: **805 passed / 0 failed**, from 801.
+
+---
+
+## 2026-07-31 — Phase 3.1: lifecycle invariant gap-diff
+
+**Session scope:** Phase 3, task 3.1 — the invariant gap-diff against the maintainer's old
+DS4Windows native-mode fork. Branch `phase3/lifecycle-invariant-gap-diff`. Deliverable:
+[`lifecycle-invariants.md`](lifecycle-invariants.md).
+
+**The finding that matters for planning: there is far less to port than the plan assumed.** The
+plan budgeted 3–6 sessions expecting a large body of old-fork containment work to need adapting.
+Most of it is either already present in Thrum in a different form, or made moot by the
+architecture — because the risky component the invariants were written around, an in-process
+USB/IP helper holding a WASAPI render lease on a virtual audio endpoint, **does not exist in
+Thrum**, and the audio endpoints that made it necessary are off by default since 2.3.
+
+Three of the six invariants (c, d, e) are phrased in terms of *render protection*. Thrum holds
+none. Read literally they are N/A; read for their purpose — never release a safety hold until the
+dangerous thing is provably gone — they re-derive onto the census/ownership model from 2.4b, and
+that is how they were assessed.
+
+| invariant | verdict | action |
+|---|---|---|
+| (a) retired generation emits no late success | Present (feedback), partial (state writer) | port the drain barrier to the writer — small |
+| (b) UNLINK cannot strand or double-complete | moved to VIIPER; **ownership gap found** | report upstream |
+| (c) prove exact-device absence | re-derived, Present via census, fail-closed | optional PnP cross-check, low priority |
+| (d) parent death retains a protection | N/A — architecture prevents the dangerous case | Phase 4 diagnostics affordance |
+| (e) timeout ≠ permission to kill | Present via the census gate | none; window documented |
+| (f) unproven removal blocks reuse | partial — cleans up rather than blocks | port the refusal branch — small |
+
+### The upstream finding (Phase 3.4's deliverable, arrived early)
+
+VIIPER's Go server handles the *stranding* half of invariant (b) deliberately — `server.go:929`
+carries the comment "Cancellation must never strand a later URB behind this one." The
+*exactly-once* half has a hole. Its UNLINK handler claims ownership correctly (`server.go:805-828`:
+look up under `pendingMu`, delete, reply `-ECONNRESET` only `if found`). The ISO-IN completion
+path does not make the symmetric check — `server.go:967-971` deletes unconditionally, discards
+the result, and `writeRet` (`server.go:614`) applies no ownership test. An UNLINK arriving after
+the completion goroutine's last context check (`server.go:955`) and before it takes the mutex
+produces **both** a `RET_UNLINK(-ECONNRESET)` and a `RET_SUBMIT` for one seqnum.
+
+Static reading, not reproduced, narrow window — but the consequence is a client handed a response
+for a request it no longer owns, which is the same shape as the kernel-side defect class in
+usbip-win2 #181 and exactly what its PR #182 arbitration prevents on the other side of the wire.
+Fix is the same shape as VIIPER's own UNLINK handler: make the delete the ownership claim.
+
+### Verification
+
+Every file:line citation in the deliverable was checked against the current tree (9 Thrum
+citations re-read and confirmed; VIIPER citations read from `upstream-hbashton-viiper`). No code
+changed in this task — it is an analysis deliverable, and 3.3 is where the two small ports land.

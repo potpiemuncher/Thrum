@@ -3433,3 +3433,37 @@ Fix is the same shape as VIIPER's own UNLINK handler: make the delete the owners
 Every file:line citation in the deliverable was checked against the current tree (9 Thrum
 citations re-read and confirmed; VIIPER citations read from `upstream-hbashton-viiper`). No code
 changed in this task — it is an analysis deliverable, and 3.3 is where the two small ports land.
+
+---
+
+## 2026-07-31 — Fix: a bare `dotnet build`/`dotnet test` could not compile (AnyCPU default)
+
+Build configuration only; no product code or tests changed.
+
+Origin: inherited. Upstream keeps `libs\` next to the solution, so its project file says
+`<HintPath>..\libs\$(Platform)\...`; this repository imported the tree with `libs\` inside
+`DS4Windows\` and kept the HintPaths, which have therefore pointed at a directory that never
+existed here. x64/x86 builds still resolved FakerInputWrapper and SharpOSC — but only because the
+SDK's default item globbing picks the DLLs up as `None` items and ResolveAssemblyReference's
+`{CandidateAssemblyFiles}` fallback matches them by simple name. On AnyCPU — the MSBuild default
+for a bare `dotnet build`/`dotnet test` against a csproj — the csproj strips both `libs\` trees
+from the item list, the fallback has nothing to match, and compilation dies with CS0246 before a
+single test runs. The app csproj even carried `<Platform Condition="'$(Platform)' == ''">x64
+</Platform>`, visibly intending an x64 default, but Microsoft.Common.props has already defaulted
+an unset Platform to `AnyCPU` by the time a project body evaluates, so that condition never fired.
+
+The fix: HintPaths now name the real location (`libs\$(Platform)\...`, project-relative), so
+resolution is declared rather than accidental; the existing x64-default line also remaps the
+`AnyCPU` default; the test project gets the same remap; and `AnyCPU` leaves the test project's
+`<Platforms>`, since it was never buildable. An explicit `-p:Platform` is a global property and
+still overrides the remap, so CI (`-p:Platform=x64`) and x86 builds behave exactly as before.
+
+Negative control: at the same base commit without the fix, a bare `dotnet test` against the test
+csproj reproduces `error CS0246: ... 'SharpOSC' could not be found`; with the fix the same
+command builds as x64 and runs the full suite — 808 tests, the three known snapshot failures and
+nothing else. Property evaluation probed both ways: bare evaluation yields `Platform=x64` with
+`bin\x64\` outputs; `-p:Platform=x86` still yields `Platform=x86` with `bin\x86\` outputs. Fresh
+Release builds of the solution succeed for x64 and x86 with no MSB3245 and the warning count
+unchanged from baseline (17).
+
+Suite: **805 passed / 0 failed** (CI filter), unchanged from 805 — build configuration only.

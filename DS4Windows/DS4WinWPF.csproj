@@ -20,7 +20,13 @@
 		     re-declare them here: a local value silently wins over the shared
 		     one and that is exactly how the four of them drifted apart before. -->
 		<Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
-		<Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+		<!-- Microsoft.Common.props has already defaulted an unset Platform to
+		     AnyCPU by the time this line evaluates, so the historical == ''
+		     check never fired and a bare `dotnet build` failed: the
+		     FakerInputWrapper/SharpOSC binaries under libs\ only exist for
+		     x64/x86. Remap that default; an explicit -p:Platform=x86 is a
+		     global property and still wins. -->
+		<Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
 		<Copyright>Copyright © Thrum project 2026; DS4Windows contributors — Scarlet.Crush Productions 2012, 2013; InhexSTER, HecticSeptic, electrobrains 2013, 2014; Jays2Kings 2013, 2014, 2015, 2016; Ryochan7 2017-2023; schmaldeo 2024; hbashton 2025, 2026. Licensed under the GNU GPL version 3 or later.</Copyright>
 		<Description>Sony DualShock 4 to Microsoft Xinput controller mapper</Description>
 		<Authors>Thrum project</Authors>
@@ -112,11 +118,11 @@
 		<PackageReference Include="WpfScreenHelper" Version="2.1.0" />
 
 		<Reference Include="FakerInputWrapper">
-			<HintPath>..\libs\$(Platform)\FakerInputWrapper\FakerInputWrapper.dll</HintPath>
+			<HintPath>libs\$(Platform)\FakerInputWrapper\FakerInputWrapper.dll</HintPath>
 		</Reference>
 
 		<Reference Include="SharpOSC">
-			<HintPath>..\libs\$(Platform)\SharpOSC\SharpOSC.dll</HintPath>
+			<HintPath>libs\$(Platform)\SharpOSC\SharpOSC.dll</HintPath>
 		</Reference>
 
 	</ItemGroup>

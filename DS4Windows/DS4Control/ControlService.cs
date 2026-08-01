@@ -1740,15 +1740,21 @@ namespace DS4Windows
                     AssignInitialDevices();
                     StartupDiag("AssignInitialDevices end");
 
-                    // A force-closed prior development build can leave its
-                    // USB/IP output imported. Remove those ports before HID
-                    // discovery or DS4Windows will ingest its own VIIPER DS4,
-                    // create a second output/UAC endpoint, and recurse.
-                    ViiperUsbipPortManager.DetachStaleLocalViiperPorts();
-                    // Let usbccgp/HID finish publishing removal before the
-                    // first input snapshot; otherwise a detached interface can
-                    // remain enumerable for one final discovery pass.
-                    Thread.Sleep(250);
+                    // This used to detach "stale" local VIIPER imports before
+                    // HID discovery so a force-closed prior session's output
+                    // could not be ingested as an input and recursed on. It
+                    // detaches nothing now: identified only by controller
+                    // VID/PID and a localhost URL, another application's live
+                    // virtual pad is indistinguishable from a leftover, and on
+                    // 2026-07-31 the sweep disconnected one mid-game. The pass
+                    // still runs for its log line — any unmanaged local import
+                    // is named, with a pointer to the Settings backend-process
+                    // card, which can attribute leftovers and clear them with
+                    // consent. The self-ingestion case that motivated the
+                    // detach is accepted as a residual risk until inputs can
+                    // recognise this app's own virtual pads; the startup
+                    // warning above fires for exactly that state.
+                    ViiperUsbipPortManager.ObserveLocalImports();
 
                     StartupDiag("DS4Devices.findControllers dispatch begin");
                     eventDispatcher.Invoke(() =>

@@ -309,6 +309,41 @@ could not prove absence.
 > that already handle a refused creation handle this too. The verdict rules are extracted
 > into `DecideStaleSweep` and covered by seven tests.
 
+> **Revised 2026-07-31: the sweep was reading a heuristic as ownership, and it cost a user
+> their controller.** `DetachStaleLocalViiperPorts` identified "ours" as *any* import from a
+> localhost usbip URL carrying a known controller VID/PID and not registered by this
+> process. That is also an exact description of a **different application's live virtual
+> pad**. On the first evening two such applications ran side by side — Thrum under test and
+> the maintainer's native-mode DS4Windows build serving a DualSense — Thrum's startup sweep
+> detached the other one's controller mid-game.
+>
+> The mistaken premise was that a local import can be attributed from the port table at all.
+> It cannot: the usbip link records the *serving* side, never the consumer, so a dead
+> session's leftover and a live consumer's device are the same row. The sweep is now
+> `ObserveLocalImports` and detaches nothing. It reads the table, names any local import
+> this session does not manage in one log line pointing at the (d) backend-process card —
+> which *can* attribute leftovers, via the backend census, and clear them with consent — and
+> leaves them alone.
+>
+> **What this costs (f), stated plainly.** The invariant's own subject is unaffected: "our
+> device's removal is unproven" stays impossible, because our removals are transactional
+> in-session — the lifetime object that created a port detaches that exact port — and every
+> new device gets a fresh bus from `bus/create`, so a foreign import is not a reuse hazard.
+> 3.3's fail-closed rule is kept intact: an unreadable port list still refuses creation.
+> What is genuinely given up is *automatic* cleanup of a leftover from a session that died
+> hard. That is now a consented user action rather than a silent one, which is the same
+> trade (d) makes, and for the same reason: this application cannot prove the thing is
+> abandoned.
+>
+> Two narrower attribution bugs surfaced while proving the above, both able to detach
+> somebody else's device on their own. `FindLocalViiperPort` matched our just-created device
+> by bus id alone, and usbip bus ids are small integers every server counts from the bottom,
+> so two local servers can both serve a `1-7`; it now refuses on ambiguity (`-1`, rolling
+> the creation back) instead of adopting the first hit, and prefers the `usbipPort` the
+> backend reports in the create response over scanning at all. `DetachDuplicateLocalViiperPorts`
+> is now scoped to the `usbip://host:port/` prefix of the import we confirmed as ours, so a
+> same-bus-id device on a *different* local server is out of reach. Sixteen tests.
+
 `CreateDeviceAndOpenStream` opens with:
 
 ```csharp
@@ -342,7 +377,7 @@ directly in the invariant's spirit, and testable through the existing port-manag
 | (c) prove exact-device absence | **Present** at both levels — census since 3.1, PnP cross-check since 2026-07-31; fail-closed | done |
 | (d) parent death retains a protection | **N/A** — architecture prevents the dangerous case | done — unowned-backend diagnostics card + consented stop, 2026-07-31 |
 | (e) timeout ≠ permission to kill | **Present** via the census gate | None; document the check-then-kill window |
-| (f) unproven removal blocks reuse | **Present** — since 3.3; also closed a fail-open where an unreadable port list counted as clean | done |
+| (f) unproven removal blocks reuse | **Present** — since 3.3; unreadable port list still refuses. Revised 2026-07-31: the sweep no longer detaches imports it cannot attribute, after it disconnected another application's live pad | done |
 
 **The headline for Phase 3 planning: there is far less to port than the plan assumed.** The plan
 budgeted 3–6 sessions on the assumption that a large body of old-fork containment work would need

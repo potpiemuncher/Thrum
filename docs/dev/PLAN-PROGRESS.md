@@ -3656,3 +3656,78 @@ names.** The stand-in server was a `powershell` process, not `viiper.exe`, and
 `GetExtendedTcpTable` identified it correctly by ownership of the listening socket — a
 name-matching implementation would have found nothing to stop, and a looser one would have gone
 looking for the wrong process entirely.
+
+## 2026-07-31 — Fix: the stale-port sweep detached another application's live controller
+
+**Session scope:** the follow-up filed at the end of the previous entry, fixed the same night
+because it had already cost a real controller. Branch `fix/port-sweep-ownership`. Verdict for
+(f) in [`lifecycle-invariants.md`](lifecycle-invariants.md) revised.
+
+### Defect origin
+
+The UI verification in the previous entry launched a Thrum build on the dev PC while the
+maintainer's native-mode DS4Windows build was serving a virtual DualSense over usbip during a
+game. Thrum's startup sweep detached it. The controller went dead mid-game; the log line
+`VIIPER detached usbip port 1 (stale local VIIPER controller import)` was the only trace.
+
+### Mechanism
+
+`DetachStaleLocalViiperPorts` decided an import was a stale leftover of ours if it came from a
+localhost usbip URL, carried a VID/PID in `KnownViiperDeviceIds`, and was not a port *this
+process* had registered. Every one of those is also true of a different application's live
+virtual pad. The premise was the bug: **a local import cannot be attributed from the port
+table at all**, because the usbip link records the serving side and never the consumer, so a
+dead session's leftover and a live consumer's device are the same row.
+
+Arriving with PR #28, not #29 — but #29 is where the irony lives, since its whole (d) story is
+"a backend we did not start is not ours to stop" while this sweep had no ownership test at all.
+
+### The fix
+
+`ObserveLocalImports` replaces the sweep and detaches nothing. It reads the port table, names
+any local import this session does not manage in one log line pointing at the (d)
+backend-process card — which can attribute leftovers through the backend census and clear them
+with consent — and leaves them alone. 3.3's fail-closed rule is untouched: an unreadable port
+list still refuses creation, which is what `ViiperImportObservation` now carries.
+
+Two narrower attribution bugs surfaced while proving that, each able to detach somebody else's
+device on its own:
+
+- `FindLocalViiperPort` matched our just-created device by bus id alone. usbip bus ids are
+  small integers every server counts from the bottom, so two local servers can both serve a
+  `1-7`, and the first hit wins — then teardown detaches it. It now refuses on ambiguity
+  (`-1`, rolling the creation back) rather than guessing, and the create response's
+  `usbipPort` (upstream `viipertypes.Device`, added 2026-07-30) is believed over any scan
+  when the backend reports it. Backends predating the field fall back to the scan.
+- `DetachDuplicateLocalViiperPorts` is scoped to the `usbip://host:port/` prefix of the import
+  we confirmed as ours, so a same-bus-id device on a different local server is unreachable.
+  No confirmed import, no prefix, no detaching.
+
+`KnownViiperDeviceIds` is gone. Nothing in this class decides what an import *is* from its
+controller identity any more; the only identity test left is whether the server is loopback.
+
+### What this gives up, deliberately
+
+Automatic cleanup of a genuine leftover from a hard-killed session. That becomes a consented
+user action via the (d) card, which is the same trade (d) already makes and for the same
+reason: the application cannot prove the thing is abandoned. The startup self-ingestion risk
+the sweep originally guarded (ingesting our own virtual pad as an input) is accepted as
+residual and called out at its call site in `ControlService`; the (d) startup warning fires on
+exactly that state.
+
+### Verification
+
+Sixteen tests in `ViiperImportObservationTests` (replacing `ViiperStalePortSweepTests`, whose
+verdict cases are carried over): the observation verdict, the report line's required content,
+and the attribution rules — bus-id matching that rejects `/1-7` against `/1-71`, ambiguity
+refusing to guess, remote imports never attributed locally, duplicate detach scoped to one
+server, and no-confirmed-import meaning no detaching.
+
+**Reproduced against the original failure, live.** With the maintainer's native-mode
+DS4Windows still serving its DualSense on port 1, the fixed build was launched isolated:
+`usbip port` showed the import before and after, unchanged; four Sony devnodes stayed present;
+the controller survived both Thrum start and shutdown. The log carried
+`1 local usbip import(s) present that Thrum does not manage (port 1): left untouched ...` —
+the report the detach became.
+
+Suite: **862 passed / 0 failed** (CI filter), from 853.

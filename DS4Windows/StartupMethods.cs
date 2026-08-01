@@ -43,7 +43,27 @@ namespace DS4WinWPF
     public static class StartupMethods
     {
         public static string lnkpath = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName;
-        private static string taskBatPath = Path.Combine(DS4Windows.Global.exedirpath, "task.bat");
+
+        /// <summary>
+        /// The one spelling of the helper batch file's path — used by the
+        /// writer, the deleter, the scheduled task's action, and the
+        /// moved-executable check.
+        ///
+        /// <para>It used to be spelled three ways: this field, and
+        /// <c>$@"{dir}\task.bat"</c> in both <see cref="WriteTaskEntry"/> and
+        /// <see cref="RefreshTaskBat"/>. They agree for every ordinary install
+        /// path, but not for all of them —
+        /// <see cref="DS4Windows.Global.exedirpath"/> comes from
+        /// <c>DirectoryInfo.FullName</c>, which keeps its trailing separator
+        /// when the directory is a drive root. At <c>C:\</c> the interpolated
+        /// form yields <c>C:\\task.bat</c> while <see cref="Path.Combine"/>
+        /// yields <c>C:\task.bat</c>, so <see cref="DeleteOldTaskEntry"/> would
+        /// compare the registered action against a string it could never match
+        /// and delete a healthy task on every settings load. That is the same
+        /// class of bug the shortcut path already carries a warning about.</para>
+        /// </summary>
+        internal static string TaskBatPath { get; } =
+            Path.Combine(DS4Windows.Global.exedirpath, "task.bat");
 
         public static bool HasStartProgEntry()
         {
@@ -121,7 +141,7 @@ namespace DS4WinWPF
                     if (act.ActionType == TaskActionType.Execute)
                     {
                         ExecAction temp = act as ExecAction;
-                        if (temp.Path != taskBatPath)
+                        if (temp.Path != TaskBatPath)
                         {
                             ts.RootFolder.DeleteTask(DS4Windows.ProductInfo.StartupTaskName);
                             break;
@@ -154,7 +174,7 @@ namespace DS4WinWPF
             TaskDefinition td = ts.NewTask();
             td.Triggers.Add(new LogonTrigger());
             string dir = DS4Windows.Global.exedirpath;
-            td.Actions.Add(new ExecAction($@"{dir}\task.bat",
+            td.Actions.Add(new ExecAction(TaskBatPath,
                 "",
                 dir));
 
@@ -164,6 +184,15 @@ namespace DS4WinWPF
             ts.RootFolder.RegisterTaskDefinition(DS4Windows.ProductInfo.StartupTaskName, td);
         }
 
+        /// <summary>
+        /// Removes the logon task <i>and</i> the helper batch file it ran.
+        ///
+        /// <para>The batch file is ours — <see cref="RefreshTaskBat"/> writes
+        /// it and nothing else creates it — so leaving it behind after the user
+        /// has turned the option off leaves an executable launcher in the
+        /// install folder that no longer belongs to any setting. It also
+        /// becomes residue the uninstall audit would have to explain.</para>
+        /// </summary>
         public static void DeleteTaskEntry()
         {
             TaskService ts = new TaskService();
@@ -171,6 +200,62 @@ namespace DS4WinWPF
             if (tasker != null)
             {
                 ts.RootFolder.DeleteTask(DS4Windows.ProductInfo.StartupTaskName);
+            }
+
+            DeleteTaskBat(TaskBatPath);
+        }
+
+        /// <summary>
+        /// Deletes the helper batch file, reporting whether the file is gone
+        /// rather than whether a delete happened — already-absent is success.
+        ///
+        /// <para><b>This never throws.</b> It runs on the path where the user
+        /// switches startup off, and every caller of that path treats it as
+        /// having succeeded. The file can legitimately be unavailable: the
+        /// logon task may be executing it right now (cmd.exe holds it open),
+        /// the install folder may be read-only, or a previous run may have
+        /// removed it already. None of those should turn "turn startup off"
+        /// into an error dialog — the scheduled task, which is the part that
+        /// actually causes the app to launch, has already been removed by the
+        /// time this runs.</para>
+        /// </summary>
+        internal static bool DeleteTaskBat(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                // Cannot name a file, so cannot report one as gone.
+                return false;
+            }
+
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    return true;
+                }
+
+                FileInfo info = new FileInfo(path);
+                if (info.IsReadOnly)
+                {
+                    // We wrote this file, so a read-only attribute on it is our
+                    // own residue to clear rather than a user preference to
+                    // respect. DeleteStartProgEntry leaves read-only shortcuts
+                    // alone because the user may have pinned one deliberately;
+                    // nobody deliberately pins a generated batch file.
+                    info.IsReadOnly = false;
+                }
+
+                File.Delete(path);
+                return true;
+            }
+            catch (Exception)
+            {
+                // Deliberately broad, and deliberately silent. IOException
+                // (locked), UnauthorizedAccessException (permissions) and the
+                // directory-not-found family are all reachable here, and the
+                // response to every one of them is the same: leave the file and
+                // carry on disabling startup.
+                return false;
             }
         }
 
@@ -217,9 +302,7 @@ namespace DS4WinWPF
 
         private static void RefreshTaskBat()
         {
-            string dir = DS4Windows.Global.exedirpath;
-            string path = $@"{dir}\task.bat";
-            FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write);
+            FileStream fileStream = new FileStream(TaskBatPath, FileMode.Create, FileAccess.Write);
             using (StreamWriter w = new StreamWriter(fileStream))
             {
                 string temp = string.Empty;

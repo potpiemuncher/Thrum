@@ -226,15 +226,15 @@ namespace DS4Windows
                 int feedbackLength = ViiperStatePacketBuilder.GetFeedbackLength(type);
                 Log($"Device={type} viiperName={viiperDeviceName} packetLength={packetLength} feedbackLength={feedbackLength}");
 
-                // The stale-import sweep used to live inside CreateDeviceAndOpenStream;
-                // it now gates the output ladder in ViiperOutDevice instead, so this
-                // diagnostic runs its own. Reported rather than enforced: the point of
-                // the debugger is to say what it found.
-                ViiperStalePortSweep sweep =
-                    ViiperUsbipPortManager.DetachStaleLocalViiperPorts();
-                Log(sweep.Cleared
-                    ? "Stale local VIIPER imports: none present"
-                    : $"Stale local VIIPER imports UNPROVEN: {sweep.Reason}");
+                // The observation pass that gates the output ladder in
+                // ViiperOutDevice; run here too so the diagnostic records the
+                // same view. It only reads — unmanaged imports are logged by
+                // the pass itself and never touched.
+                ViiperImportObservation observation =
+                    ViiperUsbipPortManager.ObserveLocalImports();
+                Log(observation.Observed
+                    ? "Imported usbip ports: readable"
+                    : $"Imported usbip ports UNREADABLE: {observation.Reason}");
 
                 using ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(type);
                 Log($"Device={type} create/open stream OK");

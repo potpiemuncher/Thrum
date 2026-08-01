@@ -12,6 +12,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
@@ -783,24 +784,25 @@ namespace DS4Windows
 
         private ViiperDeviceStream CreateDeviceStream()
         {
-            // Unproven removal blocks reuse: creating a device while a previous import
-            // may still be attached is what this refuses. "The port list could not be
-            // read" is not evidence that nothing is there, and the sweep tells those
-            // apart. IOException matches how the audio gate above refuses, so the
-            // callers that already handle a refused creation handle this one too.
+            // Unproven observation blocks creation: "the port list could not be
+            // read" is not evidence that nothing is there (3.3's rule, kept).
+            // What no longer blocks — or gets detached — is an import this
+            // session does not manage: it cannot be attributed from here, our
+            // own removals are transactional in-session, and the new device
+            // gets a fresh bus either way. IOException matches how the audio
+            // gate above refuses, so the callers that already handle a refused
+            // creation handle this one too.
             //
             // Done here, at the ladder entry, rather than inside
-            // CreateDeviceAndOpenStream: every persona rung calls that, and sweeping
-            // per rung repeated a loop that can run for seconds.
-            ViiperStalePortSweep sweep =
-                ViiperUsbipPortManager.DetachStaleLocalViiperPorts();
-            if (!sweep.Cleared)
+            // CreateDeviceAndOpenStream: every persona rung calls that.
+            ViiperImportObservation observation =
+                ViiperUsbipPortManager.ObserveLocalImports();
+            if (!observation.Observed)
             {
                 throw new IOException(
-                    "Refusing to create a virtual controller: " + sweep.Reason +
+                    "Refusing to create a virtual controller: " + observation.Reason +
                     ". A previous virtual controller may still be attached, and " +
-                    "creating another before that is settled risks two devices " +
-                    "claiming the same identity.");
+                    "with the port list unreadable there is no way to tell.");
             }
 
             activeStreamUsesFramedProtocol = false;
@@ -4834,7 +4836,15 @@ namespace DS4Windows
                 }, JsonOptions);
 
                 device = SendRequest<ViiperDeviceResponse>($"bus/{bus.BusId}/add", payload);
-                usbipPort = ViiperUsbipPortManager.FindLocalViiperPort(bus.BusId, device.DevId);
+                // A backend recent enough to report where it attached the
+                // device is believed over any scan of the port table: the scan
+                // matches by bus id, and bus ids can collide across two local
+                // servers. Older backends omit the field (0), so the scan
+                // remains the fallback — with its ambiguity now failing to -1
+                // rather than guessing.
+                usbipPort = device.UsbipPort > 0
+                    ? device.UsbipPort
+                    : ViiperUsbipPortManager.FindLocalViiperPort(bus.BusId, device.DevId);
                 ViiperUsbipPortManager.RegisterActivePort(usbipPort);
                 ViiperUsbipPortManager.DetachDuplicateLocalViiperPorts(bus.BusId, device.DevId, usbipPort);
                 return OpenStream(bus.BusId, device.DevId, usbipPort);
@@ -5084,6 +5094,15 @@ namespace DS4Windows
         {
             [JsonPropertyName("devId")]
             public string DevId { get; set; }
+
+            /// <summary>
+            /// The usbip port the backend auto-attached this device on.
+            /// Serialized with <c>omitempty</c> upstream, so a backend that
+            /// predates the field (added 2026-07-30) leaves it 0 here — usbip
+            /// ports count from 1, so 0 reads as "not reported".
+            /// </summary>
+            [JsonPropertyName("usbipPort")]
+            public int UsbipPort { get; set; }
         }
 
         private sealed class ViiperDeviceCreateRequest
@@ -5134,56 +5153,80 @@ namespace DS4Windows
     }
 
     /// <summary>
-    /// Outcome of a stale-import sweep. <see cref="Cleared"/> means the machine was
-    /// observed free of stale local VIIPER imports — not merely that nothing went
-    /// wrong. An unproven sweep carries the reason so a refusal can say it.
+    /// Outcome of looking at the machine's imported usbip ports.
+    /// <see cref="Observed"/> means the port list was actually read — not that
+    /// it was empty, and not that anything was done about its contents. An
+    /// unobserved result carries the reason so a refusal can say it.
+    ///
+    /// <para>This used to be the verdict of a sweep that also <i>detached</i>
+    /// what it took for leftovers. It no longer detaches anything: on
+    /// 2026-07-31 the sweep identified "ours" by controller VID/PID plus a
+    /// localhost server URL, which is also exactly what another application's
+    /// live virtual pad looks like, and it disconnected one mid-game. Imports
+    /// this session did not create cannot be attributed from here — a dead
+    /// session's leftover and another program's controller are
+    /// indistinguishable — so they are reported, never touched. The recovery
+    /// path for real leftovers is the Settings backend-process card, which
+    /// shows the holdings and asks.</para>
     /// </summary>
-    internal readonly struct ViiperStalePortSweep
+    internal readonly struct ViiperImportObservation
     {
-        private ViiperStalePortSweep(bool cleared, string reason)
+        private ViiperImportObservation(bool observed, string reason)
         {
-            Cleared = cleared;
+            Observed = observed;
             Reason = reason;
         }
 
-        public bool Cleared { get; }
+        public bool Observed { get; }
 
-        /// <summary>Why absence could not be established; null when it was.</summary>
+        /// <summary>Why the port list could not be read; null when it was.</summary>
         public string Reason { get; }
 
-        public static ViiperStalePortSweep Clear() =>
-            new ViiperStalePortSweep(true, null);
+        public static ViiperImportObservation Seen() =>
+            new ViiperImportObservation(true, null);
 
-        public static ViiperStalePortSweep Unproven(string reason) =>
-            new ViiperStalePortSweep(false, reason);
+        public static ViiperImportObservation Unobserved(string reason) =>
+            new ViiperImportObservation(false, reason);
     }
 
     internal static class ViiperUsbipPortManager
     {
-        private static readonly string[] KnownViiperDeviceIds =
-        {
-            "054c:05c4", // DualShock 4 (VIIPER CUH-ZCT1x identity)
-            "054c:09cc", // DualShock 4
-            "054c:0ce6", // DualSense
-            "054c:0df2", // DualSense Edge
-            "045e:028e", // Xbox 360
-            "057e:2069", // Switch 2 Pro
-        };
-
         private static readonly object ActivePortsLock = new object();
         private static readonly HashSet<int> ActivePorts = new HashSet<int>();
 
         /// <summary>
-        /// Sweeps stale local VIIPER imports and reports whether the machine was
-        /// afterwards <em>proven</em> free of them.
+        /// Reads the imported usbip ports, reports — without touching — any
+        /// local import this session does not manage, and says whether the
+        /// list could be read at all.
         ///
-        /// <para>The distinction matters more than the sweep does. If every
-        /// <c>usbip port</c> query fails, the loop sees no ports, concludes nothing was
-        /// detached, and would otherwise report a clean window — turning "could not
-        /// look" into "looked and saw nothing". A caller about to create a device needs
-        /// those told apart, because only one of them is evidence.</para>
+        /// <para><b>Why this observes instead of detaching.</b> Until
+        /// 2026-07-31 this was a sweep that detached every localhost import
+        /// carrying a known controller VID/PID and not registered by this
+        /// process. That identity test cannot tell a stale leftover from
+        /// another application's live virtual pad — both are a controller
+        /// VID/PID behind <c>usbip://localhost</c> — and on the first evening
+        /// two such applications ran side by side, it disconnected the other
+        /// one's DualSense mid-game. No evidence available here can make that
+        /// call: the serving backend knows which imports are its own, but an
+        /// import's <i>consumer</i> is not part of the usbip link at all. So
+        /// unmanaged imports are named in the log, pointed at the Settings
+        /// backend-process card (which can attribute and act with consent),
+        /// and left alone.</para>
+        ///
+        /// <para><b>What still refuses.</b> The 3.3 rule is kept: a port list
+        /// that could not be read is not a port list that was empty. Callers
+        /// gating creation treat "could not look" as a refusal, exactly as
+        /// before.</para>
+        ///
+        /// <para><b>What no longer blocks.</b> Unmanaged imports do not block
+        /// creation. Every device this session creates gets a fresh bus from
+        /// <c>bus/create</c> and its own import, so a foreign import is not a
+        /// reuse hazard (invariant (f) concerns <i>our</i> device's unproven
+        /// removal, and our removals are transactional in-session: the
+        /// lifetime object that created a port detaches that exact port).
+        /// </para>
         /// </summary>
-        public static ViiperStalePortSweep DetachStaleLocalViiperPorts()
+        public static ViiperImportObservation ObserveLocalImports()
         {
             HashSet<int> activePorts;
             lock (ActivePortsLock)
@@ -5191,17 +5234,7 @@ namespace DS4Windows
                 activePorts = new HashSet<int>(ActivePorts);
             }
 
-            // USB/IP and PnP update asynchronously. A second stale import can
-            // become visible more than half a second after the first detach, so
-            // require a sustained clean window before input enumeration starts.
-            int cleanSnapshots = 0;
-            // A sustained clean window is required only when no device from
-            // this process owns a port (startup/crash recovery). Creating or
-            // removing a temporary companion while a native output is active
-            // can use one clean snapshot; registered ports protect the native
-            // device and PnP is already established.
-            int requiredCleanSnapshots = activePorts.Count > 0 ? 1 : 10;
-            // With usbip.exe absent every snapshot fails the same way; report
+            // With usbip.exe absent every attempt fails the same way; report
             // that once after the loop, not once per attempt.
             int failedQueries = 0;
             string lastQueryError = null;
@@ -5211,78 +5244,104 @@ namespace DS4Windows
                 lastQueryError = error;
             }
 
-            int observedSnapshots = 0;
-            int staleRemaining = 0;
-            for (int attempt = 0; attempt < 32 && cleanSnapshots < requiredCleanSnapshots; attempt++)
+            bool observed = false;
+            for (int attempt = 0; attempt < 5 && !observed; attempt++)
             {
-                bool detachedAny = false;
                 int queryFailuresBefore = failedQueries;
-                int staleThisSnapshot = 0;
-                foreach (UsbipPortBlock port in GetImportedPorts(RecordQueryFailure))
-                {
-                    if (!activePorts.Contains(port.Port) &&
-                        IsLocalViiperPort(port, null))
-                    {
-                        staleThisSnapshot++;
-                        DetachPort(port.Port,
-                            "stale local VIIPER controller import");
-                        detachedAny = true;
-                    }
-                }
-
-                // Only a snapshot whose query actually succeeded is evidence about
-                // what is imported; a failed query says nothing either way.
+                IReadOnlyList<UsbipPortBlock> ports =
+                    GetImportedPorts(RecordQueryFailure);
                 if (failedQueries == queryFailuresBefore)
                 {
-                    observedSnapshots++;
-                    staleRemaining = staleThisSnapshot;
+                    observed = true;
+                    string unmanaged = DescribeUnmanagedLocalImports(ports,
+                        activePorts);
+                    if (unmanaged != null)
+                    {
+                        AppLogger.LogToGui(unmanaged, false);
+                    }
                 }
-
-                cleanSnapshots = detachedAny ? 0 : cleanSnapshots + 1;
-                if (cleanSnapshots < requiredCleanSnapshots)
+                else if (attempt < 4)
                 {
                     Thread.Sleep(100);
                 }
             }
 
             WarnPortQueryFailures(failedQueries, lastQueryError);
-
-            return DecideStaleSweep(observedSnapshots, cleanSnapshots,
-                requiredCleanSnapshots, staleRemaining, lastQueryError);
+            return DecideImportObservation(observed, lastQueryError);
         }
 
         /// <summary>
-        /// Turns the sweep's observations into a verdict. Pure, so the rule that
-        /// matters — an unobserved machine is not a clean one — is testable without
-        /// a usbip client.
+        /// Turns the attempt history into a verdict. Pure, so the rule that
+        /// matters — an unobserved machine is not a clean one — is testable
+        /// without a usbip client.
         /// </summary>
-        /// <param name="observedSnapshots">Snapshots whose port query actually
-        /// succeeded. Zero means nothing was ever seen, however many attempts ran.</param>
-        internal static ViiperStalePortSweep DecideStaleSweep(int observedSnapshots,
-            int cleanSnapshots, int requiredCleanSnapshots, int staleRemaining,
-            string lastQueryError)
+        internal static ViiperImportObservation DecideImportObservation(
+            bool observed, string lastQueryError)
         {
-            if (observedSnapshots <= 0)
+            if (!observed)
             {
-                // Every query failed. The loop saw no ports and detached nothing, which
-                // looks identical to a clean machine and is not the same thing.
-                return ViiperStalePortSweep.Unproven(
+                // Every query failed. Seeing no ports because nothing could be
+                // seen looks identical to a clean machine and is not the same
+                // thing.
+                return ViiperImportObservation.Unobserved(
                     "the imported-port list could not be read" +
                     (string.IsNullOrWhiteSpace(lastQueryError)
                         ? string.Empty
                         : " (" + lastQueryError.Trim() + ")"));
             }
 
-            if (cleanSnapshots < requiredCleanSnapshots)
-            {
-                return ViiperStalePortSweep.Unproven(
-                    "stale local VIIPER imports were still present after every attempt (" +
-                    staleRemaining + " left at the last look)");
-            }
-
-            return ViiperStalePortSweep.Clear();
+            return ViiperImportObservation.Seen();
         }
 
+        /// <summary>
+        /// One log line naming every local import this session does not
+        /// manage, or null when there are none. Pure. The line must say what
+        /// was found, that it was deliberately left, and where the user can
+        /// act on it — it is the only trace this decision leaves.
+        /// </summary>
+        internal static string DescribeUnmanagedLocalImports(
+            IReadOnlyList<UsbipPortBlock> ports, HashSet<int> activePorts)
+        {
+            if (ports == null || ports.Count == 0)
+            {
+                return null;
+            }
+
+            List<int> unmanaged = new List<int>();
+            foreach (UsbipPortBlock port in ports)
+            {
+                if (!activePorts.Contains(port.Port) && IsLocalImport(port))
+                {
+                    unmanaged.Add(port.Port);
+                }
+            }
+
+            if (unmanaged.Count == 0)
+            {
+                return null;
+            }
+
+            return string.Format(CultureInfo.InvariantCulture,
+                "{0} local usbip import(s) present that {1} does not manage (port {2}): left untouched - " +
+                "they may belong to another application or to a backend from a previous session. " +
+                "If one is a leftover virtual pad, Settings > VIIPER Virtual Controller Support > Backend process can clear it.",
+                unmanaged.Count, ProductInfo.ProductName,
+                string.Join(", ", unmanaged));
+        }
+
+        /// <summary>
+        /// Finds the usbip port of the device this session just created, by
+        /// its exact <c>{busId}-{devId}</c> bus id on a localhost server.
+        ///
+        /// <para>Ambiguity fails rather than guesses: usbip bus ids are small
+        /// integers every server counts from the bottom, so two local servers
+        /// can both be serving a "1-7" — and adopting the wrong one means
+        /// detaching another application's pad at teardown. Two matches
+        /// therefore return -1, which rolls the creation back, instead of a
+        /// coin flip. Callers on a backend recent enough to report
+        /// <c>usbipPort</c> in the create response never get here at all.
+        /// </para>
+        /// </summary>
         public static int FindLocalViiperPort(uint busId, string devId)
         {
             string remoteBusId = $"{busId}-{devId}";
@@ -5298,12 +5357,22 @@ namespace DS4Windows
             {
                 for (int attempt = 0; attempt < 15; attempt++)
                 {
-                    foreach (UsbipPortBlock port in GetImportedPorts(RecordQueryFailure))
+                    IReadOnlyList<UsbipPortBlock> ports =
+                        GetImportedPorts(RecordQueryFailure);
+                    int match = SelectUniqueLocalBusidMatch(ports, remoteBusId,
+                        out int matchCount);
+                    if (match >= 0)
                     {
-                        if (IsLocalViiperPort(port, remoteBusId))
-                        {
-                            return port.Port;
-                        }
+                        return match;
+                    }
+
+                    if (matchCount > 1)
+                    {
+                        AppLogger.LogToGui(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "VIIPER could not identify the import for {0}: {1} local imports claim that bus id, and adopting the wrong one would detach another application's device.",
+                            remoteBusId, matchCount), true);
+                        return -1;
                     }
 
                     if (attempt < 14)
@@ -5320,6 +5389,43 @@ namespace DS4Windows
             }
         }
 
+        /// <summary>
+        /// The port whose block matches <paramref name="remoteBusId"/> on a
+        /// localhost server, or -1 when there is none or more than one. Pure.
+        /// </summary>
+        internal static int SelectUniqueLocalBusidMatch(
+            IReadOnlyList<UsbipPortBlock> ports, string remoteBusId,
+            out int matchCount)
+        {
+            matchCount = 0;
+            int found = -1;
+            if (ports == null)
+            {
+                return -1;
+            }
+
+            foreach (UsbipPortBlock port in ports)
+            {
+                if (IsLocalImport(port) && MatchesBusId(port, remoteBusId))
+                {
+                    matchCount++;
+                    found = port.Port;
+                }
+            }
+
+            return matchCount == 1 ? found : -1;
+        }
+
+        /// <summary>
+        /// Detaches surviving older imports of the device this session just
+        /// created — and only of that device, on that device's own server.
+        ///
+        /// <para>The server scope is what makes this safe to keep as a detach:
+        /// a candidate must share the <c>usbip://host:port/</c> prefix of the
+        /// import we just confirmed as ours, because a bus id alone can
+        /// collide across two local servers. No confirmed import, no prefix,
+        /// no detaching.</para>
+        /// </summary>
         public static void DetachDuplicateLocalViiperPorts(uint busId, string devId, int keepPort)
         {
             if (keepPort < 0)
@@ -5328,13 +5434,78 @@ namespace DS4Windows
             }
 
             string remoteBusId = $"{busId}-{devId}";
-            foreach (UsbipPortBlock port in GetImportedPorts())
+            IReadOnlyList<UsbipPortBlock> ports = GetImportedPorts();
+            foreach (int duplicate in SelectSameServerDuplicates(ports,
+                remoteBusId, keepPort))
             {
-                if (port.Port != keepPort && IsLocalViiperPort(port, remoteBusId))
+                DetachPort(duplicate,
+                    $"duplicate import of this session's device {remoteBusId} on its own server");
+            }
+        }
+
+        /// <summary>
+        /// Ports other than <paramref name="keepPort"/> that carry the same
+        /// bus id on the same server as <paramref name="keepPort"/>. Pure.
+        /// Returns nothing when the kept port's own block — the source of the
+        /// server identity — cannot be found.
+        /// </summary>
+        internal static IReadOnlyList<int> SelectSameServerDuplicates(
+            IReadOnlyList<UsbipPortBlock> ports, string remoteBusId,
+            int keepPort)
+        {
+            List<int> duplicates = new List<int>();
+            if (ports == null)
+            {
+                return duplicates;
+            }
+
+            string serverPrefix = null;
+            foreach (UsbipPortBlock port in ports)
+            {
+                if (port.Port == keepPort)
                 {
-                    DetachPort(port.Port, $"duplicate local VIIPER import for {remoteBusId}");
+                    serverPrefix = ExtractServerPrefix(port);
+                    break;
                 }
             }
+
+            if (serverPrefix == null)
+            {
+                return duplicates;
+            }
+
+            foreach (UsbipPortBlock port in ports)
+            {
+                if (port.Port != keepPort &&
+                    MatchesBusId(port, remoteBusId) &&
+                    string.Equals(ExtractServerPrefix(port), serverPrefix,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    duplicates.Add(port.Port);
+                }
+            }
+
+            return duplicates;
+        }
+
+        /// <summary>
+        /// The <c>usbip://host:port/</c> part of a port block's device URL, or
+        /// null when the block does not carry one.
+        /// </summary>
+        internal static string ExtractServerPrefix(UsbipPortBlock port)
+        {
+            string block = port.Block;
+            int start = block.IndexOf("usbip://",
+                StringComparison.OrdinalIgnoreCase);
+            if (start < 0)
+            {
+                return null;
+            }
+
+            int pathStart = block.IndexOf('/', start + "usbip://".Length);
+            return pathStart < 0
+                ? null
+                : block.Substring(start, pathStart - start + 1);
         }
 
         public static void RegisterActivePort(int port)
@@ -5472,24 +5643,40 @@ namespace DS4Windows
                 : $"VIIPER could not query usbip ports ({attempts} attempts): {lastError}";
         }
 
-        private static bool IsLocalViiperPort(UsbipPortBlock port, string remoteBusId)
+        /// <summary>
+        /// Whether the import is served from this machine. Loopback origin is
+        /// the only identity test left in this class: what a local import
+        /// <i>is</i> — ours, another application's, a dead session's — cannot
+        /// be decided from the port table, and the controller-VID/PID
+        /// heuristic that used to stand in for that answer is how another
+        /// application's live pad got detached on 2026-07-31.
+        /// </summary>
+        internal static bool IsLocalImport(UsbipPortBlock port)
         {
             string block = port.Block.ToLowerInvariant();
-            bool localHost = block.Contains("usbip://localhost:") ||
+            return block.Contains("usbip://localhost:") ||
                 block.Contains("usbip://127.0.0.1:") ||
                 block.Contains("usbip://[::1]:") ||
                 block.Contains("usbip://::1:");
-            bool busMatches = string.IsNullOrEmpty(remoteBusId) ||
-                block.Contains("/" + remoteBusId.ToLowerInvariant());
-
-            return localHost && busMatches && (IsKnownViiperDevice(block) || !string.IsNullOrEmpty(remoteBusId));
         }
 
-        private static bool IsKnownViiperDevice(string block)
+        internal static bool MatchesBusId(UsbipPortBlock port, string remoteBusId)
         {
-            foreach (string deviceId in KnownViiperDeviceIds)
+            if (string.IsNullOrEmpty(remoteBusId))
             {
-                if (block.Contains(deviceId))
+                return false;
+            }
+
+            string block = port.Block.ToLowerInvariant();
+            string needle = "/" + remoteBusId.ToLowerInvariant();
+            for (int index = block.IndexOf(needle, StringComparison.Ordinal);
+                index >= 0;
+                index = block.IndexOf(needle, index + 1, StringComparison.Ordinal))
+            {
+                // "/1-7" must not accept "/1-71": the bus id has to end where
+                // the match ends, not run on into more digits.
+                int after = index + needle.Length;
+                if (after >= block.Length || !char.IsLetterOrDigit(block[after]))
                 {
                     return true;
                 }
@@ -5608,7 +5795,10 @@ namespace DS4Windows
             return null;
         }
 
-        private readonly struct UsbipPortBlock
+        // Internal rather than private: the pure attribution rules above are
+        // functions of these blocks, and the tests that pin them down build
+        // blocks directly.
+        internal readonly struct UsbipPortBlock
         {
             public UsbipPortBlock(int port, string block)
             {
@@ -5629,14 +5819,14 @@ namespace DS4Windows
         private readonly Action<int, string> detachPort;
         private readonly Action<int> unregisterPort;
         private readonly Action<uint, string> removeDevice;
-        private readonly Action detachStalePorts;
+        private readonly Action observeImports;
         private int disposed;
 
         internal ViiperVirtualDeviceLifetime(uint busId, string devId,
             int usbipPort, Action<uint, string> removeDevice,
             Action<int, string> detachPort = null,
             Action<int> unregisterPort = null,
-            Action detachStalePorts = null)
+            Action observeImports = null)
         {
             this.busId = busId;
             this.devId = devId ?? throw new ArgumentNullException(nameof(devId));
@@ -5645,10 +5835,13 @@ namespace DS4Windows
             this.detachPort = detachPort ?? ViiperUsbipPortManager.DetachPort;
             this.unregisterPort = unregisterPort ??
                 ViiperUsbipPortManager.UnregisterActivePort;
-            // The sweep now reports whether absence was proven; this teardown path
-            // only needs it attempted, so the result is deliberately discarded here.
-            this.detachStalePorts = detachStalePorts ??
-                (() => ViiperUsbipPortManager.DetachStaleLocalViiperPorts());
+            // Observation, not a sweep: after this lifetime detaches its own
+            // port, the pass names anything local still imported — including
+            // this very port, if the detach above failed — without touching
+            // it. The verdict is deliberately discarded; teardown has nothing
+            // to refuse.
+            this.observeImports = observeImports ??
+                (() => ViiperUsbipPortManager.ObserveLocalImports());
 
             // This object's lifetime *is* our claim on the device, so it is
             // also the record of it. The exit-time backend stop reads the
@@ -5699,7 +5892,7 @@ namespace DS4Windows
 
             try
             {
-                detachStalePorts?.Invoke();
+                observeImports?.Invoke();
             }
             catch
             {

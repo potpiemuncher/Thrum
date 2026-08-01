@@ -148,9 +148,11 @@ public class ViiperBackendLifecycleTests
         ViiperOwnedBackend owned = null,
         bool alive = true,
         ViiperBackendCensus census = null,
-        IReadOnlyCollection<ViiperCensusDevice> ours = null) =>
+        IReadOnlyCollection<ViiperCensusDevice> ours = null,
+        Func<ViiperPnpAbsenceProof> pnp = null) =>
         ViiperBackendStopPolicy.Decide(settingEnabled, owned ?? SomeBackend(),
-            alive, census ?? Idle(), ours ?? Array.Empty<ViiperCensusDevice>());
+            alive, census ?? Idle(), ours ?? Array.Empty<ViiperCensusDevice>(),
+            pnp);
 
     [TestMethod]
     public void AnIdleBackendWeStartedIsStopped()
@@ -258,6 +260,125 @@ public class ViiperBackendLifecycleTests
             true, SomeBackend(), true, null, Array.Empty<ViiperCensusDevice>());
         Assert.IsFalse(missing.ShouldStop);
         StringAssert.Contains(missing.Reason, "could not confirm");
+    }
+
+    // ---- PnP cross-check: invariant (c) --------------------------------
+
+    /// <summary>
+    /// The cross-check is a second opinion on the final idle verdict, not a
+    /// first probe: any census-level refusal must already have settled the
+    /// matter without touching the device tree.
+    /// </summary>
+    [TestMethod]
+    public void TheCrossCheckRunsOnlyAfterTheCensusHasProvenIdle()
+    {
+        int calls = 0;
+        Func<ViiperPnpAbsenceProof> counting = () =>
+        {
+            calls++;
+            return ViiperPnpAbsenceProof.Absent("controller hosts nothing");
+        };
+
+        ViiperBackendCensus busy = ViiperBackendCensus.Success(
+            new uint[] { 0 },
+            new[] { new ViiperCensusDevice(0, "7", "dualshock4") });
+        Decide(census: busy, pnp: counting);
+        Assert.AreEqual(0, calls,
+            "A census that already blocks the stop settles it; walking the " +
+            "PnP tree afterwards would be pure cost.");
+
+        Decide(settingEnabled: false, pnp: counting);
+        Assert.AreEqual(0, calls);
+
+        ViiperBackendStopDecision idle = Decide(pnp: counting);
+        Assert.AreEqual(1, calls);
+        Assert.IsTrue(idle.ShouldStop, idle.Reason);
+    }
+
+    /// <summary>
+    /// The phantom case the check exists for: the backend census says idle,
+    /// Windows still shows a devnode. The devnode wins, and the log line
+    /// names it.
+    /// </summary>
+    [TestMethod]
+    public void ADeviceWindowsStillShowsBlocksTheStop()
+    {
+        ViiperBackendStopDecision decision = Decide(pnp: () =>
+            ViiperPnpAbsenceProof.Present(new[]
+            {
+                @"USB\VID_054C&PID_0CE6\9&2AB44E7&0&1 (problem 24)",
+            }));
+
+        Assert.IsFalse(decision.ShouldStop);
+        StringAssert.Contains(decision.Reason, "Windows still shows");
+        StringAssert.Contains(decision.Reason, @"USB\VID_054C&PID_0CE6");
+        StringAssert.Contains(decision.Reason, "problem 24",
+            "The problem code is the evidence that this is a phantom rather " +
+            "than a live device; the log line has to carry it.");
+    }
+
+    /// <summary>
+    /// "Cannot tell" and "gone" are different answers, and only one of them
+    /// permits a stop. Same rule the census follows.
+    /// </summary>
+    [TestMethod]
+    public void AnAbsenceThatCouldNotBeProvenBlocksTheStop()
+    {
+        ViiperBackendStopDecision decision = Decide(pnp: () =>
+            ViiperPnpAbsenceProof.Unproven(
+                "SetupDiGetClassDevs could not enumerate present devices (error 5)"));
+
+        Assert.IsFalse(decision.ShouldStop);
+        StringAssert.Contains(decision.Reason, "could not prove");
+        StringAssert.Contains(decision.Reason, "error 5",
+            "Whatever stopped the probe is the only lead whoever reads the " +
+            "log will get.");
+    }
+
+    [TestMethod]
+    public void AProvenAbsenceLetsTheStopProceedAndTheReasonRecordsBothProofs()
+    {
+        ViiperBackendStopDecision decision = Decide(pnp: () =>
+            ViiperPnpAbsenceProof.Absent(
+                "the usbip-win2 host controller is present and hosts no attached device"));
+
+        Assert.IsTrue(decision.ShouldStop, decision.Reason);
+        StringAssert.Contains(decision.Reason, "no buses or devices");
+        StringAssert.Contains(decision.Reason, "Windows shows no device");
+    }
+
+    /// <summary>
+    /// A cross-check that dies is not a cross-check that passed. The policy
+    /// converts the exception into the same fail-closed verdict as every
+    /// other unprovable state, so no caller has to remember to.
+    /// </summary>
+    [TestMethod]
+    public void ACrossCheckThatThrowsLeavesTheBackendRunning()
+    {
+        ViiperBackendStopDecision thrown = Decide(pnp: () =>
+            throw new InvalidOperationException("walk exploded"));
+        Assert.IsFalse(thrown.ShouldStop);
+        StringAssert.Contains(thrown.Reason, "walk exploded");
+
+        ViiperBackendStopDecision empty = Decide(pnp: () => null);
+        Assert.IsFalse(empty.ShouldStop);
+        StringAssert.Contains(empty.Reason, "no result");
+    }
+
+    /// <summary>
+    /// Callers that do not request a cross-check keep the census-only
+    /// behaviour, wording included — that is what every pre-existing test in
+    /// this file pins down.
+    /// </summary>
+    [TestMethod]
+    public void NoCrossCheckMeansTheCensusVerdictStands()
+    {
+        ViiperBackendStopDecision decision = Decide();
+
+        Assert.IsTrue(decision.ShouldStop);
+        Assert.AreEqual(
+            "we started it and it is hosting no buses or devices",
+            decision.Reason);
     }
 
     // ---- Census over the API -------------------------------------------

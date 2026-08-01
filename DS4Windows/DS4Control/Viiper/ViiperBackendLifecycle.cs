@@ -348,15 +348,34 @@ namespace DS4Windows
     /// reason at all leaves the backend running, because a backend left running
     /// costs a few megabytes while a backend killed under a live consumer takes
     /// that consumer's controller away.</para>
+    ///
+    /// <para><b>The census also cannot see Windows.</b> It is the backend's
+    /// own bookkeeping, and a devnode Windows still shows after the backend
+    /// has forgotten it — a phantom — would pass it. So the final idle
+    /// verdict takes a second opinion from the PnP tree (invariant (c)'s
+    /// "prove exact-device absence"), supplied as <c>pnpCrossCheck</c> and
+    /// judged by the same rule as everything else here: anything short of
+    /// proven absence leaves the backend running.</para>
     /// </summary>
     public static class ViiperBackendStopPolicy
     {
+        /// <param name="pnpCrossCheck">
+        /// Lifecycle invariant (c)'s second opinion: after the census has
+        /// proven the backend idle, ask Windows whether it agrees that no
+        /// usbip-attached device remains. Invoked only when every census gate
+        /// has already passed — it is a cross-check on the final "idle"
+        /// verdict, not a first probe — and judged fail-closed: a check that
+        /// reports devices, cannot answer, returns nothing, or throws all
+        /// leave the backend running. Null means no cross-check was requested,
+        /// which existing callers and tests rely on.
+        /// </param>
         public static ViiperBackendStopDecision Decide(
             bool settingEnabled,
             ViiperOwnedBackend ownedBackend,
             bool backendProcessAlive,
             ViiperBackendCensus census,
-            IReadOnlyCollection<ViiperCensusDevice> ourLiveDevices)
+            IReadOnlyCollection<ViiperCensusDevice> ourLiveDevices,
+            Func<ViiperPnpAbsenceProof> pnpCrossCheck = null)
         {
             if (!settingEnabled)
             {
@@ -423,6 +442,52 @@ namespace DS4Windows
                     census.Buses.Count,
                     string.Join(", ", census.Buses.Select(bus =>
                         bus.ToString(CultureInfo.InvariantCulture)))));
+            }
+
+            if (pnpCrossCheck != null)
+            {
+                // The census is the backend's own view of what it hosts. A
+                // devnode Windows still shows after the backend has forgotten
+                // it — the phantom the old fork's present-only probe existed
+                // for — is invisible to it, so the final idle verdict gets a
+                // second opinion from the PnP tree. Every way this check can
+                // fall short of "proven absent" resolves to leaving the
+                // backend running.
+                ViiperPnpAbsenceProof proof;
+                try
+                {
+                    proof = pnpCrossCheck();
+                }
+                catch (Exception ex)
+                {
+                    return ViiperBackendStopDecision.Leave(
+                        "the PnP cross-check threw " + ex.GetType().Name +
+                        ": " + ex.Message);
+                }
+
+                if (proof == null)
+                {
+                    return ViiperBackendStopDecision.Leave(
+                        "the PnP cross-check returned no result");
+                }
+
+                if (proof.Verdict == ViiperPnpAbsenceVerdict.DevicesPresent)
+                {
+                    return ViiperBackendStopDecision.Leave(string.Format(
+                        CultureInfo.InvariantCulture,
+                        "the backend reports itself idle, but Windows still shows {0} device(s) attached through the usbip-win2 controller ({1})",
+                        proof.Devices.Count, string.Join("; ", proof.Devices)));
+                }
+
+                if (proof.Verdict != ViiperPnpAbsenceVerdict.ProvenAbsent)
+                {
+                    return ViiperBackendStopDecision.Leave(
+                        "could not prove at the Windows PnP level that no usbip-attached device remains (" +
+                        proof.Detail + ")");
+                }
+
+                return ViiperBackendStopDecision.Stop(
+                    "we started it, it is hosting no buses or devices, and Windows shows no device attached through the usbip-win2 controller");
             }
 
             return ViiperBackendStopDecision.Stop(

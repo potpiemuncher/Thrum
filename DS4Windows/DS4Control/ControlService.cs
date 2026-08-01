@@ -1747,13 +1747,15 @@ namespace DS4Windows
                     // VID/PID and a localhost URL, another application's live
                     // virtual pad is indistinguishable from a leftover, and on
                     // 2026-07-31 the sweep disconnected one mid-game. The pass
-                    // still runs for its log line — any unmanaged local import
-                    // is named, with a pointer to the Settings backend-process
-                    // card, which can attribute leftovers and clear them with
-                    // consent. The self-ingestion case that motivated the
-                    // detach is accepted as a residual risk until inputs can
-                    // recognise this app's own virtual pads; the startup
-                    // warning above fires for exactly that state.
+                    // runs purely for its log line — any unmanaged local
+                    // import is named, with a pointer to the Settings
+                    // backend-process card, which can attribute leftovers and
+                    // clear them with consent. The self-ingestion case that
+                    // motivated the old detach is closed at the correct layer
+                    // instead: input discovery refuses any pad attached
+                    // through the usbip-win2 controller
+                    // (UsbipAttachedInputPolicy), which needs no memory of who
+                    // created it.
                     ViiperUsbipPortManager.ObserveLocalImports();
 
                     StartupDiag("DS4Devices.findControllers dispatch begin");

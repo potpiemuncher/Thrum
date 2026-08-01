@@ -7,7 +7,12 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <Platforms>AnyCPU;x64;x86</Platforms>
+    <Platforms>x64;x86</Platforms>
+    <!-- A bare `dotnet test` evaluates as AnyCPU (the MSBuild default), which
+         cannot compile: the referenced app only has x64/x86 binaries for
+         FakerInputWrapper/SharpOSC. Remap the default; an explicit
+         -p:Platform (a global property) still wins. -->
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
   </PropertyGroup>
 
   <ItemGroup>

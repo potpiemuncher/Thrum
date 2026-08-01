@@ -2045,6 +2045,13 @@ Suspend support not enabled.", true);
                 driverStatus.IsBusy = true;
             }
 
+            ViiperBackendStatusViewModel backendStatus =
+                settingsWrapVM?.ViiperBackendStatus;
+            if (backendStatus != null)
+            {
+                backendStatus.IsBusy = true;
+            }
+
             Task.Run(() =>
             {
                 ViiperDriverReadiness readiness = recheckDriver
@@ -2053,6 +2060,10 @@ Suspend support not enabled.", true);
                 ViiperPrerequisiteStatus status =
                     ViiperSetupManager.GetStatus(tryStartServer: false);
                 ViiperAutostartStatus autostart = ViiperAutostart.Inspect();
+                // Reuses the ping GetStatus just took, so the card and the
+                // status line describe the same probe.
+                ViiperUnownedBackendReport backendReport =
+                    ViiperSetupManager.AssessUnownedBackend(status.ServerRunning);
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -2064,7 +2075,59 @@ Suspend support not enabled.", true);
                         driverStatus.IsBusy = false;
                     }
 
+                    if (backendStatus != null)
+                    {
+                        backendStatus.Apply(backendReport);
+                        backendStatus.IsBusy = false;
+                    }
+
                     ApplyViiperConsentText(readiness);
+                }));
+            });
+        }
+
+        /// <summary>
+        /// The (d) affordance: stop a backend this session does not own,
+        /// with consent. The confirmation body names what the backend is
+        /// holding and what happens if that turns out to be another
+        /// program's live controller; the commit-time gate inside
+        /// <see cref="ViiperSetupManager.StopUnownedBackend"/> re-checks the
+        /// state, so a stale card cannot stop a backend that no longer
+        /// qualifies.
+        /// </summary>
+        private void ViiperStopUnownedBtn_Click(object sender, RoutedEventArgs e)
+        {
+            ViiperBackendStatusViewModel backendStatus =
+                settingsWrapVM?.ViiperBackendStatus;
+            if (backendStatus == null || !backendStatus.ShowStopButton)
+            {
+                return;
+            }
+
+            bool confirmed = MessageBox.Show(this,
+                backendStatus.BuildStopConfirmationBody(),
+                "Stop VIIPER backend",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                MessageBoxResult.No) == MessageBoxResult.Yes;
+            if (!confirmed)
+            {
+                return;
+            }
+
+            backendStatus.IsBusy = true;
+            Task.Run(() =>
+            {
+                ViiperUnownedBackendStopOutcome outcome =
+                    ViiperSetupManager.StopUnownedBackend(
+                        message => AppLogger.LogToGui(message, false));
+                ViiperUnownedBackendReport after =
+                    ViiperSetupManager.AssessUnownedBackend();
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    backendStatus.Apply(after);
+                    backendStatus.ApplyStopOutcome(outcome);
+                    backendStatus.IsBusy = false;
                 }));
             });
         }

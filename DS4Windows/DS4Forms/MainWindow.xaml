@@ -730,6 +730,62 @@
                                 </Border>
 
                                 <!--
+                                    Backend-process card (lifecycle invariant
+                                    (d) follow-up). Says whose backend is
+                                    running and what it holds. The stop button
+                                    appears only when the report offers it: an
+                                    unowned backend, none of whose devices are
+                                    this session's, and nothing happens until
+                                    the confirmation that lists them is
+                                    accepted.
+                                -->
+                                <Border Style="{StaticResource BridgeCardStyle}"
+                                        DataContext="{Binding ViiperBackendStatus}"
+                                        MaxWidth="560"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Backend process"
+                                                   Style="{StaticResource BridgeSectionTitleStyle}"
+                                                   Margin="0,0,0,4" />
+
+                                        <TextBlock Text="{Binding Headline}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0,0,0,10" />
+
+                                        <StackPanel Margin="0,0,0,6"
+                                                    Visibility="{Binding HasHoldings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="What it is holding"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ForegroundColor}"
+                                                       Margin="0,0,0,4" />
+                                            <ItemsControl ItemsSource="{Binding HoldingLines}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding}"
+                                                                   Style="{StaticResource BridgeCardListItemStyle}" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <Button x:Name="viiperStopUnownedBtn"
+                                                Content="Stop this backend..."
+                                                Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,2,0,4"
+                                                Visibility="{Binding ShowStopButton, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                ToolTip="Stops the backend process shown above, after a confirmation that lists what it is holding. Offered only when the backend was not started by this app and none of its devices belong to this session."
+                                                Click="ViiperStopUnownedBtn_Click" />
+
+                                        <TextBlock Text="{Binding ActionResultText}"
+                                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                                   Margin="0"
+                                                   Visibility="{Binding HasActionResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!--
                                     Consent card (plan task 2.3). The two
                                     switches the runtime gate reads. Both default
                                     off and both are only ever turned on from a

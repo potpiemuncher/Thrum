@@ -598,8 +598,10 @@ namespace DS4Windows
         /// </summary>
         /// <param name="log">Receives one line describing what was decided and why.</param>
         /// <param name="censusSource">Test seam; defaults to the live API.</param>
+        /// <param name="pnpProbe">Test seam; defaults to the real PnP tree walk.</param>
         public static ViiperBackendStopMethod StopOwnedBackendOnExit(
-            Action<string> log = null, IViiperBackendCensusSource censusSource = null)
+            Action<string> log = null, IViiperBackendCensusSource censusSource = null,
+            IViiperPnpAbsenceProbe pnpProbe = null)
         {
             ViiperOwnedBackend owned = OwnedBackend;
             Process process = owned?.TryResolve();
@@ -613,9 +615,16 @@ namespace DS4Windows
                         .TakeCensus();
                 }
 
+                // Handed to the policy as a deferred call so the SetupAPI walk
+                // only runs when the census has already proven the backend
+                // idle - it is the cross-check on the final verdict, not a
+                // routine exit cost.
+                Func<ViiperPnpAbsenceProof> pnpCrossCheck = () =>
+                    (pnpProbe ?? new CmTreePnpAbsenceProbe()).Probe();
+
                 ViiperBackendStopDecision decision = ViiperBackendStopPolicy.Decide(
                     Global.StopViiperBackendOnExit, owned, alive, census,
-                    ViiperOwnedDeviceRegistry.Snapshot());
+                    ViiperOwnedDeviceRegistry.Snapshot(), pnpCrossCheck);
 
                 if (!decision.ShouldStop)
                 {
@@ -649,6 +658,170 @@ namespace DS4Windows
             finally
             {
                 try { process?.Dispose(); } catch { }
+            }
+        }
+
+        /// <summary>
+        /// Classifies the backend on the API port for the Settings card and
+        /// the startup log: is it ours, somebody's, or a leftover — and what
+        /// is it holding. Read-only.
+        /// </summary>
+        /// <param name="serverResponding">
+        /// Pass the ping result if one was just taken (the Settings refresh
+        /// has it in hand); null probes again.
+        /// </param>
+        /// <param name="censusSource">Test seam; defaults to the live API.</param>
+        public static ViiperUnownedBackendReport AssessUnownedBackend(
+            bool? serverResponding = null,
+            IViiperBackendCensusSource censusSource = null)
+        {
+            bool responding;
+            try
+            {
+                responding = serverResponding ?? CanPingServer();
+            }
+            catch
+            {
+                responding = false;
+            }
+
+            ViiperOwnedBackend owned = OwnedBackend;
+            bool alive = false;
+            if (owned != null)
+            {
+                Process resolved = owned.TryResolve();
+                alive = resolved != null;
+                try { resolved?.Dispose(); } catch { }
+            }
+
+            ViiperBackendCensus census = null;
+            if (responding && !(owned != null && alive))
+            {
+                census = (censusSource ?? new ViiperApiBackendCensusSource())
+                    .TakeCensus();
+            }
+
+            return ViiperUnownedBackendPolicy.Assess(responding, owned, alive,
+                census, ViiperOwnedDeviceRegistry.Snapshot());
+        }
+
+        /// <summary>
+        /// The user-initiated stop of a backend this session does not own —
+        /// the (d) affordance, and deliberately not a lifecycle change: it
+        /// runs only from an explicit click, after the card has shown what
+        /// the backend is holding.
+        ///
+        /// <para>The gate re-runs at commit time. Whatever the card said when
+        /// the button was clicked, the state that counts is the one read
+        /// here, so a backend that has started serving this session's own
+        /// pads — or whose census stopped answering — refuses rather than
+        /// proceeds. Stopping the process is the clean unplug path for
+        /// anything still attached to it: the USB/IP peer disappears and the
+        /// driver surprise-removes the devices, the same order VIIPER's own
+        /// exit produces.</para>
+        /// </summary>
+        /// <param name="log">Receives one line describing what happened.</param>
+        /// <param name="censusSource">Test seam; defaults to the live API.</param>
+        /// <param name="listenerPidSource">Test seam; defaults to the socket table.</param>
+        /// <param name="serverResponding">Test seam; null re-pings at commit time.</param>
+        public static ViiperUnownedBackendStopOutcome StopUnownedBackend(
+            Action<string> log = null,
+            IViiperBackendCensusSource censusSource = null,
+            Func<int?> listenerPidSource = null,
+            bool? serverResponding = null)
+        {
+            ViiperUnownedBackendReport report =
+                AssessUnownedBackend(serverResponding, censusSource);
+            if (!report.OffersStop)
+            {
+                ViiperUnownedBackendStopOutcome refused =
+                    ViiperUnownedBackendStopOutcome.Refused(
+                        DescribeStopRefusal(report));
+                log?.Invoke("VIIPER unowned backend not stopped: " +
+                    refused.Reason + ".");
+                return refused;
+            }
+
+            int? processId;
+            try
+            {
+                processId = (listenerPidSource ??
+                    ViiperBackendProcessLocator.FindApiListenerProcessId)();
+            }
+            catch
+            {
+                processId = null;
+            }
+
+            if (processId == null)
+            {
+                ViiperUnownedBackendStopOutcome refused =
+                    ViiperUnownedBackendStopOutcome.Refused(
+                        "could not identify the process listening on port " +
+                        ApiPort.ToString(CultureInfo.InvariantCulture));
+                log?.Invoke("VIIPER unowned backend not stopped: " +
+                    refused.Reason + ".");
+                return refused;
+            }
+
+            Process process = null;
+            try
+            {
+                string identity;
+                try
+                {
+                    process = Process.GetProcessById(processId.Value);
+                    identity = string.Format(CultureInfo.InvariantCulture,
+                        "{0} (pid {1})", process.ProcessName, process.Id);
+                }
+                catch (Exception ex)
+                {
+                    ViiperUnownedBackendStopOutcome refused =
+                        ViiperUnownedBackendStopOutcome.Refused(
+                            "the listening process (pid " + processId.Value +
+                            ") could not be opened: " + ex.Message);
+                    log?.Invoke("VIIPER unowned backend not stopped: " +
+                        refused.Reason + ".");
+                    return refused;
+                }
+
+                ViiperBackendStopResult result = ViiperBackendStopper.Stop(
+                    process, BackendStopGracePeriod);
+                ViiperUnownedBackendStopOutcome outcome =
+                    ViiperUnownedBackendStopOutcome.From(result, identity);
+                log?.Invoke(string.Format(CultureInfo.InvariantCulture,
+                    "VIIPER unowned backend stop ({0}; was holding {1}): {2}.",
+                    identity, report.DescribeHoldings(), result.Detail));
+                return outcome;
+            }
+            finally
+            {
+                try { process?.Dispose(); } catch { }
+            }
+        }
+
+        private static string DescribeStopRefusal(
+            ViiperUnownedBackendReport report)
+        {
+            switch (report.State)
+            {
+                case ViiperUnownedBackendState.NoBackend:
+                    return "no backend is running";
+                case ViiperUnownedBackendState.ManagedByThisApp:
+                    return "the running backend is managed by this session; " +
+                        "it stops with the app when the exit setting allows";
+                case ViiperUnownedBackendState.UnownedServingThisApp:
+                    return "the backend is serving this session's own " +
+                        "controller(s); disconnect them first";
+                case ViiperUnownedBackendState.UnownedInUse
+                    when report.ServesThisApp:
+                    return "the backend is serving this session's own " +
+                        "controller(s) alongside others; disconnect them first";
+                case ViiperUnownedBackendState.UnownedUnreadable:
+                    return "what the backend is holding could not be read (" +
+                        report.Detail + ")";
+                default:
+                    return "the backend's state changed while the request was in flight";
             }
         }
 

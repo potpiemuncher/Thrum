@@ -1917,7 +1917,10 @@ Two issues were filed for later rather than fixed in the pass:
   backend self-updates from the wrong repository through an elevated remote
   script. Folded into plan task 2.4b, because it is fixed on the spawn path.
 - [#9](https://github.com/potpiemuncher/Thrum/issues/9) â€” orphaned `task.bat`.
-  Deferred to Phase 5.4.
+  Was deferred to Phase 5.4; **fixed early in
+  [PR #35](https://github.com/potpiemuncher/Thrum/pull/35)**, because it turned
+  out to be sitting on top of a worse defect. See the entry at the end of this
+  file.
 
 ### Practical note for every future smoke pass: sample logs *after* the app exits
 
@@ -3872,3 +3875,132 @@ are cheaper than scoped, 4.5 is the giant. Suggested order **4.3 → 4.2 → 4.8
 4.5**: diagnostics first because it has the most existing scaffolding and the highest support
 value, the profile editor last because it is largest and benefits from patterns the earlier tasks
 settle.
+
+## Task 4.3a — the diagnostics report core (PR #33)
+
+The snapshot type, the formatter, and 11 tests. No UI, no live readers: this is the layer that
+decides *what may be said*, built before anything that could say it.
+
+`ThrumDiagnosticsSnapshot` is immutable and pre-redacted, and its shape is the safety property.
+Three sources were audited as dangerous before a line was written, and each is represented
+narrowly enough that the dangerous form is **unrepresentable** rather than merely unused:
+
+- HidHide's whitelist is every cloaked application's full path — the account name and,
+  effectively, the user's installed-game inventory. The type carries one bool about *this*
+  executable. There is no field the list could go in.
+- An output slot's input display string embeds the controller's Bluetooth MAC. The row carries
+  `InputDisplayName` only.
+- Audio endpoint IDs are stable per-machine correlators. Friendly names are carried because a
+  report that cannot say which device is default is useless; the IDs are not.
+
+`ThrumDiagnosticsReportFormatter` matches `ViiperDriverReportFormatter` deliberately — same
+62-column rules, same `[OK]`/`[INFO]`/`[ATTENTION]` tags — because the two reports get pasted
+into the same issue threads and should not look like they came from different products. It
+redacts everything it quotes regardless of provenance, per the rule that a report must not
+depend on every producer remembering to redact.
+
+Two findings the task surfaced, both recorded rather than papered over:
+
+1. **There is no VIIPER running-version source.** Nothing in the product asks the backend what
+   it is; the ping body is discarded after a substring test. The report therefore prints
+   "expected version" from the installer pin and states "running version: not reported by the
+   backend", rather than printing the pin as though it were an observation.
+2. **The "5-second stream rule" the plan says the restart button must honour does not exist.**
+   Exhaustive search; every 5-second constant in the tree is something else. No restart path
+   exists either, and composing stop+start is unsafe: the stop policy refuses whenever our own
+   devices are attached, a restart on a shared backend would kill another application's
+   devices, and `RecordOwnership` silently converts unowned to owned. **Recommendation: 4.3
+   ships without a restart button and the plan item is revised rather than implemented.**
+
+Negative control: stripping the redaction call fails
+`UserAccountNamesAreRedactedWhereverTheyAppear`.
+
+## Task 4.3b — the collector (PR #34)
+
+`ThrumDiagnosticsCollector` composes six `Func<T>` sources into a snapshot. Two properties, both
+tested.
+
+**One failing source must not cost the other five.** A diagnostics report is most valuable
+exactly when something is broken, so a source that throws is caught, recorded in
+`CollectionFailures`, and collection continues. A section that failed renders as a failure, never
+as an empty healthy section — the same "could not look is not looked and saw nothing" rule the
+driver gate and the stale-port sweep already follow.
+
+**Each source is read exactly once.** Several are expensive, and reading twice could also produce
+a report whose sections disagree about whether the backend is running.
+
+An absent source is deliberately *not* a failure — a caller may omit one, and it renders as
+"(not reported)". Recording that as an error would cry wolf.
+
+Negative control: neutering the catch with `when (false)` fails exactly the three isolation
+tests and nothing else. Suite 886.
+
+## Issue #9 — the orphaned `task.bat`, and the bug underneath it (PR #35)
+
+Filed during the Phase 1 rebrand smoke pass and deferred to 5.4. Fixed early because tracing it
+turned up something worse.
+
+The reported symptom: enabling the scheduled-task startup option writes a `task.bat` next to the
+executable; turning it off deleted the task and left the file — an executable launcher in the
+install folder that no setting accounted for.
+
+**The defect underneath.** The path was spelled three ways: `Path.Combine` in the field, and an
+interpolated `{dir}` plus a literal separator in both `WriteTaskEntry` and `RefreshTaskBat`.
+Those agree for every ordinary install and disagree at a drive root, because `Global.exedirpath`
+comes from `DirectoryInfo.FullName`, which keeps its trailing separator there. Installed at
+`C:\`, `Path.Combine` yields `C:\task.bat` while the interpolated form yields a doubled
+separator — and `DeleteOldTaskEntry` compares the registered task action against that path to
+detect a moved executable. It would find a mismatch it could never satisfy and **delete a healthy
+startup task on every settings load.** All three sites now use one property.
+
+This is the same hazard `StartupMethods` already carried a warning about for the *shortcut* path;
+the file simply committed it anyway for the batch path.
+
+Guarded the way the inherited-name rule is guarded — by scanning the compiled application. The
+two spellings leave different literals in the metadata heap (the bare filename versus the
+separator-prefixed form), so the prefixed form appearing anywhere means a second spelling came
+back.
+
+**A note on the negative control, because it failed silently first.** The initial attempt
+injected the bug through a shell heredoc that collapsed the escaped backslash into a literal tab
+— and the script used to verify it was mangled identically, so both sides agreed and the guard
+"passed" while testing nothing. Redone without shell escaping, it fails with the intended message
+and passes on revert. Second time a negative control on this project has silently tested nothing;
+the rule worth keeping is that **a control which passes on the first attempt is a failure to
+investigate, not a result.** Suite 899.
+
+## Task 4.3c — the six live sources, mapped before wiring
+
+Written up separately in `diagnostics-data-sources.md`. Six parallel agents, one per source, each
+followed by a verification pass that re-opened every cited file — which is how the traps below
+were found rather than discovered at runtime.
+
+All six sources are reachable and only link-health needs new code (one accessor; the counters are
+behind a private field). The structural results:
+
+- **Collection cannot run on the UI thread.** Audio round-trips to each driver's property store
+  (there is an in-repo comment recording this hanging a window), the backend does blocking
+  loopback TCP worth ~6 s worst case, and a cold driver-gate cache blocks on a SetupAPI plus
+  `WinVerifyTrust` sweep.
+- **`OutputSlotManager.GetOutSlotDevice()` must not be used** — an unlocked `Dictionary` read
+  against concurrent mutation, which can spin in a corrupted bucket chain. An infinite loop on
+  the UI thread is not something the collector's `catch` can rescue.
+- **The slot view-models must not be constructed** to reuse their projection; both subscribe to
+  events in their constructors and leak the handlers for the process lifetime.
+- **`GetStatus(tryStartServer: true)` claims ownership** via `RecordOwnership`, and 9 of the 11
+  call sites in the tree pass `true`. A read that copied the nearest example would take
+  ownership of a backend while reporting on it.
+
+## Documentation catch-up (this entry)
+
+Recording 4.3a, 4.3b and #9 above closes a gap where three merged PRs had left no trace in this
+file. Also corrected: the #9 line in the smoke-pass section still said "deferred to Phase 5.4",
+and the app was still called "DS4Windows" in nine places across the three user-facing documents
+under `docs/`, all of which describe this application's own behaviour rather than upstream's.
+
+Two things deliberately **not** changed. This file contains pre-existing mojibake where an
+em-dash belongs, from a double-encoding somewhere upstream of it; fixing that is a whole-file
+rewrite that would collide with the other sessions appending here, so it is left for a dedicated
+pass. And `smoke-rebrand.md` still records the orphaned `task.bat` as observed — that is a
+historical record of what the pass found, and rewriting it would falsify the log rather than
+update it.

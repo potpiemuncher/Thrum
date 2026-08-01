@@ -1,13 +1,16 @@
 # Frontend modernization
 
-This branch keeps the DS4Windows runtime and WPF binding layer intact while adopting the
-navigation, spacing, cards, descriptions, and progressive-disclosure patterns used by the
-DS5 Bridge companion app.
+Thrum keeps the runtime and WPF binding layer it inherited from DS4Windows intact while
+adopting the navigation, spacing, cards, descriptions, and progressive-disclosure patterns
+used by the DS5 Bridge companion app.
+
+Phase 4 tracks the remaining per-page work; `docs/dev/ui-modernization-status.md` holds the
+current inventory of which pages have adopted the card shell and which have not.
 
 ## Why the frontend remains WPF
 
 DS5 Bridge's companion is an Electron/React application backed by a small vendor-HID
-protocol. DS4Windows has hundreds of mature WPF bindings and event handlers connected
+protocol. Thrum has hundreds of mature WPF bindings and event handlers connected
 directly to controller, profile, output-slot, automation, and diagnostic services. Replacing
 that layer with Electron would require a second public API for nearly the entire program and
 would make regressions easy to miss.
@@ -66,11 +69,20 @@ settings rail explicit:
 
 ## Follow-up feature seams
 
-- **Audio Haptics** should be implemented behind a dedicated service and profile settings
-  model. The existing NAudio dependency and DualSense speaker/microphone paths can be reused,
-  but audio capture must not be coupled to a page's lifetime.
-- **Adaptive-trigger profile library** should wrap the existing trigger-effect primitives and
-  persist named presets independently of controller profiles before a preset UI is added.
-- **Controller artwork** should use project-owned, device-specific assets for DualShock 4,
-  DualSense, DualSense Edge, Switch, Joy-Con, and supported legacy devices. The shell must not
-  assume that every connected controller is a DualSense.
+All three seams this document originally listed as future work have since been built. They are
+kept here with their outcomes, because the seam each one describes is still the constraint that
+governs changes to it.
+
+- **Audio Haptics** — built. `AudioHapticsService` and `AudioHapticsProcessor` sit behind the
+  Audio Haptics page, with settings in `ProfileFeatureSettings`. The original constraint still
+  applies: audio capture must not be coupled to a page's lifetime.
+- **Adaptive-trigger library** — built. `TriggerLabPreset`, `TriggerLabPresetCatalog` and
+  `TriggerLabCustomProfile` back the Trigger Lab page, with encoding in
+  `TriggerLabEffectEncoder`. Note that these types live in `ProfileFeatureSettings` and are
+  serialized through `ProfileDTO`, so the original "persist named presets *independently* of
+  controller profiles" goal is only partly met — worth confirming before building anything that
+  assumes a preset outlives the profile that names it.
+- **Controller artwork** — built. `ControllerUiCapabilities.ImageResourceName` maps each
+  `InputDeviceType` to a device-specific asset (DualShock 4, DualSense, DualSense Edge, Switch 2
+  Pro), with `HasControllerArtwork` for the types that have none. The shell no longer assumes
+  every controller is a DualSense; task 4.2 extends this policy rather than branching in views.

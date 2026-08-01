@@ -3576,3 +3576,83 @@ Suite: **812 passed / 0 failed** (CI filter), from 805.
 *(Trap worth remembering: restoring a file from a backup with `Copy-Item` carries the backup's
 older timestamp, so MSBuild's incremental build skips it and the next test run silently uses the
 stale assembly. Touch the file after restoring.)*
+
+## 2026-07-31 — Lifecycle follow-ups: (c) PnP cross-check, (d) unowned-backend affordance
+
+**Session scope:** the two items the 3.1 gap-diff left open after 3.3 — the optional hardening
+for invariant (c) and the Phase 4 diagnostics affordance for invariant (d). Branch
+`lifecycle/pnp-crosscheck-and-unowned-backend-card`. Verdicts in
+[`lifecycle-invariants.md`](lifecycle-invariants.md) updated for both; with (b) riding upstream
+review as [hbashton/VIIPER#7](https://github.com/hbashton/VIIPER/pull/7), every invariant in
+that document is now Present, architecture-prevented with its residue surfaced, or filed.
+
+### (c) The final idle verdict now gets a second opinion from Windows
+
+The stop-on-exit decision proved "idle" entirely from VIIPER's census — the backend's own
+bookkeeping. A devnode Windows still shows after the backend has forgotten it (the problem-24
+phantom the old fork's present-only SetupAPI probe existed for) would have passed it.
+
+`CmTreePnpAbsenceProbe` walks the CM device tree under every present devnode carrying the UDE
+controller's hardware ID (`ROOT\USBIP_WIN2\UDE`): root hubs are descended, every non-hub node is
+reported as an attached device with its problem code, and the walk never throws — every failure
+is an `Unproven` verdict. Position rather than identity, deliberately: a VID/PID filter would
+both miss personas and match a real DualSense on a physical port; what makes a devnode
+usbip-attached is living under the emulated controller.
+
+`ViiperBackendStopPolicy.Decide` takes the probe as a deferred `Func` and consults it only after
+every census gate has passed — it is a cross-check on the final verdict, not a routine exit cost
+— and judges it by the house rule: devices present, unproven, null and thrown all leave the
+backend running. One asymmetry worth recording: a missing controller is *proven* absence
+(nothing can be attached through a controller that is not there), while a failed census stays a
+failure — devices can be alive behind an API that will not answer, but not under a devnode that
+does not exist.
+
+### (d) An unowned backend is no longer invisible
+
+If a session dies hard while owning a backend it started, the backend and its pads survive, and
+the next session — correctly — refuses to touch them. That refusal was silent: the user was left
+with a stale virtual controller and no in-app lead. The refusal stays; the silence goes.
+
+`ViiperUnownedBackendPolicy.Assess` classifies the backend on the API port (managed by this
+session / unowned idle / unowned serving this session's own pads / unowned holding devices this
+session cannot account for / unreadable), and a **Backend process** card in the Settings VIIPER
+section renders the verdict with holdings listed. The card never claims to know whether foreign
+devices are a dead session's leftovers or another program's live controllers — it cannot, so it
+says both, and the stop confirmation names what happens if the second reading is the true one.
+
+The stop is offered exactly when `ViiperUnownedBackendReport.OffersStop` says so: unowned,
+holdings readable, none of them this session's live controller. Unreadable census ⇒ no button —
+uninformed consent is not consent. The gate re-runs at commit time inside
+`ViiperSetupManager.StopUnownedBackend`, so a stale card cannot stop a backend that has started
+serving this session. The process is identified as the owner of the API port's listening socket
+(`GetExtendedTcpTable`), never by executable name; killing it is the clean unplug path (the
+USB/IP peer disappears, the driver surprise-removes the devices — the order VIIPER's own exit
+produces). Startup logs one warning line when the state is unowned-in-use, pointing at the card.
+
+### Verification
+
+Both halves follow the pure-decision / OS-probe split, so the policies are fully covered by
+fakes: 6 new stop-policy tests (cross-check ordering, each fail-closed path, wording), 4 probe
+contract tests (including the real walk, which must answer and never throw on any machine),
+18 classification/locator/commit-gate tests, 13 card tests (state copy, button gating, consent
+wording, outcome lines). The commit-time gate tests inject ping/census/pid seams — the real
+port is never touched, which matters on this machine, where a real VIIPER can be listening.
+
+Suite: **853 passed / 0 failed** (CI filter), from 812. Fresh `--no-incremental` rebuild: the
+same 17 known warnings as main, none new.
+
+**The (d) card was also driven for real**, since WPF binding failures are silent and no unit
+test can catch a card that does not render. Local isolated run (portable marker + scratch
+config, per the usual recipe) against a stand-in API server speaking VIIPER's framing and
+serving one foreign `dualsense` on bus 0. Verified through the UIA tree: the card rendered the
+`UnownedInUse` headline with `bus 0 device 7 (dualsense) - not created by this session` under
+"What it is holding"; the confirmation dialog carried the holdings and the losing-a-controller
+warning; confirming it stopped the right process and the card refreshed to "No VIIPER backend
+is running." with `Backend stopped (... had to be killed)`. Both log lines fired, including the
+startup warning naming the Settings path.
+
+**The run incidentally proved why the locator reads the socket table rather than process
+names.** The stand-in server was a `powershell` process, not `viiper.exe`, and
+`GetExtendedTcpTable` identified it correctly by ownership of the listening socket — a
+name-matching implementation would have found nothing to stop, and a looser one would have gone
+looking for the wrong process entirely.

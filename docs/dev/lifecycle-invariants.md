@@ -181,6 +181,22 @@ stop if any foreign device, any of **our own** leftover devices, or even an empt
 > Our own leftovers block a stop just as hard. Killing the backend while one of our virtual
 > devices is still attached is the exact ordering the teardown path exists to avoid.
 
+> **Closed 2026-07-31.** The cross-check now exists. `CmTreePnpAbsenceProbe` finds every
+> present devnode carrying the UDE controller's hardware ID (`ROOT\USBIP_WIN2\UDE` — all of
+> them, not the first) and walks the CM tree beneath: root hubs are descended, and every
+> non-hub devnode is reported as an attached device, problem code included — a problem-24
+> phantom reads `USB\VID_054C&PID_0CE6\... (problem 24)`, which is exactly the state that
+> must not pass for absence. Position, not identity: a VID/PID filter would both miss
+> personas and match a real pad on a physical port; what makes a devnode usbip-attached is
+> living under the emulated controller. `ViiperBackendStopPolicy.Decide` consults the probe
+> only after every census gate has passed — a second opinion on the final idle verdict, not
+> a first probe — and judges it fail-closed: devices present, unproven, a null result and a
+> thrown exception all leave the backend running. One deliberate asymmetry with the census:
+> a *missing controller* is proven absence (nothing can be attached through a controller
+> that is not there), while a failed census stays a failed census — devices can be alive
+> behind an API that will not answer, but not under a devnode that does not exist. Verdict
+> is now **Present** at both levels. The gap as originally found is described below.
+
 **Gap.** Absence is proven from VIIPER's census — VIIPER's own view of what it hosts — not from
 Windows PnP. If the two disagree (a devnode Windows still shows after VIIPER has forgotten it —
 precisely the phantom case the old fork's `present-only SetupAPI probe` was written for), Thrum
@@ -211,6 +227,23 @@ that caused the crashes cannot occur from Thrum's side.
 start is left alone, verified live in the Phase 2 VM pass — same PID, same start time, with
 `VIIPER backend left running: the backend was already running before Thrum started, so it is not
 ours to stop.`
+
+> **Affordance shipped 2026-07-31.** `ViiperUnownedBackendPolicy` classifies the backend on
+> the API port — managed by this session, unowned and idle, unowned but serving this
+> session's own pads, unowned and holding devices this session cannot account for, or
+> unreadable — and a **Backend process** card in the Settings VIIPER section renders the
+> verdict with the holdings listed. The stop button appears exactly when the report offers
+> it: unowned, holdings readable, and none of them this session's live controller. It asks
+> before acting, and the confirmation names the one thing the card cannot know — leftovers
+> of a dead session and another program's live controllers are indistinguishable from here,
+> so it says what happens in the second case. The gate re-runs at commit time, so a stale
+> card cannot stop a backend that has started serving this session; the process is
+> identified by its socket (the owner of the API port's listener via `GetExtendedTcpTable`),
+> never by executable name; and stopping it is the clean unplug path — the USB/IP peer
+> disappears and the driver surprise-removes the devices, the same order VIIPER's own exit
+> produces. Startup logs one warning line when an unowned backend is holding devices,
+> pointing at the card. Deliberately still not a lifecycle change: nothing happens without
+> a click, and the next session continues to leave unowned backends alone.
 
 **Gap (low severity, real).** The inverse case has no handling: if Thrum dies hard while owning a
 backend it started, the backend and any attached device survive with nothing to reclaim them. A
@@ -306,8 +339,8 @@ directly in the invariant's spirit, and testable through the existing port-manag
 |---|---|---|
 | (a) retired generation emits no late success | **Present** — both paths, since 3.3 | done |
 | (b) UNLINK cannot strand or double-complete | **Moved to VIIPER**; stranding handled, **ownership gap found** | **Report upstream** — this is Phase 3.4's finding, arrived early |
-| (c) prove exact-device absence | **Re-derived, Present** via census; fail-closed | Optional PnP cross-check; low priority while audio is off by default |
-| (d) parent death retains a protection | **N/A** — architecture prevents the dangerous case | Diagnostics affordance for orphaned backends (Phase 4), not a lifecycle change |
+| (c) prove exact-device absence | **Present** at both levels — census since 3.1, PnP cross-check since 2026-07-31; fail-closed | done |
+| (d) parent death retains a protection | **N/A** — architecture prevents the dangerous case | done — unowned-backend diagnostics card + consented stop, 2026-07-31 |
 | (e) timeout ≠ permission to kill | **Present** via the census gate | None; document the check-then-kill window |
 | (f) unproven removal blocks reuse | **Present** — since 3.3; also closed a fail-open where an unreadable port list counted as clean | done |
 
@@ -324,6 +357,13 @@ what is left is one optional hardening (c's PnP cross-check), one Phase 4 UI aff
 **the upstream finding (b)** — filed as
 [hbashton/VIIPER#7](https://github.com/hbashton/VIIPER/pull/7) with the fix, tests and a negative
 control.
+
+**Status after the 2026-07-31 follow-up pass:** the two remaining local items are done — (c)'s
+PnP cross-check (second opinion on the final idle verdict, fail-closed) and (d)'s diagnostics
+affordance (the Settings backend-process card with its consented stop). Every invariant in this
+document is now either **Present**, prevented by architecture with its residue surfaced to the
+user, or **filed upstream**. What deliberately remains open: (e)'s check-then-kill window
+(documented, not closable from the client side) and the (b) fix riding upstream review.
 
 Task 3.2 (default-audio-endpoint takeover guard) is unaffected by this diff and needed its own
 [VM] verification — Thrum has no equivalent of `NativeModeAudioDefaultGuard`, and whether it

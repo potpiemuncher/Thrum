@@ -95,6 +95,24 @@ default render endpoint**, checking whether the pad displaces it. Options, cheap
 - Wait for a usbip-win2 release carrying the filter fix, then measure on real hardware where the
   original failure was seen.
 
+  **Status as of 2026-08-01: the fix exists, but not yet in a release.** vadimgrn landed
+  [`4139f44`](https://github.com/vadimgrn/usbip-win2/commit/4139f44f6a87c8b1b71d1015c1bce9443cb86688)
+  on `develop`, taking a different route from the community patch that preceded it: the
+  `libdrv::argv` templates are deleted outright, the filter allocates `StackSize + 1` locations
+  and calls `IoSetNextIrpStackLocation` so it owns the slot it writes to, and the `ude` side
+  moves its stashed arguments out of the IRP entirely. We reviewed it by reading — verdict
+  correct and complete, with no surviving instance of the bug class anywhere in that tree — and
+  said plainly on the issue that this is **not** an empirical confirmation, because our VM never
+  reproduced the corruption at baseline and a clean patched run therefore proves nothing.
+
+  Two consequences here. The fix also **explains the field variance** that made this bug look
+  machine-specific: the old write went past `sizeof(IRP) + StackSize * sizeof(IO_STACK_LOCATION)`,
+  so whether it corrupted the next pool block or landed in the allocator's rounding slack
+  depended on how deep the device stack under the filter was. That retires the open question in
+  our earlier write-up. And this option is now waiting on a *release*, not on a fix — when one
+  ships, the driver manifest gains a candidate baseline, the dev PC stops being ruled out, and
+  this measurement becomes cheap.
+
 ### If and when it is ported
 
 The old fork's `NativeModeAudioDefaultGuard` (796 LOC in `DS4Windows-native-mode-pr`, 632 LOC of

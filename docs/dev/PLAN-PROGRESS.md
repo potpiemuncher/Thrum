@@ -3516,3 +3516,63 @@ The document records the cheapest ways to close it, the reason the dev PC is rul
 adaptations needed: key on device instance/container id rather than friendly name (a real
 DualSense produces identical names), cover Capture as well as Render, and surface guard state on
 the Phase 4 diagnostics page.
+
+---
+
+## 2026-08-01 — Phase 3.3: the two ports the gap-diff scoped
+
+**Session scope:** Phase 3, task 3.3 — port the two gaps 3.1 identified as worth closing.
+Branch `phase3/state-writer-drain-and-stale-port-refusal`. Verdicts in
+[`lifecycle-invariants.md`](lifecycle-invariants.md) updated for (a) and (f).
+
+### (a) The state writer now drains like the feedback path
+
+The feedback dispatchers already had a `ReaderWriterLockSlim` drain barrier; the state writer
+had only its generation check, so a writer could pass `IsStateWriterCurrent`, be descheduled, and
+wake to find `Disconnect()` had disposed the stream underneath it. The generation check narrowed
+that window but could not close it.
+
+The writer now takes a read lease on `stateWriteGenerationBarrier` around **both** the generation
+check and the write — checking outside the lease would leave the same gap — and `Disconnect()`
+drains it through `WaitForStateWriteCallbacks()` *before* disposing the stream, alongside the
+existing feedback drain. The self-deadlock guard mirrors the feedback barrier's.
+
+Stream recovery is deliberately **outside** the lease: it can dispose and rebuild the stream, and
+holding a read lease while `Disconnect` waits for the write lease would risk a deadlock rather
+than prevent one.
+
+### (f) Unproven stale-import removal now refuses creation — and it was fail-open twice
+
+`DetachStaleLocalViiperPorts` returned `void`; creation swept and then proceeded regardless.
+It now returns a `ViiperStalePortSweep`, and the ladder entry `CreateDeviceStream()` refuses when
+the sweep is not `Cleared`.
+
+**The second fail-open was the more interesting one.** If every `usbip port` query failed, the
+loop saw no ports, detached nothing, counted that as a clean snapshot, and reported a clean
+window — so "could not look" became indistinguishable from "looked and saw nothing". That is
+precisely the case invariant (f) names ("the probe cannot prove absence"), and it was passing
+silently. The sweep now counts only snapshots whose query actually succeeded; zero of those is
+`Unproven`, however many attempts ran.
+
+Two placement decisions worth recording. The check moved from `CreateDeviceAndOpenStream` to the
+ladder entry because the former runs **once per persona rung**, and the sweep can take seconds —
+refusing there would have multiplied a multi-second loop across five rungs. And the refusal
+throws `IOException`, matching how the audio gate refuses a few lines above in the same method,
+so the callers that already handle a refused creation handle this one unchanged; an
+`InvalidOperationException` would have escaped the ladder's `catch (IOException)` rungs entirely.
+
+`ViiperBackendDebugger` no longer inherits the sweep through `CreateDeviceAndOpenStream`, so it
+runs its own and **reports** rather than enforces — a diagnostic should say what it found.
+
+### Verification
+
+Verdict logic extracted into the pure `ViiperUsbipPortManager.DecideStaleSweep`, following the
+same testable-decision pattern as `DescribePortQueryFailures`. Seven new tests in
+`ViiperStalePortSweepTests`. Negative control: replacing the unobserved-snapshot guard with
+`if (false)` fails exactly the two tests that assert it, with their intended messages.
+
+Suite: **812 passed / 0 failed** (CI filter), from 805.
+
+*(Trap worth remembering: restoring a file from a backup with `Copy-Item` carries the backup's
+older timestamp, so MSBuild's incremental build skips it and the next test run silently uses the
+stale assembly. Touch the file after restoring.)*

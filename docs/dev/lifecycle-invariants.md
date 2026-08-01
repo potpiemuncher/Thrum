@@ -61,6 +61,14 @@ retired generation is in flight or can start. `Disconnect()` bumps every generat
 drains, then disposes the stream — the correct order
 ([ViiperOutDevice.cs:1126-1171](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)).
 
+> **Closed in 3.3.** The state writer now takes a read lease on its own
+> `stateWriteGenerationBarrier` around the generation check *and* the write, and
+> `Disconnect()` drains it via `WaitForStateWriteCallbacks()` before disposing the stream.
+> Stream recovery stays outside the lease deliberately — it can dispose and rebuild the
+> stream, and holding a read lease while `Disconnect` waits for the write lease would risk
+> a deadlock rather than prevent one. Verdict is now **Present** on both paths. The gap as
+> originally found is described below.
+
 **Gap.** The state-writer path has the generation check
 ([ViiperOutDevice.cs:1904-1910](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)) but **no
 drain barrier**. `Disconnect()` disposes the stream at line 1170 and only afterwards joins the
@@ -134,7 +142,15 @@ no longer owns — the same shape as the kernel-side defect class in
 [usbip-win2#181](https://github.com/vadimgrn/usbip-win2/issues/181), and exactly what
 `usbip-win2` PR #182's ownership arbitration exists to prevent on the other side of the wire.
 
-**This is Phase 3.4's deliverable, surfaced early.** Report to hbashton with the analysis above.
+**This is Phase 3.4's deliverable, surfaced early.**
+
+> **Filed 2026-08-01 as [hbashton/VIIPER#7](https://github.com/hbashton/VIIPER/pull/7)** — a PR
+> rather than an issue, because issues and discussions are both disabled on that repo. Verified
+> against upstream `main` @ `308e9b2` first, which also widened the finding: the **generic** async
+> IN completion at `server.go:1013-1018` has the identical shape, not just the ISO-IN path. The
+> fix extracts the removal into a `claimPending` helper used by all three sites, with tests
+> including 64 goroutines contending for one seqnum across 200 rounds under `-race`, and a
+> negative control in which the pre-fix semantics report "64 winners, want exactly 1".
 
 ---
 
@@ -243,6 +259,23 @@ could not prove absence.
 
 **Verdict: Partial — Thrum cleans up rather than blocks.**
 
+> **Closed in 3.3, and the sweep turned out to be fail-open in a second way.**
+> `DetachStaleLocalViiperPorts` now returns a `ViiperStalePortSweep`, and the ladder entry
+> `CreateDeviceStream()` refuses creation when it is not `Cleared`.
+>
+> The extra finding: if *every* `usbip port` query failed, the loop saw no ports, detached
+> nothing, counted that as a clean snapshot, and reported a clean window — turning "could
+> not look" into "looked and saw nothing". The sweep now counts only snapshots whose query
+> actually succeeded, so an unobservable machine is `Unproven` rather than clean. That is
+> the exact case the invariant names ("the probe cannot prove absence") and it was silently
+> passing before.
+>
+> The check moved from `CreateDeviceAndOpenStream` to the ladder entry, because the former
+> runs once per persona rung and the sweep can take seconds; it now runs once per creation
+> attempt. `IOException` matches how the audio gate refuses a few lines above, so callers
+> that already handle a refused creation handle this too. The verdict rules are extracted
+> into `DecideStaleSweep` and covered by seven tests.
+
 `CreateDeviceAndOpenStream` opens with:
 
 ```csharp
@@ -271,12 +304,12 @@ directly in the invariant's spirit, and testable through the existing port-manag
 
 | invariant | verdict | action |
 |---|---|---|
-| (a) retired generation emits no late success | **Present** (feedback), partial (state writer) | **Port** the drain barrier to the state-writer path — small |
+| (a) retired generation emits no late success | **Present** — both paths, since 3.3 | done |
 | (b) UNLINK cannot strand or double-complete | **Moved to VIIPER**; stranding handled, **ownership gap found** | **Report upstream** — this is Phase 3.4's finding, arrived early |
 | (c) prove exact-device absence | **Re-derived, Present** via census; fail-closed | Optional PnP cross-check; low priority while audio is off by default |
 | (d) parent death retains a protection | **N/A** — architecture prevents the dangerous case | Diagnostics affordance for orphaned backends (Phase 4), not a lifecycle change |
 | (e) timeout ≠ permission to kill | **Present** via the census gate | None; document the check-then-kill window |
-| (f) unproven removal blocks reuse | **Partial** — cleans up rather than blocks | **Port** the refusal branch — small |
+| (f) unproven removal blocks reuse | **Present** — since 3.3; also closed a fail-open where an unreadable port list counted as clean | done |
 
 **The headline for Phase 3 planning: there is far less to port than the plan assumed.** The plan
 budgeted 3–6 sessions on the assumption that a large body of old-fork containment work would need
@@ -285,9 +318,12 @@ moot by the architecture (d) — because the risky component, the in-process USB
 a render lease on a virtual audio endpoint, does not exist in Thrum, and the audio endpoints that
 made it necessary are off by default.
 
-What remains is two small, well-scoped ports (a and f), one optional hardening (c), one Phase 4
-UI affordance (d), and **one genuine upstream finding (b)** that is worth more than the rest
-combined.
+**Status after 3.3:** (a) and (f) are closed by the two small ports this diff scoped, both
+tested. (c) and (e) were already satisfied in re-derived form, (d) is moot by architecture, and
+what is left is one optional hardening (c's PnP cross-check), one Phase 4 UI affordance (d), and
+**the upstream finding (b)** — filed as
+[hbashton/VIIPER#7](https://github.com/hbashton/VIIPER/pull/7) with the fix, tests and a negative
+control.
 
 Task 3.2 (default-audio-endpoint takeover guard) is unaffected by this diff and needed its own
 [VM] verification — Thrum has no equivalent of `NativeModeAudioDefaultGuard`, and whether it

@@ -45,6 +45,15 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public ViiperDriverStatusViewModel ViiperDriverStatus { get; } =
             new ViiperDriverStatusViewModel();
 
+        /// <summary>
+        /// The backend-process card: who the running backend belongs to, what
+        /// it is holding, and — for one it can prove unowned and not serving
+        /// this session — the stop affordance. Same lazy construction as the
+        /// driver card, for the same reason.
+        /// </summary>
+        public ViiperBackendStatusViewModel ViiperBackendStatus { get; } =
+            new ViiperBackendStatusViewModel();
+
         // Re-Enable Ex Mode
         public bool HideDS4Controller
         {

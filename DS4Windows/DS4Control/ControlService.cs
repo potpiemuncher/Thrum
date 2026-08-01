@@ -1667,6 +1667,24 @@ namespace DS4Windows
                 StartupDiag($"Viiper status probe end ready={viiperStatus.Ready} helper={viiperStatus.ViiperInstalled} usbip={viiperStatus.UsbipInstalled} server={viiperStatus.ServerRunning}");
                 LogDebug(viiperStatus.StartupLogLine);
 
+                // Lifecycle invariant (d): a session that dies hard leaves its
+                // backend and pads running, and the next session - this one -
+                // correctly refuses to touch them. That refusal must not be
+                // silent, or the user is left with a stale virtual controller
+                // and no lead. One warning line, pointing at the card that can
+                // act on it.
+                ViiperUnownedBackendReport unownedBackend =
+                    ViiperSetupManager.AssessUnownedBackend(viiperStatus.ServerRunning);
+                if (unownedBackend.State == ViiperUnownedBackendState.UnownedInUse)
+                {
+                    LogDebug("A VIIPER backend " + ProductInfo.ProductName +
+                        " does not manage is running and holding " +
+                        unownedBackend.DescribeHoldings() +
+                        ". If these are leftovers of a session that did not exit cleanly, " +
+                        "Settings > VIIPER Virtual Controller Support > Backend process can stop it.",
+                        true);
+                }
+
                 DS4Devices.isExclusiveMode = getUseExclusiveMode(); //Re-enable Exclusive Mode
 
                 StartupDiag($"UpdateHidHiddenAttributes begin exclusive={DS4Devices.isExclusiveMode}");

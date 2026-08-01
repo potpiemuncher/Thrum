@@ -3815,3 +3815,60 @@ CONTRIBUTING.md. CI now gates every test.
   of the 867-test filtered baseline.
 - Fresh dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64 --no-incremental —
   **0 errors**, 17 known warnings.
+
+---
+
+## 2026-08-01 — Phase 4.1: UI modernization inventory
+
+**Session scope:** Phase 4, task 4.1 — audit every page, control and dialog against the
+card-based shell so 4.2–4.8 are scoped from the tree rather than from an estimate. Branch
+`phase4/ui-modernization-inventory`. Deliverable:
+[`ui-modernization-status.md`](ui-modernization-status.md). Analysis only; no behaviour change.
+
+**Scale.** 33 non-theme XAML files. `BridgeShellStyles.xaml` (838 lines) defines 20 keys and
+follows the theme properly — 110 `DynamicResource` against 11 `StaticResource`.
+
+**All nine nav pages exist and are wired into the modern shell**, with adoption varying behind
+them: Overview and Output Slots adopted; Audio Haptics, Trigger Lab, Profiles and Auto Profiles
+partial; Controllers and Log plain; **Settings mixed** — five cards coexisting with five
+surviving `GroupBox` sections (RunAs, OSC, UDP, Utils) across 548 lines inline in `MainWindow`.
+
+### The scoping result: three things the plan treats as work are already built
+
+- **The capability policy exists and is used.** `ControllerUiCapabilities.For(InputDeviceType)`
+  is consumed by four view-models and covered by 8 tests. Task 4.2's instruction to "extend it
+  rather than scattering `if (deviceType…)` in views" already holds: 14 of the device-type
+  branches are *inside the policy*, where they belong, and only three sites branch outside it.
+- **Theme parity is already enforced.** `ThemeDefinesEveryBrushTheShellStylesBindTo` is
+  parameterised over themes and asserts every brush the shell styles bind to exists in each.
+  New styles are covered automatically, so long as they bind by key.
+- **Task 4.3's data layer exists.** `ViiperDriverStatusViewModel` and
+  `ViiperBackendStatusViewModel` were built in Phase 2; diagnostics needs to aggregate them,
+  not derive them.
+
+### Findings
+
+1. **One hardcoded colour breaks theme-following, in the selected state.**
+   `BridgeShellStyles.xaml:389` sets the controller selector card's selected background to a
+   literal `#253881D8`, while every sibling setter in the same trigger block uses
+   `DynamicResource`. So the one state that will not adapt between light and dark is the
+   *selected* one — the state that tells the user which controller they are configuring. The
+   existing theme test cannot catch it, because it verifies referenced keys exist and a literal
+   references no key. Left as a finding rather than fixed here: choosing the dark-theme value is
+   a visual judgement, and 4.2 works on this exact card.
+2. **`ProfileEditor.xaml` is task 4.5 and then some** — 2,681 lines, 21 `GroupBox`, zero cards,
+   more unmodernized surface than every other dialog combined. **Both god code-behinds the plan
+   names have grown since it was written**: `ProfileEditor.xaml.cs` 3,003 (plan said 2,997) and
+   `MainWindow.xaml.cs` 2,957 (plan said 2,649, +308). The plan's "additive view-models, no MVVM
+   rewrite mid-phase" advice applies more strongly now, not less.
+3. **`ControllerReadingsControl` must not be modernized in place** — 4.4 replaces it outright,
+   so styling it first would be thrown away. Same for `WelcomeDialog` and
+   `FirstLaunchUtilWindow`, which 4.7 replaces rather than restyles.
+
+### Re-scoped
+
+Phase 4's 6–10 session budget still looks right in total, but unevenly distributed: 4.2 and 4.8
+are cheaper than scoped, 4.5 is the giant. Suggested order **4.3 → 4.2 → 4.8 → 4.7 → 4.6 → 4.4 →
+4.5**: diagnostics first because it has the most existing scaffolding and the highest support
+value, the profile editor last because it is largest and benefits from patterns the earlier tasks
+settle.

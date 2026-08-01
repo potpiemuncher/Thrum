@@ -289,7 +289,15 @@ What remains is two small, well-scoped ports (a and f), one optional hardening (
 UI affordance (d), and **one genuine upstream finding (b)** that is worth more than the rest
 combined.
 
-Task 3.2 (default-audio-endpoint takeover guard) is unaffected by this diff and still needs its
-own [VM] verification — Thrum has no equivalent of `NativeModeAudioDefaultGuard`, and whether it
-needs one depends on whether VIIPER's audio-capable personas reproduce the takeover, which is a
-measurement, not a code read.
+Task 3.2 (default-audio-endpoint takeover guard) is unaffected by this diff and needed its own
+[VM] verification — Thrum has no equivalent of `NativeModeAudioDefaultGuard`, and whether it
+needs one was a measurement, not a code read.
+
+**That measurement has since been run**; see
+[audio-default-endpoint-measurement.md](audio-default-endpoint-measurement.md). Summary: on
+attach, Windows promotes the virtual DualSense to **all six** default slots — render *and*
+capture, across Console, Multimedia and Communications — and does so again on every re-attach,
+with a stable endpoint identity and clean release on detach. The guard is therefore justified and
+scoped to audio-class consent, but is deliberately **not ported yet**: the displacement case (the
+pad taking over from an endpoint already in use) cannot be measured in a Gen 2 VM, which has no
+sound card of its own, and that is the specific behaviour the guard exists to prevent.

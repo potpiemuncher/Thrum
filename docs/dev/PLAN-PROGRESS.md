@@ -3433,3 +3433,52 @@ Fix is the same shape as VIIPER's own UNLINK handler: make the delete the owners
 Every file:line citation in the deliverable was checked against the current tree (9 Thrum
 citations re-read and confirmed; VIIPER citations read from `upstream-hbashton-viiper`). No code
 changed in this task — it is an analysis deliverable, and 3.3 is where the two small ports land.
+
+---
+
+## 2026-08-01 — Phase 3.2: default-audio-endpoint takeover, measured
+
+**Session scope:** Phase 3, task 3.2 — verify the known failure (Windows promoting the virtual
+pad's audio endpoints to default) and decide whether to port `NativeModeAudioDefaultGuard`.
+Branch `phase3/audio-default-endpoint-measurement`. Deliverable:
+[`audio-default-endpoint-measurement.md`](audio-default-endpoint-measurement.md).
+
+**Environment.** `Win 11 25H2 Test ENV`, usbip-win2 **0.9.7.7**, Secure Boot **on**, test signing
+**off**. 0.9.7.7 sits on the *good* side of the `usbip2_filter` bisect, so this exercised the
+audio-endpoint path at materially lower risk than when the takeover was first seen. Checkpoint
+`phase3.2-before-audio-attach-20260801` taken immediately before the first attach.
+
+### Result: promotion is real, total, and repeats
+
+The guest began with **no audio endpoints at all** (a Gen 2 VM has no sound card). On attach of
+the synthetic composite DualSense, Windows enumerated `MEDIA DualSense Wireless Controller` and
+took **all six** default slots at once — `Speakers (DualSense Wireless Controller)` for
+Render/{Console, Multimedia, Communications} and `Headset Microphone (DualSense Wireless
+Controller)` for Capture/{Console, Multimedia, Communications}.
+
+Detach released all six cleanly; a second cycle behaved identically. **Endpoint identity was
+stable across both attaches** (same GUIDs), with **zero** stale MMDevices instances accumulated —
+unlike the 2026-07-20 dev-PC observation of ~10 stale instances. A read-only check of the dev PC
+while writing this found 0 such entries there now too, so that identity-churn condition is not
+currently reproducible either. Zero bugchecks, zero dumps, zero PnP problems.
+
+### What it does not establish, and the decision that follows
+
+The VM had **no incumbent endpoint**, so "became default" was uncontested. The operative
+complaint — the pad displacing the headset already in use — cannot be measured where there is
+nothing to displace, and round 2 does not close it either. This is structural: a Gen 2 guest has
+no sound card, and adding one means enhanced-session mode (which hides the guest's own endpoints)
+or installing a third-party driver into a deliberately offline VM.
+
+**Verdict: the guard is justified and scoped to audio-class consent, but is not ported in this
+change.** Two stated reasons rather than a quiet omission: the displacement case the guard exists
+to prevent is still unmeasured, and porting ~800 LOC plus notification plumbing against inference
+would repeat exactly what was declined earlier for the `usbip2_filter` fix (no baseline failure,
+no claim of a verified fix); and nothing ships exposed to it today, because audio-class endpoints
+are off by default behind the 2.3 consent gate, so there is time to close the gap properly.
+
+The document records the cheapest ways to close it, the reason the dev PC is ruled out on safety
+(it runs 0.9.7.8, the bad side of the bisect), and — for whoever does port it — the specific
+adaptations needed: key on device instance/container id rather than friendly name (a real
+DualSense produces identical names), cover Capture as well as Render, and surface guard state on
+the Phase 4 diagnostics page.

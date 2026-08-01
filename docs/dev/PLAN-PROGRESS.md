@@ -3782,3 +3782,36 @@ line, and the user's *physical* DualSense on Bluetooth — same VID/PID — was 
 controller in the same breath. Selectivity, not a VID/PID blanket: position in the device tree
 is the discriminator. The native application, its virtual pad, and its usbip import were
 untouched throughout.
+
+## 2026-08-01 — Restore XML snapshot coverage
+
+**Session scope:** the Phase 6 fixture-regeneration task pulled forward before the Phase 4.1
+modernization inventory. No serializer or product code changed.
+
+The three inherited exact-string XML tests filtered from CI were stale snapshots, not product
+failures. AppSettingsTests.CheckSettingsSave now includes the eight settings the current
+serializer adds during a round trip: process priority, profile-change notification, the two
+Moonlight flags, verbose startup logging, backend stop-on-exit, experimental acknowledgement,
+and the audio-endpoint gate.
+
+Both profile snapshots now include the current 28 serialized leaves covering stick drift and
+debounce, compatibility and mute-light settings, DualSense audio settings, and trigger-effect
+parameters. Their output-controller value is ViiperX360, the canonical serialization of the
+legacy X360 input; legacy-input compatibility remains covered separately by
+OutputControllerMigrationTests.
+
+The assertions still compare the entire serialized document exactly — element order, casing,
+values, indentation, and blank lines — but normalize line endings first. That removes the
+checkout-only mismatch between LF source blobs and the Windows serializer's CRLF output without
+weakening the snapshots into semantic XML comparisons.
+
+The temporary exclusion and stale-fixture explanation are gone from CI, README.md, and
+CONTRIBUTING.md. CI now gates every test.
+
+### Verification
+
+- Focused snapshot run: **3 passed / 0 failed**.
+- Full unfiltered x64 Release suite: **870 passed / 0 failed**, restoring the three tests on top
+  of the 867-test filtered baseline.
+- Fresh dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64 --no-incremental —
+  **0 errors**, 17 known warnings.

@@ -24,15 +24,8 @@ builds and tests x64 Release. A change that only builds in Debug or only on
 ```powershell
 dotnet restore
 dotnet build .\DS4WindowsWPF.sln -c Release -p:Platform=x64
-dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64 --filter "Name!=CheckSettingsSave&Name!=CheckWriteProfile&Name!=CheckJaysProfileRead"
+dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64
 ```
-
-The `--filter` excludes three inherited XML snapshot tests
-(`CheckSettingsSave`, `CheckWriteProfile`, `CheckJaysProfileRead`) whose
-hardcoded expected XML predates fields the current serializer emits. They fail
-on a clean checkout regardless of your change. Do not "fix" them by editing
-the serializer — the fixtures are regenerated and the filter removed in a
-later phase. Every other test must pass.
 
 Run the **full** suite before opening a pull request, not just the tests near
 your change. Report failures verbatim; do not summarise them.

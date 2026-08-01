@@ -93,13 +93,8 @@ dotnet build .\DS4WindowsWPF.sln -c Release -p:Platform=x64
 Run the test suite:
 
 ```powershell
-dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64 --filter "Name!=CheckSettingsSave&Name!=CheckWriteProfile&Name!=CheckJaysProfileRead"
+dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64
 ```
-
-Those three excluded tests are stale upstream XML snapshot fixtures whose
-hardcoded expected output predates fields the current serializer emits; they
-fail on a clean checkout independently of any change made here. The fixtures
-are regenerated and the filter removed in a later phase.
 
 ## License
 

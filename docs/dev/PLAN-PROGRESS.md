@@ -10,29 +10,29 @@ this log is the public record of what was actually executed.
 
 ---
 
-## 2026-07-25 â€” Phase 0 complete (bootstrap)
+## 2026-07-25 — Phase 0 complete (bootstrap)
 
 **Session scope:** Phase 0, tasks 0.1 through 0.7.
 
 ### Decisions recorded
 
-- **D1 â€” Product name and repository visibility.** The product is **Thrum**.
+- **D1 — Product name and repository visibility.** The product is **Thrum**.
   The repository is **public from creation**, not private-then-opened. The
   name satisfies the naming criteria set in the plan: no "DS4", "DualSense",
   "PlayStation", "Switch", Sony, or Nintendo marks; ASCII and safe as an
   executable name; not colliding with an existing project in this space.
-- **D2 â€” Descriptor provenance.** **Adopted.** Thrum ships emulated Sony and
+- **D2 — Descriptor provenance.** **Adopted.** Thrum ships emulated Sony and
   Nintendo device identities the way the surrounding ecosystem already does,
   under a required discipline of provenance dossiers, SHA-256 hash
   inventories, and hard no-serial / no-PII redaction rules. Recorded in
   [ADR-0003](ADR-0003-descriptor-provenance.md).
 
-### 0.1 â€” Preserve the driver-validation layer (done earlier this date)
+### 0.1 — Preserve the driver-validation layer (done earlier this date)
 
 Executed in the maintainer's private workspace clone before this repository
 existed.
 
-- Commit **`48b5952`** â€” "Add read-only VIIPER driver-validation diagnostic",
+- Commit **`48b5952`** — "Add read-only VIIPER driver-validation diagnostic",
   on branch `feature/viiper-driver-validation-diagnostic`.
 - Parent **`5d2724a`** = the upstream hbashton/DS4Windows `main` head at the
   time (v4.0.2.1-dualsense-beta).
@@ -54,10 +54,10 @@ existed.
   would succeed. The same repository-local identity is set in the Thrum
   working clone.
 
-### 0.3 â€” Repository created and history imported
+### 0.3 — Repository created and history imported
 
 - Repository: **<https://github.com/potpiemuncher/Thrum>**, **public**,
-  created empty (no auto-initialised README, `.gitignore`, or license file â€”
+  created empty (no auto-initialised README, `.gitignore`, or license file —
   history comes from the import).
 - Topics: `gamepad`, `controller`, `dualsense`, `dualshock4`, `joycon`,
   `haptics`, `wpf`, `dotnet`, `viiper`.
@@ -71,7 +71,7 @@ existed.
   push and succeeded (test job with the upstream three-test filter, plus the
   x64 publish and packaging job).
 
-### 0.3 (cont.) â€” Working clone and upstream tracking wired
+### 0.3 (cont.) — Working clone and upstream tracking wired
 
 - Working clone created from GitHub in the maintainer's private workspace.
 - Repository-local git identity set: `potpiemuncher` /
@@ -82,11 +82,11 @@ existed.
   pushed to origin. It carries no Thrum commits, per
   [ADR-0002](ADR-0002-upstream-tracking.md). CI green on this branch as well.
 
-### 0.3 (cont.) â€” Validation layer merged into `main`
+### 0.3 (cont.) — Validation layer merged into `main`
 
 - `git merge --no-ff origin/feature/viiper-driver-validation-diagnostic` into
   `main`.
-- Merge commit **`4ce5f84`** â€” clean merge, no conflicts, 11 files / +4,145
+- Merge commit **`4ce5f84`** — clean merge, no conflicts, 11 files / +4,145
   insertions, matching the branch exactly.
 - The merge message records that the layer is read-only (no elevation, no
   device I/O, no install or teardown), that the full x64 Release suite was
@@ -97,23 +97,23 @@ existed.
   protection was enabled afterwards (below) so that it did not block the
   bootstrap itself.
 
-### 0.4 / 0.6 / 0.7 â€” Architecture decision records
+### 0.4 / 0.6 / 0.7 — Architecture decision records
 
-- [ADR-0001 â€” Repository topology](ADR-0001-repo-topology.md) (task 0.4):
+- [ADR-0001 — Repository topology](ADR-0001-repo-topology.md) (task 0.4):
   independent repository with imported full history rather than a GitHub fork;
   VIIPER consumed as a pinned release binary and never vendored; backend
   contributions routed through the maintainers' separate VIIPER fork.
-- [ADR-0002 â€” Upstream tracking policy](ADR-0002-upstream-tracking.md)
+- [ADR-0002 — Upstream tracking policy](ADR-0002-upstream-tracking.md)
   (task 0.7): `upstream` remote, fast-forward-only `upstream-track` mirror,
   merge-never-rebase, monthly-and-before-every-release cadence, minimal-diff
   conflict resolution in engine files, and a ~15k-added-line divergence budget
   alarm outside `docs/`, `installer/`, and branding paths.
-- [ADR-0003 â€” Descriptor provenance](ADR-0003-descriptor-provenance.md)
+- [ADR-0003 — Descriptor provenance](ADR-0003-descriptor-provenance.md)
   (task 0.6): the D2 decision, its rationale, and its requirements.
 
-### 0.5 â€” Governance files
+### 0.5 — Governance files
 
-- **`README.md`** â€” replaced in full. The inherited README advertised the
+- **`README.md`** — replaced in full. The inherited README advertised the
   upstream fork's downloads, update feed, support links, and a funding link;
   keeping it would have misrepresented this repository. The replacement states
   the product, a pre-alpha bootstrap status (no releases; still running under
@@ -122,16 +122,16 @@ existed.
   including the three-test CI filter and why it exists, and the
   GPL-3.0-or-later licence with corresponding-source terms. No CI badges, no
   download links, no funding links.
-- **`SECURITY.md`** â€” new. Crash dumps contain kernel memory and must never be
+- **`SECURITY.md`** — new. Crash dumps contain kernel memory and must never be
   attached to public issues; private reporting via GitHub private
   vulnerability reporting; redacted source-level analysis is the sharing norm;
   one-paragraph summary of the known usbip-win2 experimental status.
-- **`CONTRIBUTING.md`** â€” replaced (see deviations: the inherited file was
+- **`CONTRIBUTING.md`** — replaced (see deviations: the inherited file was
   lowercase `contributing.md` and was renamed). Prerequisites, canonical x64
   Release build and test invocation, pull-request discipline, the VM-only rule
   for kernel-driver work, the minimal-diff policy for engine files, the no-PII
   rule for committed content, and GPL header and attribution preservation.
-- **`NOTICE.txt`** â€” audited and extended (see deviations). A "To audit"
+- **`NOTICE.txt`** — audited and extended (see deviations). A "To audit"
   section was appended listing every required entry that is not yet documented,
   rather than fabricating licence text for entries that have not been verified
   against the distributed artifacts.
@@ -140,7 +140,7 @@ existed.
 
 1. **`THIRD-PARTY-NOTICES.txt` does not exist in this tree.** The equivalent
    inherited file is `NOTICE.txt`, and it is incomplete: it covers Crc32, Font
-   Awesome, the 1â‚¬ Filter, vJoyInterfaceCS, RNNoise and its .NET wrapper, and
+   Awesome, the 1€ Filter, vJoyInterfaceCS, RNNoise and its .NET wrapper, and
    the Switch 2 Pro artwork adaptation. Missing from it are VIIPER, usbip-win2,
    HidHide, NAudio, Concentus, the vendored SbcSharp, the bundled
    FakerInputWrapper and SharpOSC binaries, WPFLocalizeExtension,
@@ -166,7 +166,7 @@ existed.
 5. **`upstream-track` starts behind current upstream, deliberately.** It was
    created at the import base `5d2724a` as instructed, but upstream `main` had
    already advanced **4 commits** to `8a2b715` by import time (`db21d7e`,
-   `fac5467`, `3937d26`, `8a2b715` â€” all VIIPER installer hardening). So the
+   `fac5467`, `3937d26`, `8a2b715` — all VIIPER installer hardening). So the
    first ADR-0002 merge cycle has real work waiting on day one; this is not a
    drift problem, just a starting offset.
 6. **`docs/dev/` is new.** The tree already contains an unrelated inherited
@@ -197,7 +197,7 @@ Applied **after** all bootstrap pushes, so they did not have to fight it.
 
 ### Next steps
 
-- **Phase 1 â€” Rebrand without breakage.** Kick off with task 1.1: the identity
+- **Phase 1 — Rebrand without breakage.** Kick off with task 1.1: the identity
   map (`docs/dev/identity-map.md`) plus a `ProductInfo` single source of truth,
   landed as a pure mechanical refactor first and a value flip second so each
   commit is reviewable on its own. The identity anchors are already enumerated
@@ -219,19 +219,19 @@ Applied **after** all bootstrap pushes, so they did not have to fight it.
 
 ---
 
-## 2026-07-25 â€” Phase 1.1 (identity map + `ProductInfo`, pure refactor)
+## 2026-07-25 — Phase 1.1 (identity map + `ProductInfo`, pure refactor)
 
 **Session scope:** Phase 1, task 1.1. Branch `phase1/identity-productinfo`.
 
 **Intent: zero behaviour change.** Every string value in this change is
 byte-identical to the one it replaced. The application still presents itself as
-DS4Windows in every respect â€” same window title, same data folders, same
+DS4Windows in every respect — same window title, same data folders, same
 scheduled task, same IPC object names, same update feed. What changed is where
 those strings are written down.
 
 ### Identity map
 
-[`docs/dev/identity-map.md`](identity-map.md) â€” a categorised inventory of every
+[`docs/dev/identity-map.md`](identity-map.md) — a categorised inventory of every
 occurrence of the product identity, with a disposition for each: which later
 Phase 1 pull request flips it, or why it is deliberately kept.
 
@@ -277,14 +277,14 @@ doc stating what breaks if it stops matching its consumer.
 `AssemblyResourcePrefix = "pack://application:,,,/" + ExeBaseName + ";"`). Two
 consequences: the existing `const` fields in `Global`, `Changelog`,
 `ReleaseChannelPolicy` and `ViiperDriverValidationCommand` keep delegating
-without any `const` â†’ `static readonly` conversion, and the composed values
+without any `const` → `static readonly` conversion, and the composed values
 cannot drift from their parts.
 
 **No `const` was converted to `static readonly`.** This was checked before
 choosing the design: `ASSEMBLY_RESOURCE_PREFIX` (35 call sites),
 `RESOURCES_PREFIX` (44), `LANGUAGE_ASSEMBLY_NAME` (1) and
 `InstalledReleaseFileName` (1) are all used in string interpolation or as
-ordinary arguments â€” none in an attribute argument, a `case` label, or a default
+ordinary arguments — none in an attribute argument, a `case` label, or a default
 parameter value. The all-`const` design made the question moot, but the check
 also found the one place where `const`-ness is genuinely load-bearing:
 `[XmlRoot("DS4Windows")]` on `ProfileDTO`, which is an attribute argument (and
@@ -292,68 +292,68 @@ is KEEP anyway, per the file-format finding above).
 
 ### Consumers converted
 
-- `ScpUtil.cs` â€” `appDataPpath`, `localAppDataPpath`, the
+- `ScpUtil.cs` — `appDataPpath`, `localAppDataPpath`, the
   `ASSEMBLY_RESOURCE_PREFIX` / `RESOURCES_PREFIX` / `LANGUAGE_ASSEMBLY_NAME`
   trio, `Changelog.GITHUB_RELEASES_API_URI` and `GITHUB_LATEST_RELEASE_API_URI`.
   The public names are unchanged, so no call site churned.
-- `App.xaml.cs` â€” single-instance event GUID, all four IPC object names at both
+- `App.xaml.cs` — single-instance event GUID, all four IPC object names at both
   create and open sites, the `FindWindow` window-title target, the two HTTP
   user-agent headers, and the four message-box captions that were exactly the
   product name.
-- `MainWindow.xaml.cs` â€” the constructor now assigns
+- `MainWindow.xaml.cs` — the constructor now assigns
   `Title = ProductInfo.WindowTitle` (identical value) so that the window title
   and the `-command` client's `FindWindow` target provably come from one
   constant; plus the two updater release-tag links.
-- `StartupMethods.cs` â€” startup shortcut path (2), scheduled task name (7
+- `StartupMethods.cs` — startup shortcut path (2), scheduled task name (7
   sites, including the `start` console title written into `task.bat`).
-- `SettingsViewModel.cs` â€” the duplicated startup-shortcut literal.
-- `MainWindowsViewModel.cs` â€” updater executable names, updater releases API and
+- `SettingsViewModel.cs` — the duplicated startup-shortcut literal.
+- `MainWindowsViewModel.cs` — updater executable names, updater releases API and
   download URLs, product latest-release API URL.
-- `ReleaseChannelPolicy.cs` â€” `InstalledReleaseFileName`.
-- `ViiperDriverValidationCommand.cs` â€” `%TEMP%` report directory, report window
+- `ReleaseChannelPolicy.cs` — `InstalledReleaseFileName`.
+- `ViiperDriverValidationCommand.cs` — `%TEMP%` report directory, report window
   title, and the failure-message product name.
-- `About.xaml.cs` â€” project and contributors links.
-- `LoggerHolder.cs` â€” the log file name and archive pattern. These are the
+- `About.xaml.cs` — project and contributors links.
+- `LoggerHolder.cs` — the log file name and archive pattern. These are the
   *effective* names: the bootstrap overrides whatever `NLog.config` declares.
 
 ### Consumers deliberately deferred
 
-- **`NLog.config`** â€” XML read by NLog before any managed constant exists. It
+- **`NLog.config`** — XML read by NLog before any managed constant exists. It
   keeps a `ds4windows_log.txt` placeholder that NLog requires the attribute to
   carry; `LoggerHolder` replaces it at startup. The flip pull request edits the
   file directly. Recorded in the identity map.
-- **All XAML** â€” per the task's constraint, no XAML was touched. The 4 pack
+- **All XAML** — per the task's constraint, no XAML was touched. The 4 pack
   URIs, 23 `DefaultAssembly` attributes, the `MainWindow` `Title` and the
   About-box header flip in the assembly-rename pull request.
-- **`csproj` / `app.manifest` / `.sln`** â€” `AssemblyName`, `ApplicationIcon`,
+- **`csproj` / `app.manifest` / `.sln`** — `AssemblyName`, `ApplicationIcon`,
   `assemblyIdentity`. Same pull request.
 - **Prose and log messages** (sentences such as "Copy complete, please relaunch
-  DS4Windowsâ€¦"). Substituting these mechanically would produce a large,
+  DS4Windows…"). Substituting these mechanically would produce a large,
   unreviewable diff and they belong with the string sweep. Deferred to the
   localization pull request.
 - **`utils/post-build.py`, `ds4w.bat`, `.github/workflows/*`, the issue
   template, `extras/install-viiper-backend.ps1`'s `DS4Windows-VIIPER-Setup`
-  strings** â€” build and packaging tooling, flipped alongside the assembly
+  strings** — build and packaging tooling, flipped alongside the assembly
   rename.
-- **`newest.txt`, `Changelog.json`** â€” data files. `Changelog.json` turns out to
+- **`newest.txt`, `Changelog.json`** — data files. `Changelog.json` turns out to
   have no reader anywhere in the tree; noted as an open decision.
 - **VIIPER ecosystem names** (`RunVIIPER`, `%LOCALAPPDATA%\VIIPER`,
   `hbashton/VIIPER`) and **upstream attribution** (GPL headers, Ryochan7 and
-  schmaldeo links, the ds4windows-site documentation links) â€” KEEP.
+  schmaldeo links, the ds4windows-site documentation links) — KEEP.
 
 ### Guard tests
 
 New `DS4WindowsTests/ProductIdentityTests.cs`, 10 tests:
 
-- `ExeBaseNameMatchesTheApplicationAssemblyName` â€” reflects on the app assembly
+- `ExeBaseNameMatchesTheApplicationAssemblyName` — reflects on the app assembly
   and asserts `ProductInfo.ExeBaseName` equals its real name. This is the test
   that fails if the csproj `AssemblyName` and `ProductInfo` are ever changed
   independently.
 - Three composition assertions for `AssemblyResourcePrefix`, `ResourcesPrefix`
   and `LanguageAssemblyName`.
-- `GlobalIdentityConstantsDelegateToProductInfo` â€” catches a future edit that
+- `GlobalIdentityConstantsDelegateToProductInfo` — catches a future edit that
   re-hardcodes one of the six aliases.
-- `IpcObjectNamesAreDistinctAndNamespaced` â€” the four IPC object names must be
+- `IpcObjectNamesAreDistinctAndNamespaced` — the four IPC object names must be
   distinct and prefixed by the product name, which is what lets a rebranded
   build coexist with the original.
 - Four resource-existence tests using `Application.GetResourceStream`: every
@@ -366,14 +366,14 @@ Application`: WPF permits only one per process for the process's lifetime and
 would throw. They resolve pack URIs on an STA thread without one, which works.
 
 **Negative control run:** with `ProductInfo.ExeBaseName` temporarily set to
-`"Thrum"`, 5 of the 10 tests failed â€” the reflection guard plus all four
+`"Thrum"`, 5 of the 10 tests failed — the reflection guard plus all four
 resource tests (`FileNotFoundException: Could not load file or assembly
 'Thrum'`). The guards are not vacuous. The value was restored and the file
 verified byte-identical before committing.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” succeeded, 17
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — succeeded, 17
   warnings, all pre-existing.
 - Full suite with the repository's CI invocation
   (`dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release
@@ -389,7 +389,7 @@ verified byte-identical before committing.
 1. **`MainWindow.xaml.cs` gained a `Title` assignment.** The plan's constraint
    was no XAML edits, and the `FindWindow` title dependency is one of the
    listed anchors. Assigning `Title = ProductInfo.WindowTitle` in the
-   constructor â€” the identical value â€” makes the window title and the IPC
+   constructor — the identical value — makes the window title and the IPC
    client's search string provably one constant without touching XAML. The XAML
    `Title="DS4Windows"` remains and is now redundant; the flip pull request
    removes it.
@@ -403,16 +403,16 @@ verified byte-identical before committing.
    effective names now come from `ProductInfo` and only the placeholder is left
    for the flip pull request. This is the outcome the task asked for, reached by
    a shorter route than expected.
-4. **No `const` â†’ `static readonly` conversions were needed** (see above).
+4. **No `const` → `static readonly` conversions were needed** (see above).
 5. **Plan line numbers had drifted**, as the plan warned. The identity map cites
    verified post-change line numbers; the notable corrections against the plan's
-   Part 2 table are `ScpUtil.cs` 677/678/681 â†’ 679/680/683 and the
+   Part 2 table are `ScpUtil.cs` 677/678/681 → 679/680/683 and the
    `MainWindow.xaml.cs` WM_COPYDATA handler at 1522, not ~1518.
 
 ### Next steps
 
-- **Phase 1.2** â€” the assembly and resource rename, as one atomic commit:
-  `AssemblyName` â†’ `Thrum`, the XAML sweep, `app.manifest`, and the
+- **Phase 1.2** — the assembly and resource rename, as one atomic commit:
+  `AssemblyName` → `Thrum`, the XAML sweep, `app.manifest`, and the
   post-build script's `Lang/` handling. The identity map's "flip PR" rows are
   the checklist; `ProductIdentityTests` is the safety net.
 - Before that flip, decide the two open items the map records: the OSC address
@@ -420,7 +420,7 @@ verified byte-identical before committing.
 
 ---
 
-## 2026-07-25 â€” Phase 1.2 + 1.3 (the atomic rename to Thrum)
+## 2026-07-25 — Phase 1.2 + 1.3 (the atomic rename to Thrum)
 
 **Session scope:** Phase 1, tasks 1.2 and 1.3, plus the identity values they
 unlock from task 1.5. Branch `phase1/rename-flip`, one commit.
@@ -482,7 +482,7 @@ verbs, same result-MMF layout. Only the object names moved.
 
 ### The fragile cluster (task 1.2)
 
-- **`AssemblyName`** â†’ `Thrum`, together with `ProductInfo.ExeBaseName`. These
+- **`AssemblyName`** → `Thrum`, together with `ProductInfo.ExeBaseName`. These
   two are what `ExeBaseNameMatchesTheApplicationAssemblyName` pins to each
   other; changing one alone fails CI, which is the entire reason that test
   exists.
@@ -493,7 +493,7 @@ verbs, same result-MMF layout. Only the object names moved.
   users who are not running English. All 23 were swept and the count verified.
 - **4 pack URIs** in `ProfileEditor.xaml` (`/DS4Windows;component/Resources/*`).
 - **`app.manifest`** `assemblyIdentity`, and **`NLog.config`**'s file-name
-  placeholder â€” both XML that is read before any managed constant exists, so
+  placeholder — both XML that is read before any managed constant exists, so
   both had to be edited by hand.
 - **`ThemeResourceTests`**' two relative pack URIs now compose from
   `ProductInfo.ExeBaseName` instead of naming the assembly literally.
@@ -508,11 +508,11 @@ The chain that has to survive an assembly rename, end to end:
 
 1. The csproj sets no `SatelliteResourceLanguages`, so MSBuild emits every
    culture as `<culture>/<AssemblyName>.resources.dll`. After the rename that
-   is `Thrum.resources.dll` â€” confirmed in the publish output.
+   is `Thrum.resources.dll` — confirmed in the publish output.
 2. `utils/post-build.py` moves each culture folder under `Lang/`.
 3. `DS4Windows/runtimeconfig.template.json` declares
    `additionalProbingPaths: ["./Lang/"]`, which the SDK emits into
-   `Thrum.runtimeconfig.json`. **This is the mechanism** â€” there is no custom
+   `Thrum.runtimeconfig.json`. **This is the mechanism** — there is no custom
    `AssemblyResolve` handler anywhere in the tree, and the template contains no
    assembly name, so it is inherently rename-safe.
 4. `Global.PROBING_PATH` (`"Lang"`) and `Global.LANGUAGE_ASSEMBLY_NAME` are used
@@ -533,7 +533,7 @@ packaging halves are proven; the load half needs the GUI.
 **not** in the identity map. It rewrites the entry assembly's library `path` to
 `./` inside `deps.json`, matching it with a hard-coded `re.compile(r"^DS4Windows/")`.
 After the rename that pattern matches nothing, the script exits 0, and the
-package is broken in a way no build step reports â€” it only shows up when the
+package is broken in a way no build step reports — it only shows up when the
 application is launched. It now derives the assembly name from the `deps.json`
 filename it was handed, so it cannot go stale again. Verified against the real
 output: the pattern matched `Thrum/4.0.2.1-dualsense-beta` and set its path.
@@ -548,33 +548,33 @@ and stay.
 ### Tests
 
 - `ViiperDriverReportFormatterTests` asserted the literal report header
-  `"DS4Windows VIIPER driver validation"` and a literal `%TEMP%\DS4Windows\â€¦`
+  `"DS4Windows VIIPER driver validation"` and a literal `%TEMP%\DS4Windows\…`
   fixture path. Both now compose from `ProductInfo`, and the formatter builds
   the header from `ProductInfo.ProductName`, so the assertion and the
   production string can never disagree again.
 - One test added: `LowerInvariantExeBaseNameMatchesExeBaseName`. The Game Bar
   probe switch needs a lower-case token, `ToLowerInvariant()` is not
   constant-foldable, so `ProductInfo.ExeBaseNameLowerInvariant` has to be
-  spelled out â€” and nothing but a test keeps it honest. This is why the suite
+  spelled out — and nothing but a test keeps it honest. This is why the suite
   total is 525 rather than the 524 the plan predicted.
 - Two test-local temp file names (`ds4windows-dualsense-trace-*.wav`) renamed;
   scratch files with no coupling.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **succeeded, 0
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **succeeded, 0
   errors**, 17 warnings, all pre-existing and identical to the 1.1 baseline.
 - CI's exact publish invocation
   (`dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release /p:platform=x64 -o .\bin\x64\Release\output`)
-  â€” succeeded. Output contains `Thrum.exe`, `Thrum.dll`, `Thrum.deps.json`,
+  — succeeded. Output contains `Thrum.exe`, `Thrum.dll`, `Thrum.deps.json`,
   `Thrum.runtimeconfig.json` and 31 `Thrum.resources.dll` satellites.
   **Zero files matching `DS4Windows*` or `*ds4w*` anywhere in the tree.**
-- CI's packaging step (`python .\utils\post-build.py â€¦`) â€” succeeded, produced
+- CI's packaging step (`python .\utils\post-build.py …`) — succeeded, produced
   `bin\x64\Release\Thrum\` and `Thrum_<version>_x64.zip`, with 23
   `Thrum.resources.dll` under `Lang/` and `.thrum-managed-files.txt` present.
   The workflow's `Copy-Item` source path and artifact path both still exist.
 - Full suite with the repository's CI filter: **525 passed / 0 failed.** All
-  ten pre-existing guard tests pass on the flipped values â€” including the five
+  ten pre-existing guard tests pass on the flipped values — including the five
   that PR #1 recorded as failing until `AssemblyName` matched `ExeBaseName`.
   They were the completion detector for this change and they are green.
 - `git grep -in "ds4windows"` re-sweep: 1,644 hits, every one classified
@@ -587,13 +587,13 @@ and stay.
 
 Every remaining hit falls in a KEEP or DEFER category:
 
-**KEEP â€” not product identity.** Namespace plumbing (242 declarations + 612
+**KEEP — not product identity.** Namespace plumbing (242 declarations + 612
 qualified type references, 52% of the total); GPL headers and lineage
 attribution (200); the `<DS4Windows>` config XML root element and its XPaths
 (26); the OSC address namespace and command word (33); project, solution and
 directory paths (70); the vendored Bezier editor web app (6).
 
-**KEEP â€” decided during this change.** The five `DS4WINDOWS_*` diagnostic
+**KEEP — decided during this change.** The five `DS4WINDOWS_*` diagnostic
 environment variables, and the two `DS4Windows:AudioHaptics*` pseudo-endpoint
 prefixes. Both are covered under "new anchors" below.
 
@@ -611,24 +611,24 @@ identity map itself.
 Eight anchors the 1.1 sweep missed. All are now recorded in the identity map,
 marked **(found in 1.2)**.
 
-1. **`utils/inject_deps_path.py`'s hard-coded assembly name** â€” described
+1. **`utils/inject_deps_path.py`'s hard-coded assembly name** — described
    above. Fixed, and made self-deriving.
 2. **A duplicated `%APPDATA%` folder literal** in
    `DualShock4BluetoothSpeakerPassthrough.cs`, which built
    `%APPDATA%\DS4Windows\Logs` directly instead of going through
    `Global.appDataPpath`. A `ScpUtil`-only flip would have left Bluetooth audio
    diagnostic dumps in the old product's folder. Fixed. (It still ignores
-   portable mode â€” a pre-existing bug, deliberately left alone.)
-3. **Tray tooltip, balloon title and tray title** â€” three literals in
+   portable mode — a pre-existing bug, deliberately left alone.)
+3. **Tray tooltip, balloon title and tray title** — three literals in
    `TrayIconViewModel`. Without them the tray would have kept introducing
    itself as DS4Windows after every other rename landed. Fixed.
 4. **Five message-box captions** outside `App.xaml.cs`. The 1.1 pass converted
    the four captions in that one file but never swept the tree for the same
    pattern. Fixed.
-5. **Five `DS4WINDOWS_*` diagnostic environment variables** â€”
-   `â€¦_DUALSENSE_PCM_TRACE_DIRECTORY`, `â€¦_DS4_AUDIO_DRIFT_MODE`,
-   `â€¦_DS4_AUDIO_TRANSPORT_MODE`, `â€¦_DS4_AUDIO_DIAGNOSTIC_CAPTURE`,
-   `â€¦_VIIPER_STATE_RATE_HZ`. **Kept**, on the same reasoning as the OSC
+5. **Five `DS4WINDOWS_*` diagnostic environment variables** —
+   `…_DUALSENSE_PCM_TRACE_DIRECTORY`, `…_DS4_AUDIO_DRIFT_MODE`,
+   `…_DS4_AUDIO_TRANSPORT_MODE`, `…_DS4_AUDIO_DIAGNOSTIC_CAPTURE`,
+   `…_VIIPER_STATE_RATE_HZ`. **Kept**, on the same reasoning as the OSC
    namespace: they are an external control surface a human sets before
    launching, renaming them invalidates every debugging runbook that names
    them, and no test in the tree would catch a mistake. Recorded as open
@@ -637,7 +637,7 @@ marked **(found in 1.2)**.
    `DS4Windows:AudioHapticsAuto:`. These are not display strings: the composed
    identifier is persisted as a profile's capture-source setting, which makes
    them on-disk file-format values in the same sense as the `<DS4Windows>` root
-   element. **Kept** â€” flipping them would silently reset every per-app
+   element. **Kept** — flipping them would silently reset every per-app
    audio-haptics capture selection.
 
 ### Deviations from the plan
@@ -646,8 +646,8 @@ marked **(found in 1.2)**.
    the identity map assigned them to the icons+updater pull request. They are
    package metadata with no runtime consumer, and leaving a freshly renamed
    assembly pointing at `hbashton/DS4Windows` as its repository was not worth a
-   second pull request. `ProductInfo.ReleaseOwnerRepo` â€” the value that
-   actually drives update checks â€” is untouched and still points upstream,
+   second pull request. `ProductInfo.ReleaseOwnerRepo` — the value that
+   actually drives update checks — is untouched and still points upstream,
    with a doc comment saying why.
 2. **`ds4w.bat` was not flipped**, although the identity map listed it under
    the flip pull request. Nothing in the build, the workflows, or the
@@ -668,7 +668,7 @@ marked **(found in 1.2)**.
 7. **Four extra product-name mentions were flipped in
    `extras/install-viiper-backend.ps1`** beyond the three the map listed. They
    are the script's own log and error text, including "Launch setup from
-   DS4Windows so Windows can request it automatically" â€” an instruction that
+   DS4Windows so Windows can request it automatically" — an instruction that
    would have been simply wrong after the rename. The VIIPER ecosystem names in
    that script (`RunVIIPER`, `%LOCALAPPDATA%\VIIPER`, the release URL) are
    untouched, as required.
@@ -696,23 +696,23 @@ DS4Windows install.
 
 ### Next steps
 
-- **Phase 1.4 â€” import wizard.** The data folders now point at
+- **Phase 1.4 — import wizard.** The data folders now point at
   `%APPDATA%\Thrum`, so an existing DS4Windows user currently sees an empty
   configuration. The one-time copy-import from `%APPDATA%\DS4Windows` is the
   next pull request and should not wait.
-- **Phase 1.6 / 1.7 â€” icons and update feed.** `ApplicationIcon` is still
+- **Phase 1.6 / 1.7 — icons and update feed.** `ApplicationIcon` is still
   `DS4W.ico` and `ProductInfo.ReleaseOwnerRepo` still points at
   `hbashton/DS4Windows`. The updater cutover matters for safety, not just
   branding: the inherited `DS4Updater.exe` path would install DS4Windows over
   Thrum.
-- **Phase 1.8 â€” string sweep**, the 188 `.resx` hits plus the 112 prose hits.
-- **Phase 1.9 â€” version reset**, which also disposes of `newest.txt`.
+- **Phase 1.8 — string sweep**, the 188 `.resx` hits plus the 112 prose hits.
+- **Phase 1.9 — version reset**, which also disposes of `newest.txt`.
 - Decide open decision 4 (the `DS4WINDOWS_*` environment variables) and the two
   older open items the map still carries.
 
 ---
 
-## 2026-07-25 â€” Phase 1.4 + 1.5 remainder (settings import, startup-name and HidHide audits)
+## 2026-07-25 — Phase 1.4 + 1.5 remainder (settings import, startup-name and HidHide audits)
 
 **Session scope:** Phase 1, task 1.4 in full, plus the audits that close out
 task 1.5. Branch `phase1/import-and-startup`.
@@ -731,7 +731,7 @@ shortcut: the profile and settings XML is byte-compatible between the two
 products (the root element is still `<DS4Windows>`, kept as a **file format**
 per the identity map), and the loader already runs `ProfileMigration` and
 `OutContTypeCompatibility.Normalize` over everything it reads. So the import
-runs before `Global.Load()` and then gets out of the way â€” an imported
+runs before `Global.Load()` and then gets out of the way — an imported
 configuration migrates on load exactly as it would have migrated in place.
 Transforming content in the importer would mean maintaining a second migration
 path that only ever runs once, and diverges silently.
@@ -769,7 +769,7 @@ user has not already declined, and the plan is non-empty.
 
 The non-obvious part is *when* "held no configuration" is sampled. It cannot be
 sampled at the offer site, because `SaveWhere`'s Appdata button calls
-`Global.SaveDefault`, which writes a stub `Profiles.xml` into the target â€” so by
+`Global.SaveDefault`, which writes a stub `Profiles.xml` into the target — so by
 the time control reaches the offer, a genuinely empty configuration can already
 look like an existing one. The flag is therefore taken immediately after
 `Global.FindConfigLocation()`, before any dialog can run, and passed in. (On a
@@ -778,7 +778,7 @@ exist yet, but relying on that would have been luck rather than design.)
 
 The second ordering hazard is on the way out. A successful import makes the
 configuration non-pristine, and the remaining first-run steps generate and save
-defaults â€” `AttemptSave()` writes `Profiles.xml` and `SaveAsNewProfile(0,
+defaults — `AttemptSave()` writes `Profiles.xml` and `SaveAsNewProfile(0,
 "Default")` writes `Profiles\Default.xml`, both straight over what was just
 imported. So the helper returns the first-run flag, and clears it (and
 `Global.firstRun`, which `MainWindow` reads for window placement) once a
@@ -787,7 +787,7 @@ configuration exists.
 **Dialog behaviour.** Title from `ProductInfo`; a summary listing the profile
 count and one line per other kind found, plus a line for any collisions;
 Import (default button, Alt+I) and Start fresh (`IsCancel`, Alt+F, Escape).
-`Start fresh` carries no click handler on purpose â€” `IsCancel` alone closes the
+`Start fresh` carries no click handler on purpose — `IsCancel` alone closes the
 window and leaves `ImportRequested` false, so nothing can race the built-in
 cancel behaviour into setting `DialogResult` twice. **Every exit that is not
 the Import button counts as declining**, including the title-bar close, which is
@@ -807,13 +807,13 @@ A partial import raises one message box naming the counts, says what was kept,
 and says that nothing in the source changed. It does not ask the user to clean
 anything up, because there is nothing to clean up.
 
-### 1.5 remainder â€” startup-entry safety audit. Verdict: **already scoped; no legacy path existed**
+### 1.5 remainder — startup-entry safety audit. Verdict: **already scoped; no legacy path existed**
 
 Every path that deletes or repairs a startup entry was re-read:
 `DeleteStartProgEntry`, `DeleteTaskEntry`, `DeleteOldTaskEntry`,
 `CheckStartupExeLocation`, the `SettingsViewModel` constructor's repair block
-(both entries present â†’ delete the shortcut; executable moved â†’ delete and
-rewrite; task branch â†’ `DeleteOldTaskEntry` + `WriteTaskEntry`) and the three
+(both entries present → delete the shortcut; executable moved → delete and
+rewrite; task branch → `DeleteOldTaskEntry` + `WriteTaskEntry`) and the three
 `RunAtStartup*` change handlers. All of them reach exactly two names, both from
 `ProductInfo`. **No legacy-cleanup path targeting `RunDS4Windows` or
 `DS4Windows.lnk` exists anywhere in the tree**, so there was nothing to delete
@@ -823,7 +823,7 @@ nothing in the repository unregisters a scheduled task other than our own.
 Two findings worth recording rather than shrugging at:
 
 1. **`DeleteOldTaskEntry` is misleadingly named.** "Old" means a stale task *of
-   ours* pointing at a moved `task.bat` â€” not the product this one was forked
+   ours* pointing at a moved `task.bat` — not the product this one was forked
    from. It now carries a doc comment saying so, because the obvious "fix" a
    future reader might apply (make it look for the inherited name) is precisely
    the bug this audit exists to prevent.
@@ -838,7 +838,7 @@ The guard is `DS4WindowsTests/StartupEntryIdentityTests.cs` (4 tests). The
 load-bearing one reads the compiled application off disk and searches it for
 `RunDS4Windows` and `DS4Windows.lnk`, decoded as UTF-16 at both byte alignments
 because a metadata string literal can start at an odd offset. A hit means *some*
-code path can name a real DS4Windows install's startup entry â€” the scan does not
+code path can name a real DS4Windows install's startup entry — the scan does not
 care which class it lives in, which is the point. It carries a positive control
 asserting the same scan does find `RunThrum` and `Thrum.lnk`, so it cannot pass
 vacuously.
@@ -847,14 +847,14 @@ vacuously.
 temporarily set to `RunThrum`, both the scan test and the name-difference test
 failed with the intended messages; restored and re-verified green.
 
-### 1.5 remainder â€” HidHide audit. Verdict: **no hard-coded name; nothing to fix**
+### 1.5 remainder — HidHide audit. Verdict: **no hard-coded name; nothing to fix**
 
 The whitelist path derives entirely from the running process.
 `Global.exelocation` is `Process.GetCurrentProcess().MainModule.FileName` with
 junction/symlink resolution (the Scoop case), `CheckHidHidePresence` converts
 that path to its DOS-device form and whitelists *that*, and
-`ProductInfo.ExeBaseName` appears only in the log line "â€¦ not found in HidHide
-whitelist. Adding to list" â€” it never reaches HidHide.
+`ProductInfo.ExeBaseName` appears only in the log line "… not found in HidHide
+whitelist. Adding to list" — it never reaches HidHide.
 `UpdateHidHideAttributes` deals in device instance IDs and no executable name at
 all; `HidHideAPIDevice` opens `\\.\HidHide`, which is HidHide's own device name
 and not ours to rename; `Global.hidHideInstalled` probes the `root\HidHide`
@@ -864,7 +864,7 @@ the category *runtime-derived identity*.
 
 ### Smoke checklist
 
-[`docs/dev/smoke-rebrand.md`](smoke-rebrand.md) â€” twelve items, each with steps
+[`docs/dev/smoke-rebrand.md`](smoke-rebrand.md) — twelve items, each with steps
 and an expected result: import accepted, source provably untouched, import
 declined and remembered (including Escape and the title-bar close), portable
 mode never offering, imported profiles loading with legacy output types
@@ -877,19 +877,19 @@ tray/theme/window identity. No absolute paths.
 
 One correction while writing it: the plan (and the session brief) name
 `-command query.appversion` as the IPC smoke test. **That verb does not exist**
-in this tree. The handler's syntax is `query.<device#>.<property>` â€” the
+in this tree. The handler's syntax is `query.<device#>.<property>` — the
 checklist uses `query.1.apprunning` and `query.1.profilename`, which are real.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **succeeded, 0
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **succeeded, 0
   errors**, 17 warnings, all pre-existing and identical to the 1.1/1.2 baseline.
 - Full suite with the repository's CI filter: **548 passed / 0 failed**, up from
   525 by exactly the 23 new tests (19 import, 4 startup-entry).
 - The GUI application was **not** launched. Everything the dialog and the
   startup wiring do that a unit test cannot reach is in the smoke checklist.
 - `git grep -in "ds4windows"`: 1,702 hits, up 58 from the flip. Every new hit is
-  prose (the audit sections, the smoke checklist) or new-file boilerplate â€” a
+  prose (the audit sections, the smoke checklist) or new-file boilerplate — a
   GPL header plus a `namespace DS4Windows` line is three hits before a file
   contains any logic. Exactly two new *literals* were added, both deliberate and
   both catalogued: the import source folder name, and the inherited startup
@@ -899,7 +899,7 @@ checklist uses `query.1.apprunning` and `query.1.profilename`, which are real.
 
 | Area | Tests | What they pin |
 |---|---|---|
-| Planning | 8 | Missing source â†’ empty plan; present-but-empty source â†’ empty plan; full source â†’ all six single-file items plus every profile; partial source â†’ only what exists; non-`.xml` files excluded (incl. the 8.3 `*.xmlbackup` case); collisions flagged; source == target â†’ empty plan; the default source is `%APPDATA%\DS4Windows` **and differs from our own data folder name** |
+| Planning | 8 | Missing source → empty plan; present-but-empty source → empty plan; full source → all six single-file items plus every profile; partial source → only what exists; non-`.xml` files excluded (incl. the 8.3 `*.xmlbackup` case); collisions flagged; source == target → empty plan; the default source is `%APPDATA%\DS4Windows` **and differs from our own data folder name** |
 | Execution | 6 | Full plan copies everything and leaves the source byte-identical; collisions skipped without overwriting; re-run copies only what is missing; an injected copy failure leaves the other items copied, reports the failure, and does not touch the source; a re-run after a failure finishes the import; an empty plan does not even create the target folder |
 | Offer state | 3 | Absent/config-less target is pristine (`Actions.xml` alone does not count); either `Profiles.xml` or `Auto Profiles.xml` ends that; the decline marker survives across planner instances |
 | Summary text | 2 | Counts, plural/singular, collision warning |
@@ -907,7 +907,7 @@ checklist uses `query.1.apprunning` and `query.1.profilename`, which are real.
 
 Real temporary directories throughout (`TestContext.TestRunDirectory`, falling
 back to the process temp path), never a hard-coded location, cleaned up in
-teardown. The one injected failure uses the `IImportFileSystem` seam â€” which is
+teardown. The one injected failure uses the `IImportFileSystem` seam — which is
 the reason the seam exists, since making one specific destination unwritable and
 nothing else is otherwise awkward and non-deterministic.
 
@@ -944,11 +944,11 @@ nothing else is otherwise awkward and non-deterministic.
 
 ### Next steps
 
-- **Phase 1.6 / 1.7 â€” icons and update feed.** Still the highest-value
+- **Phase 1.6 / 1.7 — icons and update feed.** Still the highest-value
   remaining Phase 1 work, and 1.7 is a safety item: the inherited
   `DS4Updater.exe` path would install DS4Windows over this product.
-- **Phase 1.8 â€” string sweep.** It now also owns the import dialog's text.
-- **Phase 1.9 â€” version reset.**
+- **Phase 1.8 — string sweep.** It now also owns the import dialog's text.
+- **Phase 1.9 — version reset.**
 - Run [`smoke-rebrand.md`](smoke-rebrand.md) once a build is in front of the
   maintainer. Items 1, 3, 7 and 9 are the ones that cannot be inferred from CI.
 - Offer a re-import from Settings as part of plan task 4.7's first-run rework,
@@ -956,7 +956,7 @@ nothing else is otherwise awkward and non-deterministic.
 
 ---
 
-## 2026-07-25 â€” Phase 1.6 + 1.7 + 1.9 (visual identity, release-feed cutover, version reset)
+## 2026-07-25 — Phase 1.6 + 1.7 + 1.9 (visual identity, release-feed cutover, version reset)
 
 **Session scope:** Phase 1, tasks 1.6, 1.7 and 1.9. Branch
 `phase1/icons-updater-version`.
@@ -964,7 +964,7 @@ nothing else is otherwise awkward and non-deterministic.
 Three tasks in one pull request because they are one story: this is the change
 where the product stops borrowing another project's face, another project's
 update feed, and another project's version number. Task 1.7 is also the last
-genuinely unsafe thing the rebrand inherited â€” see below.
+genuinely unsafe thing the rebrand inherited — see below.
 
 ### 1.7 first, because it is a safety fix rather than branding
 
@@ -975,7 +975,7 @@ wrote it:
 1. check `hbashton/DS4Windows` releases,
 2. offer the user an update,
 3. on "yes", download `DS4Updater.exe` from `hbashton/DS4Updater`,
-4. copy it next to our executable â€” **through an elevated `.bat` script** if the
+4. copy it next to our executable — **through an elevated `.bat` script** if the
    install needs admin,
 5. launch it with `--launchExe Thrum.exe`.
 
@@ -991,8 +991,8 @@ configuration in the csproj.
 releases API and still compare through `ReleaseChannelPolicy`; if a newer
 release exists, the existing dialog appears with its release notes, and "yes"
 opens the releases page in the user's browser. No download, no elevated copy,
-no process launch. `Util.ElevatedCopyUpdater` â€” the only elevation anywhere in
-the update path â€” is gone entirely.
+no process launch. `Util.ElevatedCopyUpdater` — the only elevation anywhere in
+the update path — is gone entirely.
 
 Deleted with it, all provably dead once their callers went:
 `MainWindowsViewModel.RunUpdaterCheck`, `LauchDS4Updater`,
@@ -1003,7 +1003,7 @@ cache; five `ProductInfo` updater constants; and the `PleaseDownloadUpdater`
 resource string in four languages, which told the user to download and rename
 `DS4Updater.exe` by hand.
 
-Repointed rather than deleted: `ReleaseOwnerRepo` â†’ `potpiemuncher/Thrum`.
+Repointed rather than deleted: `ReleaseOwnerRepo` → `potpiemuncher/Thrum`.
 Every other release URL is composed from it, so they cannot disagree.
 
 **Exact user-visible flow after the cutover.**
@@ -1019,13 +1019,13 @@ Every other release URL is composed from it, so they cannot disagree.
 ### Zero releases: verified against the actual API shape, not assumed
 
 The task asked which shape our code hits, and the two endpoints differ in a way
-that matters. `GET /repos/{owner}/{repo}/releases` â€” the **list** endpoint â€”
+that matters. `GET /repos/{owner}/{repo}/releases` — the **list** endpoint —
 answers **200 with `[]`** for a repository that has published nothing.
 `/releases/latest` answers **404**. Our update check uses the list endpoint, so
 "no releases yet" arrives as an ordinary empty array rather than as something
 indistinguishable from a network failure.
 
-`SelectPreferredRelease([])` already returned null and `ShouldUpdate(null, â€¦)`
+`SelectPreferredRelease([])` already returned null and `ShouldUpdate(null, …)`
 already returned false, so the *verdict* was correct before this change. What
 was missing was that it was silent: an empty feed, an unreachable feed and a
 malformed feed all produced the same "no update" with nothing in the log.
@@ -1037,26 +1037,26 @@ switching to it would turn today's normal state into an error path.
 "No release notes yet." rather than a blank window, which reads as a broken
 feature rather than an accurate one.
 
-### `Changelog.json` â€” re-verified before deleting, and the verification mattered
+### `Changelog.json` — re-verified before deleting, and the verification mattered
 
 PR #1 recorded "no reader exists". That is the kind of finding that only has to
 be wrong once, and the task named the specific suspect: `ChangelogWindow`, which
 might read the JSON or might fetch remotely.
 
-Traced end to end. `ChangelogWindow` â†’ `ChangelogViewModel.DisplayChangelog` â†’
-`Changelog.GetChangelogMarkdown(true)` â†’ `GetChangelog(true)` â†’ an HTTP GET of
+Traced end to end. `ChangelogWindow` → `ChangelogViewModel.DisplayChangelog` →
+`Changelog.GetChangelogMarkdown(true)` → `GetChangelog(true)` → an HTTP GET of
 `GITHUB_RELEASES_API_URI`. It renders GitHub release bodies as markdown and
 never touches the file. (`ChangelogViewModel` still *imports* `System.Text.Json`
-and `System.IO` without using them â€” vestigial from the old local-file design,
+and `System.IO` without using them — vestigial from the old local-file design,
 which is exactly what makes the file look live at a glance.)
 
 So the finding held. `Changelog.json` (123 KB) and `Changelog.min.json` (96 KB)
 are stale 3.3.3 data with no reader in the C#, the csproj, the workflows or the
-build scripts â€” they were not even copied to the output directory. **Both
+build scripts — they were not even copied to the output directory. **Both
 deleted.** Nothing needed pointing at a raw URL, because the changelog reader is
 the release feed, and the release feed moved in 1.7 on its own.
 
-### 1.6 â€” a placeholder icon set that is honest about being one
+### 1.6 — a placeholder icon set that is honest about being one
 
 `ApplicationIcon` was still `DS4W.ico`, the tray still showed DS4Windows's icon,
 and the eleven battery tray icons were upstream's.
@@ -1068,22 +1068,22 @@ was "not PlayStation blue"; violet is also clear of Xbox green and Nintendo red.
 **Generated, not drawn.** `utils/generate-thrum-icons/` is a committed
 `dotnet run` tool. It is deliberately **not** in `DS4WindowsWPF.sln`: it is
 authoring tooling, not a product component, and does not belong on the CI
-critical path. Verified idempotent â€” a second run produced byte-identical files.
+critical path. Verified idempotent — a second run produced byte-identical files.
 
 The reason the generator is committed rather than just its output is the frame
 recipe, and the frame recipe is the whole engineering content of this task.
 Each icon carries seven frames in two encodings: **uncompressed 32-bit BMP at
-16, 24, 32 and 48**, and **PNG at 64, 128 and 256**. WPF reads either. GDI â€”
-which is where H.NotifyIcon takes the tray icon â€” selects a frame by size
+16, 24, 32 and 48**, and **PNG at 64, 128 and 256**. WPF reads either. GDI —
+which is where H.NotifyIcon takes the tray icon — selects a frame by size
 *before* decoding, so the small BMP frames are load bearing. Recovering that
 recipe by inspecting a finished `.ico` is tedious and easy to get subtly wrong,
 so the intended way to replace these placeholders is to change the drawing code
 and re-run the tool.
 
 **Files.** `Thrum.ico`, `Thrum - White.ico`, `Thrum - Black.ico`, and
-`0.ico`â€¦`100.ico`. The monochrome variants are a solid plate with the T knocked
+`0.ico`…`100.ico`. The monochrome variants are a solid plate with the T knocked
 out to transparency, so one shape works on any taskbar tint. The battery icons
-keep their inherited numeric names on purpose â€” the tray view model composes
+keep their inherited numeric names on purpose — the tray view model composes
 those paths arithmetically from the percentage, the names describe a level
 rather than a brand, and renaming them would have meant rewriting that switch
 to buy nothing. They carry the base mark plus a proportional bottom bar,
@@ -1092,7 +1092,7 @@ nine pixels of height and there are fourteen to spend on the entire icon at
 16x16.
 
 Deleted: `Resources/DS4W.ico`, `Resources/DS4W - White.ico`,
-`Resources/DS4W - Black.ico`, and `DS4Windows/DS4W.ico` â€” the last being a
+`Resources/DS4W - Black.ico`, and `DS4Windows/DS4W.ico` — the last being a
 *second copy* of the application icon at the project root that `ApplicationIcon`
 named and that had to be kept in step with the `Resources` copy by hand.
 `ApplicationIcon` now points at `Resources\Thrum.ico`; there is one file.
@@ -1109,10 +1109,10 @@ electrobrains, InhexSTER, plus the community and translators), and the
 repository link. The inherited `ryochan7.github.io/ds4windows-site` link and its
 dead handler are gone. The header label is the interesting one: it read
 `"DS4Windows - hbashton Build (Version "` with the version appended in the
-constructor â€” a half-sentence literal, which is exactly the shape of string a
+constructor — a half-sentence literal, which is exactly the shape of string a
 rebrand walks past. It is now assigned whole, in code, from `ProductInfo`.
 
-### 1.9 â€” version reset
+### 1.9 — version reset
 
 Root `Directory.Build.props` holds `0.9.0-beta.1` / `0.9.0.0` / `0.9.0.0` /
 `0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)`. Both projects
@@ -1126,11 +1126,11 @@ version properties: `ElementTree.find()` returns `None` rather than failing, so
 the step would have kept running against a csproj that no longer declares a
 version and produced an unhelpful `AttributeError` in the middle of a release.
 
-### The `app_version` compatibility question â€” verdict: **cannot misbehave**
+### The `app_version` compatibility question — verdict: **cannot misbehave**
 
 Required check, and the sharp end of the version reset: the product version went
-*backwards*, 4.0.2.1 â†’ 0.9.0, while every settings file and every profile a
-DS4Windows user brings across â€” including everything the 1.4 importer copies â€”
+*backwards*, 4.0.2.1 → 0.9.0, while every settings file and every profile a
+DS4Windows user brings across — including everything the 1.4 importer copies —
 carries `app_version="4.0.2.1"` or older. From the running application's point
 of view those files were written by a newer build.
 
@@ -1138,10 +1138,10 @@ Four independent findings, each sufficient on its own:
 
 1. **`app_version` has no reader.** All three DTO properties that bind the
    attribute (`AppSettingsDTO`, `ProfileDTO`, `OutputSlotPersistDTO`) declare
-   `set { }` â€” an empty body. `XmlSerializer` parses the value off disk, hands
+   `set { }` — an empty body. `XmlSerializer` parses the value off disk, hands
    it to a method that does nothing, and it is gone. No field, no comparison,
    no log. `ProfileMigration` reads `config_version` and never `app_version`.
-2. **`APP_CONFIG_VERSION` â€” the constant stamped into `Profiles.xml` â€” is never
+2. **`APP_CONFIG_VERSION` — the constant stamped into `Profiles.xml` — is never
    compared to anything.** It is write-only. `BackingStore.Load()` contains no
    version logic at all and does not construct a `ProfileMigration`; its only
    failure path is `catch (InvalidOperationException)` on genuinely malformed
@@ -1167,16 +1167,16 @@ after upgrade simply rewrites the header to ours.
 
 The one real gap was test coverage: `AppSettingsTests`'s fixture root is a bare
 `<Profile>` with no header attributes at all, so nothing exercised a populated
-`app_version`. Closed â€” see below.
+`app_version`. Closed — see below.
 
-`ReleaseChannelPolicy.IsPrereleaseBuild("0.9.0-beta.1")` â†’ **true** (the regex
+`ReleaseChannelPolicy.IsPrereleaseBuild("0.9.0-beta.1")` → **true** (the regex
 alternation matches `beta`), and `TryParseReleaseVersion` extracts `0.9.0`.
 Worth checking rather than assuming: the marker moved from a trailing word
 ("4.0.2.1 DualSense Beta") to a semver suffix, a different shape entirely. Now
 covered, including the negative case that plain `"0.9.0"` is *not* classified as
 a prerelease.
 
-### Tests: 548 â†’ 570
+### Tests: 548 → 570
 
 22 new, in three files.
 
@@ -1190,7 +1190,7 @@ a prerelease.
 
 - Regenerated every icon with PNG-only frames:
   `EveryIconCarriesUncompressedFramesAtTheShellSizes` failed with 56 specific
-  complaints. **The other four icon tests passed** â€” including the
+  complaints. **The other four icon tests passed** — including the
   `System.Drawing.Icon` load test, which accepted the PNG-only files. That is
   the finding worth recording: the load test alone would *not* have caught the
   regression it looks like it catches, and the frame-composition test is the
@@ -1203,7 +1203,7 @@ a prerelease.
   version and re-ran: `TheApplicationAssemblyCarriesTheResetVersion` and
   `TheInformationalVersionRecordsTheUpstreamBaseCommit` both failed.
   `TheBuiltAssemblyCarriesAPrereleaseInformationalVersion` correctly still
-  passed â€” both versions are prereleases, so it is a channel guard, not a
+  passed — both versions are prereleases, so it is a channel guard, not a
   version-reset detector.
 - Made one settings fixture differ by header:
   `TheHeaderVersionCannotInfluenceWhatIsLoaded` failed, so its comparison is
@@ -1212,7 +1212,7 @@ a prerelease.
 ### Verification
 
 - `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64 --no-incremental`
-  â€” **succeeded, 0 errors**. Ten distinct warnings, identical to the inherited
+  — **succeeded, 0 errors**. Ten distinct warnings, identical to the inherited
   baseline; none new.
 - Full suite with the repository's CI filter: **570 passed / 0 failed**, up from
   548 by exactly the 22 new tests.
@@ -1226,9 +1226,9 @@ a prerelease.
   - Zip named `Thrum_0.9.0-beta.1_x64.zip`.
   - **Zero files matching `DS4W*`, `DS4Updater*` or `Changelog*` anywhere in the
     package.**
-- `git grep -in "ds4windows"`: 1,754 hits, up 52. Every new hit is prose â€” this
+- `git grep -in "ds4windows"`: 1,754 hits, up 52. Every new hit is prose — this
   entry, the revised identity-map rows, and the new tests' documentation
-  explaining why the updater is gone â€” plus four deliberate guard-test needles.
+  explaining why the updater is gone — plus four deliberate guard-test needles.
   The literals removed outweigh those added.
 - The GUI application was **not** launched.
 
@@ -1263,15 +1263,15 @@ a prerelease.
    decision 5 in the identity map so 1.8 does not have to rediscover it.
 6. **Three hard-coded `"DS4Windows Updater"` message-box captions were
    converted** to `ProductInfo.ProductName`. Same class as the five captions
-   found in 1.2 â€” code literals, not resources.
+   found in 1.2 — code literals, not resources.
 7. **`ds4winwpf_screen_20200412.png` was deleted**, closing a DEFER the identity
    map assigned to this pull request. Nothing referenced it and the README that
    embedded it was replaced in 0.5, so it was an orphaned picture of another
    product's user interface.
 8. **Root `/newest.txt` was added to `.gitignore`.** `post-build.py` writes it on
    every local package run, so it appears as an untracked file inviting an
-   accidental commit of a build artifact. The tracked `DS4Windows/newest.txt` â€”
-   still dead, still not read by anything â€” is set to `0.9.0` as the task
+   accidental commit of a build artifact. The tracked `DS4Windows/newest.txt` —
+   still dead, still not read by anything — is set to `0.9.0` as the task
    specified.
 9. **`release.yml`'s version XPath was repointed** at `Directory.Build.props`.
    Not called out in the task text, but moving the properties without it would
@@ -1288,7 +1288,7 @@ a prerelease.
 ### Smoke items queued (need the GUI)
 
 - Tray icon appearance at 100% and 125%/150% DPI, on a light and a dark taskbar,
-  for all four non-battery choices â€” the 16px BMP frame is what the shell picks
+  for all four non-battery choices — the 16px BMP frame is what the shell picks
   and no test can judge how it *looks*.
 - Battery tray icon changing as a real controller discharges, including the
   0-to-10% transition where the bar is one pixel of red.
@@ -1299,7 +1299,7 @@ a prerelease.
 
 ### Next steps
 
-- **Phase 1.8 â€” string sweep.** The last Phase 1 task. It now also owns the
+- **Phase 1.8 — string sweep.** The last Phase 1 task. It now also owns the
   import dialog's English text (from 1.4), `Resources.UpToDate`, and the
   `FakeExeName` tooltip that still names DS4Updater.
 - Run [`smoke-rebrand.md`](smoke-rebrand.md) and the icon items above once a
@@ -1311,7 +1311,7 @@ a prerelease.
 
 ---
 
-## 2026-07-25 â€” Phase 1.8 (product-name sweep over the string resources)
+## 2026-07-25 — Phase 1.8 (product-name sweep over the string resources)
 
 **Session scope:** Phase 1, task 1.8. Branch `phase1/localization-sweep`.
 **This completes Phase 1's code scope.** The only Phase 1 item left is the
@@ -1319,7 +1319,7 @@ manual smoke checklist [`smoke-rebrand.md`](smoke-rebrand.md), which needs the
 maintainer and a running build; nothing in it is CI-reachable.
 
 **What this change is.** The rename landed in 1.2 and the application has
-presented itself as Thrum to Windows ever since â€” but it has kept telling the
+presented itself as Thrum to Windows ever since — but it has kept telling the
 *user* it is DS4Windows, in nine languages' worth of tooltips, in the welcome
 dialog's title bar, in the update-check message box, and in a dozen log lines.
 This is the pass that fixes the words. It changes `.resx` **values** and English
@@ -1329,13 +1329,13 @@ file encoding and no line ending moved.
 ### Inventory first, flip second
 
 Every hit was classified before anything was edited, because a blanket
-`DS4Windows` â†’ `Thrum` pass over the string resources is wrong in four
+`DS4Windows` → `Thrum` pass over the string resources is wrong in four
 different ways at once. The categories, and what they cost if you get them
 wrong:
 
 | Category | What it is | Cost of flipping it anyway |
 |---|---|---|
-| FLIP | the string names *us* | â€” |
+| FLIP | the string names *us* | — |
 | KEEP-SOURCE | the string correctly names the *other* product | the sentence becomes false |
 | KEEP-UPSTREAM | attribution, lineage, upstream documentation links | a 404, or a credit removed |
 | KEEP-TECH | file format, on-disk setting values, external control surfaces | silent data loss |
@@ -1357,7 +1357,7 @@ all 24 languages. Getting it *reviewable* was the harder half. The script:
    entities and escaping are never guessed at;
 2. decides from that decoded text, skipping any occurrence inside a URL;
 3. applies the substitution to the raw `<value>` span rather than
-   re-serialising the document â€” the token contains no character XML ever
+   re-serialising the document — the token contains no character XML ever
    escapes, so the two agree, and the file's BOM, its CRLF endings and every
    other byte survive untouched;
 4. re-parses the result and asserts the key list, the key order, and every
@@ -1402,8 +1402,8 @@ automated check confirms no file gained a stray LF or lost its BOM.
 
 `he` is the case that justifies the case-insensitive match: its two values spell
 the token `DS4WINDOWS`. Agglutinative and case-inflecting languages keep their
-suffixes on the new stem â€” Finnish "DS4Windowsin" becomes "Thrumin", Turkish
-"DS4Windows'u" becomes "Thrum'u" â€” which is the intended conservative outcome
+suffixes on the new stem — Finnish "DS4Windowsin" becomes "Thrumin", Turkish
+"DS4Windows'u" becomes "Thrum'u" — which is the intended conservative outcome
 for a literal token swap and is flagged for translators rather than
 second-guessed here.
 
@@ -1411,8 +1411,8 @@ second-guessed here.
 
 | Hit | Category | Reason |
 |---|---|---|
-| `Resources.QuitOtherPrograms` (4 files) | KEEP-UPSTREAM | its only token is inside `github.com/Ryochan7/DS4Windows/wiki/â€¦`. This key is *in* the script's allowlist so the URL guard is exercised and reported on every run rather than asserted in prose, and a test pins that the link survived. |
-| `Strings.CustomExeNameInfo` â€” `DS4Windows.exe`, `InputMapper.exe` (25 files) | KEEP-SOURCE | the process names a game's input block looks for. |
+| `Resources.QuitOtherPrograms` (4 files) | KEEP-UPSTREAM | its only token is inside `github.com/Ryochan7/DS4Windows/wiki/…`. This key is *in* the script's allowlist so the URL guard is exercised and reported on every run rather than asserted in prose, and a test pins that the link survived. |
+| `Strings.CustomExeNameInfo` — `DS4Windows.exe`, `InputMapper.exe` (25 files) | KEEP-SOURCE | the process names a game's input block looks for. |
 | "Support DS4Windows" + PayPal button (`MainWindow.xaml`) | KEEP-SOURCE | the link pays the upstream maintainer, so the label is accurate today. Flipping only the text would solicit donations for this product and route them elsewhere. Raised as open decision 6. |
 | About-box lineage credits (5), project links (3), Moonlight doc link, keyboard-mouse KB link | KEEP-UPSTREAM | section 11 attribution. |
 | 11 `.resx` values whose keys have zero references | DEAD | enumerated below. |
@@ -1424,7 +1424,7 @@ second-guessed here.
 The plan asked this task to purge the dead ViGEm strings. **It does not**, and
 that is a considered deviation. Every key is echoed by a checked-in designer
 property and by up to 24 translated files, so deleting one key is a
-twenty-six-file edit whose failure mode is a build break â€” exactly the kind of
+twenty-six-file edit whose failure mode is a build break — exactly the kind of
 change that does not belong in a pass whose safety argument is "values only".
 They are catalogued in the identity map instead, for a cleanup phase that can
 regenerate both designers in the same commit.
@@ -1432,22 +1432,22 @@ regenerate both designers in the same commit.
 The three the plan named are all confirmed dead and listed: `ViGEm117MinNeeded`,
 `ViGEmPluginFailure`, and the first-launch ViGEmBus step pair
 (`Welcome.Step1Text` "Step 1: Install ViGEmBus Driver" plus `Welcome.Step1HelpText`
-â€” `WelcomeDialog.xaml` starts at step 2, so the button was removed from the view
+— `WelcomeDialog.xaml` starts at step 2, so the button was removed from the view
 and its strings were left behind). The DsHidMini text is **not** dead and is not
 listed; DS3 support still uses it.
 
 Totals: **31 of 462** entries in `Strings.resx` and **111 of 175** in
-`Properties/Resources.resx` have no reference â€” 142 keys.
+`Properties/Resources.resx` have no reference — 142 keys.
 
 Getting that number right took two passes. A first scan searched for the key
 name as a bare word and reported far fewer dead keys, because `RunAtStartup`,
-`UACTask` and a dozen others collide with unrelated identifiers â€” a view-model
+`UACTask` and a dozen others collide with unrelated identifiers — a view-model
 property, a method name. The scan that counts is the one that looks for the
 reference *forms the codebase actually uses*: `Strings.<Key with dots as
 underscores>` in C# or a `lex:Loc` / `lex:BLoc` / `lex:LocExtension` key token
 in XAML for the `Strings` family, `Resources.<Key>` for the other. It is
-complete because **nothing in the tree looks a resource up dynamically** â€” no
-`ResourceManager.GetString(variable)`, no computed `lex` key â€” which was checked
+complete because **nothing in the tree looks a resource up dynamically** — no
+`ResourceManager.GetString(variable)`, no computed `lex` key — which was checked
 before trusting the result.
 
 Dead values were not flipped. Three of them (`CopyComplete`,
@@ -1460,7 +1460,7 @@ namesakes still read DS4Windows.
 
 `Strings.CustomExeNameInfo` is the Settings "custom exe name" help text. A token
 swap would have produced a sentence promising that **DS4Updater** will keep a
-renamed copy of Thrum up to date â€” describing a pipeline deleted in 1.7. The
+renamed copy of Thrum up to date — describing a pipeline deleted in 1.7. The
 neutral value was rewritten by hand: the dead sentence is replaced with what the
 feature actually does (the app keeps a renamed copy of itself beside the
 original), `DS4Windows.exe` and `InputMapper.exe` stay because they name what a
@@ -1469,8 +1469,8 @@ token swap only, so they still carry the stale `DS4Updater` sentence in their ow
 language; that is the single largest item in the translator backlog and it is
 recorded as such rather than machine-translated.
 
-`Resources.UpToDate` â€” "DS4Windows application is up-to-date.", flagged by 1.7 as
-visibly wrong prose in a flow that pull request owned â€” is flipped. Open
+`Resources.UpToDate` — "DS4Windows application is up-to-date.", flagged by 1.7 as
+visibly wrong prose in a flow that pull request owned — is flipped. Open
 decision 5 is closed.
 
 ### Deferred prose (`.cs` and `.xaml`)
@@ -1478,7 +1478,7 @@ decision 5 is closed.
 16 C# literals across 13 files now compose from `ProductInfo.ProductName`: the
 three startup log lines and their Log-tab duplicates, the x86 build warning and
 its caption, two settings-relocation message boxes, the auto-profile
-"turning â€¦ off/on" debug lines, four `ControlService` log sentences, the Game Bar
+"turning … off/on" debug lines, four `ControlService` log sentences, the Game Bar
 repair notice, two VIIPER setup message bodies, the VIIPER debugger's exe line
 and its detach reason, the profile and special-action file-dialog filters, the
 Bezier-editor failure, the audio-pacer error, a worker thread name and the vJoy
@@ -1514,7 +1514,7 @@ text in front of users in 24 languages, and that is worse than English.
 Two consequences worth spelling out. First, `ImportPlanSummary`'s output now
 depends on the resource lookup, so `SettingsImportTests` pins
 `Strings.Culture` to the invariant culture in setup and restores it in
-teardown â€” without that, its two English assertions would quietly become
+teardown — without that, its two English assertions would quietly become
 machine-culture-dependent. Second, the designer properties for these keys were
 **written by hand**, which is the next section's problem.
 
@@ -1523,10 +1523,10 @@ machine-culture-dependent. Second, the designer properties for these keys were
 `Strings.Designer.cs` and `Resources.Designer.cs` are committed, and the
 command-line build never regenerates them. Two consequences, both handled:
 
-- Their `/// Looks up a localized string similar to â€¦` comments echo the neutral
+- Their `/// Looks up a localized string similar to …` comments echo the neutral
   values, so they go stale the moment a value changes. All 13 changed echoes
   were re-synced by script, editing only the doc-comment span that precedes each
-  changed property â€” the property names and their `GetString("<key>")` arguments
+  changed property — the property names and their `GetString("<key>")` arguments
   are outside the edited range by construction.
 - The 17 new `Import_*` properties had to be added by hand, alphabetically,
   matching the generator's exact shape. A hand-written property naming a key
@@ -1546,9 +1546,9 @@ Two are real bugs, one is a translation that has never shipped.
    `ds4windows` too, because a real DS4Windows install running alongside is not
    a game either. **This is a regression the rename introduced and no test
    caught**; it is in the identity map as a found anchor.
-2. **Two more persisted audio endpoint ids** â€”
+2. **Two more persisted audio endpoint ids** —
    `DS4Windows:AutoDetectDualSenseGameAudio` and `DS4Windows:DefaultSystemAudio`
-   in `DualSenseAudioPassthrough` â€” are the pair the 1.2 sweep missed when it
+   in `DualSenseAudioPassthrough` — are the pair the 1.2 sweep missed when it
    found the two in `ProcessLoopbackWaveCapture`. Same class, same disposition:
    **KEEP**, because they are compared ordinally against a persisted per-profile
    setting and flipping them silently resets that setting. Now recorded, so the
@@ -1557,8 +1557,8 @@ Two are real bugs, one is a translation that has never shipped.
    satellite assembly: `idn` is not a culture name (Indonesian is `id`), so
    MSBuild drops it silently and `post-build.py`'s hard-coded language list
    creates an empty `Lang\idn\` folder where the translation should be. 24
-   translated files, 23 satellites. Left as found â€” renaming a resource file
-   changes which translations ship, which is not a value-only change â€” and now
+   translated files, 23 satellites. Left as found — renaming a resource file
+   changes which translations ship, which is not a value-only change — and now
    guarded, so it cannot happen again unnoticed.
 
 One more, moved rather than merely noted: the named pipe between the audio pacer
@@ -1567,7 +1567,7 @@ It is a kernel object name, so section 4's category. Safe to rename because the
 parent composes it and passes it to the child on the command line, so both ends
 agree by construction.
 
-### Tests: 570 â†’ 577
+### Tests: 570 → 577
 
 New `DS4WindowsTests/LocalizationSweepTests.cs`, 7 tests. Every one pins
 `Strings.Culture` and `Resources.Culture` to the invariant culture first;
@@ -1576,9 +1576,9 @@ translation and the assertions would be about the wrong string.
 
 | Test | What it pins |
 |---|---|
-| `EveryFlippedNeutralStringNamesThisProduct` | the 12 plain-swap values name Thrum and do not name DS4Windows â€” and the key that deliberately still spells the old name still resolves |
+| `EveryFlippedNeutralStringNamesThisProduct` | the 12 plain-swap values name Thrum and do not name DS4Windows — and the key that deliberately still spells the old name still resolves |
 | `TheCustomExeNameHelpKeepsTheForeignNamesAndDropsTheDeadUpdater` | the rewritten help text keeps `DS4Windows.exe` and `InputMapper.exe`, names Thrum, and no longer mentions `DS4Updater` |
-| `TheUpstreamWikiLinkSurvivedTheSweep` | the Ryochan7 wiki URL is intact and was not rebranded â€” the positive control for the URL guard |
+| `TheUpstreamWikiLinkSurvivedTheSweep` | the Ryochan7 wiki URL is intact and was not rebranded — the positive control for the URL guard |
 | `EveryImportDialogKeyResolvesToNeutralText` | all 17 hand-written designer properties resolve to real, non-empty resx keys |
 | `TheImportDialogFormatStringsCarryTheirPlaceholders` | every `string.Format` target has exactly its expected `{0..n}` set |
 | `EveryExpectedTranslationShipsAsASatellite` | all 23 satellites load |
@@ -1586,29 +1586,29 @@ translation and the assertions would be about the wrong string.
 
 **Negative controls, all run, all fired:**
 
-- Put `Welcome to DS4Windows` back in the neutral file â†’
+- Put `Welcome to DS4Windows` back in the neutral file →
   `EveryFlippedNeutralStringNamesThisProduct` failed naming the exact key.
-- Typo'd one designer key to `Import.WinTitleTypo` â†’
+- Typo'd one designer key to `Import.WinTitleTypo` →
   `EveryImportDialogKeyResolvesToNeutralText` failed with the property name.
-- Added a `ZZZ.OrphanProbe` key to `Strings.de.resx` â†’
+- Added a `ZZZ.OrphanProbe` key to `Strings.de.resx` →
   `EverySatelliteOnlyDeclaresKeysTheNeutralFileDefines` failed with `de: ZZZ.OrphanProbe`.
-- Dropped `{1}` from `Import.SourceText` â†’
+- Dropped `{1}` from `Import.SourceText` →
   `TheImportDialogFormatStringsCarryTheirPlaceholders` failed.
-- Repointed the wiki URL at our own repository â†’
+- Repointed the wiki URL at our own repository →
   `TheUpstreamWikiLinkSurvivedTheSweep` failed.
-- Added `idn` to the expected-satellite list â†’
+- Added `idn` to the expected-satellite list →
   `EveryExpectedTranslationShipsAsASatellite` failed with `idn`. **This is the
   control that matters most**: it proves the test would have caught the
   Indonesian problem, which shipped unnoticed for years.
 
 The last test carries one allowlisted exception, `el:
-ProfileEditor.VirtualTrigButtonOutput` â€” a key the Greek file declares and the
+ProfileEditor.VirtualTrigButtonOutput` — a key the Greek file declares and the
 neutral file does not, inherited and unreachable. Left alone rather than deleted
 from a translation or invented in English.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64 --no-incremental` â€”
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64 --no-incremental` —
   **succeeded, 0 errors**, 17 warnings, identical to the inherited baseline. A
   malformed `.resx` fails the satellite build, so this is a real guard on all 29
   edited files, not a formality.
@@ -1617,9 +1617,9 @@ from a translation or invented in English.
 - CI's publish invocation and `utils/post-build.py` run locally: **23
   `Lang\<culture>\Thrum.resources.dll` satellites** in the packaged output and
   in `Thrum_0.9.0-beta.1_x64.zip`, no file in the package matching `DS4W*`.
-- `git grep -in "ds4windows"`: **1,805 â†’ 1,659, down 146.** The first Phase 1
-  change where the number falls, and it falls in the right places: `.resx` âˆ’137,
-  designer âˆ’13, `.cs` âˆ’15, `.xaml` âˆ’7, against +16 in documentation (this entry
+- `git grep -in "ds4windows"`: **1,805 → 1,659, down 146.** The first Phase 1
+  change where the number falls, and it falls in the right places: `.resx` −137,
+  designer −13, `.cs` −15, `.xaml` −7, against +16 in documentation (this entry
   and the identity map's new sections) and +10 in tests (the new guards' needles).
 - The GUI application was **not** launched.
 
@@ -1641,7 +1641,7 @@ from a translation or invented in English.
    document.
 5. **Two fixes outside the localization category were taken**: the game-audio
    detector's exclusion set (a rename regression) and the audio-pacer pipe name
-   (a Â§4 identity anchor). Both were found by this sweep, both are one line,
+   (a §4 identity anchor). Both were found by this sweep, both are one line,
    and leaving a known rename regression in place to protect a scope boundary
    would have been the wrong trade.
 6. **`SettingsImportTests` gained a culture pin.** Moving the summary wording
@@ -1661,7 +1661,7 @@ from a translation or invented in English.
   run can stand in for. Two additions from this session: switch the UI language
   and confirm a translated page still reads correctly after the value edits, and
   check the import dialog renders its resource-driven text at the dialog's fixed
-  520Ã—360 size.
+  520×360 size.
 - Open decisions carried forward: the OSC address namespace (1), the
   `DS4WINDOWS_*` environment variables (4), the "Support DS4Windows" PayPal card
   (6, new), the 142 dead resource keys (7, new), and shipping the Indonesian
@@ -1669,7 +1669,7 @@ from a translation or invented in English.
 
 ---
 
-## 2026-07-26 â€” Issue #6: satellite assemblies resolved against the working directory
+## 2026-07-26 — Issue #6: satellite assemblies resolved against the working directory
 
 **Session scope:** [issue #6](https://github.com/potpiemuncher/Thrum/issues/6),
 found by the Phase 1 smoke pass ([`smoke-rebrand.md`](smoke-rebrand.md) item 8).
@@ -1679,7 +1679,7 @@ smoke checklist surfaced.
 ### The bug
 
 Changing the UI language did nothing. The setting persisted, the app restarted,
-the interface stayed English â€” and nothing anywhere said why.
+the interface stayed English — and nothing anywhere said why.
 
 The satellites live at `<install>\Lang\<culture>\Thrum.resources.dll`, because
 `utils/post-build.py` sweeps every culture folder MSBuild emits into one `Lang`
@@ -1699,13 +1699,13 @@ The `Environment.CurrentDirectory = exeDir` that `App.Application_Startup`
 already performs is not a fix and is in fact the proof: by the time it runs the
 host has long since baked the probing path.
 
-The failure is silent by construction. A missing satellite is not an error â€” it
+The failure is silent by construction. A missing satellite is not an error — it
 is the signal to fall back to the neutral resources, which is exactly what a
 correctly configured English install looks like.
 
 ### Where it bites
 
-- **Logon scheduled task** (`RunThrum`, the elevated startup option) â€” Task
+- **Logon scheduled task** (`RunThrum`, the elevated startup option) — Task
   Scheduler gives the process `C:\Windows\System32`.
 - **Startup shortcut** or any `.lnk` with an empty "Start in".
 - **A terminal in another folder**, which is how the smoke pass hit it.
@@ -1724,7 +1724,7 @@ where the process was started, which is the whole of the change.
 **Registered from a `[ModuleInitializer]`, not from startup.** The handler has
 to be in place before the first resource lookup, and `Application_Startup` is
 already too late to guarantee that: by then the WPF entry point has constructed
-`App` â€” running its static field initializers â€” and `InitializeComponent` has
+`App` — running its static field initializers — and `InitializeComponent` has
 applied `App.xaml`, whose merged dictionaries and `WPFLocalizeExtension` markup
 can reach the resource manager. A static constructor on `App` is earlier but
 still runs after that type's own field initializers. A module initializer is
@@ -1740,7 +1740,7 @@ Four properties the handler has to have, and why:
 | Property | Reason |
 |---|---|
 | Answers only for simple names ending `.resources`, null otherwise | A resolving handler that answers for ordinary assemblies can shadow the real one. This one is inert for everything else. |
-| Walks parent cultures, `pt-BR` â†’ `pt`, stopping before invariant | `CultureInfo.Parent`, not "strip the last segment", because they disagree (`zh-TW`'s parent is `zh-Hant`). Falls back to the textual walk for a culture ICU does not know. |
+| Walks parent cultures, `pt-BR` → `pt`, stopping before invariant | `CultureInfo.Parent`, not "strip the last segment", because they disagree (`zh-TW`'s parent is `zh-Hant`). Falls back to the textual walk for a culture ICU does not know. |
 | Never throws | Returning null is what lets the runtime fall back to the neutral resources. Throwing out of assembly resolution takes the lookup, and whatever was rendering, with it. |
 | Refuses a culture name that is not a legal folder name | The culture arrives inside the requested assembly name, so it is untrusted input; it is checked before it is combined into a path. |
 
@@ -1759,39 +1759,39 @@ same way and are now resolved by the same handler. A test pins that the
 composition still produces `ProductInfo.LanguageAssemblyName` for our own
 satellites, so the general form cannot drift away from the specific one
 unnoticed. The probing folder is `Global.PROBING_PATH`, split on `;` the way
-`LanguagePackViewModel` splits it â€” the folder the language packs are *listed*
+`LanguagePackViewModel` splits it — the folder the language packs are *listed*
 from and the folder they are *loaded* from now cannot disagree.
 
 ### `additionalProbingPaths` was kept
 
 Three reasons, none of them inertia. It still resolves everything in the common
-case â€” launch from the install folder and this handler is never called at all.
+case — launch from the install folder and this handler is never called at all.
 It cannot conflict: the handler only ever runs after host probing has failed, so
 there is no path on which both fire. And the template is inherited verbatim from
 upstream, so removing it would add a fork delta for no gain, against the
 mergeability rule.
 
-### Tests: 577 â†’ 587
+### Tests: 577 → 587
 
 New `DS4WindowsTests/SatelliteAssemblyResolutionTests.cs`, 10 tests. The primary
 guard is the **pure mapping function**: `CandidatePaths` takes the base
 directory as an argument, so no working directory can enter the answer even in
 principle, and it touches no file system. One narrow integration test then shows
-the mapping is not merely self-consistent â€” a real satellite really loads
-through it â€” with the working directory moved to `C:\Windows\System32`.
+the mapping is not merely self-consistent — a real satellite really loads
+through it — with the working directory moved to `C:\Windows\System32`.
 
 | Test | What it pins |
 |---|---|
-| `TheHandlerIsInstalledBeforeAnyOfThisAssemblysCodeRuns` | reading `Installed` is itself a call into the module, so the runtime must have run the module initializer to answer it â€” a true here *is* the "registered before `Main`" guarantee |
+| `TheHandlerIsInstalledBeforeAnyOfThisAssemblysCodeRuns` | reading `Installed` is itself a call into the module, so the runtime must have run the module initializer to answer it — a true here *is* the "registered before `Main`" guarantee |
 | `ASatelliteMapsUnderTheBaseDirectorysProbingFolder` | the one candidate is composed from `Global.PROBING_PATH` and `ProductInfo.LanguageAssemblyName`, the same constants the packaging uses |
-| `EveryCandidateIsRootedAtTheGivenBaseDirectory` | every candidate is absolute and under the given base â€” a relative candidate is one the working directory can still move |
+| `EveryCandidateIsRootedAtTheGivenBaseDirectory` | every candidate is absolute and under the given base — a relative candidate is one the working directory can still move |
 | `TheAnswerDoesNotDependOnTheWorkingDirectory` | identical output either side of a `SetCurrentDirectory` |
 | `AParentCultureIsTriedAfterTheSpecificOne` | `pt-BR` then `pt`, in that order |
 | `TheChainStopsBeforeTheInvariantCulture` | no `Lang\<empty>` candidate; a request with no culture is not a satellite request |
 | `NothingButASatelliteIsHandled` | inert for `Thrum`, `NAudio`, `Thrum.resourcesx`, `resources`, empty, null name and null base |
 | `ACultureNameThatIsNotAFolderNameIsRefused` | a culture reporting `..\..\Windows\System32` yields no candidate |
 | `TheHandlerLoadsARealSatelliteWithTheWorkingDirectoryElsewhere` | a genuine `de` satellite, in the packaged `Lang\<culture>\` layout, loads with the working directory in `System32` |
-| `AMissingSatelliteIsNullAndNotAnException` | absent file â‡’ null, so the neutral fallback still applies |
+| `AMissingSatelliteIsNullAndNotAnException` | absent file ⇒ null, so the neutral fallback still applies |
 
 The class is `[DoNotParallelize]`. This assembly declares no
 `[assembly: Parallelize]`, so MSTest already runs it sequentially and the two
@@ -1805,21 +1805,21 @@ would fail for reasons unrelated to what is being tested.
 **Negative controls, all run, all fired, source restored byte-identical
 afterwards:**
 
-- Removed `[ModuleInitializer]` â†’ the registration test failed, naming the
+- Removed `[ModuleInitializer]` → the registration test failed, naming the
   consequence.
-- Made the candidate relative again â€” `Path.Combine(probingPath, â€¦)`, i.e. the
-  behaviour being fixed â†’ **5 tests failed**, the integration test among them.
+- Made the candidate relative again — `Path.Combine(probingPath, …)`, i.e. the
+  behaviour being fixed → **5 tests failed**, the integration test among them.
   That is the control that matters: with a relative path and the working
   directory in `System32`, the satellite is not found.
-- Dropped the `.resources` suffix check â†’ `NothingButASatelliteIsHandled` failed
+- Dropped the `.resources` suffix check → `NothingButASatelliteIsHandled` failed
   with `The resolver claimed a non-satellite assembly: 'Thrum'`.
-- Dropped the folder-name guard â†’ the hostile-culture test failed.
-- Dropped the parent-culture walk â†’ `AParentCultureIsTriedAfterTheSpecificOne`
+- Dropped the folder-name guard → the hostile-culture test failed.
+- Dropped the parent-culture walk → `AParentCultureIsTriedAfterTheSpecificOne`
   failed.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **0 errors**,
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**,
   17 warnings, identical to the inherited baseline.
 - Full suite with the repository's CI filter: **587 passed / 0 failed**, up from
   577 by exactly the 10 new tests.
@@ -1852,8 +1852,8 @@ the app rewrites into `Profiles.xml` on every exit. No setting changed.
 
 1. **The packaging step ran in `bin\x64\Release2\` for the measurements, not
    `bin\x64\Release\`.** An unrelated process on this machine held a handle to
-   the pre-existing `bin\x64\Release\Thrum` folder â€” almost certainly a File
-   Explorer window left open by the smoke pass that found this bug â€” so
+   the pre-existing `bin\x64\Release\Thrum` folder — almost certainly a File
+   Explorer window left open by the smoke pass that found this bug — so
    `post-build.py`'s `rmtree`/`rename` could not replace it. The script ran
    unmodified against a sibling path, which changes nothing about the package it
    produces. The canonical folder was repopulated from the fresh build
@@ -1861,7 +1861,7 @@ the app rewrites into `Profiles.xml` on every exit. No setting changed.
    clear when the holder does.
 2. **The handler is general over `.resources`, not specific to this product.**
    Scoping it to `ProductInfo.LanguageAssemblyName` would have left the eight
-   `Microsoft.Win32.TaskScheduler` satellites broken, for no safety gained â€” the
+   `Microsoft.Win32.TaskScheduler` satellites broken, for no safety gained — the
    handler is a fallback that runs only after the runtime has already failed.
 3. **A smoke-checklist step was added rather than only a code fix.** Item 8 of
    `smoke-rebrand.md` now has a step 5 that starts the packaged executable from
@@ -1873,14 +1873,14 @@ the app rewrites into `Profiles.xml` on every exit. No setting changed.
 **Yes.** The `Lang/` layout, the relative `additionalProbingPaths` and the
 absence of any resolving handler are all inherited unchanged from
 hbashton/DS4Windows, and the mechanism does not depend on the assembly name, so
-upstream loses its translations under exactly the same conditions â€” including
+upstream loses its translations under exactly the same conditions — including
 its own "run at logon" scheduled task. The fix is one self-contained file plus a
 test file and touches no engine code, which makes it a clean candidate for the
 contribution sequence.
 
 ---
 
-## 2026-07-26 â€” Phase 1 smoke pass (acceptance) and the two issues it found
+## 2026-07-26 — Phase 1 smoke pass (acceptance) and the two issues it found
 
 **Session scope:** running `docs/dev/smoke-rebrand.md` end to end with the
 maintainer present, on build **`d644d33`**. This is the acceptance gate Phase 1
@@ -1894,7 +1894,7 @@ was waiting on.
 |---|---|
 | 1 | PASS |
 | 2 | PASS |
-| 3 | PASS â€” all three dismissal paths (button, Escape, title-bar X) |
+| 3 | PASS — all three dismissal paths (button, Escape, title-bar X) |
 | 4 | PASS |
 | 5 | PASS |
 | 6 | PASS |
@@ -1902,21 +1902,21 @@ was waiting on.
 | 8 | PASS |
 | 8a | PASS |
 | 9 | PASS |
-| 10 | **N/A** â€” HidHide is not installed on the test machine |
+| 10 | **N/A** — HidHide is not installed on the test machine |
 | 11 | PASS |
 | 12 | PASS |
 
 One failure was found *during* the pass and fixed before it ended:
 [#6](https://github.com/potpiemuncher/Thrum/issues/6), satellite assemblies
 resolved against the working directory, fixed in
-[PR #7](https://github.com/potpiemuncher/Thrum/pull/7) â€” its own entry is above.
+[PR #7](https://github.com/potpiemuncher/Thrum/pull/7) — its own entry is above.
 
 Two issues were filed for later rather than fixed in the pass:
 
-- [#8](https://github.com/potpiemuncher/Thrum/issues/8) â€” the managed VIIPER
+- [#8](https://github.com/potpiemuncher/Thrum/issues/8) — the managed VIIPER
   backend self-updates from the wrong repository through an elevated remote
   script. Folded into plan task 2.4b, because it is fixed on the spawn path.
-- [#9](https://github.com/potpiemuncher/Thrum/issues/9) â€” orphaned `task.bat`.
+- [#9](https://github.com/potpiemuncher/Thrum/issues/9) — orphaned `task.bat`.
   Was deferred to Phase 5.4; **fixed early in
   [PR #35](https://github.com/potpiemuncher/Thrum/pull/35)**, because it turned
   out to be sitting on top of a worse defect. See the entry at the end of this
@@ -1926,7 +1926,7 @@ Two issues were filed for later rather than fixed in the pass:
 
 NLog's async target buffers, so a running session's lines reach disk late. Read
 the log while the app is still up and it will look like the code never ran.
-This cost real debugging time during this pass â€” an event was observed in the UI
+This cost real debugging time during this pass — an event was observed in the UI
 and was simply absent from the file until the app was closed.
 
 Two consequences worth internalising:
@@ -1940,14 +1940,14 @@ Two consequences worth internalising:
 
 ---
 
-## 2026-07-26 â€” Phase 2.4b (backend lifecycle ownership) + issue #8
+## 2026-07-26 — Phase 2.4b (backend lifecycle ownership) + issue #8
 
 **Session scope:** plan task 2.4b in full, and
 [issue #8](https://github.com/potpiemuncher/Thrum/issues/8), which the plan
 folds into it because both live on the backend spawn path.
 
 The starting position, established by live testing earlier the same day: Thrum
-starts `viiper.exe server` on demand and the server **outlives the app** â€” a
+starts `viiper.exe server` on demand and the server **outlives the app** — a
 running server's parent process id belonged to a Thrum that had already exited.
 The machine has no VIIPER autostart of either kind, so the backend there is
 purely on-demand.
@@ -1956,9 +1956,9 @@ purely on-demand.
 
 **Ownership is (process id, process start time), in memory only.**
 `ViiperSetupManager` records the pair when it spawns the backend and exposes it
-as `OwnedBackend`. A process id on its own is not an identity â€” Windows reuses
+as `OwnedBackend`. A process id on its own is not an identity — Windows reuses
 them, and the gap between spawning the backend and stopping it is a whole
-session â€” so a record resolves to a live process only when both halves still
+session — so a record resolves to a live process only when both halves still
 match. Nothing is persisted: a crashed session must not hand a later session a
 licence to kill a backend a third party has since started.
 
@@ -1970,14 +1970,14 @@ anything?", and anything still registered blocks the stop:
 
 | What the census shows | Decision | Why |
 |---|---|---|
-| a device we did not create | leave running | another consumer â€” a real DS4Windows install, or a second copy of this app |
+| a device we did not create | leave running | another consumer — a real DS4Windows install, or a second copy of this app |
 | a device we *did* create | leave running | our own teardown has not finished; killing now is exactly the ordering the teardown exists to avoid |
 | an empty bus | leave running | state somebody asked the backend to hold; ours are gone by this point |
 | census failed for any reason | leave running | an unverifiable claim of idleness is not idleness |
 | nothing registered | **stop** | the only case that is affirmatively safe |
 
 Limits, recorded in the source next to the policy: this is a *device* census,
-not a *client* census â€” the API exposes no list of connected clients, so a
+not a *client* census — the API exposes no list of connected clients, so a
 consumer that is attached while holding no device is invisible to it, and a
 consumer could create a device in the window between the census and the stop.
 Neither is fixable from the client side and both are narrow. Everything else
@@ -1989,14 +1989,14 @@ its controller.
 `signal.NotifyContext` for `os.Interrupt`/`SIGTERM`, and Go's Windows runtime
 raises `os.Interrupt` for `CTRL_BREAK_EVENT` as well as `CTRL_C_EVENT`. The
 backend is spawned windowless, but `CreateNoWindow` maps to `CREATE_NO_WINDOW`,
-which still gives the child a console â€” one that is simply never displayed. So
+which still gives the child a console — one that is simply never displayed. So
 the app joins that console with `AttachConsole` and raises the event there.
 
 Two details that are easy to get wrong, both verified rather than assumed:
 
 - The event reaches **every** process on that console, including ours. A
   handler that swallows it is installed first.
-  `SetConsoleCtrlHandler(NULL, TRUE)` is *not* sufficient â€” it suppresses only
+  `SetConsoleCtrlHandler(NULL, TRUE)` is *not* sufficient — it suppresses only
   `CTRL_C_EVENT`, and the default handler for `CTRL_BREAK_EVENT` terminates the
   process that receives it.
 - `--update-notify` is declared on VIIPER's root command, so it precedes the
@@ -2007,8 +2007,8 @@ This was proved before any of it was written into the app, with a throwaway
 backend and measured the result: `AttachConsole` succeeded, and the backend
 exited with code 0 **within 5 ms** of the console break, with the API port
 closed immediately afterwards. Escalation to `Process.Kill` exists and is
-acceptable for this backend â€” losing the USB-IP peer is the clean unplug path,
-cleaner than `usbip detach`, which can livelock while an audio pin is held â€” but
+acceptable for this backend — losing the USB-IP peer is the clean unplug path,
+cleaner than `usbip detach`, which can livelock while an audio pin is held — but
 it did not have to run.
 
 **Ordering.** The stop is called from `App.CleanShutdown`, after the
@@ -2017,7 +2017,7 @@ detached the usbip ports and sent `bus/remove`. It is **skipped entirely** when
 that task times out, because a timeout means we do not know the teardown
 finished.
 
-**Issue #8 â€” the backend's self-updater is disabled at spawn.** Every backend
+**Issue #8 — the backend's self-updater is disabled at spawn.** Every backend
 Thrum starts is now started with `--update-notify none` *and*
 `VIIPER_UPDATE_NOTIFY=none`. The flag is what takes effect; the variable is what
 a re-exec would inherit. `cmd/viiper/viiper.go` guards the entire updater on
@@ -2025,9 +2025,9 @@ a re-exec would inherit. `cmd/viiper/viiper.go` guards the entire updater on
 suppressed dialog. Three tests assert the argument vector and the environment,
 so it cannot regress silently.
 
-**Autostart visibility.** Settings now reports VIIPER's own logon entries â€” the
+**Autostart visibility.** Settings now reports VIIPER's own logon entries — the
 `HKCU\...\Run` value `VIIPER` written by `viiper.exe install`, and the
-`RunVIIPER` logon task the setup script registers â€” with a one-click removal
+`RunVIIPER` logon task the setup script registers — with a one-click removal
 that is guarded by a confirmation naming exactly what will be deleted.
 Detection is read-only and unconditional; nothing is removed without that click.
 A lookup that throws is reported as *unchecked*, never as *absent*.
@@ -2038,11 +2038,11 @@ uses the string-proxy form (`[XmlIgnore] bool` + `[XmlElement] string`) rather
 than a plain `bool` element, for two reasons that both matter for a default-on
 flag: a config written before the element existed leaves the setter unrun so the
 `true` initializer survives, and a malformed value is ignored instead of
-throwing out of `Deserialize` â€” which `BackingStore.Load` handles by abandoning
+throwing out of `Deserialize` — which `BackingStore.Load` handles by abandoning
 the entire settings file. The view model saves on change rather than on exit,
 because the setting is *read* during exit.
 
-### Tests: 587 â†’ 626
+### Tests: 587 → 626
 
 39 new tests across two files. `DS4WindowsTests/ViiperBackendLifecycleTests.cs`
 (27) and `DS4WindowsTests/ViiperAutostartTests.cs` (12). Everything runs against
@@ -2056,18 +2056,18 @@ writing autostart entries onto somebody's PC to prove we can remove them.
 
 **Negative controls, all run, all fired, source restored afterwards:**
 
-- Dropped `--update-notify none` from the spawn vector â†’ 2 failures, including
+- Dropped `--update-notify none` from the spawn vector → 2 failures, including
   the one that names the consequence.
-- Made ownership compare the process id only, ignoring start time â†’ 3 failures,
+- Made ownership compare the process id only, ignoring start time → 3 failures,
   among them the test that builds a record from a live process and checks a
   shifted start time no longer resolves. That is the control that matters: it
   shows the reuse guard is exercised against the real API, not just arithmetic.
-- Made a foreign device stop blocking the shutdown â†’
+- Made a foreign device stop blocking the shutdown →
   `ADeviceWeDidNotCreateIsTreatedAsAnotherConsumer` failed.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **0 errors**, no
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, no
   new warnings.
 - Full suite with the repository's CI filter: **626 passed / 0 failed**, up from
   587 by exactly the 39 new tests.
@@ -2078,7 +2078,7 @@ non-elevated shell), both preceded by a confirmed-clean process table.
 
 *A backend Thrum started is stopped.* Thrum launched with no `viiper.exe`
 running; a child appeared with **parent process id equal to Thrum's own**, and a
-command line of `viiper.exe --update-notify none server` â€” the issue #8 fix,
+command line of `viiper.exe --update-notify none server` — the issue #8 fix,
 observed on the live process rather than inferred from the source. After
 `-command shutdown`: that process id gone, and no `viiper.exe` on the machine at
 all. The log line, read after exit:
@@ -2090,8 +2090,8 @@ buses or devices - console break accepted; backend exited on its own.
 
 *A backend started externally is left alone.* `viiper.exe server` started
 directly from a shell (parent = that shell, no `--update-notify` argument), then
-Thrum launched and exited. Thrum did **not** spawn a second backend â€” one
-`viiper.exe` throughout â€” and after Thrum exited the external process was still
+Thrum launched and exited. Thrum did **not** spawn a second backend — one
+`viiper.exe` throughout — and after Thrum exited the external process was still
 running with an unchanged start time. Log line:
 
 ```
@@ -2116,10 +2116,10 @@ behind.
 2. **An empty bus blocks the stop.** Slightly stricter than "any device blocks
    the stop". By the time the check runs, ours are gone, so a bus that is still
    there was asked for by somebody else. In practice the idle backend reports
-   `{"buses":[]}` and the stop proceeds â€” confirmed in both packaged runs.
+   `{"buses":[]}` and the stop proceeds — confirmed in both packaged runs.
 3. **`AppSettingsTests.CheckSettingsSave` was left failing.** It compares
    serialized output to a hardcoded XML literal, and that literal was already
-   stale before this change â€” it is missing `ProfileChangedNotification`,
+   stale before this change — it is missing `ProfileChangedNotification`,
    `UseMoonlight`, `UseAdvancedMoonlight` and `VerboseStartupLogging`. It is one
    of the three snapshot tests the CI filter excludes and that the plan
    regenerates in Phase 6. Adding one more element to a fixture that cannot pass
@@ -2149,7 +2149,7 @@ under the plan's contribution sequence.
 
 ---
 
-## 2026-07-26 â€” First upstream merge cycle (`5d2724a..8a2b715`), a Phase 2 prerequisite
+## 2026-07-26 — First upstream merge cycle (`5d2724a..8a2b715`), a Phase 2 prerequisite
 
 **Session scope:** the first merge cycle under
 [ADR-0002](ADR-0002-upstream-tracking.md), plus the written analysis that makes
@@ -2159,7 +2159,7 @@ Full analysis: [`upstream-delta-2026-07-26.md`](upstream-delta-2026-07-26.md).
 
 ### The merge
 
-`upstream-track` fast-forwarded `5d2724a` â†’ **`8a2b715`**, four commits, all
+`upstream-track` fast-forwarded `5d2724a` → **`8a2b715`**, four commits, all
 VIIPER installer hardening, 2 files, +214/-23:
 
 | Commit | Subject |
@@ -2170,9 +2170,9 @@ VIIPER installer hardening, 2 files, +214/-23:
 | `8a2b715` | Improve VIIPER install completion behavior |
 
 `git merge --no-ff upstream-track` produced **zero textual conflicts**. Every
-file flagged as high-risk before the merge â€” `ScpUtil.cs`, `ProductInfo.cs`,
+file flagged as high-risk before the merge — `ScpUtil.cs`, `ProductInfo.cs`,
 `App.xaml.cs`, `StartupMethods.cs`, `Directory.Build.props`, the workflows, the
-resx set, the rest of `DS4Control/Viiper/` â€” was untouched upstream. Our 2.4b
+resx set, the rest of `DS4Control/Viiper/` — was untouched upstream. Our 2.4b
 additions to `ViiperSetupManager.cs` and upstream's edits landed in disjoint
 regions, and our installer-script changes are branding-only against upstream's
 functional ones.
@@ -2189,20 +2189,20 @@ semantic, and a clean `git merge` reported none of them.
    a log line naming a product that is not installed. **Ours wins**, on the
    ground that this is precisely the coupling `ProductInfo` exists to own.
    Resolved with `Global.exelocation` rather than a composed
-   `ExeBaseName + ".exe"` â€” it is the executable actually running, so it also
+   `ExeBaseName + ".exe"` — it is the executable actually running, so it also
    survives a portable copy under a different filename and the junction/Scoop
    case that `exelocation` already resolves and that upstream's own comment says
    it cares about. Method renamed `RestartApplication`.
 2. **`{logPath}` shown literally.** `3937d26` split the failure dialog into
    three concatenated fragments and put the `$` only on the first. One
    character, fixed here, reported as an upstream defect.
-3. **Upstream's auto-restart cannot restart â€” taken as-is, recorded, not
+3. **Upstream's auto-restart cannot restart — taken as-is, recorded, not
    fixed.** `RestartApplication` starts the replacement process *before*
    shutting the current one down, so the new instance finds the single-instance
    event still held and exits immediately while the old one finishes
    `CleanShutdown`. In our tree it is worse: the restart is reached right after
    `GetStatus(tryStartServer: true)`, which may have started and recorded
-   ownership of the backend, so `StopOwnedBackendOnExit` then stops it â€” leaving
+   ownership of the backend, so `StopOwnedBackendOnExit` then stops it — leaving
    no app and no backend after an install whose purpose was to provide one.
    Fixing the ordering is a behaviour change to upstream's new feature and was
    out of scope for a merge PR; it must land before any release.
@@ -2215,19 +2215,19 @@ check, and `ConvertTo-VersionFromObject` making a version probe total.
 ### Task 2.4: what upstream did and did not do for us
 
 Of 2.4's seven requirements, **one** is satisfied upstream (the pinned exact
-usbip-win2 release URL), **two** are partial (atomic install with `.previous` â€”
-atomic yes, but the backup is deleted on success; and decision logging â€” good
+usbip-win2 release URL), **two** are partial (atomic install with `.previous` —
+atomic yes, but the backup is deleted on success; and decision logging — good
 for the decisions that exist, and the verification decisions do not exist yet),
 and **four** are still entirely ours: SHA-256 before execution, Authenticode
 subject verification before execution, post-install validation of the actual
 package *pair* (only `usbip2_ude.sys`'s FileVersion is read; `usbip2_filter.sys`
-never is, and a version floor is not a validation), and no-silent-acceptance â€”
+never is, and a version floor is not a validation), and no-silent-acceptance —
 which is two separate holes, an `-ge 0.9.7.7` floor that silently accepts the
 known-risk 0.9.7.8, and a VIIPER asset resolver that installs whatever the newest
 non-draft release happens to be. There is no `Get-FileHash` and no
 `Get-AuthenticodeSignature` anywhere in `extras/`.
 
-So 2.4's scope barely shrinks â€” but its *shape* changes, because it now has to be
+So 2.4's scope barely shrinks — but its *shape* changes, because it now has to be
 written on top of `Stop-ViiperProcesses`, `Register-ViiperRunTask` and
 `ConvertTo-VersionFromObject` instead of the code it was drafted against.
 
@@ -2235,7 +2235,7 @@ written on top of `Stop-ViiperProcesses`, `Register-ViiperRunTask` and
 
 **Yes, and upstream pushed in the opposite direction from our 5.3 constraint.**
 The merged script creates **two** autostart mechanisms, unconditionally, on every
-install and repair: the `HKCU\â€¦\Run` value `VIIPER` written by
+install and repair: the `HKCU\…\Run` value `VIIPER` written by
 `viiper.exe install`, and the `RunVIIPER` at-logon task. `db21d7e` gave the task
 a `schtasks.exe` fallback so registration now succeeds where it previously
 aborted; `3937d26` made the `viiper.exe install` step more mandatory, stopping
@@ -2245,14 +2245,14 @@ Three consequences for 2.4, none implemented here:
 
 - The removal is not "delete one block". The `viiper.exe install` invocation must
   go or be replaced too, and it is currently load-bearing for upstream's new
-  error handling â€” so 2.4 has to decide what "Registering VIIPER" still means.
+  error handling — so 2.4 has to decide what "Registering VIIPER" still means.
 - Neither entry passes `--update-notify none`, and neither does the script's own
   `Start-AndVerifyViiper` (pre-existing, untouched by upstream and by 2.4b). A
   backend started by any of the three has the issue #8 updater fully live. Our
-  2.4b fix covers only backends we spawn â€” which is why 2.4b surfaces both
+  2.4b fix covers only backends we spawn — which is why 2.4b surfaces both
   autostart entries in Settings, and why that detection is not transitional.
 - Mergeability: our removal will rewrite lines upstream has just worked on. Per
-  ADR-0002 Â§4, prefer a shape that leaves upstream's functions intact and changes
+  ADR-0002 §4, prefer a shape that leaves upstream's functions intact and changes
   only whether they are *called*.
 
 `fac5467` is the one upstream change that helps directly: it reverts a same-day
@@ -2266,7 +2266,7 @@ runtime issue #8 fix.
 consumer of readiness (the restart branches on `refreshed.Ready`), so the
 four-state enum needs a usable "ready" projection and that decision should key
 off the new states. 2.4b: every conclusion holds, and its recorded open
-follow-up â€” our own script registers `RunVIIPER` â€” is confirmed and strengthened.
+follow-up — our own script registers `RunVIIPER` — is confirmed and strengthened.
 Phase 5.3 inherits the two-mechanism finding.
 
 ### Verification
@@ -2280,16 +2280,16 @@ wizard plus its `import-declined.txt` marker.
 The identity sweep is the one that moved: the merge added **8** `DS4Windows`
 occurrences and the resolution removed exactly those 8, so `git grep -ic
 ds4windows` totals **1715** on both `main` and the merge branch. A targeted
-anchor sweep returns only the pre-existing documented residue â€” historical
+anchor sweep returns only the pre-existing documented residue — historical
 comments, and the `DS4Updater` mention in the custom-exe-name help string across
 22 translations that the 1.8 sweep left alone because it names a different
 product.
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **0 errors**, 17
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, 17
   pre-existing warnings.
-- Full suite with the CI filter â€” **626 passed / 0 failed**. No delta: upstream
+- Full suite with the CI filter — **626 passed / 0 failed**. No delta: upstream
   added no tests, and neither of its two files has coverage upstream or here.
-- Divergence budget (ADR-0002 Â§5): **11,987** added lines outside `docs/` and
+- Divergence budget (ADR-0002 §5): **11,987** added lines outside `docs/` and
   `*.md`, against the ~15,000 alarm. No review triggered.
 
 ### Deviations and things left open
@@ -2301,7 +2301,7 @@ product.
    checkpoint. The whole 2.4 and `RunVIIPER` analysis is source-level reading of
    the merged script. When 2.4 takes its [VM] pass, the restart defect and both
    autostart registrations should be observed directly rather than inferred.
-3. **`Stop-ViiperProcesses` contradicts 2.4b's ownership policy** â€” the script
+3. **`Stop-ViiperProcesses` contradicts 2.4b's ownership policy** — the script
    kills every `viiper.exe`, including another consumer's, where the app refuses
    to. Defensible for an explicit elevated install (you cannot replace a running
    image otherwise) and left alone, but 2.4 should state the two policies
@@ -2313,7 +2313,7 @@ product.
 
 ---
 
-## 2026-07-26 â€” Phase 2.1 + 2.2: four-state driver readiness and the Settings status card
+## 2026-07-26 — Phase 2.1 + 2.2: four-state driver readiness and the Settings status card
 
 **Session scope:** tasks **2.1** (wire `ViiperDriverGate` into readiness) and
 **2.2** (Settings driver-status card). Explicitly not 2.3, 2.4 or 2.5: this PR
@@ -2345,13 +2345,13 @@ Two properties this ordering is chosen for:
   and both require the authoritative `ViiperDriverValidator.Validate` to have
   passed.** No amount of partial evidence gets there.
 - **Only row 3 can produce `Missing`, and it requires the enumeration to have
-  completed.** An unreadable machine is not an empty one â€” that distinction is
+  completed.** An unreadable machine is not an empty one — that distinction is
   the reason row 2 sits above row 3, and it has its own test.
 
 `Approved` is unreachable in the shipped product: the manifest has no
 `Production` entry, and `RealManifest_HasNoProductionEntry` guards that it
 cannot appear by accident. The tier is exercised through
-`ViiperDriverManifest.FromReleases` with a fabricated 9.9.9.9 Production entry â€”
+`ViiperDriverManifest.FromReleases` with a fabricated 9.9.9.9 Production entry —
 a new `internal` seam, so proving the path did not require weakening the real
 manifest.
 
@@ -2359,7 +2359,7 @@ Reasons are carried on every non-`Missing` state and are deliberately **not**
 cleared on a match: a passing result with a leftover trust concern would be a
 contradiction worth showing rather than erasing. Identity is exposed as a
 projection (`ViiperDriverComponentIdentity`), never the raw
-`ViiperDriverPackageInfo`, because that record carries `TrustEvaluationPath` â€” a
+`ViiperDriverPackageInfo`, because that record carries `TrustEvaluationPath` — a
 driver-store path that must not reach the UI, a log, or a report. A test walks
 every rendered string to assert it never does.
 
@@ -2371,10 +2371,10 @@ UsbipInstalled`.** The tier rides alongside as a new `DriverReadiness` property.
 re-derived from the gate.
 
 This is a deliberate decision, not an oversight. `Ready` has six kinds of
-consumer â€” `EnsureReadyWithPrompt` (the profile-time prompt), `ViiperOutDevice`
-Ã—2 (attach paths), `ViiperBackendDebugger` Ã—5, `WelcomeDialog` Ã—2,
+consumer — `EnsureReadyWithPrompt` (the profile-time prompt), `ViiperOutDevice`
+×2 (attach paths), `ViiperBackendDebugger` ×5, `WelcomeDialog` ×2,
 `MainWindowsViewModel`, and upstream's new `InstallerProcess_Exited` restart
-branch â€” and every one of them is asking the *transport* question: can the
+branch — and every one of them is asking the *transport* question: can the
 backend run. Making `Ready` false for `DetectedUnvalidated` would silently
 convert a validation result into a functional refusal in flows that never opted
 into one, inside a PR whose whole point is that it changes no behaviour.
@@ -2386,9 +2386,9 @@ Callers affected in this PR: **none behaviourally**. Two mechanical changes:
 2. `InstallerProcess_Exited` calls `RefreshDriverReadiness()` before
    `GetStatus`. An install is the one event that can change the answer, so the
    cache must not be reported stale to the `refreshed.Ready` branch that
-   `8a2b715` added. The restart condition itself is untouched â€” it is upstream's
+   `8a2b715` added. The restart condition itself is untouched — it is upstream's
    new feature and it has a known ordering defect
-   (`upstream-delta-2026-07-26.md` Â§3.3) that belongs to whoever fixes that.
+   (`upstream-delta-2026-07-26.md` §3.3) that belongs to whoever fixes that.
 
 ### Caching
 
@@ -2396,7 +2396,7 @@ Callers affected in this PR: **none behaviourally**. Two mechanical changes:
 cached answer; `Refresh()` is the only thing that re-reads the machine. Measured
 cost of one pass on the dev PC: the whole `-viiperdriverdiagnostic` process runs
 in ~1.0 s wall clock including .NET startup, so the inspection itself is a few
-hundred milliseconds â€” against the up-to-1000 ms TCP timeout `CanPingServer`
+hundred milliseconds — against the up-to-1000 ms TCP timeout `CanPingServer`
 already spends in the same method.
 
 `Adopt(report)` publishes a readiness derived from a report somebody already
@@ -2421,7 +2421,7 @@ Wording is enforced by tests, not by review habit:
   approved". The tier note states plainly that a match is not production
   approval and names the kernel request-lifetime risk.
 - `Missing` and `DetectedUnvalidated` both say what will be restricted. The
-  restriction does not exist yet â€” that is 2.3 â€” so the text is future tense and
+  restriction does not exist yet — that is 2.3 — so the text is future tense and
   accurate today.
 
 Colour carries meaning and is stated once in `BridgeShellStyles`: green only for
@@ -2440,7 +2440,7 @@ card shows the display path, never the real one.
 
 ### Reuse, not forks
 
-- `ViiperDriverReportFormatter` â€” not touched. The card reuses the report
+- `ViiperDriverReportFormatter` — not touched. The card reuses the report
   through `RunDiagnostic()`.
 - `ViiperDriverValidator.RejectTrust` was extracted to a public
   `DescribeTrustRejection` and now backs both the fail-closed decision and every
@@ -2450,25 +2450,25 @@ card shows the display path, never the real one.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **0 errors**,
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**,
   14 pre-existing warnings.
-- Full suite with the CI filter â€” **663 passed / 0 failed**, from a 626
+- Full suite with the CI filter — **663 passed / 0 failed**, from a 626
   baseline: +24 readiness/mapping/provider tests, +11 view-model tests, +2 theme
   parity rows. `AppSettingsTests.CheckSettingsSave` remains excluded and remains
   stale for the reason recorded in the 2.4b entry.
 - **Manual check on the packaged build, non-elevated** (`dotnet publish` +
-  `utils/post-build.py`, driven through UI Automation). Settings â†’ VIIPER â†’
+  `utils/post-build.py`, driven through UI Automation). Settings → VIIPER →
   the card rendered:
   - badge **"Experimental - known package"** in amber;
   - "The installed packages exactly match a package identity Thrum knows:
     usbip-win2 0.9.7.8, an experimental baseline.";
   - the not-production-approval note in full;
-  - UDE host controller â€” `USBIP-WIN2` / `usbip2_ude.inf` / `1.45.29.368` /
+  - UDE host controller — `USBIP-WIN2` / `usbip2_ude.inf` / `1.45.29.368` /
     `usbip2_ude` / `usbip2_ude.cat: trusted, signed by Microsoft Windows
     Hardware Compatibility Publisher`;
-  - filter extension â€” `usbip2_filter.inf` / `1.45.28.868` / service
+  - filter extension — `usbip2_filter.inf` / `1.45.28.868` / service
     `(not reported)` / same catalog trust;
-  - usbip.exe client â€” `0.9.7.8`, `trusted, signed by Cloudyne Systems
+  - usbip.exe client — `0.9.7.8`, `trusted, signed by Cloudyne Systems
     (Scheibling Consulting AB)`;
   - no reason list, which is correct for a match.
 
@@ -2487,7 +2487,7 @@ card shows the display path, never the real one.
    `1.45.28.868` and the client reports `0.9.7.8`, which is the manifest's
    known-risk baseline, not the installer-targeted one. Both are
    `ExperimentalBaseline`, so the state is the predicted
-   `ValidatedExperimental` â€” but the identities on screen are the other
+   `ValidatedExperimental` — but the identities on screen are the other
    release's. Worth knowing before any [VM] matrix work assumes the dev PC
    mirrors the 0.9.7.7 checkpoint. **Nothing was installed, changed, or
    upgraded to establish this.**
@@ -2512,12 +2512,12 @@ card shows the display path, never the real one.
    machine needs the TESTENV no-driver and tampered-INF checkpoints, which is
    the [VM] pass Phase 2's verification section already schedules.
 6. **Spotted in passing, not fixed:** the Settings "Run At Startup" helper text
-   still reads "Tells Windows to start DS4Windows after login" â€” a Phase 1.8
+   still reads "Tells Windows to start DS4Windows after login" — a Phase 1.8
    localization-sweep miss in the string resources.
 
 ---
 
-## 2026-07-26 â€” Phase 2.3 + 2.5: experimental gating, risk disclosure, runtime guardrails
+## 2026-07-26 — Phase 2.3 + 2.5: experimental gating, risk disclosure, runtime guardrails
 
 **Session scope:** tasks **2.3** (experimental gating + risk disclosure) and
 **2.5** (runtime guardrails), plus the Phase 1.8 sweep miss found during the 2.2
@@ -2525,7 +2525,7 @@ manual pass. Explicitly not 2.4 (installer): nothing here installs, elevates,
 attaches or modifies a driver.
 
 2.1/2.2 made the four-state readiness visible. This is the change that makes it
-*do* something â€” and the first change in this repo that can refuse to create a
+*do* something — and the first change in this repo that can refuse to create a
 virtual device.
 
 ### The feature-class split
@@ -2537,8 +2537,8 @@ device type, not of the user-facing feature name:
 
 | Class | What is in it |
 |---|---|
-| **ControllerOnly** | `xbox360`, `ns2pro`, and the HID-only Sony personas â€” `dualsensecombinedext`, `dualsenseext`, `dualsense`, the Edge equivalents, `dualshock4`. No USB audio interface is created, so the race is not reachable. |
-| **Audio** | Anything creating or opening a virtual audio/mic endpoint: every `â€¦audioduplex*` and `â€¦audioonly*` type, the `â€¦micv2` types, and the audio-only sidecar. |
+| **ControllerOnly** | `xbox360`, `ns2pro`, and the HID-only Sony personas — `dualsensecombinedext`, `dualsenseext`, `dualsense`, the Edge equivalents, `dualshock4`. No USB audio interface is created, so the race is not reachable. |
+| **Audio** | Anything creating or opening a virtual audio/mic endpoint: every `…audioduplex*` and `…audioonly*` type, the `…micv2` types, and the audio-only sidecar. |
 
 ### The gating decision
 
@@ -2548,7 +2548,7 @@ combinations are enumerated in `ViiperVirtualDeviceGateTests`:
 
 | # | readiness | class | attached | ack | audio opt-in | result |
 |---|---|---|---|---|---|---|
-| 1 | *any* | *any* | **yes** | *any* | *any* | **allow** â€” running session |
+| 1 | *any* | *any* | **yes** | *any* | *any* | **allow** — running session |
 | 2 | `Missing` | any | no | any | any | block `DriverMissing` |
 | 3 | `DetectedUnvalidated` | any | no | any | any | block `DriverUnvalidated` |
 | 4 | `ValidatedExperimental` | ControllerOnly | no | no | any | block `ExperimentalNotAcknowledged` |
@@ -2578,7 +2578,7 @@ Four properties this ordering is chosen for:
 
 Two choke points, both minimal-diff:
 
-1. **`ViiperOutDevice.Connect()`** â€” the one place a virtual USB device is
+1. **`ViiperOutDevice.Connect()`** — the one place a virtual USB device is
    brought into existence, for primary outputs *and* the sidecar. It already
    threw `IOException` on a prerequisite failure and every caller already
    handles that, so a refusal needs no new error path. It asks twice: refusal of
@@ -2586,7 +2586,7 @@ Two choke points, both minimal-diff:
    primary output, it just starts the persona ladder below the audio rungs.
    Recovery (`TryRecoverStream`) reopens the *existing* device and never passes
    here, so an in-flight session is untouched by construction.
-2. **`PlayStationFeatureOutputPolicy.GetAudioOnlySidecarType`** â€” gained a
+2. **`PlayStationFeatureOutputPolicy.GetAudioOnlySidecarType`** — gained a
    required `audioClassAllowed` parameter (no default, so every call site must
    say what it consulted).
 
@@ -2603,14 +2603,14 @@ policy, and the policy refuses without consent. Two details matter:
 - The gate is asked with `alreadyAttached` = "a sidecar for this controller is
   connected right now". `CheckProfileOptions` runs on every profile change, so
   without that, switching the setting off mid-session would *disconnect* a live
-  audio endpoint on the next profile change â€” the race trigger. The switch
+  audio endpoint on the next profile change — the race trigger. The switch
   applies to the next connection, never the current one.
 - Refusals are logged once per controller per reason, not on every profile
   change, but at least once: a user whose controller speaker silently stopped
   appearing has to be able to find out why.
 
 The persona ladder gained three named HID-only tails
-(`CreateDualSenseHidOnlyStream`, `â€¦Edgeâ€¦`, `â€¦DualShock4â€¦`). They were already
+(`CreateDualSenseHidOnlyStream`, `…Edge…`, `…DualShock4…`). They were already
 the final fallbacks; naming them lets the gated path enter the ladder below the
 audio rungs without duplicating the tail.
 
@@ -2626,7 +2626,7 @@ tested.
 The Settings checkboxes bind **`OneWay`** and are driven by `Checked`/
 `Unchecked` handlers, not `Click`. A consent gate must be impossible to flip
 without the disclosure, and `Click` only covers the input paths WPF routes
-through `OnClick` â€” during the manual pass a UI-automation toggle changed the
+through `OnClick` — during the manual pass a UI-automation toggle changed the
 box without raising it. The state-change events fire whatever moved the box.
 The cost is three echoes to filter (the binding applying a stored `true` at
 startup, the handler writing what it just decided, the corrective un-tick after
@@ -2690,7 +2690,7 @@ package can change between sessions):
 The "Installed package" line is composed from the session readiness, so it names
 whatever is present; the four states each have their own true sentence and
 `EveryStateDescribesWhatIsInstalled` covers all of them. Issue #181 is
-*referenced*, never summarised as a fact about the reader's release â€” that is
+*referenced*, never summarised as a fact about the reader's release — that is
 what keeps the page true on a machine with a package nobody has examined.
 
 Wording is enforced negatively too: `NoDisclosureRecommendsAnUnlistedPackage`
@@ -2703,7 +2703,7 @@ and `NoRefusalRecommendsAnUnlistedPackage` fail on "download", "latest version",
   tab is selected and when a consent switch moves, evaluated on a worker thread
   so the first readiness pass never blocks the dispatcher. Red **"New virtual
   controllers are blocked"** when nothing can be created; amber **"Virtual audio
-  endpoints are off"** when only the audio class is refused â€” and the amber row
+  endpoints are off"** when only the audio class is refused — and the amber row
   says running controllers are unaffected, because a user looking at a working
   pad while reading "blocked" concludes the message is wrong and stops reading
   the next one.
@@ -2731,33 +2731,33 @@ one:
 Flipped with the same value-only, URL-guarded, re-parse-and-assert script 1.8
 used, so the diff is 7 lines across 3 files with every BOM and CRLF intact. The
 two checked-in designer doc comments were synced. `QuitOtherPrograms` stays as
-it is â€” its only token is inside the upstream wiki URL, which the guard confirms
+it is — its only token is inside the upstream wiki URL, which the guard confirms
 on every run.
 
 The guard is now `NoXamlReachableTooltipStillNamesTheOldProduct`: the 17
 XAML-reachable `Resources:` keys, each checked with URLs stripped, against
-`ProductInfo.ProductName`. It also records `BtPollRate` â€” bound twice in
+`ProductInfo.ProductName`. It also records `BtPollRate` — bound twice in
 `ProfileEditor.xaml` and declared in **no** resource file, so that tooltip has
 always rendered empty. Inherited from upstream; recorded rather than dropped
 from the list, because dropping it would hide it.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **0 errors**, 14
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, 14
   pre-existing warnings.
-- Full suite with the CI filter â€” **696 passed / 0 failed**, from the 663
+- Full suite with the CI filter — **696 passed / 0 failed**, from the 663
   baseline: +33. `AppSettingsTests.CheckSettingsSave` remains excluded and
   remains stale for the reason recorded in the 2.4b entry.
 - **Manual pass on the packaged build, non-elevated**, with the maintainer's
-  real configuration (backed up first, restored byte-identical afterwards â€”
+  real configuration (backed up first, restored byte-identical afterwards —
   hashes re-verified). `usbip.exe port`:
 
   | State | `usbip port` |
   |---|---|
   | before launch | *(no imported devices)* |
   | app running, **no consent recorded** | *(no imported devices)* |
-  | acknowledgement accepted, **audio off**, one X360 output plugged | `Port 01 â€¦ Xbox360 Controller (045e:028e)` â€” **one port, no second Sony port** |
-  | plus a DualSense output plugged, audio still off | adds `Port 02 â€¦ DualSense wireless controller (PS5) (054c:0ce6)` â€” the pad itself, still **no audio sidecar port** |
+  | acknowledgement accepted, **audio off**, one X360 output plugged | `Port 01 … Xbox360 Controller (045e:028e)` — **one port, no second Sony port** |
+  | plus a DualSense output plugged, audio still off | adds `Port 02 … DualSense wireless controller (PS5) (054c:0ce6)` — the pad itself, still **no audio sidecar port** |
   | both unplugged | *(no imported devices)* |
 
   With no consent recorded the backend's own census answered `{"buses":[]}`:
@@ -2767,8 +2767,8 @@ from the list, because dropping it would hide it.
   audio reason.
 
   The DualSense plugged with audio consent off negotiated a **HID-only persona**
-  â€” the census reports `type: "dualsense"` with `speakerInterfaceActive: false`
-  and `microphoneInterfaceActive: false` â€” and the log carried
+  — the census reports `type: "dualsense"` with `speakerInterfaceActive: false`
+  and `microphoneInterfaceActive: false` — and the log carried
   *"Virtual DualSense output is starting without its audio and microphone
   interfaces."* followed by the full reason. Both disclosures were read verbatim
   from the live dialogs (above). Decline reverted the switch and recorded
@@ -2784,7 +2784,7 @@ from the list, because dropping it would hide it.
    and connected over Bluetooth, but its HID interface delivered nothing and
    Thrum reported "No Controllers Connected" for the whole session; waking a
    sleeping pad needs a physical button press. So the *bound-pad* sidecar
-   scenario â€” a real Sony pad on BT with an X360 profile output â€” was not
+   scenario — a real Sony pad on BT with an X360 profile output — was not
    exercised live, and neither was controller input (manual check (c)). What was
    exercised instead: the same gate, the same policy call, the same audio-class
    refusal, on virtual outputs plugged by hand, plus the full unit coverage of
@@ -2797,7 +2797,7 @@ from the list, because dropping it would hide it.
    disclosures to test them; the config was restored from the pre-test backup
    afterwards, so neither flag is set on the maintainer's machine and the
    elements are absent from `Profiles.xml` again. Consent is theirs to give.
-4. **`Checked`/`Unchecked` instead of `Click`** on the two consent checkboxes â€”
+4. **`Checked`/`Unchecked` instead of `Click`** on the two consent checkboxes —
    see above. Not what the plan implied, and the better design for this purpose.
 5. **`ViiperDriverStatusViewModel.RestrictionText` was reworded** for
    `DetectedUnvalidated`. Outside the letter of 2.3/2.5, but the 2.2 text said
@@ -2814,14 +2814,14 @@ from the list, because dropping it would hide it.
   and **no** `054c:0ce6` sidecar with audio consent absent, then confirm normal
   controller input. Roughly five minutes with the maintainer present.
 
-## 2026-07-26 â€” Fix: two ProfileEditor tooltips bound to a misspelled resource key
+## 2026-07-26 — Fix: two ProfileEditor tooltips bound to a misspelled resource key
 
 Reported as "`BtPollRate` is declared in no resource file", with the fix being to
 author the key. Investigation contradicted the premise, so the fix is different
 and smaller.
 
-`BTPollRate` **already exists** â€” neutral, `.ru` and `.zh-hans`, plus a checked-in
-designer property â€” carrying "Determines the poll rate used for the DS4 hardware
+`BTPollRate` **already exists** — neutral, `.ru` and `.zh-hans`, plus a checked-in
+designer property — carrying "Determines the poll rate used for the DS4 hardware
 when connected via Bluetooth. (Applies on profile save)". The two
 `ProfileEditor.xaml` tooltips bound to `BtPollRate` (lower-case `t`), and
 `ResourceManager.GetString` is case-sensitive, so both resolved to null and
@@ -2832,13 +2832,13 @@ beside an already-translated one, and left two keys one character apart for the
 next reader to trip over. Fixed the two bindings instead: one character each,
 and the Russian and Chinese translations come back with them.
 
-- `DS4Windows/DS4Forms/ProfileEditor.xaml` â€” both `Resources:BtPollRate`
+- `DS4Windows/DS4Forms/ProfileEditor.xaml` — both `Resources:BtPollRate`
   bindings now `Resources:BTPollRate`.
-- `DS4WindowsTests/LocalizationSweepTests.cs` â€” `XamlReachableResourcesKeys`
+- `DS4WindowsTests/LocalizationSweepTests.cs` — `XamlReachableResourcesKeys`
   retargeted to the real key; the `KnownMissingResourcesKeys` entry dropped, so
   the dictionary is now empty. Its doc comment records why, and warns that a
   key must be confirmed absent **case-sensitively** before being recorded as
-  missing â€” a case-insensitive comparison reports the wrong spelling as present.
+  missing — a case-insensitive comparison reports the wrong spelling as present.
 
 The neutral English text was deliberately left as-is. Enriching it (poll interval
 versus bandwidth and battery, default of 4 ms / 250 Hz) was considered and not
@@ -2848,13 +2848,13 @@ a side effect of a typo fix.
 
 No new key, so the neutral-only policy for new keys does not apply here.
 
-Suite: **696 passed / 0 failed** (CI filter), unchanged from baseline â€” the pass
+Suite: **696 passed / 0 failed** (CI filter), unchanged from baseline — the pass
 is itself the check, since the key is listed as XAML-reachable with no
 known-missing entry, so a null lookup would fail the test.
 
 ---
 
-## 2026-07-26 â€” Phase 2.4: installer hardening (pins, verification, autostart removal, issue #12)
+## 2026-07-26 — Phase 2.4: installer hardening (pins, verification, autostart removal, issue #12)
 
 **Session scope:** plan task **2.4**, written on top of the upstream merge
 analysed in `upstream-delta-2026-07-26.md`. Nothing in this session installed,
@@ -2868,7 +2868,7 @@ directly.
 Upstream's four commits left four of the seven 2.4 requirements entirely ours,
 and the honest reading of the remaining three is that the script was making
 security decisions it had no way to make well: a `-ge 0.9.7.7` floor against a
-version probe that reads the FileVersion of `usbip2_ude.sys` â€” a DriverVer such
+version probe that reads the FileVersion of `usbip2_ude.sys` — a DriverVer such
 as `1.45.29.368`, which is not the release label and compares greater than every
 floor anyone would write. The floor passed trivially on every install it has
 ever seen, including this machine's.
@@ -2878,7 +2878,7 @@ deciding argument is not "C# is nicer to test": it is that the admission rule is
 *the manifest decides*, the manifest is `ViiperDriverManifest`, and its own
 contract says it must not be duplicated into the UI, the broker or the
 installer. A PowerShell copy of the version table would have been exactly that
-duplicate â€” and it would have been the copy deciding whether a kernel driver
+duplicate — and it would have been the copy deciding whether a kernel driver
 gets installed.
 
 New surface:
@@ -2900,14 +2900,14 @@ for whichever puts the fail-closed logic under real tests.
 one. Second, MSTest already gates every merge here; a Pester job would be a
 second harness, a second runner dependency and a second place a filter can go
 stale, bought for logic that would still have to reach into C# for the version
-table. Third â€” and this is the part worth stating plainly â€” the *shape* of (b)
+table. Third — and this is the part worth stating plainly — the *shape* of (b)
 is what makes the properties testable at all: `DecideDownloadVerification` is a
 function from observed facts to a verdict, so "valid signature, unexpected
 subject" is three lines of test instead of a signing fixture.
 
 67 new tests, all pure:
 
-- `ViiperInstallerPolicyTests` (46) â€” correct digest; wrong digest; missing
+- `ViiperInstallerPolicyTests` (46) — correct digest; wrong digest; missing
   file; null observation; uncomputable digest; valid signature with an
   unexpected subject; untrusted signature; absent signature; **a signature that
   was never evaluated** (the failure shape that reads exactly like a pass);
@@ -2917,12 +2917,12 @@ subject" is three lines of test instead of a signing fixture.
   version; registered-but-not-bound in all four flavours; unknown enum value;
   post-install 0/1/2, an undocumented code, and never-started; every exit-code
   mapping in both directions; the autostart plan including an unreadable state.
-- `PendingApplicationRestartTests` (10) â€” the #12 ordering, below.
-- `ViiperInstallerScriptTests` (11) â€” **the weakest tests here, and labelled as
+- `PendingApplicationRestartTests` (10) — the #12 ordering, below.
+- `ViiperInstallerScriptTests` (11) — **the weakest tests here, and labelled as
   such in the file.** Matching text in a script proves the text is there. They
-  exist for the four properties that are properties of *absent* code â€” no
+  exist for the four properties that are properties of *absent* code — no
   autostart creation, no backend start without the update flag, no URL or digest
-  outside the pins, no deletion of the rollback backup â€” where a regression is
+  outside the pins, no deletion of the rollback backup — where a regression is
   silent: the script keeps working, it just stops being safe.
 
 ### Requirement by requirement
@@ -2934,8 +2934,8 @@ subject" is three lines of test instead of a signing fixture.
    expected-beside-actual; a one-byte-flipped copy was refused with both digests
    in the log.
 2. **Post-install validation of the pair.** A `validate-installed` verb runs
-   `ViiperDriverValidationCommand.RunDiagnostic()` â€” the same implementation and
-   the same 0/1/2 the `-viiperdriverdiagnostic` switch runs â€” and the script
+   `ViiperDriverValidationCommand.RunDiagnostic()` — the same implementation and
+   the same 0/1/2 the `-viiperdriverdiagnostic` switch runs — and the script
    branches on it. Deliberately not launched as `-viiperdriverdiagnostic` in a
    second process: that switch prints to an attached parent console and, when
    there is none, opens a **modal report window**. A setup step that can block
@@ -2944,14 +2944,14 @@ subject" is three lines of test instead of a signing fixture.
 3. **No silent acceptance of an unlisted release.** The floor is gone; the
    primary input is the gate's four-state answer, not a file version. Verified
    live on this machine: `readiness=ValidatedExperimental`,
-   `matchedrelease=0.9.7.8`, `action=LeaveRecognisedReleaseAlone` â€”
+   `matchedrelease=0.9.7.8`, `action=LeaveRecognisedReleaseAlone` —
    *"It is a release this build recognises as an experimental baseline, and it
    is left exactly as it is."* Nothing was installed over it and no downgrade
    was attempted. VIIPER is pinned to an exact asset by version **and** digest;
    `Get-GithubReleaseAsset` and the newest-non-draft walk are deleted.
 4. **Atomic install, rollback retained.** `.previous` is no longer deleted on
    success, and its path is logged. Rollback that exists only inside the install
-   window is not rollback â€” the failure it guards against is a backend that
+   window is not rollback — the failure it guards against is a backend that
    installs cleanly and then misbehaves.
 5. **Log every decision.** Every decision function returns its audit lines
    together with its verdict, from the same call, so the two cannot disagree.
@@ -2962,7 +2962,7 @@ subject" is three lines of test instead of a signing fixture.
    only by the atomic install, keeping upstream's retry/escalate/fail-closed
    behaviour verbatim. A pre-existing entry is detected through 2.4b's read-only
    detector, reported, and removed only with `-RemoveViiperAutostart` or the
-   Settings button â€” never adopted.
+   Settings button — never adopted.
 7. **Issue #8 closed on every path.** `Start-AndVerifyViiper` takes its argument
    vector from `ViiperBackendSpawn.ServerArguments` (via the `pins` verb) rather
    than spelling out `server`, so the script cannot drift from the application,
@@ -2980,20 +2980,20 @@ not a comment: an edit that moves the launch earlier fails a test that says why.
 
 **The backend across the restart is deliberately not special-cased.**
 Stop-on-exit runs as usual, the owned backend goes down with the app, and the
-new instance starts a fresh one on demand. The alternative â€” exempting an
-install-driven restart â€” would leave a backend running that the new instance
+new instance starts a fresh one on demand. The alternative — exempting an
+install-driven restart — would leave a backend running that the new instance
 does not own and would therefore never stop, turning a temporary special case
 into a permanent orphan. A few hundred milliseconds of downtime during a restart
 nobody is playing through is the cheaper side of that trade.
 
 ### Verification
 
-- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` â€” **0 errors**, 14
+- `dotnet build DS4WindowsWPF.sln -c Release -p:Platform=x64` — **0 errors**, 14
   pre-existing warnings.
-- Full suite with the CI filter â€” **763 passed / 0 failed**, from the 696
+- Full suite with the CI filter — **763 passed / 0 failed**, from the 696
   baseline (+67). `AppSettingsTests.CheckSettingsSave` remains excluded and
   remains stale for the reason recorded in the 2.4b entry.
-- Script **parsed** with `[Parser]::ParseFile` â€” 0 errors, 2,609 tokens, five
+- Script **parsed** with `[Parser]::ParseFile` — 0 errors, 2,609 tokens, five
   declared parameters. Parsing is not execution; the script was never run.
 - **Live read-only pass** of every policy verb against the packaged build, using
   the genuine artefacts already retained in the workspace. Results as quoted
@@ -3030,16 +3030,16 @@ nobody is playing through is the cheaper side of that trade.
 `PHASE2-VM-VALIDATION-PREP-20260726.md` Phase B needs no change to be runnable,
 and gains a cheaper route: B1 and B2 can be done **without installing anything**
 by calling `Thrum.exe -viiperinstallerpolicy verify-file --component usbip
---path <staged> --out <report>` directly â€” that is the exact call the script
+--path <staged> --out <report>` directly — that is the exact call the script
 gates on. To exercise them through the script instead, pass
 `-UsbipInstallerFile <staged>`. B4's "no autostart was created" assertion is now
 also covered by a unit test, but the live enumeration is still worth capturing.
 
-## 2026-07-26 â€” Fix #17: advanced-haptics lane reported a policy choice as a fault
+## 2026-07-26 — Fix #17: advanced-haptics lane reported a policy choice as a fault
 
 Seen live minutes after the [HW] verification: with the DualSense persona and
-audio-class consent absent â€” the new default â€” the Overview card sat on
-**"Needs attention â€” The enabled advanced haptics lane could not be armed."**
+audio-class consent absent — the new default — the Overview card sat on
+**"Needs attention — The enabled advanced haptics lane could not be armed."**
 Nothing was broken. The lane was switched off on purpose.
 
 `advancedHapticsRequired` in `GetControllerRuntimeSignals` derived the
@@ -3057,22 +3057,22 @@ mid-session leaves the lane up, required, and healthy, so a later real failure
 still surfaces.
 
 **The microphone lane was checked and deliberately left alone.** It has a
-similar shape â€” requirement from a user toggle, no reference to consent â€” but it
+similar shape — requirement from a user toggle, no reference to consent — but it
 is not the same defect: `dualSenseMicrophonePassthrough` routes the *physical*
 pad's microphone over Bluetooth and does not depend on virtual audio endpoints,
 so a failure there is genuine and must keep surfacing. Silencing it would have
 hidden real breakage to quiet a false alarm.
 
-Six tests, including the inverse case (consent given, carrier still absent â‡’
+Six tests, including the inverse case (consent given, carrier still absent ⇒
 still `Attention`). Negative control run: dropping the `audioClassPermitted`
-term reproduced the bug â€” `Expected:<NotRequired>. Actual:<Unavailable>` â€” and
+term reproduced the bug — `Expected:<NotRequired>. Actual:<Unavailable>` — and
 the guard test failed; restored and re-verified.
 
 Suite: **769 passed / 0 failed** (CI filter), from 763.
 
 ---
 
-## 2026-07-30 â€” Phase 2 VM validation pass (and the two installer blockers it found)
+## 2026-07-30 — Phase 2 VM validation pass (and the two installer blockers it found)
 
 **Session scope:** the deferred Phase 2 VM pass, run against `7b87d1e` on the Windows 11 25H2
 test VM under the hardened posture (Secure Boot on, test signing off, VBS and Memory Integrity
@@ -3087,16 +3087,16 @@ this pass went near the usbip-win2 #181 teardown path.
 
 Task 2.4 recorded that the setup script end to end was "not verified, and cannot be here"
 because running it installs a kernel driver. This is what was behind that gap. Both failed
-**closed** â€” nothing was installed either time â€” so they were broken features, not unsafe ones.
+**closed** — nothing was installed either time — so they were broken features, not unsafe ones.
 
 1. **Setup could not start on a clean machine.** `Get-UsbipRegisteredRelease` returns `""`
-   when no USB/IP uninstall entry exists â€” the ordinary first-time case â€” and that empty
+   when no USB/IP uninstall entry exists — the ordinary first-time case — and that empty
    string was passed as the value of `--uninstall-version`. `Start-Process` validates
    `-ArgumentList` as not-null-or-empty *per element*, so setup aborted with
    `Cannot validate argument on parameter 'ArgumentList'` before verifying anything.
 2. **The driver installer was launched interactively.** `/S` is NSIS's silent switch;
    usbip-win2 ships an Inno Setup installer, which ignores unrecognised switches. The wizard
-   opened and waited for a human â€” observed as process `USBip-0.9.7.7-x64.tmp`, window title
+   opened and waited for a human — observed as process `USBip-0.9.7.7-x64.tmp`, window title
    `Setup - USBip`, blocking eleven minutes until killed.
 
 Fixed with two guards for the first (empty arguments dropped in `Invoke-InstallerPolicy`, and
@@ -3104,7 +3104,7 @@ the option omitted at the call site) and Inno's own switches for the second, hoi
 `$script:UsbipSilentArguments`. Suite **771 passed / 0 failed**, from 769.
 
 **Neither was detectable by the tests that exist.** Every guard on this script is static text
-analysis â€” the file's own header calls them the weakest tests in the change set. One defect is
+analysis — the file's own header calls them the weakest tests in the change set. One defect is
 a runtime parameter-validation rule, the other a third-party installer's command-line dialect.
 The two new tests are also static: they pin the fixes but would not have found the bugs. A
 scripted end-to-end install in the VM belongs in the release gate.
@@ -3129,20 +3129,20 @@ scripted end-to-end install in the VM belongs in the release gate.
   a test-signed `develop@63e5c8f0` build was installed and **loaded**. The gate refused it:
   `readiness=DetectedUnvalidated`, `action=RefuseUnrecognisedInstall`, `verdict=Refused`,
   diagnostic exit 1, on both `DriverVer` and publisher. The decisive line is
-  `signature trusted: yes` next to `publisher accepted: no` â€” Windows considered the driver
+  `signature trusted: yes` next to `publisher accepted: no` — Windows considered the driver
   validly signed because the test certificate was trusted, and the gate refused anyway. It does
   not delegate its decision to whatever the machine has been told to trust. The mixed-pair case
   came free: the two packages carry different `DriverVer`s and both were reported independently.
 
 ### What is still open
 
-- **C1â€“C4 live gating** needs a physical controller in the guest; the VM has none and the run
+- **C1–C4 live gating** needs a physical controller in the guest; the VM has none and the run
   sheet scopes passthrough out. The VIIPER local API was probed as a workaround and does not
   answer plain HTTP on `:3242`.
-- **The 2.4b census branch** ("Thrum-owned backend + a foreign device â‡’ backend survives")
+- **The 2.4b census branch** ("Thrum-owned backend + a foreign device ⇒ backend survives")
   cannot be isolated without a controller, because Thrum only starts a backend when a profile
   needs one.
-- **Installer exit code 3** (installed, validation deferred to a restart) was never reached â€”
+- **Installer exit code 3** (installed, validation deferred to a restart) was never reached —
   the pair bound without a reboot.
 - **B2's signature branch cannot be exercised by a negative:** both bad artefacts were refused
   on the digest first, and reaching the signature comparison needs a file whose SHA-256 already
@@ -3169,25 +3169,25 @@ bundle the runtime, detect and offer it, or ship self-contained. It belongs to P
    *(Fixed below, 2026-07-30.)*
 4. Verification refusals name the pinned filename rather than the file actually inspected, so a
    corrupted staged copy is reported as *"USBip-0.9.7.7-x64.exe does not have the pinned
-   SHA-256"* â€” which reads as an accusation against the official artefact. *(Fixed below,
+   SHA-256"* — which reads as an accusation against the official artefact. *(Fixed below,
    2026-07-30.)*
 
 ---
 
-## 2026-07-30 â€” Fix: verification refusals named the pinned file, not the file inspected
+## 2026-07-30 — Fix: verification refusals named the pinned file, not the file inspected
 
 Incidental defect 4 from the VM pass above. `DecideDownloadVerification` built every sentence
 about the file from `pin.FileName`, so verifying the corrupted staged copy
 `USBip-0.9.7.7-x64.CORRUPT.exe` produced *"Verification failed: USBip-0.9.7.7-x64.exe does not
-have the pinned SHA-256"* â€” an accusation against the official artefact the policy never looked
+have the pinned SHA-256"* — an accusation against the official artefact the policy never looked
 at. The decision function could not do better: the observation carried size, digest and
 signature facts, but not the name of the file they were observed on.
 
-`ViiperDownloadObservation` now records `FileName` â€” the base name only, never a full path,
+`ViiperDownloadObservation` now records `FileName` — the base name only, never a full path,
 because decision lines are copied verbatim into `install.log` and reports must not carry user
-paths â€” and `Observe` fills it from `--path` on every return path, including the file-missing
+paths — and `Observe` fills it from `--path` on every return path, including the file-missing
 and unreadable ones. Summaries name that file; the pin's filename stays in the audit trail as
-the expected side of a new `File name: expected â€¦, actual â€¦` line, the same
+the expected side of a new `File name: expected …, actual …` line, the same
 expected-beside-actual shape the size, digest and signer lines already use. `Path.GetFileName`
 is re-applied inside the decision function itself, so a future caller that records a full path
 still cannot put one into a report. When no name was recorded at all (a null observation), the
@@ -3204,15 +3204,15 @@ Suite: **774 passed / 0 failed** (CI filter), from 771.
 
 ---
 
-## 2026-07-30 â€” Fix: startup log claimed a VIIPER backend the machine did not have
+## 2026-07-30 — Fix: startup log claimed a VIIPER backend the machine did not have
 
 Phase 2's incidental defects 1 and 2, both visible in `phaseA-thrum-log.txt` from the bare VM:
 `INFO|VIIPER virtual-controller backend ready` on a machine with no helper, no driver and no
 server, followed by the same `usbip.exe was not found` warning ten times in one second.
 
-**The "ready" line** (`ControlService.Start`) was unconditional â€” it announced its neighbour,
-the KB+M handler line, not a probe. It now reads `ViiperSetupManager.GetStatus()` â€” the same
-probe the Settings card reads â€” and claims ready only when `Ready` (server answering + driver
+**The "ready" line** (`ControlService.Start`) was unconditional — it announced its neighbour,
+the KB+M handler line, not a probe. It now reads `ViiperSetupManager.GetStatus()` — the same
+probe the Settings card reads — and claims ready only when `Ready` (server answering + driver
 installed) is true; otherwise it names what is missing:
 `VIIPER virtual-controller backend not ready (VIIPER and usbip-win2 need setup). VIIPER helper:
 missing; usbip-win2: missing; server: not running.` The component readout moved onto
@@ -3225,10 +3225,10 @@ second on the API ping.
 consecutive clean snapshots 100 ms apart, and `GetImportedPorts` logged every failed query on
 its own. Failed queries are now handed to the caller: the two retry loops
 (`DetachStaleLocalViiperPorts`, `FindLocalViiperPort`) count them and log one summary after the
-pass â€” `VIIPER could not query usbip ports (10 attempts): usbip.exe was not found.` â€” through
+pass — `VIIPER could not query usbip ports (10 attempts): usbip.exe was not found.` — through
 `DescribePortQueryFailures`, whose single-failure form is byte-identical to the old line so
 existing triage notes still match. The single-shot caller (`DetachDuplicateLocalViiperPorts`)
-still warns immediately. Sweep behaviour â€” attempt caps, sleeps, the clean-snapshot rule â€” is
+still warns immediately. Sweep behaviour — attempt caps, sleeps, the clean-snapshot rule — is
 deliberately unchanged; this entry is about what the log says, not what the sweep does.
 
 Nine tests pin the ready line, the bare-machine line, the stopped-server line, Ready's
@@ -3238,7 +3238,7 @@ defect-4 fix merged alongside.
 
 ---
 
-## 2026-07-30 â€” Fix: report text quoted from outside could carry the account name
+## 2026-07-30 — Fix: report text quoted from outside could carry the account name
 
 The follow-up the defect-4 fix flagged. `Observe` recorded raw exception messages in
 `ViiperDownloadObservation.ObservationError`, and Windows I/O messages embed the full path they
@@ -3247,22 +3247,22 @@ unreadable download would have written the account name into the decision lines 
 script copies into `install.log`. The same shape existed in three more places: the WinTrust
 verifier's catch-all diagnostic (`"trust verification threw: " + ex.Message`), the policy
 command's top-level `error=`/`log=` lines, and the autostart lines that quote an entry's
-target â€” a command line that frequently lives under the profile.
+target — a command line that frequently lives under the profile.
 
 The rule stays the formatter's: `RedactUserPath` replaces the account segment with `<user>`
 and keeps the rest of the path, because the path shape is the triage value. The new
 `ViiperDriverReportFormatter.RedactUserPathsInText` applies that same rule to every profile
 path embedded in prose (in text, the account name is also ended by a quote or whitespace, not
-only by the next separator). Producers redact at the source â€” `Observe` and the command's
+only by the next separator). Producers redact at the source — `Observe` and the command's
 `Run` catch now record `ExceptionType: redacted message`, and the WinTrust catch redacts its
-diagnostic â€” and `ViiperInstallerPolicy` redacts again at every line that quotes outside text,
+diagnostic — and `ViiperInstallerPolicy` redacts again at every line that quotes outside text,
 so a report does not depend on every producer remembering. Fixed diagnostics ("certificate
 expired", "no valid signature") and path-free error text pass through unchanged;
 `DisplayPath` was already built redacted and needed nothing.
 
 Negative control: neutering the policy's `Redacted` helper failed all three new report-flow
 tests; restored and re-verified. One test needed its probe account renamed to
-`leakedaccountname` â€” the first choice, "somebody", is a word the autostart prose
+`leakedaccountname` — the first choice, "somebody", is a word the autostart prose
 legitimately contains, which the failing run pointed out.
 
 Suite: **793 passed / 0 failed** (CI filter) in a clean worktree of this commit, from 783.
@@ -3270,7 +3270,7 @@ Suite: **793 passed / 0 failed** (CI filter) in a clean worktree of this commit,
 
 ---
 
-## 2026-07-30 â€” Fix: list rows announced raw .NET type names to screen readers
+## 2026-07-30 — Fix: list rows announced raw .NET type names to screen readers
 
 Incidental defect 3 from the VM pass above. WPF's `ItemAutomationPeer` derives a list item's
 UIA Name from, in order: `AutomationProperties.Name` on the generated container, the
@@ -3278,21 +3278,21 @@ container's plain text, then the data item's `ToString()`. A `ListView` row whos
 from cell templates has no container name and no plain text, so every Output Slots row was
 announced as `DS4WinWPF.DS4Forms.ViewModels.SlotDeviceEntry`, and the driver card's plain
 `ItemsControl`s announced `DS4Windows.ViiperDriverComponentIdentity` /
-`â€¦ViiperDriverIdentityField` for every identity row.
+`…ViiperDriverIdentityField` for every identity row.
 
-Every affected class now overrides `ToString()` with the text the row already displays â€”
+Every affected class now overrides `ToString()` with the text the row already displays —
 `TriggerLabControl.ProfileChoice` set the repo precedent. The tempting XAML alternative
 (`ItemContainerStyle` binding `AutomationProperties.Name`) is wrong for the two `GridView`
 lists here: the dark theme ships an implicit app-level `ListViewItem` style whose template is
 the `GridViewRowPresenter`, the default theme has none and falls back to the OS style, and
-themes swap at runtime â€” any `BasedOn` choice renders rows wrong in one theme or the other.
+themes swap at runtime — any `BasedOn` choice renders rows wrong in one theme or the other.
 `ToString()` is theme-independent, covers every current and future list of the same class, and
 is what the peer's fallback reads live on each query.
 
 The sweep (heuristic: every `ItemsSource` in XAML and code-behind whose element type lacked
 both a `DisplayMemberPath` at the binding site and a `ToString()` override) found the same
 defect on twelve more classes, all fixed the same way: `LogItem` (Log tab rows announced only
-the type name â€” time and message composed now), `ProfileEntity` (Profiles tab cards and every
+the type name — time and message composed now), `ProfileEntity` (Profiles tab cards and every
 profile dropdown), `CompositeDeviceModel` (Controllers tab cards and the sidebar controller
 list), `DeviceListItem` (controller-options device list), `ProgramItem` (Auto Profiles rules),
 `SpecialActionItem` (special actions rows), `MappedControl` (profile editor mapping cards),
@@ -3316,7 +3316,7 @@ Suite: **791 passed / 0 failed** (CI filter), from 783.
 
 ---
 
-## 2026-07-31 â€” Third-party licence audit (closes the Phase 0 `TO AUDIT` section)
+## 2026-07-31 — Third-party licence audit (closes the Phase 0 `TO AUDIT` section)
 
 **Session scope:** the `NOTICE.txt` audit opened as deviation 1 of the Phase 0 entry on
 2026-07-25 and carried since as the top release blocker. Branch
@@ -3331,14 +3331,14 @@ than from memory. Full working, including a per-entry evidence table, is in
 
 **The inventory came from a publish, not the csproj**, because the two differ. Two traps that
 cost real attention: `Microsoft.Win32.TaskScheduler.dll` is **not** a Microsoft product (its
-`CompanyName` is "GitHub Community" â€” it is dahall/TaskScheduler), so filtering an inventory by
+`CompanyName` is "GitHub Community" — it is dahall/TaskScheduler), so filtering an inventory by
 `Microsoft.*` hides it; and `ICSharpCode.AvalonEdit.dll` and `XAMLMarkupExtensions.dll` appear in
 no `PackageReference` at all because they are transitive.
 
 ### What the audit resolved
 
-24 components now carry a verified licence with recorded provenance â€” MIT, BSD-3-Clause,
-Apache-2.0, Ms-PL, one public-domain dedication â€” covering every NuGet package that ships an
+24 components now carry a verified licence with recorded provenance — MIT, BSD-3-Clause,
+Apache-2.0, Ms-PL, one public-domain dedication — covering every NuGet package that ships an
 assembly, every vendored source tree, every bundled binary, the native RNNoise library, and the
 three external components Thrum requires but does not redistribute (VIIPER GPL-3.0, usbip-win2
 BSD-2-Clause, HidHide).
@@ -3346,7 +3346,7 @@ BSD-2-Clause, HidHide).
 ### What the audit found that nobody had catalogued
 
 1. **The inherited notice was wrong in both directions.** It credited **Font Awesome**, which is
-   not in the product â€” a full-tree search for the name and for any `.ttf`/`.otf`/`.woff` file
+   not in the product — a full-tree search for the name and for any `.ttf`/`.otf`/`.woff` file
    returned exactly one hit, the notice itself. Entry removed.
 2. **A 431 KB vendored JavaScript bundle ships uncredited.**
    `DS4Windows/BezierCurveEditor/build.js` is a webpack build of `gre/bezier-easing-editor` (MIT)
@@ -3358,16 +3358,16 @@ BSD-2-Clause, HidHide).
 1. **`FakerInputWrapper.dll` has no licence grant at all.** `Ryochan7/FakerInputWrapper` has no
    LICENSE file, no source headers, no csproj licence metadata and an empty README. We
    redistribute the assembly in every release; absent a grant there is no permission to do so.
-   The native `FakerInputDll.dll` from the separate `Ryochan7/FakerInput` repo **is** MIT â€” only
+   The native `FakerInputDll.dll` from the separate `Ryochan7/FakerInput` repo **is** MIT — only
    the managed wrapper is affected. Inherited from upstream, not introduced here.
 2. **Three Ms-PL assemblies link into a GPL-3.0 program** (DotNetProjects.Extended.Wpf.Toolkit,
    WPFLocalizeExtension, transitive XAMLMarkupExtensions). The FSF states Ms-PL is "incompatible
    with the GNU GPL". Also inherited from upstream DS4Windows, which ships the same three, so the
-   exposure is not new â€” but a first public release is when it starts to matter. Needs a
+   exposure is not new — but a first public release is when it starts to matter. Needs a
    maintainer decision, informed by counsel if wanted; the notice states the FSF's position, not
    legal advice. Apache-2.0 components are fine (GPLv3-compatible).
 3. **Two vendored items cannot be cleanly licensed as they stand**: `OneEuroFilter.cs` has no
-   header and the 1â‚¬ filter authors list the C# port as unverified with no licence stated
+   header and the 1€ filter authors list the C# port as unverified with no licence stated
    (105 lines; reimplement from the CHI 2012 paper or port a BSD version), and the Bezier bundle
    above cannot have its embedded dependencies enumerated from a minified artifact.
 
@@ -3378,7 +3378,7 @@ BSD-2-Clause, HidHide).
 (SbcSharp, ControllerArtwork, ICONS) must exist and stay cross-referenced; the UNRESOLVED section
 must keep saying it is release-blocking while it exists.
 
-They verify **presence of an entry, not correctness of a licence** â€” correctness needs the
+They verify **presence of an entry, not correctness of a licence** — correctness needs the
 artifact, which is what the audit document is for. They exist to prevent the silent case, which
 is precisely how Font Awesome came to be credited for something absent while a 431 KB bundle
 shipped uncredited. Negative control: stripping every occurrence of `WpfScreenHelper` and
@@ -3388,45 +3388,45 @@ Suite: **805 passed / 0 failed**, from 801.
 
 ---
 
-## 2026-07-31 â€” Phase 3.1: lifecycle invariant gap-diff
+## 2026-07-31 — Phase 3.1: lifecycle invariant gap-diff
 
-**Session scope:** Phase 3, task 3.1 â€” the invariant gap-diff against the maintainer's old
+**Session scope:** Phase 3, task 3.1 — the invariant gap-diff against the maintainer's old
 DS4Windows native-mode fork. Branch `phase3/lifecycle-invariant-gap-diff`. Deliverable:
 [`lifecycle-invariants.md`](lifecycle-invariants.md).
 
 **The finding that matters for planning: there is far less to port than the plan assumed.** The
-plan budgeted 3â€“6 sessions expecting a large body of old-fork containment work to need adapting.
+plan budgeted 3–6 sessions expecting a large body of old-fork containment work to need adapting.
 Most of it is either already present in Thrum in a different form, or made moot by the
-architecture â€” because the risky component the invariants were written around, an in-process
+architecture — because the risky component the invariants were written around, an in-process
 USB/IP helper holding a WASAPI render lease on a virtual audio endpoint, **does not exist in
 Thrum**, and the audio endpoints that made it necessary are off by default since 2.3.
 
 Three of the six invariants (c, d, e) are phrased in terms of *render protection*. Thrum holds
-none. Read literally they are N/A; read for their purpose â€” never release a safety hold until the
-dangerous thing is provably gone â€” they re-derive onto the census/ownership model from 2.4b, and
+none. Read literally they are N/A; read for their purpose — never release a safety hold until the
+dangerous thing is provably gone — they re-derive onto the census/ownership model from 2.4b, and
 that is how they were assessed.
 
 | invariant | verdict | action |
 |---|---|---|
-| (a) retired generation emits no late success | Present (feedback), partial (state writer) | port the drain barrier to the writer â€” small |
+| (a) retired generation emits no late success | Present (feedback), partial (state writer) | port the drain barrier to the writer — small |
 | (b) UNLINK cannot strand or double-complete | moved to VIIPER; **ownership gap found** | report upstream |
 | (c) prove exact-device absence | re-derived, Present via census, fail-closed | optional PnP cross-check, low priority |
-| (d) parent death retains a protection | N/A â€” architecture prevents the dangerous case | Phase 4 diagnostics affordance |
-| (e) timeout â‰  permission to kill | Present via the census gate | none; window documented |
-| (f) unproven removal blocks reuse | partial â€” cleans up rather than blocks | port the refusal branch â€” small |
+| (d) parent death retains a protection | N/A — architecture prevents the dangerous case | Phase 4 diagnostics affordance |
+| (e) timeout ≠ permission to kill | Present via the census gate | none; window documented |
+| (f) unproven removal blocks reuse | partial — cleans up rather than blocks | port the refusal branch — small |
 
 ### The upstream finding (Phase 3.4's deliverable, arrived early)
 
-VIIPER's Go server handles the *stranding* half of invariant (b) deliberately â€” `server.go:929`
+VIIPER's Go server handles the *stranding* half of invariant (b) deliberately — `server.go:929`
 carries the comment "Cancellation must never strand a later URB behind this one." The
 *exactly-once* half has a hole. Its UNLINK handler claims ownership correctly (`server.go:805-828`:
 look up under `pendingMu`, delete, reply `-ECONNRESET` only `if found`). The ISO-IN completion
-path does not make the symmetric check â€” `server.go:967-971` deletes unconditionally, discards
+path does not make the symmetric check — `server.go:967-971` deletes unconditionally, discards
 the result, and `writeRet` (`server.go:614`) applies no ownership test. An UNLINK arriving after
 the completion goroutine's last context check (`server.go:955`) and before it takes the mutex
 produces **both** a `RET_UNLINK(-ECONNRESET)` and a `RET_SUBMIT` for one seqnum.
 
-Static reading, not reproduced, narrow window â€” but the consequence is a client handed a response
+Static reading, not reproduced, narrow window — but the consequence is a client handed a response
 for a request it no longer owns, which is the same shape as the kernel-side defect class in
 usbip-win2 #181 and exactly what its PR #182 arbitration prevents on the other side of the wire.
 Fix is the same shape as VIIPER's own UNLINK handler: make the delete the ownership claim.
@@ -3435,21 +3435,21 @@ Fix is the same shape as VIIPER's own UNLINK handler: make the delete the owners
 
 Every file:line citation in the deliverable was checked against the current tree (9 Thrum
 citations re-read and confirmed; VIIPER citations read from `upstream-hbashton-viiper`). No code
-changed in this task â€” it is an analysis deliverable, and 3.3 is where the two small ports land.
+changed in this task — it is an analysis deliverable, and 3.3 is where the two small ports land.
 
 ---
 
-## 2026-07-31 â€” Fix: a bare `dotnet build`/`dotnet test` could not compile (AnyCPU default)
+## 2026-07-31 — Fix: a bare `dotnet build`/`dotnet test` could not compile (AnyCPU default)
 
 Build configuration only; no product code or tests changed.
 
 Origin: inherited. Upstream keeps `libs\` next to the solution, so its project file says
 `<HintPath>..\libs\$(Platform)\...`; this repository imported the tree with `libs\` inside
 `DS4Windows\` and kept the HintPaths, which have therefore pointed at a directory that never
-existed here. x64/x86 builds still resolved FakerInputWrapper and SharpOSC â€” but only because the
+existed here. x64/x86 builds still resolved FakerInputWrapper and SharpOSC — but only because the
 SDK's default item globbing picks the DLLs up as `None` items and ResolveAssemblyReference's
-`{CandidateAssemblyFiles}` fallback matches them by simple name. On AnyCPU â€” the MSBuild default
-for a bare `dotnet build`/`dotnet test` against a csproj â€” the csproj strips both `libs\` trees
+`{CandidateAssemblyFiles}` fallback matches them by simple name. On AnyCPU — the MSBuild default
+for a bare `dotnet build`/`dotnet test` against a csproj — the csproj strips both `libs\` trees
 from the item list, the fallback has nothing to match, and compilation dies with CS0246 before a
 single test runs. The app csproj even carried `<Platform Condition="'$(Platform)' == ''">x64
 </Platform>`, visibly intending an x64 default, but Microsoft.Common.props has already defaulted
@@ -3463,19 +3463,19 @@ still overrides the remap, so CI (`-p:Platform=x64`) and x86 builds behave exact
 
 Negative control: at the same base commit without the fix, a bare `dotnet test` against the test
 csproj reproduces `error CS0246: ... 'SharpOSC' could not be found`; with the fix the same
-command builds as x64 and runs the full suite â€” 808 tests, the three known snapshot failures and
+command builds as x64 and runs the full suite — 808 tests, the three known snapshot failures and
 nothing else. Property evaluation probed both ways: bare evaluation yields `Platform=x64` with
 `bin\x64\` outputs; `-p:Platform=x86` still yields `Platform=x86` with `bin\x86\` outputs. Fresh
 Release builds of the solution succeed for x64 and x86 with no MSB3245 and the warning count
 unchanged from baseline (17).
 
-Suite: **805 passed / 0 failed** (CI filter), unchanged from 805 â€” build configuration only.
+Suite: **805 passed / 0 failed** (CI filter), unchanged from 805 — build configuration only.
 
 ---
 
-## 2026-08-01 â€” Phase 3.2: default-audio-endpoint takeover, measured
+## 2026-08-01 — Phase 3.2: default-audio-endpoint takeover, measured
 
-**Session scope:** Phase 3, task 3.2 â€” verify the known failure (Windows promoting the virtual
+**Session scope:** Phase 3, task 3.2 — verify the known failure (Windows promoting the virtual
 pad's audio endpoints to default) and decide whether to port `NativeModeAudioDefaultGuard`.
 Branch `phase3/audio-default-endpoint-measurement`. Deliverable:
 [`audio-default-endpoint-measurement.md`](audio-default-endpoint-measurement.md).
@@ -3489,12 +3489,12 @@ audio-endpoint path at materially lower risk than when the takeover was first se
 
 The guest began with **no audio endpoints at all** (a Gen 2 VM has no sound card). On attach of
 the synthetic composite DualSense, Windows enumerated `MEDIA DualSense Wireless Controller` and
-took **all six** default slots at once â€” `Speakers (DualSense Wireless Controller)` for
+took **all six** default slots at once — `Speakers (DualSense Wireless Controller)` for
 Render/{Console, Multimedia, Communications} and `Headset Microphone (DualSense Wireless
 Controller)` for Capture/{Console, Multimedia, Communications}.
 
 Detach released all six cleanly; a second cycle behaved identically. **Endpoint identity was
-stable across both attaches** (same GUIDs), with **zero** stale MMDevices instances accumulated â€”
+stable across both attaches** (same GUIDs), with **zero** stale MMDevices instances accumulated —
 unlike the 2026-07-20 dev-PC observation of ~10 stale instances. A read-only check of the dev PC
 while writing this found 0 such entries there now too, so that identity-churn condition is not
 currently reproducible either. Zero bugchecks, zero dumps, zero PnP problems.
@@ -3502,7 +3502,7 @@ currently reproducible either. Zero bugchecks, zero dumps, zero PnP problems.
 ### What it does not establish, and the decision that follows
 
 The VM had **no incumbent endpoint**, so "became default" was uncontested. The operative
-complaint â€” the pad displacing the headset already in use â€” cannot be measured where there is
+complaint — the pad displacing the headset already in use — cannot be measured where there is
 nothing to displace, and round 2 does not close it either. This is structural: a Gen 2 guest has
 no sound card, and adding one means enhanced-session mode (which hides the guest's own endpoints)
 or installing a third-party driver into a deliberately offline VM.
@@ -3515,7 +3515,7 @@ no claim of a verified fix); and nothing ships exposed to it today, because audi
 are off by default behind the 2.3 consent gate, so there is time to close the gap properly.
 
 The document records the cheapest ways to close it, the reason the dev PC is ruled out on safety
-(it runs 0.9.7.8, the bad side of the bisect), and â€” for whoever does port it â€” the specific
+(it runs 0.9.7.8, the bad side of the bisect), and — for whoever does port it — the specific
 adaptations needed: key on device instance/container id rather than friendly name (a real
 DualSense produces identical names), cover Capture as well as Render, and surface guard state on
 the Phase 4 diagnostics page.

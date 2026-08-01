@@ -3731,3 +3731,54 @@ the controller survived both Thrum start and shutdown. The log carried
 the report the detach became.
 
 Suite: **862 passed / 0 failed** (CI filter), from 853.
+
+## 2026-07-31 — Pads attached through usbip-win2 are never input
+
+**Session scope:** the residual the port-sweep fix (PR #30) deliberately left open, closed at
+the correct layer. Branch `fix/usbip-attached-pads-are-not-input`.
+
+### The gap
+
+Input discovery's protection against ingesting our own virtual output was an in-memory
+before/after path registry (`ownVirtualSonyPaths`) plus an active-port check — both records of
+*this session's* creations. A session that dies hard takes the records with it, so its leftover
+pad was a perfectly ordinary DualSense to the next start: ingested, mapped, and recursed on.
+That recursion is what the old startup port sweep prevented by detaching — and PR #30
+established that detach-on-heuristic disconnects other applications' live pads, so the sweep
+now observes only, and the ingestion path had nothing.
+
+The same gap covered another case nobody had named: another application's live virtual pad
+(the maintainer's native-mode DS4Windows serving a DualSense) was equally ingestible the moment
+its device type was enabled — reading input from a pad that a different program is serving to
+games.
+
+### The fix
+
+`UsbipAttachedInputPolicy`, consulted from `DS4Devices.IsRealDS4`: any pad whose devnode
+ancestry reaches the usbip-win2 UDE controller (`Global.CheckIfUsbIpWin2Device`, the ancestry
+walk that already existed for the active-port check) is a virtual output being served by
+something, and is never input. Ancestry does not depend on who remembers creating the device,
+which is exactly what the in-memory registry could not offer. Our own live outputs are rejected
+quietly as before; an unmanaged usbip pad is rejected with one log line per path — naming both
+readings (leftover of a dead session / another program's live controller) and pointing at the
+backend-process card that can clear a leftover with consent.
+
+Deliberately given up: a *real* controller forwarded from another machine over usbip-win2 can
+no longer be input. usbip-win2 exists on these machines solely as VIIPER's transport, remote
+forwarding has VirtualHere as the supported route (`CheckIfVirtualDevice`'s exclusion list),
+and the refusal is named in the log — if the combination ever matters it arrives as a feature
+request with evidence, not as silence.
+
+### Verification
+
+Five policy tests (verdict table, warn-once per path across hotplug re-runs, announcement
+content: evidence, both readings, remedy). Suite: **867 passed / 0 failed** (CI filter),
+from 862.
+
+**Live, against the real coexistence scenario.** With the native-mode build serving its virtual
+DualSense on usbip port 1 and DualSense input enabled in an isolated run, one discovery pass
+produced both halves of the proof: the usbip-attached virtual pad was refused with the new log
+line, and the user's *physical* DualSense on Bluetooth — same VID/PID — was accepted as a
+controller in the same breath. Selectivity, not a VID/PID blanket: position in the device tree
+is the discriminator. The native application, its virtual pad, and its usbip import were
+untouched throughout.

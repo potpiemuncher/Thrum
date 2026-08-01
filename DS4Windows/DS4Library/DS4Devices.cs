@@ -399,9 +399,32 @@ namespace DS4Windows
         {
             // Our own virtual output controllers are never valid input, regardless of
             // mode. This is what breaks the Moonlight + DS4-output feedback loop.
-            if (IsOwnVirtualDevice(hDevice.DevicePath))
+            //
+            // The second question widens that to position: ANY pad attached
+            // through usbip-win2's controller is a virtual output being served
+            // by something — a leftover of a session that died hard, or
+            // another application's live pad. The in-memory registry cannot
+            // recognise either (it died with its session, or never knew them),
+            // which is how a crashed session's own output used to come back as
+            // an input. Ancestry does not depend on who remembers creating the
+            // device.
+            string devicePath = hDevice.DevicePath;
+            bool ownLiveOutput = IsOwnVirtualDevice(devicePath);
+            bool usbipAttached = ownLiveOutput ||
+                Global.CheckIfUsbIpWin2Device(devicePath);
+            switch (UsbipAttachedInputPolicy.Decide(ownLiveOutput, usbipAttached))
             {
-                return false;
+                case UsbipInputVerdict.RejectOwnLiveOutput:
+                    return false;
+                case UsbipInputVerdict.RejectUnmanagedImport:
+                    if (UsbipAttachedInputPolicy.ShouldWarnOnce(devicePath))
+                    {
+                        AppLogger.LogToGui(
+                            UsbipAttachedInputPolicy.DescribeRejectedImport(
+                                devicePath), true);
+                    }
+
+                    return false;
             }
 
             bool isVirtualDevice = Global.CheckIfVirtualDevice(hDevice.DevicePath);

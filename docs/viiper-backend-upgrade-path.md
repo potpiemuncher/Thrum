@@ -1,13 +1,13 @@
 # VIIPER backend architecture
 
-VIIPER is DS4Windows' only virtual-controller backend. It exposes Xbox 360,
+VIIPER is Thrum's only virtual-controller backend. It exposes Xbox 360,
 DualShock 4, DualSense, DualSense Edge, and Switch 2 Pro devices through
 usbip-win2 as complete USB devices, including the applicable Sony audio
 interfaces.
 
 ## User setup
 
-DS4Windows checks VIIPER and usbip-win2 at startup. When either component is
+Thrum checks VIIPER and usbip-win2 at startup. When either component is
 missing, the app offers its bundled self-elevating setup. Setup installs both
 components, registers a hidden `RunVIIPER` logon task, starts the server, and
 verifies its local API. Settings also provides Install / Repair and Refresh
@@ -21,10 +21,10 @@ backward compatibility. They normalize immediately to `ViiperX360` and
 
 ## Runtime containment
 
-DS4Windows records locally created VIIPER Sony interfaces before normal HID
+Thrum records locally created VIIPER Sony interfaces before normal HID
 enumeration and rejects them as physical inputs. Moonlight/Sunshine virtual
 controllers use a separate opt-in admission policy, so accepting streamed
-controllers cannot make DS4Windows recursively ingest its own output.
+controllers cannot make Thrum recursively ingest its own output.
 
 ## Feedback and audio
 

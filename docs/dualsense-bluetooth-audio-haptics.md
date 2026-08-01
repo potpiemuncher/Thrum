@@ -16,20 +16,20 @@ The channels are intentionally not mixed. In particular, the advanced-haptics PC
 Speaker and microphone routing follows the emulated controller selected by the
 profile, not the physical model. A physical DualSense can therefore feed a
 virtual DualShock 4 audio endpoint, and a physical DualShock 4 can feed a
-virtual DualSense endpoint. DS4Windows selects the matching virtual render
+virtual DualSense endpoint. Thrum selects the matching virtual render
 endpoint automatically and converts microphone PCM to the virtual endpoint's
 native sample rate and channel layout.
 
 ## In-game setup
 
 1. Install a VIIPER build containing the DualSense UAC interface.
-2. Select **DualSense** in the DS4Windows profile.
+2. Select **DualSense** in the Thrum profile.
 3. Connect a physical DualSense or DualSense Edge over Bluetooth.
 4. In the profile's **Controller audio** section, enable **Stream audio to controller**.
 5. Select the virtual `Wireless Controller` / DualSense render endpoint as **Audio source**.
 6. In the game, select that same endpoint when the game provides a controller-audio output choice.
 
-The VIIPER virtual audio endpoint is created by VIIPER's USB Audio Class function. DS4Windows does not create a fake Windows audio endpoint in user mode. Windows audio endpoints require a driver-backed device interface; creating one separately would require an installed, signed virtual audio driver.
+The VIIPER virtual audio endpoint is created by VIIPER's USB Audio Class function. Thrum does not create a fake Windows audio endpoint in user mode. Windows audio endpoints require a driver-backed device interface; creating one separately would require an installed, signed virtual audio driver.
 
 ## Bluetooth speaker processing
 

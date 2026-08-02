@@ -126,6 +126,41 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void SpecificEndpointIdentityRoundTripsInsideProfileXml()
+        {
+            ProfileDTO original = new ProfileDTO
+            {
+                AudioHapticsSettings = new AudioHapticsProfileSettings
+                {
+                    Enabled = true,
+                    Source = AudioHapticsSourceKind.Endpoint,
+                    EndpointId = "steelseries-sonar-game",
+                    EndpointName = "SteelSeries Sonar - Gaming",
+                },
+            };
+            XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
+                ProfileDTO.GetAttributeOverrides());
+            string xml;
+            using (StringWriter writer = new StringWriter())
+            {
+                serializer.Serialize(writer, original);
+                xml = writer.ToString();
+            }
+            ProfileDTO restored;
+            using (StringReader reader = new StringReader(xml))
+            {
+                restored = (ProfileDTO)serializer.Deserialize(reader);
+            }
+
+            Assert.AreEqual(AudioHapticsSourceKind.Endpoint,
+                restored.AudioHapticsSettings.Source);
+            Assert.AreEqual("steelseries-sonar-game",
+                restored.AudioHapticsSettings.EndpointId);
+            Assert.AreEqual("SteelSeries Sonar - Gaming",
+                restored.AudioHapticsSettings.EndpointName);
+        }
+
+        [TestMethod]
         public void AppSpeakerOverridePersistsOnlyForAppSources()
         {
             var settings = new AudioHapticsProfileSettings

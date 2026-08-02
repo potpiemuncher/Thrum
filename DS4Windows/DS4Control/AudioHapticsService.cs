@@ -157,6 +157,18 @@ namespace DS4Windows
             }
         }
 
+        public float GetInputLevel(int slot)
+        {
+            if (slot < 0 || slot >= slots.Length)
+            {
+                return 0.0f;
+            }
+            lock (slotLocks[slot])
+            {
+                return slots[slot]?.InputLevel ?? 0.0f;
+            }
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -208,6 +220,7 @@ namespace DS4Windows
             private readonly byte[] latestFrame = new byte[FrameBytes];
             private readonly byte[] writerFrame = new byte[FrameBytes];
             private readonly ManualResetEventSlim stopped = new(false);
+            private readonly AudioInputLevelMeter inputLevelMeter = new();
 
             private WasapiCapture capture;
             private ProcessLoopbackWaveCapture processCapture;
@@ -262,6 +275,7 @@ namespace DS4Windows
 
             public string SourceDisplayName => sourceDisplayName;
             public AudioHapticsRuntimeStatus Status => status;
+            public float InputLevel => inputLevelMeter.Level;
 
             public void Start()
             {
@@ -392,6 +406,22 @@ namespace DS4Windows
                         status = new AudioHapticsRuntimeStatus(false,
                             "Waiting for the emulated controller audio endpoint");
                         return;
+                    }
+                }
+                else if (activeSettings.Source ==
+                    AudioHapticsSourceKind.Endpoint)
+                {
+                    if (string.IsNullOrWhiteSpace(activeSettings.EndpointId))
+                    {
+                        throw new InvalidOperationException(
+                            "No render endpoint was selected.");
+                    }
+                    endpoint = enumerator.GetDevice(activeSettings.EndpointId);
+                    if (endpoint.State != DeviceState.Active)
+                    {
+                        endpoint.Dispose();
+                        throw new InvalidOperationException(
+                            "The selected render endpoint is no longer active.");
                     }
                 }
                 else
@@ -614,8 +644,12 @@ namespace DS4Windows
                     AudioHapticsSourceKind.ControllerAudio &&
                     (outputType != nextOutputType ||
                         controllerAudioUsbipPort != nextUsbipPort);
+                bool selectedEndpointChanged = nextSettings.Source ==
+                    AudioHapticsSourceKind.Endpoint && !string.Equals(
+                        previousSettings.EndpointId, nextSettings.EndpointId,
+                        StringComparison.OrdinalIgnoreCase);
                 bool restartCapture = sourceChanged || processChanged ||
-                    controllerEndpointChanged;
+                    controllerEndpointChanged || selectedEndpointChanged;
                 bool restartUsbOutput = device.ConnectionType !=
                     ConnectionType.BT &&
                     !string.Equals(requestedPhysicalEndpointId,
@@ -685,6 +719,7 @@ namespace DS4Windows
                     Array.Clear(captureFrame, 0, captureFrame.Length);
                     Array.Clear(latestFrame, 0, latestFrame.Length);
                 }
+                inputLevelMeter.Reset();
             }
 
             private void Capture_DataAvailable(object sender,
@@ -744,6 +779,7 @@ namespace DS4Windows
                 capture = null;
                 captureEndpoint = null;
                 captureFormat = null;
+                inputLevelMeter.Reset();
                 if (current == null)
                 {
                     endpoint?.Dispose();
@@ -765,6 +801,7 @@ namespace DS4Windows
                 ProcessLoopbackWaveCapture current = processCapture;
                 processCapture = null;
                 captureFormat = null;
+                inputLevelMeter.Reset();
                 if (current == null)
                 {
                     return;
@@ -815,6 +852,7 @@ namespace DS4Windows
                         AudioHapticsSourceKind.ControllerAudio &&
                     channels >= 4 && activeSettings.Mode ==
                         AudioHapticsMode.Mix;
+                float blockPeak = 0.0f;
 
                 for (int frame = 0; frame < frameCount; frame++)
                 {
@@ -822,6 +860,8 @@ namespace DS4Windows
                     float left = ReadSample(buffer, byteCount, offset, format);
                     float right = channels > 1 ? ReadSample(buffer, byteCount,
                         offset + bytesPerSample, format) : left;
+                    blockPeak = Math.Max(blockPeak, Math.Max(Math.Abs(left),
+                        Math.Abs(right)));
                     activeProcessor.Process(left, right, out float hapticLeft,
                         out float hapticRight);
 
@@ -850,6 +890,7 @@ namespace DS4Windows
                         resampleCredit -= 1.0;
                     }
                 }
+                inputLevelMeter.PublishBlockPeak(blockPeak);
             }
 
             private void PushHapticSample(float left, float right)

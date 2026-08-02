@@ -2818,6 +2818,11 @@ namespace DS4Windows
             return audioHapticsService.GetStatus(deviceIndex);
         }
 
+        public float GetAudioHapticsInputLevel(int deviceIndex)
+        {
+            return audioHapticsService.GetInputLevel(deviceIndex);
+        }
+
         internal static bool IsAudioHapticsSpeakerOverrideActive(int index)
         {
             if (index < 0 || index >= Global.store.audioHapticsSettings.Length)

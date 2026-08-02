@@ -4093,3 +4093,60 @@ the extracted ordering coordinator, navigation/effect routing and XAML contracts
 not execute WPF's real `Application_Startup` with a fresh `%APPDATA%` folder. A maintainer smoke
 pass should cover fresh appdata, portable selection, import accept/decline, title-bar close at
 each stage, keyboard-only completion, and first main-window launch.
+
+## Task 4.6 — Trigger Lab presets and Audio Haptics polish
+
+Trigger Lab now has an appdata-scoped user preset library at
+`Global.appdatapath\TriggerLabPresets.json`, separate from controller profiles. Its schema starts
+at version 1; a future version is rejected with an inline explanation and is write-protected so
+this app cannot overwrite data owned by a newer version. Malformed or truncated current-version
+files are quarantined and the empty in-memory library remains usable. Writes serialize to a
+same-directory temporary file and replace the destination with one filesystem move. The page
+loads this library off the dispatcher, applies presets from memory, and performs disk work only
+for explicit save, rename, delete, import and export actions.
+
+The Trigger Lab page distinguishes **Built-in**, **User preset**, and **Profile-only** entries.
+It can save either trigger into the user library, apply to L2 or R2, rename, delete, import a
+versioned JSON document, export one preset, or export all. Export DTOs deliberately contain only
+`schemaVersion`, names and effect parameters — stable internal library ids do not leave the
+store. Existing `TriggerLabCustomProfile` entries and effect parameters embedded in profiles are
+neither migrated nor rewritten. If a user preset is later deleted, the profile keeps its
+embedded values and the page labels that selection as an unavailable preset rather than
+pretending a built-in is active.
+
+The brief's claimed existing "specific endpoint by id" capture seam was incorrect: the cited
+code selects a four-channel physical DualSense **USB haptics output**, not an Audio Haptics
+capture source. A real `Endpoint` capture kind and per-profile endpoint id/name were therefore
+added. The picker obtains active render endpoints from `AudioEndpointChoiceCache`, preserving
+its background FriendlyName reads and 10-second snapshot instead of walking the device graph on
+the dispatcher. It does not filter physical versus virtual devices; SteelSeries Sonar and other
+active virtual routers follow the same path. Before a selection is committed, validation uses
+the exact endpoint id or the process resolver used by the service. A vanished endpoint or dead
+app stays uncommitted and produces an inline message; app capture remains Windows process
+loopback with child processes included.
+
+The live meter adds no callback, event, allocation or UI lock to the real-time path. The existing
+PCM loop accumulates one maximum absolute input level per callback block and publishes it with a
+single volatile write. The page polls that aggregate every 50 ms (20 Hz) and stops both the meter
+and status timers when hidden or unloaded. Buffer sizes, formats, resampling and haptics
+processing are unchanged.
+
+No new DSP was built. `GainPercent` was already exposed. `BassFocus` is the processor's existing
+sample-rate-scaled one-pole low-pass selection and was already exposed as 80/160/240/400 Hz;
+`Response`, `Attack` and `Release` were also already present and wired. There is no separate LPF
+setting and no HF-texture setting or processor stage in this tree, so inventing either would have
+exceeded "as upstream exposes them."
+
+Verification: untouched branch baseline **946/946**; final x64 Release suite **957/957**;
+no-incremental x64 solution build **0 errors**, 17 known warnings. The 11 new tests cover store
+round-trip, export/import, future-version rejection and write protection, corrupt-file recovery,
+no-PII export shape, built-in/user origin, endpoint identity XML round-trip, present virtual and
+vanished endpoints, dead processes, and allocation-free meter aggregation. Both negative
+controls failed for the intended assertion and were reverted: removing the schema-version checks
+made `FutureSchemaVersionIsRejectedInformatively` fail at `Assert.IsFalse`; accepting every
+endpoint made `VanishedRenderEndpointIsRejectedBeforeSettingsChange` fail at `Assert.IsFalse`.
+
+Deliberately unverified: no live audio endpoint was opened, no physical controller or VIIPER
+state was touched, and neither page was rendered. Real SteelSeries Sonar enumeration, endpoint
+hot-unplug timing, app/process-tree capture, meter visual smoothness, theme rendering and live
+haptic response require a maintainer hardware/UI smoke pass.

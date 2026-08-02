@@ -46,7 +46,7 @@
                   HorizontalContentAlignment="Stretch">
         <Grid Margin="0,0,0,12" HorizontalAlignment="Stretch"
               Width="{Binding ActualWidth, ElementName=triggerLabScroll}">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid Margin="0,0,0,16">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
                     <Border x:Name="overrideBadge" Margin="0,0,14,0" Padding="9,4" CornerRadius="4" Background="#4DFFB020" Visibility="Collapsed">
@@ -65,13 +65,62 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="1">
+            <Border Grid.Row="1" Style="{StaticResource LabCard}" Margin="0,0,0,16">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="User preset library" FontSize="17" FontWeight="SemiBold" />
+                            <TextBlock Text="Saved under the selected Thrum data folder, independently of controller profiles."
+                                       Foreground="{DynamicResource MutedForegroundColor}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Padding="8,3" CornerRadius="4"
+                                Background="{DynamicResource RaisedBackgroundColor}"
+                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                            <TextBlock Text="USER PRESETS" Foreground="{DynamicResource AccentColor}"
+                                       FontSize="10" FontWeight="Bold" />
+                        </Border>
+                    </Grid>
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <ComboBox x:Name="userPresetCombo" MinHeight="36" MinWidth="220"
+                                  DisplayMemberPath="Name" SelectionChanged="UserPresetCombo_SelectionChanged" />
+                        <WrapPanel Grid.Column="1" Margin="10,0,0,0">
+                            <Button x:Name="applyUserPresetLeftButton" Content="Apply to L2" Margin="0,0,6,0"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}" Click="ApplyUserPresetLeft_Click" />
+                            <Button x:Name="applyUserPresetRightButton" Content="Apply to R2" Margin="0,0,6,0"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}" Click="ApplyUserPresetRight_Click" />
+                            <Button x:Name="renameUserPresetButton" Content="Rename" Margin="0,0,6,0"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}" Click="RenameUserPreset_Click" />
+                            <Button x:Name="deleteUserPresetButton" Content="Delete"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}" Click="DeleteUserPreset_Click" />
+                        </WrapPanel>
+                    </Grid>
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Content="Save L2 as preset" Margin="0,0,6,0"
+                                Style="{StaticResource BridgeSecondaryButtonStyle}" Click="SaveLeftUserPreset_Click" />
+                        <Button Content="Save R2 as preset" Margin="0,0,14,0"
+                                Style="{StaticResource BridgeSecondaryButtonStyle}" Click="SaveRightUserPreset_Click" />
+                        <Button Content="Import JSON" Margin="0,0,6,0"
+                                Style="{StaticResource BridgeSecondaryButtonStyle}" Click="ImportUserPresets_Click" />
+                        <Button x:Name="exportUserPresetButton" Content="Export selected" Margin="0,0,6,0"
+                                Style="{StaticResource BridgeSecondaryButtonStyle}" Click="ExportUserPreset_Click" />
+                        <Button x:Name="exportAllUserPresetsButton" Content="Export all"
+                                Style="{StaticResource BridgeSecondaryButtonStyle}" Click="ExportAllUserPresets_Click" />
+                    </WrapPanel>
+                    <TextBlock x:Name="presetLibraryStatusText" Margin="0,9,0,0"
+                               Foreground="{DynamicResource MutedForegroundColor}" TextWrapping="Wrap"
+                               Text="The user preset library has not been loaded yet." />
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="2">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="260"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*" MinWidth="260"/></Grid.ColumnDefinitions>
                 <Border Style="{StaticResource LabCard}"><ContentControl x:Name="leftCard" /></Border>
                 <Border Grid.Column="2" Style="{StaticResource LabCard}"><ContentControl x:Name="rightCard" /></Border>
             </Grid>
 
-            <Border Grid.Row="2" Style="{StaticResource LabCard}" Padding="14" Margin="0,16,0,0">
+            <Border Grid.Row="3" Style="{StaticResource LabCard}" Padding="14" Margin="0,16,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource AccentColor}" VerticalAlignment="Center" />

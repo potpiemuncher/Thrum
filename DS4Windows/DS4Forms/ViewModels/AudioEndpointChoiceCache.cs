@@ -36,6 +36,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             Array.Empty<AudioEndpointSnapshot>();
         private static IReadOnlyList<AudioEndpointSnapshot> captureEndpoints =
             Array.Empty<AudioEndpointSnapshot>();
+        private static string defaultRenderEndpointId = string.Empty;
         private static DateTime refreshedAtUtc = DateTime.MinValue;
         private static Task refreshTask;
 
@@ -61,7 +62,18 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
         }
 
-        public static Task RefreshAsync()
+        public static string DefaultRenderEndpointId
+        {
+            get
+            {
+                lock (syncRoot)
+                {
+                    return defaultRenderEndpointId;
+                }
+            }
+        }
+
+        public static Task RefreshAsync(bool force = false)
         {
             lock (syncRoot)
             {
@@ -70,7 +82,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     return refreshTask;
                 }
 
-                if (DateTime.UtcNow - refreshedAtUtc < cacheLifetime)
+                if (!force && DateTime.UtcNow - refreshedAtUtc < cacheLifetime)
                 {
                     return Task.CompletedTask;
                 }
@@ -84,12 +96,26 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         {
             var newRenderEndpoints = new List<AudioEndpointSnapshot>();
             var newCaptureEndpoints = new List<AudioEndpointSnapshot>();
+            string newDefaultRenderEndpointId = string.Empty;
 
             try
             {
                 using var enumerator = new MMDeviceEnumerator();
                 CopyEndpoints(enumerator, DataFlow.Render, newRenderEndpoints);
                 CopyEndpoints(enumerator, DataFlow.Capture, newCaptureEndpoints);
+                try
+                {
+                    using MMDevice defaultEndpoint =
+                        enumerator.GetDefaultAudioEndpoint(DataFlow.Render,
+                            Role.Multimedia);
+                    newDefaultRenderEndpointId = defaultEndpoint.ID ??
+                        string.Empty;
+                }
+                catch
+                {
+                    // A device-graph transition can temporarily leave Windows
+                    // without a default while the active list is still useful.
+                }
             }
             catch
             {
@@ -102,6 +128,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             {
                 renderEndpoints = newRenderEndpoints;
                 captureEndpoints = newCaptureEndpoints;
+                defaultRenderEndpointId = newDefaultRenderEndpointId;
                 refreshedAtUtc = DateTime.UtcNow;
             }
         }

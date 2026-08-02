@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -8,6 +10,7 @@ using System.Windows.Threading;
 using DS4Windows;
 using DS4Windows.InputDevices;
 using DS4WinWPF.DS4Forms.ViewModels;
+using Microsoft.Win32;
 using IntegerUpDown = Xceed.Wpf.Toolkit.IntegerUpDown;
 
 namespace DS4WinWPF.DS4Forms
@@ -47,7 +50,9 @@ namespace DS4WinWPF.DS4Forms
             public string Id { get; init; }
             public string Name { get; init; }
             public string Description { get; init; }
-            public bool IsCustom { get; init; }
+            public bool IsProfileCustom { get; init; }
+            public bool IsUserPreset { get; init; }
+            public bool CanRenameOrDelete => IsProfileCustom || IsUserPreset;
             public override string ToString() => Name;
         }
 
@@ -108,6 +113,8 @@ namespace DS4WinWPF.DS4Forms
         private readonly SideUi leftUi;
         private readonly SideUi rightUi;
         private readonly DispatcherTimer previewResetTimer;
+        private TriggerLabPresetStore presetStore;
+        private bool presetStoreLoaded;
 
         public TriggerLabControl()
         {
@@ -132,9 +139,37 @@ namespace DS4WinWPF.DS4Forms
                     RestorePhysicalProfileEffects();
                 }
             };
-            Loaded += (_, _) => RefreshSettings();
+            Loaded += TriggerLabControl_Loaded;
             Unloaded += (_, _) => previewResetTimer.Stop();
             RefreshSettings();
+        }
+
+        private async void TriggerLabControl_Loaded(object sender,
+            RoutedEventArgs eventArgs)
+        {
+            RefreshSettings();
+            if (presetStoreLoaded || string.IsNullOrWhiteSpace(
+                    Global.appdatapath))
+            {
+                return;
+            }
+
+            presetStoreLoaded = true;
+            presetStore = TriggerLabPresetStore.ForAppData(Global.appdatapath);
+            presetLibraryStatusText.Text = "Loading user presets...";
+            try
+            {
+                TriggerLabPresetLoadResult result = await Task.Run(
+                    presetStore.Load);
+                SetPresetLibraryStatus(result.Message, !result.Success);
+                RefreshSettings();
+            }
+            catch (Exception exception)
+            {
+                SetPresetLibraryStatus(
+                    $"The user preset library could not be loaded: {exception.Message}",
+                    true);
+            }
         }
 
         public event EventHandler<ProfileFeatureSettingsChangedEventArgs> SettingsChanged;
@@ -184,6 +219,7 @@ namespace DS4WinWPF.DS4Forms
                 if (!available)
                 {
                     labStatusText.Text = "Select a controller or profile to open Trigger Lab.";
+                    RefreshUserPresetLibrary();
                     return;
                 }
 
@@ -195,6 +231,7 @@ namespace DS4WinWPF.DS4Forms
                     settings.Enabled, settings.CustomProfiles);
                 LoadSide(rightUi, settings.Right, settings.RightActive,
                     settings.Enabled, settings.CustomProfiles);
+                RefreshUserPresetLibrary();
                 UpdateStatus(settings);
             }
             finally
@@ -574,23 +611,43 @@ namespace DS4WinWPF.DS4Forms
                 .Select(preset => new ProfileChoice
                 {
                     Id = preset.Id,
-                    Name = preset.Name,
-                    Description = preset.Description,
+                    Name = $"{preset.Name}  ·  Built-in",
+                    Description = $"Built-in preset. {preset.Description}",
                 }).ToList();
+            profiles.AddRange((presetStore?.Presets ??
+                Array.Empty<TriggerLabUserPreset>()).Select(preset =>
+                    new ProfileChoice
+                    {
+                        Id = preset.Id,
+                        Name = $"{preset.Name}  ·  User preset",
+                        Description =
+                            "User preset saved independently of controller profiles.",
+                        IsUserPreset = true,
+                    }));
             profiles.AddRange(customProfiles.Select(profile => new ProfileChoice
             {
                 Id = profile.Id,
-                Name = profile.Name,
-                Description = "Saved custom effect.",
-                IsCustom = true,
+                Name = $"{profile.Name}  ·  Profile-only",
+                Description = "Custom effect embedded in this controller profile.",
+                IsProfileCustom = true,
             }));
+            if (!profiles.Any(profile => profile.Id == effect.ProfileId))
+            {
+                profiles.Add(new ProfileChoice
+                {
+                    Id = effect.ProfileId,
+                    Name = "Embedded effect  ·  Preset unavailable",
+                    Description = "The named preset is unavailable, but this profile's embedded effect parameters remain intact.",
+                });
+            }
             ui.Profile.ItemsSource = profiles;
-            ui.Profile.SelectedItem = profiles.FirstOrDefault(profile => profile.Id == effect.ProfileId) ?? profiles[0];
+            ui.Profile.SelectedItem = profiles.FirstOrDefault(profile =>
+                profile.Id == effect.ProfileId) ?? profiles[0];
             ProfileChoice selected = (ProfileChoice)ui.Profile.SelectedItem;
             ui.ProfileDescription.Text = selected.Description;
             ui.Profile.ToolTip = selected.Description;
-            ui.RenameProfile.IsEnabled = selected.IsCustom;
-            ui.DeleteProfile.IsEnabled = selected.IsCustom;
+            ui.RenameProfile.IsEnabled = selected.CanRenameOrDelete;
+            ui.DeleteProfile.IsEnabled = selected.CanRenameOrDelete;
             ui.ActiveLabel.Text = labEnabled ? "Active" : "Armed";
             ui.Active.IsChecked = active;
             ui.Active.ToolTip = labEnabled
@@ -872,10 +929,19 @@ namespace DS4WinWPF.DS4Forms
                 if (!TriggerLabPresetCatalog.TryCreateEffect(choice.Id,
                     out selected))
                 {
-                    TriggerLabCustomProfile custom = settings.CustomProfiles
-                        .FirstOrDefault(profile => profile.Id == choice.Id);
-                    if (custom == null) return;
-                    selected = ToEffect(custom);
+                    TriggerLabUserPreset userPreset = presetStore?.Presets
+                        .FirstOrDefault(preset => preset.Id == choice.Id);
+                    if (userPreset != null)
+                    {
+                        selected = userPreset.CreateEffect();
+                    }
+                    else
+                    {
+                        TriggerLabCustomProfile custom = settings.CustomProfiles
+                            .FirstOrDefault(profile => profile.Id == choice.Id);
+                        if (custom == null) return;
+                        selected = ToEffect(custom);
+                    }
                 }
                 bool active = (ui.IsLeft ? settings.LeftActive :
                     settings.RightActive) && selected.ForcePercent > 0;
@@ -939,6 +1005,14 @@ namespace DS4WinWPF.DS4Forms
 
         private void RenameCustomProfile(SideUi ui)
         {
+            TriggerLabUserPreset userPreset = presetStore?.Presets
+                .FirstOrDefault(item => item.Id == CurrentEffect(ui).ProfileId);
+            if (userPreset != null)
+            {
+                RenameUserPreset(userPreset);
+                return;
+            }
+
             TriggerLabCustomProfile profile = CurrentSettings.CustomProfiles.FirstOrDefault(item => item.Id == CurrentEffect(ui).ProfileId);
             if (profile == null) return;
             string name = PromptName("Rename trigger profile", profile.Name);
@@ -948,6 +1022,14 @@ namespace DS4WinWPF.DS4Forms
 
         private void DeleteCustomProfile(SideUi ui)
         {
+            TriggerLabUserPreset userPreset = presetStore?.Presets
+                .FirstOrDefault(item => item.Id == CurrentEffect(ui).ProfileId);
+            if (userPreset != null)
+            {
+                DeleteUserPreset(userPreset);
+                return;
+            }
+
             TriggerLabCustomProfile profile = CurrentSettings.CustomProfiles.FirstOrDefault(item => item.Id == CurrentEffect(ui).ProfileId);
             if (profile == null) return;
             if (MessageBox.Show($"Delete {profile.Name}?", "Trigger Lab", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
@@ -960,6 +1042,287 @@ namespace DS4WinWPF.DS4Forms
                 if (settings.SplitRight.ProfileId == profile.Id) { settings.SplitRight = new TriggerLabEffectSettings(); settings.SplitRightActive = false; }
             });
         }
+
+        private TriggerLabUserPreset SelectedUserPreset =>
+            userPresetCombo.SelectedItem as TriggerLabUserPreset;
+
+        private void RefreshUserPresetLibrary(string selectedId = null)
+        {
+            selectedId ??= SelectedUserPreset?.Id;
+            IReadOnlyList<TriggerLabUserPreset> values = presetStore?.Presets ??
+                Array.Empty<TriggerLabUserPreset>();
+            userPresetCombo.ItemsSource = values.ToList();
+            userPresetCombo.SelectedItem = values.FirstOrDefault(preset =>
+                preset.Id == selectedId) ?? values.FirstOrDefault();
+            UpdateUserPresetButtons();
+        }
+
+        private void UpdateUserPresetButtons()
+        {
+            bool hasSelection = userPresetCombo.SelectedItem != null;
+            applyUserPresetLeftButton.IsEnabled = hasSelection &&
+                CurrentSettings != null;
+            applyUserPresetRightButton.IsEnabled = hasSelection &&
+                CurrentSettings != null;
+            renameUserPresetButton.IsEnabled = hasSelection;
+            deleteUserPresetButton.IsEnabled = hasSelection;
+            exportUserPresetButton.IsEnabled = hasSelection;
+            exportAllUserPresetsButton.IsEnabled =
+                (presetStore?.Presets.Count ?? 0) > 0;
+        }
+
+        private void SetPresetLibraryStatus(string message, bool error)
+        {
+            presetLibraryStatusText.Text = message ?? string.Empty;
+            presetLibraryStatusText.SetResourceReference(TextBlock.ForegroundProperty,
+                error ? "DangerColor" : "MutedForegroundColor");
+        }
+
+        private bool EnsurePresetStoreAvailable()
+        {
+            if (presetStore != null)
+            {
+                return true;
+            }
+            SetPresetLibraryStatus(
+                "The user preset library is unavailable because no data folder is active.",
+                true);
+            return false;
+        }
+
+        private void SaveUserPreset(SideUi ui)
+        {
+            if (!EnsurePresetStoreAvailable() || CurrentSettings == null)
+            {
+                return;
+            }
+
+            string name = PromptName("Save user trigger preset",
+                $"User Trigger {presetStore.Presets.Count + 1}");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            try
+            {
+                TriggerLabUserPreset preset = presetStore.Add(name,
+                    CurrentEffect(ui));
+                Commit(settings =>
+                {
+                    CurrentEffect(ui).ProfileId = preset.Id;
+                    MirrorIfLinked(settings, ui);
+                });
+                RefreshUserPresetLibrary(preset.Id);
+                SetPresetLibraryStatus(
+                    $"Saved '{preset.Name}' independently of this controller profile.",
+                    false);
+            }
+            catch (Exception exception)
+            {
+                SetPresetLibraryStatus(
+                    $"The user preset could not be saved: {exception.Message}",
+                    true);
+            }
+        }
+
+        private void ApplyUserPreset(SideUi ui)
+        {
+            TriggerLabUserPreset preset = SelectedUserPreset;
+            if (preset == null || CurrentSettings == null)
+            {
+                return;
+            }
+
+            Commit(settings =>
+            {
+                TriggerLabEffectSettings effect = preset.CreateEffect();
+                if (ui.IsLeft)
+                {
+                    settings.Left = effect;
+                }
+                else
+                {
+                    settings.Right = effect;
+                }
+                MirrorIfLinked(settings, ui);
+            });
+            SetPresetLibraryStatus(
+                $"Applied '{preset.Name}' to {(ui.IsLeft ? "L2" : "R2")}.",
+                false);
+        }
+
+        private void RenameUserPreset(TriggerLabUserPreset preset)
+        {
+            if (!EnsurePresetStoreAvailable() || preset == null)
+            {
+                return;
+            }
+            string name = PromptName("Rename user trigger preset", preset.Name);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            try
+            {
+                TriggerLabUserPreset renamed = presetStore.Rename(preset.Id,
+                    name);
+                RefreshSettings();
+                RefreshUserPresetLibrary(renamed.Id);
+                SetPresetLibraryStatus($"Renamed the user preset to '{renamed.Name}'.",
+                    false);
+            }
+            catch (Exception exception)
+            {
+                SetPresetLibraryStatus(
+                    $"The user preset could not be renamed: {exception.Message}",
+                    true);
+            }
+        }
+
+        private void DeleteUserPreset(TriggerLabUserPreset preset)
+        {
+            if (!EnsurePresetStoreAvailable() || preset == null)
+            {
+                return;
+            }
+            if (MessageBox.Show(
+                    $"Delete user preset '{preset.Name}'? Profiles that already use it keep their embedded effect parameters.",
+                    "Trigger Lab", MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                presetStore.Delete(preset.Id);
+                RefreshSettings();
+                SetPresetLibraryStatus(
+                    $"Deleted '{preset.Name}'. Existing profile effects were not rewritten.",
+                    false);
+            }
+            catch (Exception exception)
+            {
+                SetPresetLibraryStatus(
+                    $"The user preset could not be deleted: {exception.Message}",
+                    true);
+            }
+        }
+
+        private void ImportUserPresets_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsurePresetStoreAvailable())
+            {
+                return;
+            }
+            OpenFileDialog dialog = new OpenFileDialog
+            {
+                Title = "Import Trigger Lab presets",
+                Filter = "JSON preset files (*.json)|*.json|All files (*.*)|*.*",
+                DefaultExt = ".json",
+                CheckFileExists = true,
+                Multiselect = false,
+            };
+            if (Directory.Exists(Global.appdatapath))
+            {
+                dialog.InitialDirectory = Global.appdatapath;
+            }
+            if (dialog.ShowDialog(Window.GetWindow(this)) != true)
+            {
+                return;
+            }
+
+            try
+            {
+                int count = presetStore.Import(dialog.FileName);
+                RefreshSettings();
+                SetPresetLibraryStatus($"Imported {count} user preset(s).",
+                    false);
+            }
+            catch (Exception exception)
+            {
+                SetPresetLibraryStatus(
+                    $"The preset import was rejected: {exception.Message}", true);
+            }
+        }
+
+        private void ExportUserPreset_Click(object sender, RoutedEventArgs e) =>
+            ExportUserPresets(SelectedUserPreset);
+
+        private void ExportAllUserPresets_Click(object sender,
+            RoutedEventArgs e) => ExportUserPresets(null);
+
+        private void ExportUserPresets(TriggerLabUserPreset preset)
+        {
+            if (!EnsurePresetStoreAvailable() ||
+                (preset == null && presetStore.Presets.Count == 0))
+            {
+                return;
+            }
+            string suggestedName = preset == null ? "TriggerLabPresets" :
+                SanitizeFileName(preset.Name);
+            SaveFileDialog dialog = new SaveFileDialog
+            {
+                Title = preset == null ? "Export all Trigger Lab presets" :
+                    "Export Trigger Lab preset",
+                Filter = "JSON preset files (*.json)|*.json|All files (*.*)|*.*",
+                DefaultExt = ".json",
+                AddExtension = true,
+                FileName = suggestedName + ".json",
+            };
+            if (Directory.Exists(Global.appdatapath))
+            {
+                dialog.InitialDirectory = Global.appdatapath;
+            }
+            if (dialog.ShowDialog(Window.GetWindow(this)) != true)
+            {
+                return;
+            }
+
+            try
+            {
+                presetStore.Export(dialog.FileName, preset?.Id);
+                SetPresetLibraryStatus(preset == null
+                    ? $"Exported {presetStore.Presets.Count} user preset(s)."
+                    : $"Exported '{preset.Name}'.", false);
+            }
+            catch (Exception exception)
+            {
+                SetPresetLibraryStatus(
+                    $"The preset export failed: {exception.Message}", true);
+            }
+        }
+
+        private static string SanitizeFileName(string value)
+        {
+            char[] invalid = Path.GetInvalidFileNameChars();
+            return new string((value ?? "TriggerLabPreset")
+                .Select(character => invalid.Contains(character) ? '_' :
+                    character).ToArray());
+        }
+
+        private void UserPresetCombo_SelectionChanged(object sender,
+            SelectionChangedEventArgs e) => UpdateUserPresetButtons();
+
+        private void SaveLeftUserPreset_Click(object sender,
+            RoutedEventArgs e) => SaveUserPreset(leftUi);
+
+        private void SaveRightUserPreset_Click(object sender,
+            RoutedEventArgs e) => SaveUserPreset(rightUi);
+
+        private void ApplyUserPresetLeft_Click(object sender,
+            RoutedEventArgs e) => ApplyUserPreset(leftUi);
+
+        private void ApplyUserPresetRight_Click(object sender,
+            RoutedEventArgs e) => ApplyUserPreset(rightUi);
+
+        private void RenameUserPreset_Click(object sender,
+            RoutedEventArgs e) => RenameUserPreset(SelectedUserPreset);
+
+        private void DeleteUserPreset_Click(object sender,
+            RoutedEventArgs e) => DeleteUserPreset(SelectedUserPreset);
 
         private string PromptName(string title, string initial)
         {

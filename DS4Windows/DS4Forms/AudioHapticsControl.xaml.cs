@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using DS4Windows;
+using DS4WinWPF.DS4Forms.ViewModels;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 
@@ -22,8 +24,10 @@ namespace DS4WinWPF.DS4Forms
     {
         private sealed class AudioSourceChoice
         {
-            public string DisplayName { get; init; }
+            public string DisplayName { get; set; }
+            public string StoredDisplayName { get; init; } = string.Empty;
             public AudioHapticsSourceKind Kind { get; init; }
+            public string EndpointId { get; init; } = string.Empty;
             public int ProcessId { get; init; }
             public string ExecutableName { get; init; } = string.Empty;
             public string ProcessPath { get; init; } = string.Empty;
@@ -34,6 +38,7 @@ namespace DS4WinWPF.DS4Forms
         private int deviceIndex = -1;
         private bool loading;
         private readonly DispatcherTimer statusRefreshTimer;
+        private readonly DispatcherTimer levelRefreshTimer;
 
         public AudioHapticsControl()
         {
@@ -43,12 +48,21 @@ namespace DS4WinWPF.DS4Forms
                 Interval = TimeSpan.FromSeconds(1),
             };
             statusRefreshTimer.Tick += (_, _) => UpdateStatus(CurrentSettings);
-            Loaded += (_, _) =>
+            levelRefreshTimer = new DispatcherTimer
+            {
+                // The UI polls one block aggregate at 20 Hz. The capture
+                // callback never dispatches or raises a meter event.
+                Interval = TimeSpan.FromMilliseconds(50),
+            };
+            levelRefreshTimer.Tick += (_, _) => UpdateInputLevel();
+            Loaded += async (_, _) =>
             {
                 RefreshSourcesAndSettings();
-                statusRefreshTimer.Start();
+                UpdateTimerState();
+                await RefreshSourceCacheAsync(force: false);
             };
-            Unloaded += (_, _) => statusRefreshTimer.Stop();
+            Unloaded += (_, _) => StopTimers();
+            IsVisibleChanged += (_, _) => UpdateTimerState();
             SetEditorEnabled(false);
         }
 
@@ -60,6 +74,42 @@ namespace DS4WinWPF.DS4Forms
         {
             deviceIndex = index >= 0 && index < Global.TEST_PROFILE_ITEM_COUNT ? index : -1;
             RefreshSourcesAndSettings();
+            UpdateInputLevel();
+        }
+
+        private void UpdateTimerState()
+        {
+            if (IsLoaded && IsVisible)
+            {
+                statusRefreshTimer.Start();
+                levelRefreshTimer.Start();
+                return;
+            }
+
+            StopTimers();
+        }
+
+        private void StopTimers()
+        {
+            statusRefreshTimer.Stop();
+            levelRefreshTimer.Stop();
+            inputLevelProgress.Value = 0;
+            inputLevelValueText.Text = "0%";
+        }
+
+        private void UpdateInputLevel()
+        {
+            float level = 0.0f;
+            if (CurrentSettings?.Enabled == true && deviceIndex >= 0 &&
+                deviceIndex < ControlService.CURRENT_DS4_CONTROLLER_LIMIT &&
+                Program.rootHub != null)
+            {
+                level = Program.rootHub.GetAudioHapticsInputLevel(deviceIndex);
+            }
+            int percent = (int)Math.Round(Math.Clamp(level, 0.0f, 1.0f) *
+                100.0f);
+            inputLevelProgress.Value = percent;
+            inputLevelValueText.Text = $"{percent}%";
         }
 
         public void RefreshSourcesAndSettings()
@@ -97,6 +147,7 @@ namespace DS4WinWPF.DS4Forms
                 UpdateAppSpeakerOption(settings);
                 UpdateModeVisuals(settings.Mode);
                 UpdateStatus(settings);
+                UpdateSourceValidation(settings);
             }
             finally
             {
@@ -113,9 +164,25 @@ namespace DS4WinWPF.DS4Forms
         {
             List<AudioSourceChoice> choices = new List<AudioSourceChoice>
             {
-                new AudioSourceChoice { DisplayName = "System audio", Kind = AudioHapticsSourceKind.SystemAudio },
-                new AudioSourceChoice { DisplayName = "Controller audio", Kind = AudioHapticsSourceKind.ControllerAudio },
+                new AudioSourceChoice
+                {
+                    DisplayName = "System mix  -  Default render endpoint",
+                    Kind = AudioHapticsSourceKind.SystemAudio,
+                },
+                new AudioSourceChoice
+                {
+                    DisplayName = "Controller audio  -  Emulated endpoint",
+                    Kind = AudioHapticsSourceKind.ControllerAudio,
+                },
             };
+            choices.AddRange(AudioEndpointChoiceCache.RenderEndpoints.Select(
+                endpoint => new AudioSourceChoice
+                {
+                    DisplayName = $"Endpoint  -  {endpoint.Name}",
+                    StoredDisplayName = endpoint.Name,
+                    Kind = AudioHapticsSourceKind.Endpoint,
+                    EndpointId = endpoint.EndpointId,
+                }));
             if (settings?.AutomaticGameDetection == true)
             {
                 choices.Add(new AudioSourceChoice
@@ -159,6 +226,7 @@ namespace DS4WinWPF.DS4Forms
                         {
                             DisplayName = $"{displayName}  ·  App",
                             Kind = AudioHapticsSourceKind.AppSession,
+                            StoredDisplayName = displayName,
                             ProcessId = (int)processId,
                             ExecutableName = executableName,
                             ProcessPath = processPath,
@@ -178,6 +246,21 @@ namespace DS4WinWPF.DS4Forms
                 // endpoint is being replaced. The refresh button retries it.
             }
 
+            if (settings?.Source == AudioHapticsSourceKind.Endpoint &&
+                !choices.Any(choice => SourceMatches(choice, settings)))
+            {
+                string endpointName = string.IsNullOrWhiteSpace(
+                    settings.EndpointName) ? "Unavailable endpoint" :
+                    settings.EndpointName;
+                choices.Add(new AudioSourceChoice
+                {
+                    DisplayName = $"Endpoint  -  {endpointName}  -  Unavailable",
+                    StoredDisplayName = settings.EndpointName,
+                    Kind = AudioHapticsSourceKind.Endpoint,
+                    EndpointId = settings.EndpointId,
+                });
+            }
+
             if (settings?.Source == AudioHapticsSourceKind.AppSession &&
                 !choices.Any(choice => SourceMatches(choice, settings)))
             {
@@ -186,6 +269,9 @@ namespace DS4WinWPF.DS4Forms
                     DisplayName = $"{(string.IsNullOrWhiteSpace(settings.DisplayName) ? settings.ExecutableName : settings.DisplayName)}  ·  Unavailable",
                     Kind = AudioHapticsSourceKind.AppSession,
                     ProcessId = settings.ProcessId,
+                    StoredDisplayName = string.IsNullOrWhiteSpace(
+                        settings.DisplayName) ? settings.ExecutableName :
+                        settings.DisplayName,
                     ExecutableName = settings.ExecutableName,
                     ProcessPath = settings.ProcessPath,
                     SessionIdentifier = settings.SessionIdentifier,
@@ -193,8 +279,19 @@ namespace DS4WinWPF.DS4Forms
                 });
             }
 
+            foreach (AudioSourceChoice appChoice in choices.Where(choice =>
+                choice.Kind == AudioHapticsSourceKind.AppSession))
+            {
+                appChoice.DisplayName = appChoice.ProcessId > 0
+                    ? $"App + children  -  {appChoice.StoredDisplayName}"
+                    : settings?.AutomaticGameDetection == true
+                        ? "App + children  -  Automatic game detection"
+                        : "App + children  -  Unavailable app";
+            }
+
             sourceCombo.ItemsSource = choices
-                .GroupBy(choice => $"{choice.Kind}:{choice.ProcessId}:{choice.SessionInstanceIdentifier}")
+                .GroupBy(choice =>
+                    $"{choice.Kind}:{choice.EndpointId}:{choice.ProcessId}:{choice.SessionInstanceIdentifier}")
                 .Select(group => group.First())
                 .ToList();
         }
@@ -214,6 +311,11 @@ namespace DS4WinWPF.DS4Forms
         private static bool SourceMatches(AudioSourceChoice choice, AudioHapticsProfileSettings settings)
         {
             if (choice.Kind != settings.Source) return false;
+            if (choice.Kind == AudioHapticsSourceKind.Endpoint)
+            {
+                return string.Equals(choice.EndpointId, settings.EndpointId,
+                    StringComparison.OrdinalIgnoreCase);
+            }
             if (choice.Kind != AudioHapticsSourceKind.AppSession) return true;
             if (settings.AutomaticGameDetection && settings.ProcessId == 0 &&
                 string.IsNullOrWhiteSpace(settings.ExecutableName) &&
@@ -226,6 +328,56 @@ namespace DS4WinWPF.DS4Forms
             if (!string.IsNullOrEmpty(settings.ProcessPath) &&
                 string.Equals(choice.ProcessPath, settings.ProcessPath, StringComparison.OrdinalIgnoreCase)) return true;
             return settings.ProcessId > 0 && choice.ProcessId == settings.ProcessId;
+        }
+
+        private AudioHapticsSourceValidationResult ValidateSource(
+            AudioHapticsProfileSettings settings) =>
+            AudioHapticsSourceValidator.Validate(settings,
+                AudioEndpointChoiceCache.RenderEndpoints.Select(endpoint =>
+                    endpoint.EndpointId).ToArray(),
+                !string.IsNullOrWhiteSpace(
+                    AudioEndpointChoiceCache.DefaultRenderEndpointId),
+                AudioEndpointChoiceCache.RenderEndpoints.Any(endpoint =>
+                    endpoint.IsControllerAudio), IsAppRunning);
+
+        private static bool IsAppRunning(
+            AudioHapticsProfileSettings settings) =>
+            ProcessLoopbackWaveCapture.ResolveProcessId(settings) > 0;
+
+        private void UpdateSourceValidation(
+            AudioHapticsProfileSettings settings)
+        {
+            if (settings == null)
+            {
+                sourceValidationText.Visibility = Visibility.Collapsed;
+                sourceValidationText.Text = string.Empty;
+                return;
+            }
+
+            AudioHapticsSourceValidationResult result =
+                ValidateSource(settings);
+            sourceValidationText.Text = result.Valid ? string.Empty :
+                result.Message;
+            sourceValidationText.Visibility = result.Valid
+                ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private async Task RefreshSourceCacheAsync(bool force)
+        {
+            try
+            {
+                await AudioEndpointChoiceCache.RefreshAsync(force);
+                if (IsLoaded)
+                {
+                    RefreshSourcesAndSettings();
+                }
+            }
+            catch (Exception exception)
+            {
+                sourceValidationText.Text =
+                    $"Audio sources could not be refreshed: {exception.Message}";
+                sourceValidationText.Visibility = Visibility.Visible;
+            }
         }
 
         private void SetEditorEnabled(bool hasDevice)
@@ -330,6 +482,9 @@ namespace DS4WinWPF.DS4Forms
         private static string SourceDisplayName(AudioHapticsProfileSettings settings) => settings.Source switch
         {
             AudioHapticsSourceKind.ControllerAudio => "Controller audio",
+            AudioHapticsSourceKind.Endpoint =>
+                string.IsNullOrWhiteSpace(settings.EndpointName)
+                    ? "Selected endpoint" : settings.EndpointName,
             AudioHapticsSourceKind.AppSession when
                 settings.AutomaticGameDetection => "Automatic game detection",
             AudioHapticsSourceKind.AppSession => string.IsNullOrWhiteSpace(settings.DisplayName)
@@ -348,6 +503,7 @@ namespace DS4WinWPF.DS4Forms
             UpdateModeVisuals(CurrentSettings.Mode);
             UpdateAppSpeakerOption(CurrentSettings);
             UpdateStatus(CurrentSettings);
+            UpdateSourceValidation(CurrentSettings);
             SettingsChanged?.Invoke(this, new ProfileFeatureSettingsChangedEventArgs(deviceIndex));
         }
 
@@ -363,29 +519,65 @@ namespace DS4WinWPF.DS4Forms
         {
             if (sender is Button button && int.TryParse(button.Tag?.ToString(), out int value)) gainSlider.Value = value;
         }
-        private void RefreshSources_Click(object sender, RoutedEventArgs e) => RefreshSourcesAndSettings();
+        private async void RefreshSources_Click(object sender,
+            RoutedEventArgs e) => await RefreshSourceCacheAsync(force: true);
         private void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (sourceCombo.SelectedItem is not AudioSourceChoice choice) return;
-            Commit(settings =>
+            if (loading || CurrentSettings == null) return;
+            AudioHapticsProfileSettings proposed = CurrentSettings.Clone();
+            ApplySourceChoice(proposed, choice);
+            AudioHapticsSourceValidationResult validation =
+                ValidateSource(proposed);
+            if (!validation.Valid)
             {
-                settings.Source = choice.Kind;
-                if (choice.Kind != AudioHapticsSourceKind.AppSession)
+                loading = true;
+                try
                 {
-                    settings.AutomaticGameDetection = false;
+                    SelectStoredSource(CurrentSettings);
                 }
-                settings.ProcessId = choice.ProcessId;
-                settings.DisplayName = settings.AutomaticGameDetection &&
-                    choice.ProcessId == 0 &&
-                    string.IsNullOrWhiteSpace(choice.ExecutableName)
-                    ? string.Empty
-                    : choice.DisplayName.Replace("  ·  App", string.Empty)
-                        .Replace("  ·  Unavailable", string.Empty);
-                settings.ExecutableName = choice.ExecutableName;
-                settings.ProcessPath = choice.ProcessPath;
-                settings.SessionIdentifier = choice.SessionIdentifier;
-                settings.SessionInstanceIdentifier = choice.SessionInstanceIdentifier;
-            });
+                finally
+                {
+                    loading = false;
+                }
+                sourceValidationText.Text = validation.Message;
+                sourceValidationText.Visibility = Visibility.Visible;
+                return;
+            }
+            Commit(settings => ApplySourceChoice(settings, choice));
+        }
+
+        private static void ApplySourceChoice(
+            AudioHapticsProfileSettings settings, AudioSourceChoice choice)
+        {
+            settings.Source = choice.Kind;
+            if (choice.Kind != AudioHapticsSourceKind.AppSession)
+            {
+                settings.AutomaticGameDetection = false;
+            }
+            settings.EndpointId = choice.Kind ==
+                AudioHapticsSourceKind.Endpoint ? choice.EndpointId :
+                string.Empty;
+            settings.EndpointName = choice.Kind ==
+                AudioHapticsSourceKind.Endpoint ? choice.StoredDisplayName :
+                string.Empty;
+            settings.ProcessId = choice.Kind ==
+                AudioHapticsSourceKind.AppSession ? choice.ProcessId : 0;
+            settings.DisplayName = choice.Kind ==
+                AudioHapticsSourceKind.AppSession
+                    ? choice.StoredDisplayName : string.Empty;
+            settings.ExecutableName = choice.Kind ==
+                AudioHapticsSourceKind.AppSession ? choice.ExecutableName :
+                string.Empty;
+            settings.ProcessPath = choice.Kind ==
+                AudioHapticsSourceKind.AppSession ? choice.ProcessPath :
+                string.Empty;
+            settings.SessionIdentifier = choice.Kind ==
+                AudioHapticsSourceKind.AppSession ? choice.SessionIdentifier :
+                string.Empty;
+            settings.SessionInstanceIdentifier = choice.Kind ==
+                AudioHapticsSourceKind.AppSession
+                    ? choice.SessionInstanceIdentifier : string.Empty;
         }
         private void AutomaticGameDetectionToggle_Click(object sender,
             RoutedEventArgs e)

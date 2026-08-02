@@ -249,6 +249,73 @@ namespace DS4WinWPF.DS4Control
             return instances;
         }
 
+        /// <summary>
+        /// Reads the whitelist while preserving the difference between an
+        /// empty list and a failed IOCTL. The legacy <see cref="GetWhitelist"/>
+        /// API returns an empty list for both, which is not sufficient for a
+        /// diagnostics surface where "could not look" must not be reported as
+        /// "looked and found nothing".
+        /// </summary>
+        internal bool TryGetWhitelist(out List<string> instances,
+            out string failure)
+        {
+            instances = new List<string>();
+            failure = null;
+
+            int bytesReturned = 0;
+            bool firstResult = NativeMethods.DeviceIoControl(
+                hidHideHandle.DangerousGetHandle(), IOCTL_GET_WHITELIST,
+                IntPtr.Zero, 0, IntPtr.Zero, 0, ref bytesReturned,
+                IntPtr.Zero);
+
+            // HidHide normally answers the size probe with
+            // ERROR_INSUFFICIENT_BUFFER and the required byte count. A true
+            // result with no bytes is the legitimate empty-list case.
+            if (!firstResult && bytesReturned <= 0)
+            {
+                failure = "HidHide whitelist size query failed (Win32 error " +
+                    Marshal.GetLastWin32Error() + ")";
+                return false;
+            }
+
+            if (bytesReturned <= 0)
+            {
+                return true;
+            }
+
+            int requiredBytes = bytesReturned;
+            IntPtr buffer = Marshal.AllocHGlobal(requiredBytes);
+            try
+            {
+                bytesReturned = 0;
+                bool result = NativeMethods.DeviceIoControl(
+                    hidHideHandle.DangerousGetHandle(), IOCTL_GET_WHITELIST,
+                    IntPtr.Zero, 0, buffer, requiredBytes, ref bytesReturned,
+                    IntPtr.Zero);
+                if (!result)
+                {
+                    failure = "HidHide whitelist read failed (Win32 error " +
+                        Marshal.GetLastWin32Error() + ")";
+                    return false;
+                }
+
+                byte[] dataBuffer = new byte[bytesReturned];
+                Marshal.Copy(buffer, dataBuffer, 0, bytesReturned);
+                string multiString = Encoding.Unicode.GetString(dataBuffer)
+                    .TrimEnd(char.MinValue);
+                if (!string.IsNullOrEmpty(multiString))
+                {
+                    instances = multiString.Split(char.MinValue).ToList();
+                }
+
+                return true;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
         public bool SetWhitelist(List<string> instances)
         {
             bool result = false;

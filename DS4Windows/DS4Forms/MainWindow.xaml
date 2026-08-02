@@ -450,6 +450,11 @@
 
                 </local:OutputSlotManagerControl>
             </TabItem>
+            <TabItem x:Name="diagnosticsTab" Header="Diagnostics" Tag="&#xE9D2;"
+                     ToolTip="Collect a read-only, redacted troubleshooting snapshot."
+                     IsEnabled="{Binding ViewEnabled,Mode=OneWay}">
+                <local:DiagnosticsControl x:Name="diagnosticsControl" />
+            </TabItem>
             <TabItem x:Name="settingsTab" Header="{lex:Loc Settings}" Tag="&#xE713;" ToolTip="Everyday preferences first; diagnostics, networking, and compatibility tools under Advanced." IsEnabled="{Binding ViewEnabled,Mode=OneWay}">
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SurfaceBackgroundColor}">
                     <StackPanel Margin="0,0,14,8" MaxWidth="900" HorizontalAlignment="Left">

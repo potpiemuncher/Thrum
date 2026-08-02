@@ -4004,3 +4004,44 @@ rewrite that would collide with the other sessions appending here, so it is left
 pass. And `smoke-rebrand.md` still records the orphaned `task.bat` as observed — that is a
 historical record of what the pass found, and rewriting it would falsify the log rather than
 update it.
+
+## Task 4.3c — the Diagnostics page and its live sources (PR #39)
+
+Task 4.3 is complete: report core (4.3a, PR #33), collector (4.3b, PR #34), and now the page
+with its six live readers. Implemented by Codex (gpt-5.6-sol) against
+`diagnostics-data-sources.md`, reviewed line-by-line before landing, with the verification
+re-run independently by the reviewer rather than taken from the implementer's report.
+
+`ThrumDiagnosticsLiveSources` fills the collector's six delegates. Every trap the source map
+recorded is guarded and commented at the guard site: `tryStartServer: false` stays explicit
+because nine of the eleven other call sites pass `true` and that route claims backend
+ownership; the slot-to-input mapping scans `ControlService.outputDevices` by `ReferenceEquals`
+instead of calling `GetOutSlotDevice()`'s unlocked dictionary read; the driver badge comes from
+a throwaway view-model rather than the live Settings one; every Core Audio default slot is
+guarded by `HasDefaultAudioEndpoint` with disposal in `finally`; and the consent flag is read
+directly rather than through the attach-decision path.
+
+The page itself is six cards on the Bridge shell, registered as a main-window tab. Collection
+runs entirely on one worker task — Core Audio objects are created, read and disposed there, and
+only strings and bools cross back to the dispatcher — and is single-flighted. "Copy full
+report" places the redacted formatter output on the clipboard. A section that could not be read
+renders an explicit failure card, never an empty healthy one. **No restart button was built**,
+per the 4.3a finding; the plan item stands revised rather than implemented.
+
+Implementation surfaced one defect in the existing tree, which the source map had described but
+not fully attributed: `HidHideAPIDevice.GetWhitelist()` returns an empty list for both a failed
+IOCTL and a genuinely empty whitelist — precisely the "could not look" / "looked and saw
+nothing" conflation this feature exists to forbid. A read-only `TryGetWhitelist` now reports
+failure distinctly; the legacy API is unchanged, and the path-bearing list still never escapes
+the membership check.
+
+Verification: 909 tests (baseline 899 + 10 new), app build clean. Style `TargetType`s, badge
+trigger tokens and bound brush keys were checked against both themes — the class of mismatch
+that compiles and then fails at runtime. Negative controls were run twice over: the implementer
+removed each trap guard in turn and confirmed the paired test fails, and the reviewer
+independently reintroduced the MAC-bearing `InputDisplayString` read and watched
+`SlotProjectionScansInputOutputsAndNeverReadsTheMacString` fail before restoring.
+
+Deliberately unverified and recorded as such: the page has not been rendered against live
+hardware. The app was not launched during review, to avoid touching backend and driver state
+from the development machine. First live look belongs to the next VM or real-hardware pass.

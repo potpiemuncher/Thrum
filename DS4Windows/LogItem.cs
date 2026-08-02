@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DS4Windows;
 
 namespace DS4WinWPF
 {
@@ -29,10 +30,13 @@ namespace DS4WinWPF
         private DateTime datetime;
         private string message;
         private bool warning;
+        private LogCategory category;
 
         public DateTime Datetime { get => datetime; set => datetime = value; }
         public string Message { get => message; set => message = value; }
         public bool Warning { get => warning; set => warning = value; }
+        public LogCategory Category { get => category; set => category = value; }
+        public string CategoryDisplay => LogClassifier.GetDisplayName(category);
         public string Color
         {
             get

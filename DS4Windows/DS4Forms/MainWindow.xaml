@@ -1006,22 +1006,78 @@
 
             </TabItem>
             <TabItem x:Name="logTab" Header="{lex:Loc Log}" Tag="&#xE9D9;" ToolTip="Live service events and diagnostic messages.">
-                <DockPanel>
-                    <DockPanel Height="20" DockPanel.Dock="Bottom" Margin="4,8">
-                        <Button x:Name="exportLogBtn" Content="{lex:Loc Export}" HorizontalAlignment="Left" Padding="20,1" Click="ExportLogBtn_Click" />
-                        <Button x:Name="clearLogBtn" Content="{lex:Loc Clear}" DockPanel.Dock="Right" Padding="20,1" Margin="100,0,0,0" Click="ClearLogBtn_Click" />
-                    </DockPanel>
-                    <ListView x:Name="logListView" DockPanel.Dock="Top" ItemsSource="{Binding LogItems}" MouseDoubleClick="LogListView_MouseDoubleClick" Margin="0">
+                <Grid Margin="4,8,14,8"
+                      Background="{DynamicResource SurfaceBackgroundColor}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource BridgeCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Log" Style="{StaticResource BridgeSectionTitleStyle}" />
+                            <TextBlock Text="Filter live service events by severity or subsystem, then search within the current buffer."
+                                       Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                       Margin="0,0,0,12" />
+                            <WrapPanel>
+                                <StackPanel Margin="0,0,18,0">
+                                    <TextBlock Text="Search" FontSize="11"
+                                               Foreground="{DynamicResource MutedForegroundColor}"
+                                               Margin="0,0,0,4" />
+                                    <TextBox Width="280" Height="34" Padding="8,5"
+                                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Show messages containing this text"
+                                             AutomationProperties.Name="Search log messages" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,18,0">
+                                    <TextBlock Text="Category" FontSize="11"
+                                               Foreground="{DynamicResource MutedForegroundColor}"
+                                               Margin="0,0,0,4" />
+                                    <ComboBox ItemsSource="{Binding CategoryOptions}"
+                                              SelectedItem="{Binding SelectedCategoryOption, Mode=TwoWay}"
+                                              Style="{StaticResource BridgeProfileComboBoxStyle}"
+                                              ToolTip="Show one subsystem or all categories"
+                                              AutomationProperties.Name="Log category" />
+                                </StackPanel>
+                                <CheckBox Content="Warnings only"
+                                          IsChecked="{Binding WarningsOnly, Mode=TwoWay}"
+                                          VerticalAlignment="Bottom" Margin="0,0,0,10"
+                                          Foreground="{DynamicResource ForegroundColor}"
+                                          ToolTip="Hide informational log messages" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <ListView x:Name="logListView" Grid.Row="1"
+                              ItemsSource="{Binding FilteredLogItems}"
+                              SelectionMode="Extended"
+                              MouseDoubleClick="LogListView_MouseDoubleClick"
+                              Background="{DynamicResource CardBackgroundColor}"
+                              BorderBrush="{DynamicResource BorderColor}"
+                              Foreground="{DynamicResource ForegroundColor}"
+                              Margin="0">
                         <ListView.View>
                             <GridView AllowsColumnReorder="False">
-                                <GridViewColumn Header="Time" Width="150">
+                                <GridViewColumn Header="Time" Width="145">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Path=Datetime, StringFormat=\{0:G\}}"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Data" Width="800">
+                                <GridViewColumn Header="Category" Width="150">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource BridgeLogCategoryBadgeStyle}">
+                                                <TextBlock Text="{Binding CategoryDisplay}"
+                                                           Foreground="{DynamicResource MutedForegroundColor}"
+                                                           FontSize="12" FontWeight="SemiBold" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Message" Width="760">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Path=Message}"/>
@@ -1031,7 +1087,23 @@
                             </GridView>
                         </ListView.View>
                     </ListView>
-                </DockPanel>
+
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="exportLogBtn" Content="{lex:Loc Export}"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    Click="ExportLogBtn_Click" />
+                            <Button x:Name="copySelectedLogBtn" Content="Copy selection"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    Margin="8,0,0,0" Click="CopySelectedLogBtn_Click"
+                                    ToolTip="Copy selected rows with time, category, and message" />
+                        </StackPanel>
+                        <Button x:Name="clearLogBtn" Content="{lex:Loc Clear}"
+                                HorizontalAlignment="Right"
+                                Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                Click="ClearLogBtn_Click" />
+                    </Grid>
+                </Grid>
             </TabItem>
 
         </TabControl>

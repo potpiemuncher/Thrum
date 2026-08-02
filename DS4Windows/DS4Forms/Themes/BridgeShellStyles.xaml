@@ -793,6 +793,19 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Neutral subsystem tag used by dense log rows. Unlike status badges,
+         it has no readiness trigger and therefore needs no BadgeKind binding. -->
+    <Style x:Key="BridgeLogCategoryBadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundColor}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MutedForegroundColor}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
     <!-- One "why" line in a reason or identity list. -->
     <Style x:Key="BridgeCardListItemStyle" TargetType="TextBlock"
            BasedOn="{StaticResource BridgeSectionDescriptionStyle}">

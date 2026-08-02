@@ -4256,3 +4256,43 @@ physical controller/profile interaction was exercised. This remains the highest-
 for the eventual VM/hardware pass: card density, collapsed/expanded geometry, search navigation
 and highlighting, all 108 reset-button placements, keyboard/focus behaviour, theme rendering,
 live binding side effects and mapping-canvas interaction should be exercised together.
+
+## 2026-08-02 — Phase 4 acceptance sweep: Settings cards and close-out
+
+**Session scope:** close the last Phase 4 source acceptance item: convert the five surviving
+Settings `GroupBox` sections and replace the stale 4.1 inventory with a current-tree disposition
+for every main page and non-theme XAML surface under `DS4Windows/DS4Forms`.
+
+The Settings tab's Run As, VIIPER support, OSC server, UDP server and Utilities containers now
+use the shared Bridge card, title and description styles. Every existing child control, handler,
+binding, capability/availability gate and `x:Name` is retained. OSC and UDP were left as flat
+cards because their whole region is already behind the collapsed Advanced settings expander;
+adding nested collapsed disclosures would make uncommon settings harder to reach without reducing
+the default page density. No brush or other theme key was introduced.
+
+The untouched `MainWindow.xaml` baseline had 107 `x:Name` declaration occurrences, 106 distinct
+names (the duplicate is the commented legacy `updPortNum`) and 52 distinct names referenced by
+the 3,000-line code-behind. The final audit has the same 107/106/52 counts, with 0 referenced
+baseline names missing, 0 removed or renamed and 0 added. The raw `DS4Forms` GroupBox census fell
+from 28 to 23: Settings 5 to 0, Profile Editor still 21 card-styled containers from PR #46,
+Binding Window 1 and controller registration 1. There are now zero GroupBoxes on main navigation
+pages; the two untouched dialog survivors and their reasons are recorded in
+`ui-modernization-status.md`.
+
+The close-out document remeasures all 37 non-theme XAML files and the ten main navigation pages,
+records the landing PR for each modernized Phase 4 surface, and gives a current reason for each
+surface that deliberately remains outside the card idiom. It also consolidates the unit and
+negative-control posture from PRs #39 and #41–#46 instead of treating the final green suite as the
+only evidence.
+
+Verification began from the untouched **983/983** x64 Release baseline. The auto-discovered
+`ThemeDefinesEveryBrushTheShellStylesBindTo` rows pass **2/2**; because this sweep introduced no
+new brush key, no missing-from-one-theme mutation was fabricated. The final full x64 Release
+suite passes **983/983**. The x64 Debug XAML-compiler build and no-incremental x64 Release solution
+build both complete with **0 errors** and the same 17 known warnings.
+
+Rendered verification remains separate and deliberately unclaimed. The VM UI pass is in progress,
+with its evidence assigned to `vm-validation-reports/phase4-ui-pass-20260802/`; no completed report
+from that folder is present in this branch at close-out. Phase 4's source acceptance criterion is
+therefore closed — every page/dialog is modernized or logged with a reason — while theme/layout,
+keyboard and live hardware results remain bounded by that independent pass.

@@ -132,7 +132,7 @@ namespace DS4WinWPF.DS4Forms
             RefreshViiperStatusText();
             logvm = new LogViewModel(App.rootHub);
             //logListView.ItemsSource = logvm.LogItems;
-            logListView.DataContext = logvm;
+            logTab.DataContext = logvm;
             lastMsgLb.DataContext = lastLogMsg;
             ProcessPriorityComboBox.ItemsSource = ProcessPriorityClasses;
 
@@ -453,12 +453,23 @@ Suspend support not enabled.", true);
         {
             if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
             {
+                LogCategory? addedCategory = e.NewItems?.Count > 0 &&
+                    e.NewItems[0] is LogItem item
+                        ? item.Category
+                        : null;
+                int bufferGeneration = logvm.BufferGeneration;
                 Dispatcher.BeginInvoke((Action)(() =>
                 {
+                    if (addedCategory.HasValue)
+                    {
+                        logvm.NoteCategoryPresent(addedCategory.Value,
+                            bufferGeneration);
+                    }
+
                     int count = logListView.Items.Count;
                     if (count > 0)
                     {
-                        logListView.ScrollIntoView(logvm.LogItems[count - 1]);
+                        logListView.ScrollIntoView(logListView.Items[count - 1]);
                     }
                 }));
             }
@@ -963,20 +974,42 @@ Suspend support not enabled.", true);
 
         private void LogListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            int idx = logListView.SelectedIndex;
-            if (idx > -1)
+            if (logListView.SelectedItem is LogItem item)
             {
-                LogItem temp = logvm.LogItems[idx];
-                LogMessageDisplay msgBox = new LogMessageDisplay(temp.Message);
+                LogMessageDisplay msgBox = new LogMessageDisplay(item.Message);
                 msgBox.Owner = this;
                 msgBox.ShowDialog();
-                //MessageBox.Show(temp.Message, "Log");
+                //MessageBox.Show(item.Message, "Log");
             }
         }
 
         private void ClearLogBtn_Click(object sender, RoutedEventArgs e)
         {
-            logvm.LogItems.Clear();
+            logvm.Clear();
+        }
+
+        private void CopySelectedLogBtn_Click(object sender, RoutedEventArgs e)
+        {
+            List<LogItem> selected = logListView.Items.Cast<LogItem>()
+                .Where(item => logListView.SelectedItems.Contains(item))
+                .ToList();
+            if (selected.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                Clipboard.SetText(LogCopyFormatter.Format(selected));
+            }
+            catch (ExternalException ex)
+            {
+                // Another process can temporarily own the clipboard. Keep the
+                // selection intact so the user can retry the same copy.
+                AppLogger.LogToGui(
+                    "Could not copy the selected log entries: " + ex.Message,
+                    true);
+            }
         }
 
         private void MainTabCon_SelectionChanged(object sender, SelectionChangedEventArgs e)

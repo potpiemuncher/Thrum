@@ -493,18 +493,21 @@
                               IsChecked="{Binding RunAtStartup}"
                               ToolTip="{lex:Loc Resources:RunAtStartup}" Click="RunAtStartCk_Click"
                               Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
-                        <GroupBox x:Name="runAsGroupBox" Header="{lex:Loc RunAs}" BorderThickness="2" Visibility="{Binding ShowRunStartPanel}"
-                              Margin="{StaticResource spaceMargin}">
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel>
-                                    <RadioButton Content="{lex:Loc Program}" GroupName="RunAsOpt" Margin="{StaticResource spaceMargin}" IsChecked="{Binding RunStartProg}" />
-                                    <RadioButton Content="{lex:Loc Task}" GroupName="RunAsOpt" Margin="{StaticResource spaceMargin}"
-                                                 IsChecked="{Binding RunStartTask}" IsEnabled="{Binding CanWriteTask}" />
+                        <Border x:Name="runAsGroupBox" Style="{StaticResource BridgeCardStyle}" Visibility="{Binding ShowRunStartPanel}"
+                                Margin="{StaticResource spaceMargin}">
+                            <StackPanel>
+                                <TextBlock Text="{lex:Loc RunAs}" Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel>
+                                        <RadioButton Content="{lex:Loc Program}" GroupName="RunAsOpt" Margin="{StaticResource spaceMargin}" IsChecked="{Binding RunStartProg}" />
+                                        <RadioButton Content="{lex:Loc Task}" GroupName="RunAsOpt" Margin="{StaticResource spaceMargin}"
+                                                     IsChecked="{Binding RunStartTask}" IsEnabled="{Binding CanWriteTask}" />
+                                    </StackPanel>
+                                    <Image x:Name="uacImg" Source="{Binding UACSource, Mode=OneTime}" Width="30" Height="30"
+                                       ToolTip="{lex:Loc Resources:UACTask}" Margin="20,0,0,0" />
                                 </StackPanel>
-                                <Image x:Name="uacImg" Source="{Binding UACSource, Mode=OneTime}" Width="30" Height="30"
-                                   ToolTip="{lex:Loc Resources:UACTask}" Margin="20,0,0,0" />
                             </StackPanel>
-                        </GroupBox>
+                        </Border>
                         <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                             <Label Content="{lex:Loc ShowNotifications}" />
                             <ComboBox MinWidth="100" SelectedIndex="{Binding ShowNotificationsIndex}" Margin="8,0,0,0">
@@ -581,8 +584,11 @@
                                 <ComboBoxItem Content="{lex:Loc Days}" />
                             </ComboBox>
                         </StackPanel>
-                        <GroupBox Header="VIIPER Virtual Controller Support" Padding="8" Margin="{StaticResource spaceMargin}" HorizontalAlignment="Left">
+                        <Border Style="{StaticResource BridgeCardStyle}" Margin="{StaticResource spaceMargin}" HorizontalAlignment="Left">
                             <StackPanel>
+                                <TextBlock Text="VIIPER Virtual Controller Support" Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Install, inspect, and limit the experimental virtual-controller backend."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
                                 <TextBlock x:Name="viiperStatusText"
                                            Text="VIIPER status unknown"
                                            TextWrapping="Wrap"
@@ -844,7 +850,7 @@
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
-                        </GroupBox>
+                        </Border>
                             </StackPanel>
                         </Border>
 
@@ -854,8 +860,11 @@
                                     <TextBlock Text="Advanced" Style="{StaticResource BridgeSectionTitleStyle}" />
                                     <TextBlock Text="Network servers, compatibility overrides, device registration, diagnostics, and maintenance tools. Defaults are best for most users."
                                                Style="{StaticResource BridgeSectionDescriptionStyle}" />
-                        <GroupBox Header="{lex:Loc OscServerHeading}" Padding="0,10,0,0" Margin="{StaticResource spaceMargin}">
+                        <Border Style="{StaticResource BridgeCardStyle}" Margin="{StaticResource spaceMargin}">
                             <StackPanel>
+                                <TextBlock Text="{lex:Loc OscServerHeading}" Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Receive controller commands or forward controller data over OSC."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
                                 <StackPanel Orientation="Horizontal" MinHeight="20">
                                     <CheckBox x:Name="useOscServerCk" Content="{lex:Loc EnableOscServer}" IsChecked="{Binding UseOSCServer}" Click="UseOscServerCk_Click" VerticalAlignment="Center" />
                                     <Label Content="Port" Padding="0" VerticalAlignment="Center" Margin="20,0,0,0" />
@@ -874,9 +883,12 @@
                                             Value="{Binding OscSendPort, UpdateSourceTrigger=LostFocus,FallbackValue='9000'}" ButtonSpinnerLocation="Right" Increment="1" Maximum="65535" Minimum="0" />
                                 </StackPanel>
                             </StackPanel>
-                        </GroupBox>
-                        <GroupBox Header="{lex:Loc UDPServer}" Padding="0,10,0,0" Margin="{StaticResource spaceMargin}">
+                        </Border>
+                        <Border Style="{StaticResource BridgeCardStyle}" Margin="{StaticResource spaceMargin}">
                             <StackPanel>
+                                <TextBlock Text="{lex:Loc UDPServer}" Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Expose controller data to a UDP client and tune optional smoothing."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
                                 <StackPanel Orientation="Horizontal" MinHeight="20">
                                     <CheckBox x:Name="useUdpServerCk" Content="{lex:Loc MainWin.EnableServer}" IsChecked="{Binding UseUDPServer}" Click="UseUdpServerCk_Click" VerticalAlignment="Center" />
                                     <TextBox x:Name="udpServerTxt" IsEnabled="{Binding UseUDPServer,Mode=OneWay}" Text="{Binding UdpIpAddress, UpdateSourceTrigger=LostFocus,FallbackValue='127.0.0.1'}"
@@ -902,7 +914,7 @@
                                 </StackPanel>
                             </StackPanel>
 
-                        </GroupBox>
+                        </Border>
 
                         <!--<StackPanel Orientation="Horizontal">
                         <Label Content="Use language pack" />
@@ -938,9 +950,13 @@
                             </ComboBox>
                         </StackPanel>
 
-                        <GroupBox Header="{lex:Loc Utils}" BorderThickness="2" Margin="{StaticResource spaceMargin}"
-                              Padding="8" HorizontalAlignment="Left">
-                            <WrapPanel HorizontalAlignment="Left" Orientation="Vertical">
+                        <Border Style="{StaticResource BridgeCardStyle}" Margin="{StaticResource spaceMargin}"
+                                HorizontalAlignment="Left">
+                            <StackPanel>
+                                <TextBlock Text="{lex:Loc Utils}" Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Open support folders and the existing maintenance utilities."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                                <WrapPanel HorizontalAlignment="Left" Orientation="Vertical">
                                 <Button x:Name="dataFolderBtn" BorderThickness="0" Margin="0,0,4,4" Background="{x:Null}" BorderBrush="{x:Null}"
                                     Style="{StaticResource NoBGHoverBtn}" Click="DataFolderBtn_Click">
                                     <TextBlock Text="Open data folder" TextDecorations="Underline" Foreground="{DynamicResource AccentColor}" Cursor="Hand" />
@@ -983,8 +999,9 @@
                                     <!--="CheckUpdatesBtn_Click">-->
                                     <TextBlock Text="{lex:Loc Changelog}" TextDecorations="Underline" Foreground="{DynamicResource AccentColor}" Cursor="Hand" />
                                 </Button>
-                            </WrapPanel>
-                        </GroupBox>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="{StaticResource spaceMargin}">
                             <Button x:Name="deviceOptionSettingsBtn" MaxWidth="140" Content="{lex:Loc DeviceOptions}" Click="DeviceOptionSettingsBtn_Click" />

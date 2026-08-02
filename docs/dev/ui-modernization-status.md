@@ -1,146 +1,130 @@
-# UI modernization status
+# UI modernization close-out
 
-Phase 4, task 4.1. An inventory of every page, control and dialog against the card-based shell
-(`Themes/BridgeShellStyles.xaml`), so tasks 4.2–4.8 are scoped from what the tree actually
-contains rather than from the plan's estimate.
+Phase 4 acceptance sweep, measured from `phase4/acceptance-sweep` after the Settings card
+conversion (`be4ceb9`). This replaces the task 4.1 inventory measured at `main @ 1be04bd`.
+Every main page and every non-theme XAML surface under `DS4Windows/DS4Forms` now has one of the
+two required dispositions: **modernized**, with the landing PR or pre-4.1 groundwork named, or
+**logged with a reason**.
 
-Measured against `main` @ `1be04bd`. Counts are from the current XAML, not from upstream's
-starting point.
+This is a source-and-verification close-out. It does not convert the separate rendered-surface
+pass into a result: the VM pass is still in progress, as recorded under [Rendered verification](#rendered-verification).
 
-## Method, and what the numbers mean
+## Counting method
 
-"Adoption" is counted as references to a `Bridge*Style` key, cross-checked against the number of
-`<GroupBox>` elements — upstream's idiom, and what the card styles replace. Neither number alone
-is a verdict: a 14-line colour-picker host needs no card, and a page can reference one style and
-still be substantially unmodernized. Every row below carries a disposition, not just a count.
+- **Bridge refs** counts references matching `Bridge*Style` in the relevant XAML subtree or
+  backing control. It is an adoption signal, not a claim that every reference is a card.
+- **GroupBox** counts raw opening `<GroupBox` elements. This intentionally still counts the 21
+  Profile Editor containers that PR #46 preserved and restyled through
+  `ProfileEditorCardGroupBoxStyle`.
+- The surface inventory contains all 37 non-theme `.xaml` files under `DS4Windows/DS4Forms`.
+  `MainWindow.xaml` is represented by its ten navigation rows; its other modal/control XAML files
+  are listed separately below.
 
-## What the shell provides
+The shared shell is now 851 lines with 21 keyed styles/templates, 113 `DynamicResource`
+references, 11 `StaticResource` references, and no literal hex colours. Theme brush parity is
+auto-discovered by `ThemeResourceTests` from the shell's `DynamicResource` bindings.
 
-`BridgeShellStyles.xaml` (838 lines) defines **20 keys**: card and card-list items, controller
-card and sidebar items, section title/description, described checkbox, primary/secondary buttons,
-status badge and badge text, inline banner and headline, profile combo box, the main/profile tab
-controls and their items, the editor navigation item, and the trigger-pair icon.
+## Main navigation pages
 
-It follows the theme properly — **110 `DynamicResource` references against 11 `StaticResource`**,
-and exactly one hardcoded colour (see findings).
+For an extracted control, the counts come from that control. For an inline page, they come from
+the page's `TabItem` subtree in `MainWindow.xaml`.
 
-## The nine navigation pages
+| page | backing | Bridge refs | GroupBox | final disposition |
+|---|---|---:|---:|---|
+| Overview | `ControllerOverviewControl.xaml` (493 lines) | 8 | 0 | **Modernized** — pre-4.1 card shell, completed by PR #41. |
+| Controllers | inline in `MainWindow` | 3 | 0 | **Modernized** — pre-4.1 controller cards, with action parity completed by PRs #41 and #45. |
+| Audio Haptics | `AudioHapticsControl.xaml` (512) | 2 | 0 | **Modernized** — PR #44 polished capture choice, meter and card presentation. |
+| Trigger Lab | `TriggerLabControl.xaml` (133) | 10 | 0 | **Modernized** — PR #44 added the preset workflow and completed the page presentation. |
+| Profiles | inline + `DupBox` | 9 | 0 | **Modernized before 4.1 (no Phase 4 PR)** — the card toolbar/list layout remains appropriate; no Phase 4 wrapper was needed. |
+| Auto Profiles | `AutoProfiles.xaml` (423) | 2 | 0 | **Modernized before 4.1 (no Phase 4 PR)** — its rule list and editor already occupy the two useful card regions. |
+| Output Slots | `OutputSlotManagerControl.xaml` (107) | 3 | 0 | **Modernized before 4.1 (no Phase 4 PR)** — already a complete three-card status/action surface. |
+| Diagnostics | `DiagnosticsControl.xaml` (97) | 9 | 0 | **Modernized** — PR #39 added the six-card diagnostics page. |
+| Settings | inline in `MainWindow` | 60 | 0 | **Modernized** — this acceptance sweep converted the five surviving sections; OSC and UDP remain flat because the whole set is already behind the collapsed Advanced disclosure. |
+| Log | inline in `MainWindow` | 8 | 0 | **Modernized** — PR #42 added the card toolbar, filtering, category tags and copy action. |
 
-All nine exist and are wired into the modern nav shell. Adoption behind them varies.
+## Remaining controls and dialogs
 
-| page | backing | inline lines | cards | GroupBox | status |
-|---|---|---|---|---|---|
-| Overview | `ControllerOverviewControl` (474) | 8 | 5 refs | 0 | **adopted** |
-| Controllers | inline in `MainWindow` | 119 | 0 | 0 | plain layout, no card idiom |
-| Audio Haptics | `AudioHapticsControl` (493) | 4 | 2 refs | 0 | **partial** |
-| Trigger Lab | `TriggerLabControl` (84) | 4 | 1 ref | 0 | **partial**, but the page is thin |
-| Profiles | inline + `DupBox` | 260 | 2 | 0 | **partial** |
-| Auto Profiles | `AutoProfiles` (423) | 5 | 2 refs | 0 | **partial** |
-| Output Slots | `OutputSlotManagerControl` (107) | 5 | 3 refs | 0 | **adopted** |
-| Settings | inline + `LanguagePackControl` | 548 | 5 | **5** | **mixed** — see below |
-| Log | inline in `MainWindow` | 31 | 0 | 0 | plain list, no filters yet (4.8) |
+The zero-ref rows are not omissions. Each is either a deliberately retained compatibility
+surface or a focused control/dialog where adding card padding and another visual boundary would
+not clarify the task.
 
-**Settings is the mixed one.** Five cards coexist with five surviving `GroupBox` sections —
-`RunAs`, the OSC server, the UDP server, and `Utils`. That is the page where upstream's
-"nothing removed, only relocated under Advanced" rule has the most left to apply, and it is
-548 lines inline in `MainWindow.xaml`.
+| file | lines | Bridge refs | GroupBox | final disposition |
+|---|---:|---:|---:|---|
+| `About.xaml` | 890 | 0 | 0 | **Logged** — still a simple Hotkeys/License about box; most of its line count is static GPL text, so card work remains low value. |
+| `AxialStickUserControl.xaml` | 62 | 0 | 0 | **Logged** — embedded single-axis editor; a card would duplicate its parent's section boundary. |
+| `BindingWindow.xaml` | 608 | 0 | 1 | **Logged** — the deliberately dense mapping chooser needs its canvas width; the one Extras group isolates optional rumble/macro controls and card padding would make the primary task worse. |
+| `ChangelogWindow.xaml` | 21 | 0 | 0 | **Logged** — read-only content host; no additional section exists to card. |
+| `ColorPickerWindow.xaml` | 14 | 0 | 0 | **Logged** — single picker host; the card idiom adds no hierarchy. |
+| `ControllerReadingsControl.xaml` | 261 | 0 | 0 | **Logged** — retained only as the Profile Editor compatibility surface; PR #45 supplied the modern user-facing tester instead of rewriting it in place. |
+| `ControllerRegisterOptionsWindow.xaml` | 123 | 0 | 1 | **Logged** — focused device-registration dialog; its one conditional Joy-Con group is the useful boundary for type-specific options. |
+| `ControllerTesterControl.xaml` | 446 | 4 | 0 | **Modernized** — new live tester in PR #45. |
+| `ControllerTesterWindow.xaml` | 11 | 0 | 0 | **Modernized** — intentionally thin host for the PR #45 tester. |
+| `DupBox.xaml` | 39 | 0 | 0 | **Logged** — compact duplicate-profile prompt; no second content region. |
+| `FirstLaunchUtilWindow.xaml` | 79 | 0 | 0 | **Logged** — PR #43 removed its startup call site; restyling the superseded window would not affect the first-run experience. |
+| `FirstRunWizard.xaml` | 242 | 45 | 0 | **Modernized** — new seven-stage card-shell flow in PR #43. |
+| `ImportSettingsDialog.xaml` | 51 | 0 | 0 | **Logged** — compact import offer still used from Settings; a card would wrap the only prompt. |
+| `LanguagePackControl.xaml` | 24 | 0 | 0 | **Logged** — one embedded selector already sits inside the Settings Advanced card. |
+| `LightbarMacroCreator.xaml` | 42 | 0 | 0 | **Logged** — focused colour/macro editor; no additional grouping to express. |
+| `LogMessageDisplay.xaml` | 20 | 0 | 0 | **Logged** — single message-detail host. |
+| `PluginOutDevWindow.xaml` | 34 | 0 | 0 | **Logged** — single output-device choice. |
+| `PresetOptionWindow.xaml` | 58 | 0 | 0 | **Logged** — compact preset confirmation/choice. |
+| `ProfileEditor.xaml` | 2,821 | 17 | 21 | **Modernized** — all four slices landed in PR #46; the 21 raw GroupBoxes intentionally retain their children and names while a local template supplies card chrome. |
+| `RecordBox.xaml` | 101 | 0 | 0 | **Logged** — specialized input-capture control whose key grid is already the hierarchy. |
+| `RecordBoxWindow.xaml` | 17 | 0 | 0 | **Logged** — thin host for `RecordBox`. |
+| `RenameProfileWindow.xaml` | 28 | 0 | 0 | **Logged** — one-field rename prompt. |
+| `SaveWhere.xaml` | 35 | 0 | 0 | **Logged** — PR #43 removed its startup call site and replaced the decision in the wizard. |
+| `SpecialActionEditor.xaml` | 551 | 0 | 0 | **Logged** — dense split trigger/action editor with no obsolete GroupBox chrome; cards would fragment one modal workflow without reducing complexity. |
+| `StickCalibrationWindow.xaml` | 33 | 0 | 0 | **Logged** — focused calibrator linked from PR #45; one instruction/action surface needs no card. |
+| `SwipeProfilesEditor.xaml` | 38 | 0 | 0 | **Logged** — compact allowed-profile list. |
+| `TouchButtonUserControl.xaml` | 14 | 0 | 0 | **Logged** — single embedded touch binding. |
+| `UpdaterWindow.xaml` | 26 | 0 | 0 | **Logged** — single progress/status surface. |
+| `ViiperDebuggerWindow.xaml` | 64 | 0 | 0 | **Logged** — developer-only diagnostic control grid behind verbose logging; card chrome adds no task hierarchy. |
+| `WelcomeDialog.xaml` | 72 | 0 | 0 | **Logged** — PR #43 replaced its onboarding role; the retained Settings/`-driverinstall` route is a small one-purpose installer dialog. |
 
-## Controls and dialogs
+## GroupBox close-out
 
-Grouped by what should happen to them, not by size alone.
+The raw census before this sweep was **28**: Settings 5, Profile Editor 21, Binding Window 1 and
+controller registration 1. It is now **23**:
 
-**Substantial and unmodernized — real work:**
+| file | count | disposition |
+|---|---:|---|
+| `ProfileEditor.xaml` | 21 | Modernized by PR #46; the elements remain to preserve names, children and behavior while the local template renders them as cards. |
+| `BindingWindow.xaml` | 1 | Untouched dialog exception: optional Extras rail in a width-sensitive mapping chooser. |
+| `ControllerRegisterOptionsWindow.xaml` | 1 | Untouched dialog exception: conditional Joy-Con-only options in a focused registration dialog. |
 
-| file | LOC | GroupBox | note |
+No main navigation page contains a `<GroupBox>`. The two rows above are the only untouched
+GroupBox exceptions; the other 21 grep hits are the deliberately preserved, already-modernized
+Profile Editor containers.
+
+## Verification posture
+
+The per-PR unit and negative-control record is retained here so close-out does not imply that a
+green final suite is the only evidence Phase 4 produced.
+
+| landing | surface | automated result | negative-control evidence |
 |---|---|---|---|
-| `ProfileEditor.xaml` | **2681** | **21** | The single largest surface in the app and the least modernized. Task 4.5. |
-| `About.xaml` | 890 | 0 | Large but it is an about box; low user value, cheap to leave. |
-| `BindingWindow.xaml` | 608 | 1 | Dense mapping dialog, reached constantly from the editor. |
-| `SpecialActionEditor.xaml` | 551 | 0 | Dense form. |
-| `ControllerReadingsControl.xaml` | 261 | 0 | **Task 4.4 rewrites this anyway** — do not modernize separately. |
-| `ControllerRegisterOptionsWindow.xaml` | 123 | 1 | Also the second-largest cluster of device-type branching (12 hits). |
+| PR #39 | Diagnostics | 909/909, 10 new tests; x64 build clean | Trap guards were removed one at a time; reviewer also reintroduced the MAC-bearing read. The paired tests failed and each mutation was restored. |
+| PR #41 | controller cards | 918/918, 9 new tests; x64 build clean | Three failures observed and restored: missing dark-theme brush, missing Identify visibility gate, and removed `NoOutputData` capability exclusion. |
+| PR #42 | Log | 929/929, 11 new tests; x64 build clean | Three failures observed and restored: wrong VIIPER classification, inverted severity predicate and case-sensitive search. |
+| PR #43 | first run | 946/946, 17 new tests; no-incremental x64 build 0 errors | Moving the pristine-state sample and bypassing the non-pristine import gate each failed its intended assertion, then were restored. |
+| PR #44 | Trigger Lab + Audio Haptics | 957/957, 11 new tests; no-incremental x64 build 0 errors | Removing schema-version rejection and accepting a vanished endpoint each failed its intended assertion, then were restored. |
+| PR #45 | live input tester | 974/974, 17 new tests; no-incremental x64 build 0 errors | Zeroing anti-deadzone geometry and reversing the drift comparison each failed its intended assertion, then were restored. |
+| PR #46 | Profile Editor | 983/983 after four slices; x64 Debug XAML and x64 Release builds 0 errors | Reversing default-section disclosure and offsetting a reset default each failed its intended assertion, then were restored. |
+| acceptance sweep | Settings + close-out | untouched baseline and final suite 983/983; theme parity 2/2; x64 Debug XAML and no-incremental x64 Release builds 0 errors | No brush key was introduced, so the auto-discovered parity test was run without fabricating a missing-theme mutation. |
 
-**Small enough that the card idiom would add nothing** — a single control, a prompt, or a
-confirmation: `RecordBox` (101), `FirstLaunchUtilWindow` (79), `WelcomeDialog` (72),
-`ViiperDebuggerWindow` (64), `AxialStickUserControl` (62), `PresetOptionWindow` (58),
-`ImportSettingsDialog` (51), `LightbarMacroCreator` (42), `DupBox` (39), `SwipeProfilesEditor`
-(38), `SaveWhere` (35), `PluginOutDevWindow` (34), `StickCalibrationWindow` (33),
-`RenameProfileWindow` (28), `UpdaterWindow` (26), `LanguagePackControl` (24), `ChangelogWindow`
-(21), `LogMessageDisplay` (20), `RecordBoxWindow` (17), `TouchButtonUserControl` (14),
-`ColorPickerWindow` (14).
+The Settings `x:Name` audit is also clean. Baseline and current are 107 declaration occurrences,
+106 distinct names (the extra occurrence is the commented legacy `updPortNum`), and 52 distinct
+names referenced by `MainWindow.xaml.cs`; 0 referenced baseline names are missing, 0 names were
+removed or renamed, and 0 were added. The final builds retain the same 17 known warnings.
 
-Two of these are **replaced rather than restyled** by task 4.7: `WelcomeDialog` and
-`FirstLaunchUtilWindow`. `StickCalibrationWindow` gets folded into 4.4 as an entry point.
+## Rendered verification
 
-## Groundwork already in place
+Every implementation PR above explicitly recorded that its changed surface was not rendered in
+that PR. The separate VM UI pass is **in progress**, with evidence assigned to
+`vm-validation-reports/phase4-ui-pass-20260802/`. No completed report from that folder exists in
+this branch at close-out, so this document does not claim theme, layout, keyboard, live hardware,
+audio, haptics or controller results from it.
 
-Three things the plan treats as work to be done are already built, which is the main scoping
-result of this audit.
-
-**The capability policy exists and is used.** `ControllerUiCapabilityPolicy.cs` defines
-`ControllerUiCapabilities.For(InputDeviceType)`, returning artwork name, feedback label, audio
-header, microphone toggle label, and flags for controller-audio settings, DualSense hardware
-controls, adaptive triggers and the mute button. It is consumed by **four** view-models —
-`ControllerListViewModel`, `MainWindowsViewModel`, `MappingListViewModel`,
-`ProfileSettingsViewModel` — and covered by **8 tests**.
-
-Task 4.2 says to "extend it rather than scattering `if (deviceType…)` in views". That premise
-already holds: of the device-type branching in the UI layer, 14 hits are *inside the policy
-itself*, where they belong. Only three sites branch outside it —
-`ControllerRegDeviceOptsViewModel` (12), `ProfileEditor.xaml.cs` (5) and `MainWindowsViewModel`
-(2) — and the first of those is a single specialised dialog.
-
-**Theme parity is already enforced by a test.**
-`ThemeResourceTests.ThemeDefinesEveryBrushTheShellStylesBindTo(string theme)` is parameterised
-over the themes and asserts that every brush the shell styles bind to exists in each one, and
-`DefaultThemeLoadsBridgeShellStylesOnFreshConfiguration` checks the styles resolve on a clean
-config. The Phase 4 acceptance criterion "theme parity checked by extended `ThemeResourceTests`
-(light + dark keys for all new styles)" is therefore satisfied *structurally* — new styles are
-covered automatically as long as they bind brushes by key rather than hardcoding.
-
-**Task 4.3's data layer exists.** `ViiperDriverStatusViewModel` and
-`ViiperBackendStatusViewModel` were built in Phase 2 and already back the Settings driver card.
-The diagnostics page needs to aggregate and present them, not derive them.
-
-## Findings
-
-**1. One hardcoded colour breaks theme-following, in the selected state.**
-`BridgeShellStyles.xaml:389` sets the controller selector card's selected background to a literal
-`#253881D8` (14 %-alpha blue), while every sibling setter in the same trigger block — including
-the `IsMouseOver` background and both border brushes — uses `DynamicResource`. So the *selected*
-state, the one that matters most for telling the user which controller they are configuring, is
-the one state that will not adapt between light and dark. The existing theme test cannot catch it
-because it verifies that referenced brush keys exist, and a literal references no key. One-line
-fix: add a themed `SelectedCardBackground` brush to both themes and bind it.
-
-**2. `ProfileEditor.xaml` is the whole of task 4.5 and then some.** 2,681 lines with 21
-`GroupBox` sections and zero cards — more unmodernized surface than every other dialog combined.
-The plan's risk note about god code-behinds applies here, and **both code-behinds it names have
-grown since the plan was written**: `ProfileEditor.xaml.cs` is now **3,003** lines (plan: 2,997)
-and `MainWindow.xaml.cs` is **2,957** (plan: 2,649, so +308). The plan's advice — prefer additive
-view-models, do not attempt an MVVM rewrite mid-phase — therefore applies more strongly than when
-it was written, not less. Worth treating 4.5 as its own multi-session task rather than part of a
-sweep.
-
-**3. `ControllerReadingsControl` should not be modernized in place.** At 261 lines with no card
-adoption it looks like a candidate, but task 4.4 replaces it with the live input tester. Styling
-it first would be thrown away.
-
-## Re-scoped estimate for 4.2–4.8
-
-The plan budgets 6–10 sessions for Phase 4. That still looks right in total, but the distribution
-is uneven and two tasks are cheaper than they appear:
-
-| task | revised view |
-|---|---|
-| 4.2 controller cards | **Cheaper than scoped.** The capability policy and its tests exist; this is extending a tested seam plus card XAML, not building the policy. |
-| 4.3 diagnostics page | **Medium.** Both status view-models exist; the work is aggregation, the redacted "Copy full report", and plain-language remedies. This is also where Phase 3's leftovers surface (orphaned-backend affordance, audio guard state). |
-| 4.4 live input tester | **Largest greenfield item.** Replaces `ControllerReadingsControl` outright. |
-| 4.5 profile editor | **Largest overall.** 2,681 lines, 21 GroupBoxes, 2,997-line code-behind. Its own task. |
-| 4.6 trigger lab + audio haptics | Medium; `TriggerLabControl` is thin (84 lines) so the preset store is most of it. |
-| 4.7 first-run flow | Medium; replaces two small dialogs rather than restyling them. |
-| 4.8 log tab polish | **Small.** 31 inline lines today; filters, search and category tags. |
-
-Suggested order: **4.3 → 4.2 → 4.8 → 4.7 → 4.6 → 4.4 → 4.5**, i.e. diagnostics first because it
-has the most existing scaffolding and the highest support value, and the profile editor last
-because it is the biggest and benefits from the card patterns the earlier tasks settle.
+Phase 4's source acceptance criterion is closed: every page/dialog is either modernized or
+logged above with a current reason. The VM folder remains the honest evidence boundary for the
+rendered-surface debt until that independent pass finishes.

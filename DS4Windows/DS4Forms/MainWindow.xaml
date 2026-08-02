@@ -47,6 +47,7 @@
         <TabControl x:Name="mainTabCon" DockPanel.Dock="Top" SelectionChanged="MainTabCon_SelectionChanged" Style="{StaticResource BridgeMainTabControlStyle}">
             <TabItem x:Name="overviewTab" Header="Overview" Tag="&#xE80F;" ToolTip="At-a-glance status and quick profile controls for the selected controller." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
                 <local:ControllerOverviewControl x:Name="controllerOverviewControl"
+                                                 TestInputsRequested="ControllerOverview_TestInputsRequested"
                                                  EditProfileRequested="ControllerOverview_EditProfileRequested"
                                                  ActiveProfileChangedRequested="ControllerOverview_ActiveProfileChangedRequested"
                                                  ControllerDetailsRequested="ControllerOverview_ControllerDetailsRequested"
@@ -128,6 +129,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="ACTIVE PROFILE" FontSize="10" FontWeight="Bold"
@@ -149,7 +151,12 @@
                                         <CheckBox Grid.Column="1" Content="{lex:Loc LinkProfileId}" IsChecked="{Binding LinkedProfile}"
                                                   IsEnabled="{Binding PrimaryDevice}" Margin="12,20,12,0" VerticalAlignment="Center"
                                                   ToolTip="Use the same profile whenever this physical controller reconnects." />
-                                        <xctk:SplitButton Grid.Column="2" x:Name="ProfEditSBtn" Content="{lex:Loc Edit}"
+                                        <Button Grid.Column="2" Content="Test inputs" MinWidth="94" Height="34"
+                                                Margin="0,18,10,0" VerticalAlignment="Center"
+                                                Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                                Tag="{Binding DevIndex, Mode=OneTime}"
+                                                Click="TestInputsBtn_Click" />
+                                        <xctk:SplitButton Grid.Column="3" x:Name="ProfEditSBtn" Content="{lex:Loc Edit}"
                                                           MinWidth="84" Height="34" Margin="0,18,10,0"
                                                           Visibility="{Binding PrimaryDevice, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                           Tag="{Binding DevIndex, Mode=OneTime}" Click="ProfEditSBtn_Click" VerticalAlignment="Center">
@@ -158,7 +165,7 @@
                                                         Tag="{Binding DevIndex, Mode=OneTime}" Click="NewProfBtn_Click" />
                                             </xctk:SplitButton.DropDownContent>
                                         </xctk:SplitButton>
-                                        <StackPanel Grid.Column="3" HorizontalAlignment="Right">
+                                        <StackPanel Grid.Column="4" HorizontalAlignment="Right">
                                             <TextBlock Text="LIGHTBAR" FontSize="10" FontWeight="Bold"
                                                        Foreground="{DynamicResource MutedForegroundColor}" Margin="0,0,0,5" />
                                             <Button x:Name="LightColorBtn" Width="116" Height="34"

@@ -76,6 +76,7 @@ namespace DS4WinWPF.DS4Forms
         private NonFormTimer autoProfilesTimer;
         private AutoProfileChecker autoprofileChecker;
         private ProfileEditor editor;
+        private ControllerTesterWindow controllerTesterWindow;
         private bool profileEditorLoading;
         private int profileEditorReturnTabIndex = -1;
         private bool profileEditorNavigationChanging;
@@ -1154,6 +1155,49 @@ Suspend support not enabled.", true);
             {
                 ShowProfileEditor(controller.DevIndex, profile);
             }
+        }
+
+        private void ControllerOverview_TestInputsRequested(object sender,
+            EventArgs e) => OpenControllerTester(mainWinVM.SelectedController);
+
+        private void TestInputsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            CompositeDeviceModel controller =
+                (sender as FrameworkElement)?.DataContext as
+                    CompositeDeviceModel;
+            if (controller == null) return;
+            mainWinVM.SelectedController = controller;
+            OpenControllerTester(controller);
+        }
+
+        private void OpenControllerTester(CompositeDeviceModel controller)
+        {
+            if (controller == null) return;
+
+            if (controllerTesterWindow?.IsVisible == true)
+            {
+                if (controllerTesterWindow.UsesController(controller))
+                {
+                    controllerTesterWindow.Activate();
+                    return;
+                }
+
+                controllerTesterWindow.Close();
+            }
+
+            ControllerTesterWindow window = new(controller)
+            {
+                Owner = this,
+            };
+            controllerTesterWindow = window;
+            window.Closed += (closedSender, closedArgs) =>
+            {
+                if (ReferenceEquals(controllerTesterWindow, window))
+                {
+                    controllerTesterWindow = null;
+                }
+            };
+            window.Show();
         }
 
         private void ControllerOverview_ActiveProfileChangedRequested(

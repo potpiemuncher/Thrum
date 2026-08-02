@@ -462,8 +462,11 @@
                                         Foreground="{DynamicResource MutedForegroundColor}" />
                         </StackPanel>
                         <WrapPanel Margin="0,15,0,0">
-                            <Button Content="Edit active profile" Margin="0,0,8,0"
+                            <Button Content="_Test inputs" Margin="0,0,8,0"
                                     Style="{StaticResource BridgePrimaryButtonStyle}"
+                                    Click="TestInputsBtn_Click" />
+                            <Button Content="Edit active profile" Margin="0,0,8,0"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
                                     Click="EditProfileBtn_Click" />
                             <Button Content="Controller details" Margin="0,0,8,0"
                                     Style="{StaticResource BridgeSecondaryButtonStyle}"

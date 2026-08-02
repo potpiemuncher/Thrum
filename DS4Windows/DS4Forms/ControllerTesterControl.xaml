@@ -1,0 +1,446 @@
+<UserControl x:Class="DS4WinWPF.DS4Forms.ControllerTesterControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1080"
+             Loaded="ControllerTesterControl_Loaded"
+             Unloaded="ControllerTesterControl_Unloaded"
+             IsVisibleChanged="ControllerTesterControl_IsVisibleChanged">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="TesterCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundColor}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <Style x:Key="TesterSectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}" />
+        </Style>
+
+        <Style x:Key="TesterHintStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedForegroundColor}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <Style x:Key="TesterProgressStyle" TargetType="ProgressBar">
+            <Setter Property="Minimum" Value="0" />
+            <Setter Property="Maximum" Value="255" />
+            <Setter Property="Height" Value="9" />
+            <Setter Property="Background" Value="{DynamicResource RaisedBackgroundColor}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentColor}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style x:Key="TesterButtonStateStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource RaisedBackgroundColor}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="Margin" Value="0,0,7,7" />
+            <Setter Property="MinWidth" Value="92" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsPressed}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentColor}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource BackgroundColor}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,18,20,8">
+                <Border Style="{StaticResource TesterCardStyle}" Padding="20">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Live input tester" FontSize="25"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ForegroundColor}" />
+                            <TextBlock Text="{Binding ControllerName}" Margin="0,3,0,0"
+                                       Foreground="{DynamicResource MutedForegroundColor}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                            <TextBlock Text="ACTIVE PROFILE" FontSize="10"
+                                       FontWeight="Bold" HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource MutedForegroundColor}" />
+                            <TextBlock Text="{Binding ActiveProfileName, FallbackValue=—}"
+                                       Margin="0,4,0,0" FontWeight="SemiBold"
+                                       HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource AccentColor}" />
+                            <TextBlock Text="{Binding StatusMessage}" Margin="0,3,0,0"
+                                       HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource MutedForegroundColor}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}"
+                        Background="{DynamicResource DangerColor}"
+                        Visibility="{Binding IsDisconnected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Controller disconnected" FontSize="17"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ForegroundColor}" />
+                        <TextBlock Text="Live values are paused. Reconnect this same controller and reopen the tester; no output action is available while it is disconnected."
+                                   Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource ForegroundColor}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Buttons" Style="{StaticResource TesterSectionTitleStyle}" />
+                        <TextBlock Text="Pressed inputs use the accent state. Device-specific buttons are shown only where the controller capability policy exposes them."
+                                   Margin="0,3,0,13" Style="{StaticResource TesterHintStyle}" />
+                        <ItemsControl ItemsSource="{Binding Buttons}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource TesterButtonStateStyle}"
+                                            Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding Name}" HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPressed}" Value="True">
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Analog axes" Style="{StaticResource TesterSectionTitleStyle}" />
+                        <TextBlock Text="Raw is the physical report; mapped is the active profile output."
+                                   Margin="0,3,0,13" Style="{StaticResource TesterHintStyle}" />
+                        <ItemsControl ItemsSource="{Binding Axes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="38" />
+                                            <ColumnDefinition Width="44" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="44" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding RawValue}"
+                                                   HorizontalAlignment="Right" Margin="0,0,8,0"
+                                                   Foreground="{DynamicResource MutedForegroundColor}" />
+                                        <ProgressBar Grid.Column="2" Value="{Binding RawValue}"
+                                                     Style="{StaticResource TesterProgressStyle}" />
+                                        <TextBlock Grid.Column="3" Text="{Binding MappedValue}"
+                                                   HorizontalAlignment="Right" Margin="0,0,8,0"
+                                                   Foreground="{DynamicResource AccentColor}" />
+                                        <ProgressBar Grid.Column="4" Value="{Binding MappedValue}"
+                                                     Style="{StaticResource TesterProgressStyle}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Stick plots" Style="{StaticResource TesterSectionTitleStyle}" />
+                        <TextBlock Text="Raw dot: foreground. Mapped dot: accent. Filled dead zone, dashed anti-deadzone output minimum, and outer max-zone boundary follow the active profile live."
+                                   Margin="0,3,0,14" Style="{StaticResource TesterHintStyle}" />
+                        <ItemsControl ItemsSource="{Binding Sticks}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="2" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel HorizontalAlignment="Center" Margin="14,0">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,8" />
+                                        <Canvas Width="180" Height="180" ClipToBounds="True">
+                                            <Rectangle Width="180" Height="180"
+                                                       Fill="{DynamicResource RaisedBackgroundColor}"
+                                                       Stroke="{DynamicResource BorderColor}" />
+                                            <Line X1="90" X2="90" Y1="0" Y2="180"
+                                                  Stroke="{DynamicResource BorderColor}" Opacity="0.55" />
+                                            <Line X1="0" X2="180" Y1="90" Y2="90"
+                                                  Stroke="{DynamicResource BorderColor}" Opacity="0.55" />
+
+                                            <Ellipse Width="{Binding MaxZoneWidth}" Height="{Binding MaxZoneHeight}"
+                                                     Canvas.Left="{Binding MaxZoneLeft}" Canvas.Top="{Binding MaxZoneTop}"
+                                                     Stroke="{DynamicResource WarningColor}" StrokeThickness="2"
+                                                     StrokeDashArray="4,3"
+                                                     Visibility="{Binding IsRadial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            <Ellipse Width="{Binding DeadZoneWidth}" Height="{Binding DeadZoneHeight}"
+                                                     Canvas.Left="{Binding DeadZoneLeft}" Canvas.Top="{Binding DeadZoneTop}"
+                                                     Fill="{DynamicResource DangerColor}" Opacity="0.20"
+                                                     Visibility="{Binding IsRadial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            <Ellipse Width="{Binding AntiDeadZoneWidth}" Height="{Binding AntiDeadZoneHeight}"
+                                                     Canvas.Left="{Binding AntiDeadZoneLeft}" Canvas.Top="{Binding AntiDeadZoneTop}"
+                                                     Stroke="{DynamicResource AccentColor}" StrokeThickness="2"
+                                                     StrokeDashArray="2,2"
+                                                     Visibility="{Binding IsRadial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                            <Rectangle Width="{Binding MaxZoneWidth}" Height="{Binding MaxZoneHeight}"
+                                                       Canvas.Left="{Binding MaxZoneLeft}" Canvas.Top="{Binding MaxZoneTop}"
+                                                       Stroke="{DynamicResource WarningColor}" StrokeThickness="2"
+                                                       StrokeDashArray="4,3"
+                                                       Visibility="{Binding IsAxial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            <Rectangle Width="{Binding DeadZoneWidth}" Height="180"
+                                                       Canvas.Left="{Binding DeadZoneLeft}" Canvas.Top="0"
+                                                       Fill="{DynamicResource DangerColor}" Opacity="0.13"
+                                                       Visibility="{Binding IsAxial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            <Rectangle Width="180" Height="{Binding DeadZoneHeight}"
+                                                       Canvas.Left="0" Canvas.Top="{Binding DeadZoneTop}"
+                                                       Fill="{DynamicResource DangerColor}" Opacity="0.13"
+                                                       Visibility="{Binding IsAxial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            <Rectangle Width="{Binding AntiDeadZoneWidth}" Height="{Binding AntiDeadZoneHeight}"
+                                                       Canvas.Left="{Binding AntiDeadZoneLeft}" Canvas.Top="{Binding AntiDeadZoneTop}"
+                                                       Stroke="{DynamicResource AccentColor}" StrokeThickness="2"
+                                                       StrokeDashArray="2,2"
+                                                       Visibility="{Binding IsAxial, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                            <Ellipse Width="10" Height="10"
+                                                     Canvas.Left="{Binding RawLeft}" Canvas.Top="{Binding RawTop}"
+                                                     Fill="{DynamicResource ForegroundColor}" />
+                                            <Ellipse Width="10" Height="10"
+                                                     Canvas.Left="{Binding MappedLeft}" Canvas.Top="{Binding MappedTop}"
+                                                     Fill="{DynamicResource AccentColor}" Opacity="0.78" />
+                                        </Canvas>
+                                        <TextBlock Text="{Binding OverlaySummary}" Width="300"
+                                                   Margin="0,8,0,0" TextAlignment="Center"
+                                                   Style="{StaticResource TesterHintStyle}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Trigger travel" Style="{StaticResource TesterSectionTitleStyle}" />
+                        <TextBlock Text="Each trigger shows raw and mapped travel. Solid and dashed marks are the active dead-zone and max-zone boundaries."
+                                   Margin="0,3,0,13" Style="{StaticResource TesterHintStyle}" />
+                        <ItemsControl ItemsSource="{Binding Triggers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,13">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="42" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="280" />
+                                            <ColumnDefinition Width="54" />
+                                            <ColumnDefinition Width="280" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding RawValue, StringFormat=Raw {0}}"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0"
+                                                   Foreground="{DynamicResource MutedForegroundColor}" />
+                                        <Grid Grid.Column="2" Width="280">
+                                            <ProgressBar Value="{Binding RawValue}"
+                                                         Style="{StaticResource TesterProgressStyle}" />
+                                            <Canvas Width="280" Height="14" IsHitTestVisible="False">
+                                                <Line X1="{Binding DeadZonePosition}" X2="{Binding DeadZonePosition}"
+                                                      Y1="0" Y2="14" Stroke="{DynamicResource DangerColor}"
+                                                      StrokeThickness="2" />
+                                                <Line X1="{Binding MaxZonePosition}" X2="{Binding MaxZonePosition}"
+                                                      Y1="0" Y2="14" Stroke="{DynamicResource WarningColor}"
+                                                      StrokeThickness="2" StrokeDashArray="2,2" />
+                                            </Canvas>
+                                        </Grid>
+                                        <TextBlock Grid.Column="3" Text="{Binding MappedValue, StringFormat=Map {0}}"
+                                                   VerticalAlignment="Center" Margin="9,0,8,0"
+                                                   Foreground="{DynamicResource AccentColor}" />
+                                        <Grid Grid.Column="4" Width="280">
+                                            <ProgressBar Value="{Binding MappedValue}"
+                                                         Style="{StaticResource TesterProgressStyle}" />
+                                            <Canvas Width="280" Height="14" IsHitTestVisible="False">
+                                                <Line X1="{Binding DeadZonePosition}" X2="{Binding DeadZonePosition}"
+                                                      Y1="0" Y2="14" Stroke="{DynamicResource DangerColor}"
+                                                      StrokeThickness="2" />
+                                                <Line X1="{Binding MaxZonePosition}" X2="{Binding MaxZonePosition}"
+                                                      Y1="0" Y2="14" Stroke="{DynamicResource WarningColor}"
+                                                      StrokeThickness="2" StrokeDashArray="2,2" />
+                                            </Canvas>
+                                        </Grid>
+                                        <TextBlock Grid.Column="5" Text="{Binding ZoneSummary}"
+                                                   Margin="12,0,0,0" VerticalAlignment="Center"
+                                                   Style="{StaticResource TesterHintStyle}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}"
+                        Visibility="{Binding SupportsGyro, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="22" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Gyroscope" Style="{StaticResource TesterSectionTitleStyle}" />
+                            <TextBlock Text="Angular velocity (degrees/second). The trace is total magnitude over the last 90 samples."
+                                       Margin="0,3,0,12" Style="{StaticResource TesterHintStyle}" />
+                            <UniformGrid Columns="3" Margin="0,0,0,10">
+                                <StackPanel><TextBlock Text="Yaw" Style="{StaticResource TesterHintStyle}" /><TextBlock Text="{Binding GyroYaw, StringFormat={}{0:F2} °/s}" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="Pitch" Style="{StaticResource TesterHintStyle}" /><TextBlock Text="{Binding GyroPitch, StringFormat={}{0:F2} °/s}" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="Roll" Style="{StaticResource TesterHintStyle}" /><TextBlock Text="{Binding GyroRoll, StringFormat={}{0:F2} °/s}" FontWeight="SemiBold" /></StackPanel>
+                            </UniformGrid>
+                            <Border Background="{DynamicResource RaisedBackgroundColor}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                                <Canvas Width="400" Height="82" ClipToBounds="True">
+                                    <Line X1="0" X2="400" Y1="74" Y2="74"
+                                          Stroke="{DynamicResource BorderColor}" />
+                                    <Polyline x:Name="GyroTraceLine" Stroke="{DynamicResource AccentColor}"
+                                              StrokeThickness="2" />
+                                </Canvas>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" Margin="0,11,0,0">
+                                <TextBlock Text="Resting mean  " Style="{StaticResource TesterHintStyle}" />
+                                <TextBlock Text="{Binding DriftMean, StringFormat={}{0:F2} °/s}" FontWeight="SemiBold" />
+                                <Border Margin="12,-3,0,0" Padding="8,3" CornerRadius="3"
+                                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                                    <TextBlock Text="{Binding DriftVerdict}" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarningColor}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DriftIsCalm}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource SuccessColor}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="Set the controller down for this diagnostic. Calm means the rolling mean is at or below 2.0 °/s; it is not a calibration or sensor-fusion verdict."
+                                       Margin="0,8,0,0" Style="{StaticResource TesterHintStyle}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Accelerometer" Style="{StaticResource TesterSectionTitleStyle}" />
+                            <TextBlock Text="Acceleration (g). The trace is total magnitude over the last 90 samples."
+                                       Margin="0,3,0,12" Style="{StaticResource TesterHintStyle}" />
+                            <UniformGrid Columns="3" Margin="0,0,0,10">
+                                <StackPanel><TextBlock Text="X" Style="{StaticResource TesterHintStyle}" /><TextBlock Text="{Binding AccelX, StringFormat={}{0:F3} g}" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="Y" Style="{StaticResource TesterHintStyle}" /><TextBlock Text="{Binding AccelY, StringFormat={}{0:F3} g}" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="Z" Style="{StaticResource TesterHintStyle}" /><TextBlock Text="{Binding AccelZ, StringFormat={}{0:F3} g}" FontWeight="SemiBold" /></StackPanel>
+                            </UniformGrid>
+                            <Border Background="{DynamicResource RaisedBackgroundColor}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                                <Canvas Width="400" Height="82" ClipToBounds="True">
+                                    <Line X1="0" X2="400" Y1="41" Y2="41"
+                                          Stroke="{DynamicResource BorderColor}" />
+                                    <Polyline x:Name="AccelTraceLine" Stroke="{DynamicResource SuccessColor}"
+                                              StrokeThickness="2" />
+                                </Canvas>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}"
+                        Visibility="{Binding SupportsTouchpad, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Touchpad" Style="{StaticResource TesterSectionTitleStyle}" />
+                        <TextBlock Text="The rectangle preserves the physical coordinate aspect ratio. Dots show both active touches and their tracking identifiers."
+                                   Margin="0,3,0,13" Style="{StaticResource TesterHintStyle}" />
+                        <Border Width="{Binding TouchpadWidth}" Height="{Binding TouchpadHeight}"
+                                HorizontalAlignment="Center"
+                                Background="{DynamicResource RaisedBackgroundColor}"
+                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="2"
+                                CornerRadius="10">
+                            <Canvas Width="{Binding TouchpadWidth}" Height="{Binding TouchpadHeight}"
+                                    ClipToBounds="True">
+                                <Border Width="26" Height="26" CornerRadius="13"
+                                        Canvas.Left="{Binding Touch0.Left}" Canvas.Top="{Binding Touch0.Top}"
+                                        Background="{DynamicResource AccentColor}"
+                                        Visibility="{Binding Touch0.IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding Touch0.Label}" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource ForegroundColor}" />
+                                </Border>
+                                <Border Width="26" Height="26" CornerRadius="13"
+                                        Canvas.Left="{Binding Touch1.Left}" Canvas.Top="{Binding Touch1.Top}"
+                                        Background="{DynamicResource WarningColor}"
+                                        Visibility="{Binding Touch1.IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding Touch1.Label}" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource ForegroundColor}" />
+                                </Border>
+                            </Canvas>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TesterCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Output tests and calibration" Style="{StaticResource TesterSectionTitleStyle}" />
+                        <TextBlock Text="Output tests are bounded and restore the prior composed state. Calibration uses the existing tool: move and release the stick a few times, leave it centered, then Save. The tool samples that final centered state and stores its X/Y offsets in the active profile."
+                                   Margin="0,3,0,14" Style="{StaticResource TesterHintStyle}" />
+                        <WrapPanel>
+                            <Button Content="_Test rumble" TabIndex="0" Margin="0,0,8,8"
+                                    Style="{StaticResource BridgePrimaryButtonStyle}"
+                                    IsEnabled="{Binding CanTestRumble}"
+                                    Visibility="{Binding SupportsRumble, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Click="RumbleTestButton_Click" />
+                            <Button Content="_Flash lightbar" TabIndex="1" Margin="0,0,8,8"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    IsEnabled="{Binding CanTestLightbar}"
+                                    Visibility="{Binding SupportsLightbar, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Click="LightbarTestButton_Click" />
+                            <Button Content="Calibrate _left stick" TabIndex="2" Margin="0,0,8,8"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    IsEnabled="{Binding CanCalibrate}" Tag="0"
+                                    Click="CalibrationButton_Click" />
+                            <Button Content="Calibrate _right stick" TabIndex="3" Margin="0,0,8,8"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    IsEnabled="{Binding CanCalibrate}" Tag="1"
+                                    Click="CalibrationButton_Click" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

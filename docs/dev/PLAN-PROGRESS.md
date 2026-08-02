@@ -4205,3 +4205,54 @@ Deliberately unverified: the window was not rendered or visually inspected, and 
 input, touchpad, motion sensor, rumble motor or lightbar was exercised. Actual update-rate feel,
 trace smoothness, theme layout, reconnect behavior, physical touch bounds, drift noise and the
 calibrator handoff require the planned maintainer hardware/UI pass.
+
+## Task 4.5 — the Profile Editor pass
+
+All four bounded slices landed as separate local commits. The mapping canvas and embedded
+`ControllerReadingsControl` are unchanged, existing capability/availability bindings remain the
+visibility authority, and the profile editor's event-handler code-behind remains in place. New
+behaviour is isolated in small additive section-state, search-index/controller and reset-catalog
+types; the only code-behind changes are construction, load/unload forwarding and navigation
+glue.
+
+Slice 1 converts all 21 `GroupBox` presentations to the shared Bridge card idiom through one
+local template while leaving every group box, child control and `x:Name` in its original XAML
+container. Slice 2 wraps Axis Config, Gyro and Touchpad in card expanders with visible helper
+text. A detached default profile is created through the same `BackingStore.ResetProfile` route
+used for profile initialization; a serialized snapshot comparison expands only sections that
+differ from that default. Slice 3 builds its search index once from the localized strings in the
+runtime logical/visual tree. Results map back to their containing editor section, open the
+appropriate tab/expander and briefly highlight a visible target with dynamic theme resources;
+settings hidden behind a selected output-mode variant are reported honestly instead of changing
+the user's mode.
+
+Slice 4 deliberately stops at the three dense rails. It audits 108 unique bound numeric inputs
+(68 Axis Config, 22 Gyro and 18 Touchpad) and adds a compact per-setting reset affordance without
+renaming the input or replacing its binding. The catalog contains no default values: every row
+projects the UI value from a detached store produced by `ResetProfile`, then writes it through
+the existing writable `ProfileSettingsViewModel` property so established setter behaviour is
+retained. Tests prove that the XAML numeric-binding set and catalog are equivalent and that every
+row resolves to a writable, type-compatible setting. Per-setting reset across the rest of the
+editor is explicitly out of scope for this pass.
+
+Verification began from the untouched **974/974** baseline. Slice totals were **974/974**,
+**978/978**, **980/980** and **983/983** respectively. Each slice received an x64 Release app
+build; no-incremental builds report **0 errors** and the same 17 known warnings. Slice 1 also
+received the required x64 Debug XAML-compiler build with **0 errors** and 17 known warnings. Its
+post-slice name audit reported baseline/current 169/169, 102 names referenced from code-behind,
+0 referenced names missing, 0 removed/renamed and 0 added. The final audit reports 169 baseline,
+177 current, 109 current names referenced from code-behind, 0 referenced baseline names missing,
+0 removed/renamed, and exactly eight intentional additions (the editor root, three section
+expanders and four search controls).
+
+Both required negative controls failed for the intended assertion and were reverted. Reversing
+the differs-from-default comparison made the unchanged section expand and failed
+`SectionDiffersFromProfileDefaultStartsExpanded`. Offsetting the `LSDeadZone` reset projection by
+0.01 failed `ResetWritesValuesFromDefaultInitializationSource` with expected 0.08 versus actual
+0.09. The focused tests passed again after each revert.
+
+Deliberately unverified: the Profile Editor was not launched or visually inspected and no
+physical controller/profile interaction was exercised. This remains the highest-priority page
+for the eventual VM/hardware pass: card density, collapsed/expanded geometry, search navigation
+and highlighting, all 108 reset-button placements, keyboard/focus behaviour, theme rendering,
+live binding side effects and mapping-canvas interaction should be exercised together.

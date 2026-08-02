@@ -43,6 +43,7 @@ namespace DS4WinWPF.DS4Forms
         private int deviceNum;
         private readonly int triggerPreviewDeviceIndex;
         private ProfileSettingsViewModel profileSettingsVM;
+        private readonly ProfileEditorSectionStateViewModel profileEditorSectionState;
         private MappingListViewModel mappingListVM;
         private ProfileEntity currentProfile;
         private SpecialActionsListViewModel specialActionsVM;
@@ -63,6 +64,7 @@ namespace DS4WinWPF.DS4Forms
 
         public event EventHandler Closed;
         public event EventHandler ProfileNameChanged;
+        public event Action<int> NavigationRequested;
 
         public delegate void CreatedProfileHandler(ProfileEditor sender, string profile);
 
@@ -76,6 +78,8 @@ namespace DS4WinWPF.DS4Forms
         private Dictionary<int, Button> reverseHoverIndexes = new Dictionary<int, Button>();
         private Dictionary<Button, ImageSource> controllerHoverImages = new Dictionary<Button, ImageSource>();
         private Dictionary<Button, Geometry> vectorHoverGeometries = new Dictionary<Button, Geometry>();
+        private readonly ProfileEditorSearchController profileEditorSearchController;
+        private readonly ProfileEditorResetController profileEditorResetController;
 
         private bool keepsize;
         private bool controllerReadingsTabActive = false;
@@ -92,6 +96,9 @@ namespace DS4WinWPF.DS4Forms
 
         public string ProfileName => profileNameTxt.Text;
 
+        public ProfileEditorSectionStateViewModel SectionState =>
+            profileEditorSectionState;
+
         private NonFormTimer inputTimer;
 
         private TouchButtonUserControl touchButtonUC;
@@ -99,7 +106,16 @@ namespace DS4WinWPF.DS4Forms
 
         public ProfileEditor(int device, int controllerContextDevice = -1)
         {
+            profileEditorSectionState = ProfileEditorSectionStateViewModel.Create(
+                Global.store, device);
             InitializeComponent();
+            profileEditorSearchController = new ProfileEditorSearchController(
+                profileSettingsTabCon, axisConfigSectionExpander,
+                touchpadSectionExpander, gyroSectionExpander,
+                profileSettingsSearchPopup, profileSettingsSearchStatusText,
+                NavigateFromSearch);
+            profileSettingsSearchResultsList.ItemsSource =
+                profileEditorSearchController.Results;
 
             deviceNum = device;
             triggerPreviewDeviceIndex = controllerContextDevice >= 0 &&
@@ -116,6 +132,9 @@ namespace DS4WinWPF.DS4Forms
                 physicalController?.ConnectionType,
                 physicalController?.HidDevice?.Attributes?.VendorId,
                 physicalController?.HidDevice?.Attributes?.ProductId);
+            profileEditorResetController = new ProfileEditorResetController(
+                profileSettingsVM, axisConfigSectionExpander,
+                touchpadSectionExpander, gyroSectionExpander);
             picBoxHover.Visibility = Visibility.Hidden;
             picBoxHover2.Visibility = Visibility.Hidden;
 
@@ -1696,6 +1715,62 @@ namespace DS4WinWPF.DS4Forms
             ProfileNameChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        private void ProfileEditor_Loaded(object sender, RoutedEventArgs e)
+        {
+            profileEditorSearchController.EnsureIndexed();
+            profileEditorResetController.EnsureAttached();
+        }
+
+        private void ProfileEditor_Unloaded(object sender, RoutedEventArgs e)
+        {
+            profileEditorSearchController.ClearHighlight();
+        }
+
+        private void ProfileSettingsSearchBox_TextChanged(object sender,
+            TextChangedEventArgs e)
+        {
+            profileSettingsSearchResultsList.SelectedItem = null;
+            profileEditorSearchController.UpdateResults(
+                profileSettingsSearchBox.Text);
+        }
+
+        private void ProfileSettingsSearchBox_PreviewKeyDown(object sender,
+            System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && profileEditorSearchController.OpenFirst())
+            {
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                profileEditorSearchController.ClosePopup();
+                e.Handled = true;
+            }
+        }
+
+        private void ProfileSettingsSearchResultsList_SelectionChanged(
+            object sender, SelectionChangedEventArgs e)
+        {
+            if (profileSettingsSearchResultsList.SelectedItem is
+                ProfileEditorSearchEntry result)
+            {
+                profileEditorSearchController.Open(result);
+                profileSettingsSearchResultsList.SelectedItem = null;
+            }
+        }
+
+        private void NavigateFromSearch(int navigationIndex)
+        {
+            if (NavigationRequested != null)
+            {
+                NavigationRequested(navigationIndex);
+            }
+            else
+            {
+                SelectWorkspaceSection(navigationIndex - 1);
+            }
+        }
+
         public void Reload(int device, ProfileEntity profile = null, bool profileAlreadyLoaded = false)
         {
             profileSettingsTabCon.DataContext = null;
@@ -1731,6 +1806,8 @@ namespace DS4WinWPF.DS4Forms
                     Global.LoadBlankDevProfile(device, false, App.rootHub, false);
                 }
             }
+
+            profileEditorSectionState.Update(Global.store, device);
 
             profileAudioHapticsControl.SetDevice(deviceNum);
             profileTriggerLabControl.SetDevice(deviceNum, triggerPreviewDeviceIndex);

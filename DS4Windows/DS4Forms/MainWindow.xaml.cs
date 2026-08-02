@@ -2824,6 +2824,7 @@ Suspend support not enabled.", true);
                 editor.CreatedProfile += Editor_CreatedProfile;
                 editor.Closed += ProfileEditor_Closed;
                 editor.ProfileNameChanged += Editor_ProfileNameChanged;
+                editor.NavigationRequested += NavigateProfileEditor;
                 editor.Reload(device, entity, profileAlreadyLoaded);
                 LogOpenPhase("editor bindings refreshed");
 

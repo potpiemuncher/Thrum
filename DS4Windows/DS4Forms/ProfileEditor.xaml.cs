@@ -43,6 +43,7 @@ namespace DS4WinWPF.DS4Forms
         private int deviceNum;
         private readonly int triggerPreviewDeviceIndex;
         private ProfileSettingsViewModel profileSettingsVM;
+        private readonly ProfileEditorSectionStateViewModel profileEditorSectionState;
         private MappingListViewModel mappingListVM;
         private ProfileEntity currentProfile;
         private SpecialActionsListViewModel specialActionsVM;
@@ -92,6 +93,9 @@ namespace DS4WinWPF.DS4Forms
 
         public string ProfileName => profileNameTxt.Text;
 
+        public ProfileEditorSectionStateViewModel SectionState =>
+            profileEditorSectionState;
+
         private NonFormTimer inputTimer;
 
         private TouchButtonUserControl touchButtonUC;
@@ -99,6 +103,8 @@ namespace DS4WinWPF.DS4Forms
 
         public ProfileEditor(int device, int controllerContextDevice = -1)
         {
+            profileEditorSectionState = ProfileEditorSectionStateViewModel.Create(
+                Global.store, device);
             InitializeComponent();
 
             deviceNum = device;
@@ -1731,6 +1737,8 @@ namespace DS4WinWPF.DS4Forms
                     Global.LoadBlankDevProfile(device, false, App.rootHub, false);
                 }
             }
+
+            profileEditorSectionState.Update(Global.store, device);
 
             profileAudioHapticsControl.SetDevice(deviceNum);
             profileTriggerLabControl.SetDevice(deviceNum, triggerPreviewDeviceIndex);

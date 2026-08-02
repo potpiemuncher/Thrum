@@ -1,4 +1,5 @@
 ﻿<UserControl x:Class="DS4WinWPF.DS4Forms.ProfileEditor"
+             x:Name="profileEditorRoot"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -505,6 +506,17 @@
                         <Setter Property="Height" Value="30" />
                     </Style>
                 </TabItem.Resources>
+                <Border Style="{StaticResource BridgeCardStyle}">
+                    <Expander x:Name="axisConfigSectionExpander"
+                              IsExpanded="{Binding SectionState.IsAxisConfigExpanded, ElementName=profileEditorRoot, Mode=TwoWay}">
+                        <Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="Axis configuration"
+                                           Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Open to tune sticks, triggers, curves, dead zones, and motion axes. Profiles with non-default axis settings open this section automatically."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                            </StackPanel>
+                        </Expander.Header>
                 <ScrollViewer>
                     <StackPanel>
                         <GroupBox Header="LS" Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
@@ -1339,6 +1351,8 @@
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
+                    </Expander>
+                </Border>
             </TabItem>
 
             <TabItem Header="{lex:Loc Lightbar}" Tag="Color, battery indicators, flash, and passthrough">
@@ -1457,6 +1471,17 @@
                     <Thickness x:Key="spaceMargin" Bottom="8" />
                 </TabItem.Resources>
 
+                <Border Style="{StaticResource BridgeCardStyle}">
+                    <Expander x:Name="touchpadSectionExpander"
+                              IsExpanded="{Binding SectionState.IsTouchpadExpanded, ElementName=profileEditorRoot, Mode=TwoWay}">
+                        <Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="Touchpad settings"
+                                           Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Open to configure mouse, controls, gestures, trackball, and absolute positioning. Profiles with non-default touchpad settings open this section automatically."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                            </StackPanel>
+                        </Expander.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="4">
                         <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
@@ -1763,10 +1788,23 @@
                         </TabControl>
                     </StackPanel>
                 </ScrollViewer>
+                    </Expander>
+                </Border>
                 
             </TabItem>
 
             <TabItem Header="{lex:Loc Gyro}" Tag="Motion controls, mouse, steering, and directional swipes">
+                <Border Style="{StaticResource BridgeCardStyle}">
+                    <Expander x:Name="gyroSectionExpander"
+                              IsExpanded="{Binding SectionState.IsGyroExpanded, ElementName=profileEditorRoot, Mode=TwoWay}">
+                        <Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="Gyro settings"
+                                           Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="Open to configure motion controls, mouse, steering, triggers, smoothing, and directional swipes. Profiles with non-default gyro settings open this section automatically."
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                            </StackPanel>
+                        </Expander.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -2228,6 +2266,8 @@
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
+                    </Expander>
+                </Border>
             </TabItem>
 
             <TabItem Header="Audio Haptics" Tag="Turn system or app audio into advanced controller haptics">

@@ -10125,7 +10125,7 @@ namespace DS4Windows
             }
         }
 
-        private void ResetProfile(int device)
+        internal void ResetProfile(int device)
         {
             buttonMouseInfos[device].Reset();
             buttonAbsMouseInfos[device].Reset();

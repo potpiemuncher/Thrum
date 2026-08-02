@@ -4045,3 +4045,51 @@ independently reintroduced the MAC-bearing `InputDisplayString` read and watched
 Deliberately unverified and recorded as such: the page has not been rendered against live
 hardware. The app was not launched during review, to avoid touching backend and driver state
 from the development machine. First live look belongs to the next VM or real-hardware pass.
+
+## Task 4.7 — the first-run flow
+
+The startup-only `SaveWhere` → import offer → `FirstLaunchUtilWindow` chain is replaced by one
+card-shell wizard. `WelcomeDialog`, `SaveWhere` and `FirstLaunchUtilWindow` remain in the tree;
+the welcome dialog still backs the Settings/`-driverinstall` route, while the other two simply
+have no startup call site now.
+
+The wizard owns seven ordered stages: welcome, appdata-by-default data location (portable mode
+inside an advanced expander), optional Phase 1.4 import, device-type choices, VIIPER/backend and
+driver-gate status, honest pre-service controller guidance, and a finish/profile pointer. A
+successful import deliberately skips the device-save/default-bootstrap stage: this is the same
+old-chain rule that clears `firstRun`, and prevents a later `Global.Save` or generated Default
+profile from rewriting imported files. The controller page does not claim live detection and
+does not start `ControlService`; the read-only VIIPER probe likewise uses
+`GetStatus(tryStartServer: false)`. Install/repair delegates to `ViiperSetupManager` unchanged.
+
+Two small Settings follow-ups close the reachability gap: the resolved data folder can be
+opened, and the existing import dialog/executor can be run manually (copy-missing only, restart
+to load). Device options, VIIPER/driver setup, Controllers and Profiles already had later entry
+points.
+
+The load-bearing order is now a tested coordinator: `FindConfigLocation`, sample appdata
+pristine state, then enter the continuation that may show/write the data-location step. Inside
+the wizard, location routing and folder preparation precede import, and import precedes
+`Global.Load`. Data-location tests pin the exact `SaveDefault`/`SaveWhere` order and the
+`AdminNeeded` refusal. Closing before a committed location is the old SaveWhere no-choice
+shutdown; closing later runs only the decline/load/device-save work the old chain could also
+have completed.
+
+Keyboard contracts are structural and exercised through the view-model: every step exposes
+`CanAdvance`, navigation/skip paths are unit-tested, Next/Finish is `IsDefault`, Cancel/Finish
+later is `IsCancel`, every action has an explicit tab index, and portable mode is reachable
+through a keyboard-focusable expander. New brush references are `DynamicResource` and are
+checked against both themes.
+
+Verification: untouched branch baseline **929/929**; final x64 Release suite **946/946**;
+no-incremental x64 solution build **0 errors**, 17 known warnings. Negative controls both failed
+for the intended reason and were reverted: moving the pristine sample after the data-write
+continuation failed the event-order assertion at index 1; bypassing the non-pristine import gate
+made the test observe `Import` where it required `DeviceOptions`.
+
+Deliberately unverified: the wizard was not launched or visually inspected, and no physical
+controller/driver state was touched. The riskiest part remains `App.xaml.cs`: unit tests execute
+the extracted ordering coordinator, navigation/effect routing and XAML contracts, but they do
+not execute WPF's real `Application_Startup` with a fresh `%APPDATA%` folder. A maintainer smoke
+pass should cover fresh appdata, portable selection, import accept/decline, title-bar close at
+each stage, keyboard-only completion, and first main-window launch.

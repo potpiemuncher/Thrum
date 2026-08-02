@@ -195,84 +195,106 @@ namespace DS4WinWPF
             // software automatically when hardware acceleration is unavailable.
             RenderOptions.ProcessRenderMode = RenderMode.Default;
 
-            DS4Windows.Global.FindConfigLocation();
-            bool firstRun = DS4Windows.Global.firstRun;
+            Logger logger = null;
+            bool firstRun = false;
+            bool readAppConfig = false;
+            bool continueStartup = true;
+            int startupExitCode = 0;
 
-            // Whether the appdata configuration is untouched has to be sampled
-            // here, before any first-run dialog runs: SaveWhere's "Appdata"
-            // button writes a stub Profiles.xml through Global.SaveDefault, and
-            // asking afterwards would report a genuinely empty configuration as
-            // an existing one and suppress the import offer forever.
-            bool appDataConfigPristine = new DS4Windows.ImportPlanner()
-                .IsTargetPristine(DS4Windows.Global.appDataPpath);
-
-            // Could not find unique profile location; does not exist or multiple places.
-            // Advise user to specify where DS4Windows should save its configuation files
-            // and profiles
-            if (firstRun)
-            {
-                DS4Forms.SaveWhere savewh =
-                    new DS4Forms.SaveWhere(DS4Windows.Global.multisavespots);
-                savewh.ShowDialog();
-                if (!savewh.ChoiceMade)
+            // CaptureAndContinue is deliberately the only entrance to the
+            // first-run UI. It samples appdata pristine state before its
+            // continuation can show the wizard and let the data-location step
+            // write SaveDefault's Profiles.xml stub.
+            DS4Windows.FirstRunStartupCoordinator.CaptureAndContinue(
+                new DS4Windows.GlobalFirstRunStartupSnapshotSource(),
+                snapshot =>
                 {
-                    runShutdown = false;
-                    Current.Shutdown();
-                    return;
-                }
-            }
+                    firstRun = snapshot.FirstRun;
+                    if (firstRun)
+                    {
+                        var effects = new DS4Forms.FirstRunWizardEffects(
+                            DS4Windows.Global.multisavespots,
+                            prepareConfiguration: () =>
+                            {
+                                // SaveWhere's old startup position: after the
+                                // location is chosen, before import or Load.
+                                if (!CreateConfDirSkeleton())
+                                {
+                                    MessageBox.Show(
+                                        $"Cannot create config folder structure in {DS4Windows.Global.appdatapath}. Exiting",
+                                        DS4Windows.ProductInfo.ProductName,
+                                        MessageBoxButton.OK,
+                                        MessageBoxImage.Error);
+                                    return false;
+                                }
 
-            // Exit if base configuration could not be generated
-            if (firstRun && !CreateConfDirSkeleton())
+                                logger = InitializeStartupLogger(firstRun);
+                                return true;
+                            },
+                            loadConfiguration: () =>
+                            {
+                                StartupDiag(logger, "Global.Load begin");
+                                bool read = DS4Windows.Global.Load();
+                                StartupDiag(logger,
+                                    $"Global.Load end readAppConfig={read}");
+                                return read;
+                            },
+                            log: message => logger?.Info(message));
+                        var wizardViewModel =
+                            new DS4Forms.ViewModels.FirstRunWizardViewModel(
+                                effects,
+                                snapshot.AppDataConfigPristine);
+                        var wizard = new DS4Forms.FirstRunWizard(
+                            wizardViewModel, effects);
+                        wizard.ShowDialog();
+
+                        if (!wizardViewModel.CanContinueStartup)
+                        {
+                            continueStartup = false;
+                            startupExitCode = wizardViewModel.ExitCode;
+                            return;
+                        }
+
+                        firstRun = wizardViewModel.FirstRunAfterImport;
+                        DS4Windows.Global.firstRun = firstRun;
+                        readAppConfig = wizardViewModel.ReadAppConfig;
+                        StartupDiag(logger,
+                            $"First-run wizard end firstRun={firstRun}");
+                        return;
+                    }
+
+                    logger = InitializeStartupLogger(firstRun);
+
+                    // Keep the existing non-wizard import seam for unusual
+                    // multi-location states that resolve as not-first-run.
+                    StartupDiag(logger, "Settings import offer begin");
+                    firstRun = OfferOneTimeSettingsImport(logger, firstRun,
+                        snapshot.AppDataConfigPristine);
+                    StartupDiag(logger,
+                        $"Settings import offer end firstRun={firstRun}");
+
+                    StartupDiag(logger, "Global.Load begin");
+                    readAppConfig = DS4Windows.Global.Load();
+                    StartupDiag(logger,
+                        $"Global.Load end readAppConfig={readAppConfig}");
+                });
+
+            if (!continueStartup)
             {
-                MessageBox.Show($"Cannot create config folder structure in {DS4Windows.Global.appdatapath}. Exiting",
-                    DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
-                Current.Shutdown(1);
+                if (startupExitCode == 0)
+                {
+                    // SaveWhere's historical no-choice path did not run the
+                    // ordinary shutdown/save sequence.
+                    runShutdown = false;
+                }
+
+                Current.Shutdown(startupExitCode);
                 return;
             }
 
-            logHolder = new LoggerHolder(rootHub);
-            DispatcherUnhandledException += App_DispatcherUnhandledException;
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-            Logger logger = logHolder.Logger;
-            string version = DS4Windows.Global.exeDisplayVersion;
-            logger.Info($"{DS4Windows.ProductInfo.ProductName} version {version}");
-            logger.Info($"{DS4Windows.ProductInfo.ProductName} exe file: {DS4Windows.Global.exeFileName}");
-            logger.Info($"{DS4Windows.ProductInfo.ProductName} Assembly Architecture: {(Environment.Is64BitProcess ? "x64" : "x86")}");
-            logger.Info($"OS Version: {Environment.OSVersion}");
-            logger.Info($"OS Product Name: {DS4Windows.Util.GetOSProductName()}");
-            logger.Info($"OS Release ID: {DS4Windows.Util.GetOSReleaseId()}");
-            logger.Info($"System Architecture: {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}");
-            logger.Info("Logger created");
-            StartupDiag(logger, $"App bootstrap pid={Environment.ProcessId} admin={DS4Windows.Global.IsAdministrator()} cwd=\"{Environment.CurrentDirectory}\" cmd=\"{Environment.CommandLine}\"");
-            StartupDiag(logger, $"Exe location=\"{DS4Windows.Global.exelocation}\" configPath=\"{DS4Windows.Global.appdatapath}\" firstRun={firstRun}");
-
-            // Offer the one-time import before Global.Load reads settings, so
-            // that anything copied in is picked up by the ordinary load path
-            // and goes through ProfileMigration / OutContType normalization
-            // exactly as an in-place configuration would.
-            StartupDiag(logger, "Settings import offer begin");
-            firstRun = OfferOneTimeSettingsImport(logger, firstRun,
-                appDataConfigPristine);
-            StartupDiag(logger, $"Settings import offer end firstRun={firstRun}");
-
-            StartupDiag(logger, "Global.Load begin");
-            bool readAppConfig = DS4Windows.Global.Load();
-            StartupDiag(logger, $"Global.Load end readAppConfig={readAppConfig}");
             if (!firstRun && !readAppConfig)
             {
                 logger.Info($@"Profiles.xml not read at location ${DS4Windows.Global.appdatapath}\Profiles.xml. Using default app settings");
-            }
-
-            // Ask user which devices the mapper should attempt to open when detected.
-            // Currently only support DS4 by default to avoid extra complications from
-            // Steam Input
-            if (firstRun)
-            {
-                DS4Forms.FirstLaunchUtilWindow firstLaunchUtilWin =
-                    new DS4Forms.FirstLaunchUtilWindow(DS4Windows.Global.DeviceOptions);
-                firstLaunchUtilWin.ShowDialog();
-                DS4Windows.Global.Save();
             }
 
             if (firstRun)
@@ -289,15 +311,10 @@ namespace DS4WinWPF
                 logger.Info("Default config created");
             }
 
-            // VIIPER is the only virtual-controller backend. Make a missing
-            // backend actionable at startup instead of letting profile output
-            // fail later with an opaque device error. The installer requests
-            // elevation itself, so DS4Windows does not need to stay elevated.
-            if (Environment.Is64BitProcess)
-            {
-                DS4Windows.ViiperSetupManager.EnsureReadyWithPrompt(null);
-            }
-            else
+            // First run now shows the read-only status card and an explicit
+            // guided-install action. Skipping it stays skipped: the existing
+            // profile-time EnsureReadyWithPrompt path remains the next prompt.
+            if (!Environment.Is64BitProcess)
             {
                 MessageBox.Show(
                     $"This build cannot create VIIPER virtual controllers. Install the x64 {DS4Windows.ProductInfo.ProductName} build on 64-bit Windows.",
@@ -361,6 +378,29 @@ namespace DS4WinWPF
             StartupDiag(logger, "MainWindow.LateChecks begin");
             window.LateChecks(parser);
             StartupDiag(logger, "MainWindow.LateChecks returned");
+        }
+
+        private Logger InitializeStartupLogger(bool firstRun)
+        {
+            logHolder = new LoggerHolder(rootHub);
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException +=
+                CurrentDomain_UnhandledException;
+            Logger logger = logHolder.Logger;
+            string version = DS4Windows.Global.exeDisplayVersion;
+            logger.Info($"{DS4Windows.ProductInfo.ProductName} version {version}");
+            logger.Info($"{DS4Windows.ProductInfo.ProductName} exe file: {DS4Windows.Global.exeFileName}");
+            logger.Info($"{DS4Windows.ProductInfo.ProductName} Assembly Architecture: {(Environment.Is64BitProcess ? "x64" : "x86")}");
+            logger.Info($"OS Version: {Environment.OSVersion}");
+            logger.Info($"OS Product Name: {DS4Windows.Util.GetOSProductName()}");
+            logger.Info($"OS Release ID: {DS4Windows.Util.GetOSReleaseId()}");
+            logger.Info($"System Architecture: {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}");
+            logger.Info("Logger created");
+            StartupDiag(logger,
+                $"App bootstrap pid={Environment.ProcessId} admin={DS4Windows.Global.IsAdministrator()} cwd=\"{Environment.CurrentDirectory}\" cmd=\"{Environment.CommandLine}\"");
+            StartupDiag(logger,
+                $"Exe location=\"{DS4Windows.Global.exelocation}\" configPath=\"{DS4Windows.Global.appdatapath}\" firstRun={firstRun}");
+            return logger;
         }
 
         /// <summary>

@@ -19,6 +19,7 @@ namespace DS4Windows
         ControllerAudio,
         SystemAudio,
         AppSession,
+        Endpoint,
     }
 
     public enum AudioHapticsMode : byte
@@ -80,6 +81,8 @@ namespace DS4Windows
         public AudioHapticsResponse Response { get; set; } = AudioHapticsResponse.Balanced;
         public AudioHapticsAttack Attack { get; set; } = AudioHapticsAttack.Balanced;
         public AudioHapticsRelease Release { get; set; } = AudioHapticsRelease.Balanced;
+        public string EndpointId { get; set; } = string.Empty;
+        public string EndpointName { get; set; } = string.Empty;
 
         // App-session identity is deliberately redundant: Windows can recycle a
         // PID, while the Core Audio session identifiers remain stable enough to
@@ -105,6 +108,8 @@ namespace DS4Windows
             ProcessPath = (ProcessPath ?? string.Empty).Trim();
             SessionIdentifier = (SessionIdentifier ?? string.Empty).Trim();
             SessionInstanceIdentifier = (SessionInstanceIdentifier ?? string.Empty).Trim();
+            EndpointId = (EndpointId ?? string.Empty).Trim();
+            EndpointName = (EndpointName ?? string.Empty).Trim();
             ProcessId = Math.Max(0, ProcessId);
             if (AutomaticGameDetection)
             {
@@ -134,6 +139,8 @@ namespace DS4Windows
             Response = Response,
             Attack = Attack,
             Release = Release,
+            EndpointId = EndpointId,
+            EndpointName = EndpointName,
             ProcessId = ProcessId,
             DisplayName = DisplayName,
             ExecutableName = ExecutableName,
@@ -152,6 +159,8 @@ namespace DS4Windows
             Response == AudioHapticsResponse.Balanced &&
             Attack == AudioHapticsAttack.Balanced &&
             Release == AudioHapticsRelease.Balanced && ProcessId == 0 &&
+            string.IsNullOrWhiteSpace(EndpointId) &&
+            string.IsNullOrWhiteSpace(EndpointName) &&
             string.IsNullOrWhiteSpace(DisplayName) &&
             string.IsNullOrWhiteSpace(ExecutableName) &&
             string.IsNullOrWhiteSpace(ProcessPath) &&
@@ -164,6 +173,12 @@ namespace DS4Windows
         Feedback,
         Weapon,
         Vibration,
+    }
+
+    public enum TriggerLabPresetOrigin : byte
+    {
+        BuiltIn,
+        User,
     }
 
     public sealed class TriggerLabEffectSettings
@@ -226,6 +241,8 @@ namespace DS4Windows
         public int StartPercent { get; }
         public int WallPercent { get; }
         public int ForcePercent { get; }
+        public TriggerLabPresetOrigin Origin => TriggerLabPresetOrigin.BuiltIn;
+        public bool CanDelete => false;
 
         public TriggerLabEffectSettings CreateEffect() =>
             new TriggerLabEffectSettings

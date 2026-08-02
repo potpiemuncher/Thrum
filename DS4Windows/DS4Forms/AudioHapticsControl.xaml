@@ -206,9 +206,15 @@
                                           DisplayMemberPath="DisplayName" />
                                 <Button Grid.Column="1" Content="&#xE72C;" FontFamily="Segoe MDL2 Assets"
                                         Width="42" Height="42" Margin="8,0,0,0"
-                                        ToolTip="Refresh running audio sessions"
-                                        Click="RefreshSources_Click" />
+                                        ToolTip="Refresh active render endpoints and running audio sessions"
+                                         Click="RefreshSources_Click" />
                             </Grid>
+                            <TextBlock Text="Endpoint choices include physical and virtual render devices. App choices capture the selected process and its children."
+                                       Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedForegroundColor}" />
+                            <TextBlock x:Name="sourceValidationText" Margin="0,7,0,0"
+                                       Foreground="{DynamicResource DangerColor}" TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
 
                             <Border Margin="0,12,0,0" Padding="12,10"
                                     Background="{DynamicResource RaisedBackgroundColor}"
@@ -422,6 +428,19 @@
                                                  VerticalAlignment="Center" />
                                         <TextBlock x:Name="sourceStatusText" Margin="8,0,0,0"
                                                    Text="System audio" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource StatusPill}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Input" FontWeight="SemiBold" Margin="0,0,8,0" />
+                                        <ProgressBar x:Name="inputLevelProgress" Width="120" Height="8"
+                                                     Minimum="0" Maximum="100" Value="0"
+                                                     Foreground="{DynamicResource AccentColor}"
+                                                     Background="{DynamicResource RaisedBackgroundColor}"
+                                                     BorderBrush="{DynamicResource BorderColor}" />
+                                        <TextBlock x:Name="inputLevelValueText" Text="0%" MinWidth="34"
+                                                   Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Foreground="{DynamicResource MutedForegroundColor}" />
                                     </StackPanel>
                                 </Border>
                             </WrapPanel>

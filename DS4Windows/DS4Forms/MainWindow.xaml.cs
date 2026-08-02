@@ -2038,6 +2038,22 @@ Suspend support not enabled.", true);
             catch { }
         }
 
+        private void DataFolderBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                using Process process = Process.Start(new ProcessStartInfo(
+                    Global.appdatapath)
+                {
+                    UseShellExecute = true,
+                });
+            }
+            catch { }
+        }
+
+        private void ImportSettingsBtn_Click(object sender, RoutedEventArgs e) =>
+            SettingsImportWorkflow.Run(this);
+
         private void ControlPanelBtn_Click(object sender, RoutedEventArgs e)
         {
             Process.Start("control", "joy.cpl");

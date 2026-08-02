@@ -1,0 +1,242 @@
+<Window x:Class="DS4WinWPF.DS4Forms.FirstRunWizard"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:DS4WinWPF.DS4Forms.ViewModels"
+        mc:Ignorable="d"
+        Title="Set up Thrum"
+        Width="760" Height="620" MinWidth="620" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Style="{DynamicResource WindowStyle}"
+        KeyboardNavigation.TabNavigation="Cycle"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:FirstRunWelcomeStepViewModel}">
+            <Border Style="{StaticResource BridgeCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Welcome to Thrum"
+                               Style="{StaticResource BridgeSectionTitleStyle}"
+                               FontSize="24" Margin="0,0,0,12" />
+                    <TextBlock Text="Thrum maps supported PlayStation, Nintendo, and other controllers to virtual game controllers, with focused support for DualSense features and haptics. This guide chooses safe defaults, checks the optional VIIPER output backend, and points you to the places you will use next."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}"
+                               FontSize="15" LineHeight="22" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:FirstRunDataLocationStepViewModel}">
+            <StackPanel>
+                <Border Style="{StaticResource BridgeCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="App data (recommended)"
+                                   Style="{StaticResource BridgeSectionTitleStyle}" />
+                        <TextBlock Text="Store settings and profiles in your Windows user data folder. This is the normal choice and keeps the program folder read-only."
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,4,0,10" />
+                        <RadioButton Content="Use my Windows app data folder"
+                                     GroupName="DataLocation"
+                                     IsChecked="{Binding IsAppDataSelected, Mode=TwoWay}"
+                                     TabIndex="10" />
+                    </StackPanel>
+                </Border>
+
+                <CheckBox Content="Keep settings in the other location"
+                          IsChecked="{Binding KeepExistingSettings}"
+                          Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                          Margin="4,10,0,0" TabIndex="11"
+                          Visibility="{Binding ShowExistingSettingsChoice, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <Expander Header="Advanced: portable data location"
+                          Margin="0,12,0,0" TabIndex="12">
+                    <Border Style="{StaticResource BridgeCardStyle}"
+                            Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Portable mode stores settings beside Thrum.exe. Use it only for a self-contained copy you intend to move or keep separate."
+                                       Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                       Margin="0,0,0,10" />
+                            <RadioButton Content="Use the program folder (portable)"
+                                         GroupName="DataLocation"
+                                         IsChecked="{Binding IsPortableSelected, Mode=TwoWay}"
+                                         IsEnabled="{Binding PortableAllowed}"
+                                         TabIndex="13" />
+                            <TextBlock Text="Portable mode is unavailable because this program folder needs administrator access."
+                                       Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                       Margin="0,8,0,0"
+                                       Visibility="{Binding PortableUnavailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+                </Expander>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:FirstRunImportStepViewModel}">
+            <Border Style="{StaticResource BridgeCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Existing DS4Windows settings were found"
+                               Style="{StaticResource BridgeSectionTitleStyle}" />
+                    <TextBlock Text="Next opens the existing import review. Import is the default action there; Start fresh or Escape declines the one-time offer. The importer skips every file already present and never changes the source."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}"
+                               Margin="0,4,0,10" />
+                    <ItemsControl ItemsSource="{Binding SummaryLines}"
+                                  Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           Style="{StaticResource BridgeCardListItemStyle}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:FirstRunDeviceOptionsStepViewModel}">
+            <Border Style="{StaticResource BridgeCardStyle}">
+                <StackPanel DataContext="{Binding Options}">
+                    <TextBlock Text="Controller types Thrum should open"
+                               Style="{StaticResource BridgeSectionTitleStyle}" />
+                    <TextBlock Text="DualShock 4 stays enabled by default. Enable only the additional controller families you want Thrum to claim; you can change these later in Settings → Device options."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}"
+                               Margin="0,4,0,12" />
+                    <CheckBox Content="DualShock 4"
+                              IsChecked="{Binding EnableDS4}"
+                              Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                              Margin="0,4" TabIndex="20" />
+                    <CheckBox Content="DualSense and DualSense Edge"
+                              IsChecked="{Binding EnableDualSense}"
+                              Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                              Margin="0,4" TabIndex="21" />
+                    <CheckBox Content="Switch Pro"
+                              IsChecked="{Binding EnableSwitchPro}"
+                              Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                              Margin="0,4" TabIndex="22" />
+                    <CheckBox Content="Joy-Con"
+                              IsChecked="{Binding EnableJoyCon}"
+                              Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                              Margin="0,4" TabIndex="23" />
+                    <CheckBox Content="DualShock 3 (requires DsHidMini)"
+                              IsChecked="{Binding EnableDS3}"
+                              Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                              Margin="0,4" TabIndex="24" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:FirstRunBackendStepViewModel}">
+            <StackPanel>
+                <Border Style="{StaticResource BridgeCardStyle}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <Border Style="{StaticResource BridgeStatusBadgeStyle}"
+                                    DockPanel.Dock="Right" Margin="12,0,0,0"
+                                    DataContext="{Binding DriverStatus}">
+                                <TextBlock Text="{Binding BadgeText}"
+                                           Style="{StaticResource BridgeStatusBadgeTextStyle}" />
+                            </Border>
+                            <TextBlock Text="VIIPER virtual-controller output"
+                                       Style="{StaticResource BridgeSectionTitleStyle}" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding StatusText}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ForegroundColor}"
+                                   Margin="0,8,0,2" />
+                        <TextBlock Text="{Binding ComponentText}"
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding DriverStatus.Headline}"
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                        <TextBlock Text="{Binding DriverStatus.RestrictionText}"
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding DriverStatus.TierNote}"
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,6,0,0"
+                                   Visibility="{Binding DriverStatus.HasTierNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="Skipping setup is safe. If a profile first requests VIIPER output later, Thrum offers this same guided installer again."
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,10,0,0" />
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Content="{Binding SetupButtonText}"
+                                    Style="{StaticResource BridgePrimaryButtonStyle}"
+                                    Click="ViiperInstall_Click"
+                                    TabIndex="30" />
+                            <Button Content="Recheck status"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    Margin="8,0,0,0"
+                                    Click="ViiperRefresh_Click"
+                                    TabIndex="31" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:FirstRunControllersStepViewModel}">
+            <Border Style="{StaticResource BridgeCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Connect over USB or Bluetooth"
+                               Style="{StaticResource BridgeSectionTitleStyle}" />
+                    <TextBlock Text="Connect a supported controller now or later. The mapping service has not started yet, so this setup step does not claim live detection and does not start the service early."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}"
+                               Margin="0,4,0,10" />
+                    <TextBlock Text="After setup, open the Controllers tab. A connected controller appears there with its connection, battery, access, and active-profile status."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:FirstRunFinishStepViewModel}">
+            <Border Style="{StaticResource BridgeCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Start with the Default profile"
+                               Style="{StaticResource BridgeSectionTitleStyle}" />
+                    <TextBlock Text="Thrum creates a safe Default profile when this guide closes. Use the Profiles tab to edit it, duplicate it, import another profile, or create a profile for a specific game."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}"
+                               Margin="0,4,0,10" />
+                    <TextBlock Text="Everything in this guide remains available later: the data folder, manual import, device types, and VIIPER setup are in Settings; controller status is on Controllers; and profile creation is on Profiles."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="{Binding CurrentStep.ProgressText}"
+                       Style="{StaticResource BridgeSectionDescriptionStyle}" />
+            <TextBlock Text="{Binding CurrentStep.Title}"
+                       Foreground="{DynamicResource ForegroundColor}"
+                       FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      KeyboardNavigation.TabNavigation="Continue">
+            <ContentControl Content="{Binding CurrentStep}" />
+        </ScrollViewer>
+
+        <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
+            <Button Content="_Back" DockPanel.Dock="Left"
+                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                    IsEnabled="{Binding CanGoBack}"
+                    Click="Back_Click" TabIndex="900" />
+            <Button x:Name="nextBtn" Content="{Binding NextButtonText}" DockPanel.Dock="Right"
+                    Style="{StaticResource BridgePrimaryButtonStyle}"
+                    IsEnabled="{Binding CanAdvance}"
+                    IsDefault="True" Click="Next_Click" TabIndex="902"
+                    MinWidth="96" />
+            <Button Content="{Binding CancelButtonText}" DockPanel.Dock="Right"
+                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                    IsCancel="True" Click="Cancel_Click" TabIndex="901"
+                    Margin="0,0,8,0" MinWidth="110" />
+        </DockPanel>
+    </Grid>
+</Window>

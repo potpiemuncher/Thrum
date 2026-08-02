@@ -934,9 +934,17 @@
                         <GroupBox Header="{lex:Loc Utils}" BorderThickness="2" Margin="{StaticResource spaceMargin}"
                               Padding="8" HorizontalAlignment="Left">
                             <WrapPanel HorizontalAlignment="Left" Orientation="Vertical">
+                                <Button x:Name="dataFolderBtn" BorderThickness="0" Margin="0,0,4,4" Background="{x:Null}" BorderBrush="{x:Null}"
+                                    Style="{StaticResource NoBGHoverBtn}" Click="DataFolderBtn_Click">
+                                    <TextBlock Text="Open data folder" TextDecorations="Underline" Foreground="{DynamicResource AccentColor}" Cursor="Hand" />
+                                </Button>
                                 <Button x:Name="profFolderBtn" BorderThickness="0" Margin="0,0,4,4" Background="{x:Null}" BorderBrush="{x:Null}"
                                     Style="{StaticResource NoBGHoverBtn}" Click="ProfFolderBtn_Click">
                                     <TextBlock Text="{lex:Loc ProfileFolder}" TextDecorations="Underline" Foreground="{DynamicResource AccentColor}" Cursor="Hand" />
+                                </Button>
+                                <Button x:Name="importSettingsBtn" BorderThickness="0" Margin="0,0,4,4" Background="{x:Null}" BorderBrush="{x:Null}"
+                                    Style="{StaticResource NoBGHoverBtn}" Click="ImportSettingsBtn_Click">
+                                    <TextBlock Text="Import settings..." TextDecorations="Underline" Foreground="{DynamicResource AccentColor}" Cursor="Hand" />
                                 </Button>
                                 <Button x:Name="controlPanelBtn" BorderThickness="0" Margin="0,0,4,4" Background="{x:Null}" BorderBrush="{x:Null}"
                                     Style="{StaticResource NoBGHoverBtn}" Click="ControlPanelBtn_Click" >

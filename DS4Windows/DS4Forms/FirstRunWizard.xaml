@@ -13,6 +13,15 @@
         Loaded="Window_Loaded"
         Closing="Window_Closing">
     <Window.Resources>
+        <!--
+            Referenced by three DataTemplates below. The reference only
+            resolves when a template is instantiated, so its absence compiles
+            clean and passes unit tests, then crashes the wizard the moment
+            the user advances past Welcome - which is exactly what happened on
+            the first live run (VM pass 2026-08-02, finding 1).
+            XamlStaticResourceTests scans for this class of omission.
+        -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <DataTemplate DataType="{x:Type vm:FirstRunWelcomeStepViewModel}">
             <Border Style="{StaticResource BridgeCardStyle}">
                 <StackPanel>

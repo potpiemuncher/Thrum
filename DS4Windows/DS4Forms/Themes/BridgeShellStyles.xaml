@@ -386,7 +386,7 @@
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="ControllerSelectorCard" Property="Background"
-                                    Value="#253881D8" />
+                                    Value="{DynamicResource ControllerSelectionBackgroundColor}" />
                             <Setter TargetName="ControllerSelectorCard" Property="BorderBrush"
                                     Value="{DynamicResource AccentColor}" />
                         </Trigger>

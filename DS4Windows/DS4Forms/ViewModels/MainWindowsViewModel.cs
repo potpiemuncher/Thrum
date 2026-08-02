@@ -26,7 +26,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
-using DS4Windows.InputDevices;
 
 namespace DS4WinWPF.DS4Forms.ViewModels
 {
@@ -115,6 +114,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public event EventHandler SelectedControllerConnectionChanged;
         public event EventHandler SelectedControllerLatencyChanged;
         public event EventHandler SelectedControllerBatteryChanged;
+        public event EventHandler SelectedControllerChargingStateChanged;
+        public event EventHandler SelectedControllerAccessStatusChanged;
         public event EventHandler SelectedControllerStartupTitleChanged;
         public event EventHandler SelectedControllerStartupDetailChanged;
         public event EventHandler SelectedControllerIsReadyChanged;
@@ -149,6 +150,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public string SelectedControllerBattery =>
             selectedController?.BatteryState ?? "--";
+
+        public string SelectedControllerChargingState =>
+            selectedController?.ChargingState ?? "--";
+
+        public string SelectedControllerAccessStatus =>
+            selectedController?.IsExclusiveText ?? "--";
 
         public string SelectedControllerStartupTitle =>
             selectedControllerStartupStatus.Title;
@@ -261,7 +268,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 if (!HasValidSelectedDevice) return 0;
 
                 int deviceIndex = selectedController.DevIndex;
-                if (selectedController.Device.DeviceType == InputDeviceType.DualSense)
+                // DualSense profiles persist one of eight hardware power
+                // levels; other controllers persist a linear rumble percent.
+                if (selectedController.UsesDualSenseHapticPowerLevels)
                 {
                     int levelIndex = Math.Clamp(Global.DualSenseHapticPowerLevel[deviceIndex],
                         0, dualSenseHapticPercentages.Length - 1);
@@ -276,7 +285,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
                 int deviceIndex = selectedController.DevIndex;
                 int requested = Math.Clamp(value, 0, 100);
-                if (selectedController.Device.DeviceType == InputDeviceType.DualSense)
+                // Route through the capability policy so storage format
+                // selection cannot drift into another device-type branch.
+                if (selectedController.UsesDualSenseHapticPowerLevels)
                 {
                     int nearestIndex = 0;
                     int nearestDistance = int.MaxValue;
@@ -402,6 +413,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             SelectedControllerConnectionChanged?.Invoke(this, EventArgs.Empty);
             SelectedControllerLatencyChanged?.Invoke(this, EventArgs.Empty);
             SelectedControllerBatteryChanged?.Invoke(this, EventArgs.Empty);
+            SelectedControllerChargingStateChanged?.Invoke(this,
+                EventArgs.Empty);
+            SelectedControllerAccessStatusChanged?.Invoke(this,
+                EventArgs.Empty);
             RaiseControllerStartupStatusChanged();
             SelectedControllerSupportsAudioChanged?.Invoke(this, EventArgs.Empty);
             RaiseMicrophoneCapabilityChanged();
@@ -476,6 +491,16 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             if (previous.Battery != snapshot.Battery)
             {
                 SelectedControllerBatteryChanged?.Invoke(this,
+                    EventArgs.Empty);
+            }
+            if (previous.ChargingState != snapshot.ChargingState)
+            {
+                SelectedControllerChargingStateChanged?.Invoke(this,
+                    EventArgs.Empty);
+            }
+            if (previous.AccessStatus != snapshot.AccessStatus)
+            {
+                SelectedControllerAccessStatusChanged?.Invoke(this,
                     EventArgs.Empty);
             }
             if (previous.OutputController != snapshot.OutputController)
@@ -600,7 +625,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
             return new OverviewRuntimeSnapshot(CurrentProfileName,
                 SelectedControllerConnection, SelectedControllerLatency,
-                SelectedControllerBattery, SelectedOutputController,
+                SelectedControllerBattery, SelectedControllerChargingState,
+                SelectedControllerAccessStatus, SelectedOutputController,
                 HapticStrengthPercent, SpeakerOutputEnabled,
                 HeadsetOnlyAudio, MicrophoneInputEnabled, SpeakerVolumePercent,
                 MicrophoneVolumePercent, startupStatus);
@@ -610,6 +636,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         {
             public OverviewRuntimeSnapshot(string profileName,
                 string connection, string latency, string battery,
+                string chargingState, string accessStatus,
                 OutContType outputController, int hapticStrength,
                 bool speakerEnabled, bool headsetOnlyAudio,
                 bool microphoneEnabled,
@@ -620,6 +647,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 Connection = connection;
                 Latency = latency;
                 Battery = battery;
+                ChargingState = chargingState;
+                AccessStatus = accessStatus;
                 OutputController = outputController;
                 HapticStrength = hapticStrength;
                 SpeakerEnabled = speakerEnabled;
@@ -634,6 +663,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             public string Connection { get; }
             public string Latency { get; }
             public string Battery { get; }
+            public string ChargingState { get; }
+            public string AccessStatus { get; }
             public OutContType OutputController { get; }
             public int HapticStrength { get; }
             public bool SpeakerEnabled { get; }

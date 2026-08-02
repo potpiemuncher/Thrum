@@ -48,7 +48,9 @@
             <TabItem x:Name="overviewTab" Header="Overview" Tag="&#xE80F;" ToolTip="At-a-glance status and quick profile controls for the selected controller." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
                 <local:ControllerOverviewControl x:Name="controllerOverviewControl"
                                                  EditProfileRequested="ControllerOverview_EditProfileRequested"
+                                                 ActiveProfileChangedRequested="ControllerOverview_ActiveProfileChangedRequested"
                                                  ControllerDetailsRequested="ControllerOverview_ControllerDetailsRequested"
+                                                 IdentifyRequested="ControllerOverview_IdentifyRequested"
                                                  LightbarRequested="ControllerOverview_LightbarRequested"
                                                  DisconnectRequested="ControllerOverview_DisconnectRequested" />
             </TabItem>

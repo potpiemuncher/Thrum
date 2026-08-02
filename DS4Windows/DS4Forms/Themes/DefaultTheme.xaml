@@ -12,6 +12,7 @@
     <SolidColorBrush x:Key="CardBackgroundColor" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="RaisedBackgroundColor" Color="#FFEAF1FA" />
     <SolidColorBrush x:Key="NavigationSelectionColor" Color="#FFDCEBFF" />
+    <SolidColorBrush x:Key="ControllerSelectionBackgroundColor" Color="#253881D8" />
     <SolidColorBrush x:Key="MutedForegroundColor" Color="#FF5F7086" />
     <SolidColorBrush x:Key="SuccessColor" Color="#FF16883F" />
     <SolidColorBrush x:Key="DangerColor" Color="#FFB4232C" />

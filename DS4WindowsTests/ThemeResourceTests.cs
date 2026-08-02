@@ -1,8 +1,12 @@
 using DS4Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
+using System.Xml.Linq;
 
 namespace DS4WindowsTests
 {
@@ -24,44 +28,66 @@ namespace DS4WindowsTests
         /// unresolved reference at runtime, which WPF reports as nothing at all.
         /// </summary>
         private static readonly string[] ThemeBrushKeys =
-        {
-            "ForegroundColor",
-            "BackgroundColor",
-            "BorderColor",
-            "AccentColor",
-            "SecondaryColor",
-            "SurfaceBackgroundColor",
-            "SidebarBackgroundColor",
-            "CardBackgroundColor",
-            "RaisedBackgroundColor",
-            "NavigationSelectionColor",
-            "MutedForegroundColor",
-            "SuccessColor",
-            "WarningColor",
-            "DangerColor",
-        };
+            ReadShellDynamicResourceKeys();
 
         [DataTestMethod]
         [DataRow("DefaultTheme")]
         [DataRow("DarkTheme")]
         public void ThemeDefinesEveryBrushTheShellStylesBindTo(string theme)
         {
-            RunOnStaThread(() =>
-            {
-                var dictionary = new ResourceDictionary
-                {
-                    Source = new Uri(
-                        ComponentPrefix + "/DS4Forms/Themes/" + theme + ".xaml",
-                        UriKind.Relative),
-                };
+            CollectionAssert.Contains(ThemeBrushKeys,
+                "ControllerSelectionBackgroundColor",
+                "The selected controller card brush must be discovered from BridgeShellStyles.xaml, not maintained in a second manual list.");
 
-                foreach (string key in ThemeBrushKeys)
+            XNamespace xaml =
+                "http://schemas.microsoft.com/winfx/2006/xaml";
+            XDocument dictionary = XDocument.Load(Path.Combine(
+                FindRepositoryRoot(), "DS4Windows", "DS4Forms", "Themes",
+                theme + ".xaml"));
+            string[] definedKeys = dictionary.Descendants()
+                .Select(element => (string)element.Attribute(xaml + "Key"))
+                .Where(key => !string.IsNullOrEmpty(key))
+                .ToArray();
+
+            foreach (string key in ThemeBrushKeys)
+            {
+                CollectionAssert.Contains(definedKeys, key,
+                    theme + " is missing the brush \"" + key +
+                    "\". Light and dark must define the same keys.");
+            }
+        }
+
+        private static string[] ReadShellDynamicResourceKeys()
+        {
+            string styles = File.ReadAllText(Path.Combine(FindRepositoryRoot(),
+                "DS4Windows", "DS4Forms", "Themes",
+                "BridgeShellStyles.xaml"));
+            return Regex.Matches(styles,
+                    @"\{DynamicResource\s+([^}\s,]+)")
+                .Cast<Match>()
+                .Select(match => match.Groups[1].Value)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(key => key, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        private static string FindRepositoryRoot()
+        {
+            DirectoryInfo directory = new(AppContext.BaseDirectory);
+            while (directory != null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName,
+                    "DS4WindowsWPF.sln")))
                 {
-                    Assert.IsTrue(dictionary.Contains(key),
-                        theme + " is missing the brush \"" + key +
-                        "\". Light and dark must define the same keys.");
+                    return directory.FullName;
                 }
-            });
+
+                directory = directory.Parent;
+            }
+
+            throw new InvalidOperationException(
+                "Could not locate the repository root above " +
+                AppContext.BaseDirectory + ".");
         }
 
         private static void RunOnStaThread(Action body)

@@ -109,6 +109,73 @@ namespace DS4WindowsTests
     }
 
     [TestClass]
+    public class ProfileEditorResetCatalogTests
+    {
+        private sealed class ResetTarget
+        {
+            public double LSDeadZone { get; set; }
+            public int GyroSensitivity { get; set; }
+            public int TouchSens { get; set; }
+        }
+
+        [TestMethod]
+        public void ResetWritesValuesFromDefaultInitializationSource()
+        {
+            BackingStore defaults =
+                ProfileEditorDefaultProvider.CreateDefaultStore();
+            ResetTarget target = new()
+            {
+                LSDeadZone = -1.0,
+                GyroSensitivity = -1,
+                TouchSens = -1,
+            };
+
+            ProfileEditorResetCatalog.Get(nameof(target.LSDeadZone)).Reset(
+                target, defaults,
+                ProfileEditorDefaultProvider.DefaultDeviceIndex);
+            ProfileEditorResetCatalog.Get(nameof(target.GyroSensitivity)).Reset(
+                target, defaults,
+                ProfileEditorDefaultProvider.DefaultDeviceIndex);
+            ProfileEditorResetCatalog.Get(nameof(target.TouchSens)).Reset(
+                target, defaults,
+                ProfileEditorDefaultProvider.DefaultDeviceIndex);
+
+            Assert.AreEqual(Math.Round(defaults.lsModInfo[0].deadZone / 127d,
+                2), target.LSDeadZone);
+            Assert.AreEqual(defaults.gyroSensitivity[0],
+                target.GyroSensitivity);
+            Assert.AreEqual(defaults.touchSensitivity[0], target.TouchSens);
+        }
+
+        [TestMethod]
+        public void EveryResetEntryMatchesAWritableSettingsProperty()
+        {
+            BackingStore defaults =
+                ProfileEditorDefaultProvider.CreateDefaultStore();
+
+            foreach (string setting in ProfileEditorResetCatalog.Settings)
+            {
+                System.Reflection.PropertyInfo property =
+                    typeof(ProfileSettingsViewModel).GetProperty(setting);
+                Assert.IsNotNull(property,
+                    $"Missing ProfileSettingsViewModel property: {setting}");
+                Assert.IsTrue(property.CanWrite,
+                    $"Reset property is not writable: {setting}");
+
+                object value = ProfileEditorResetCatalog.Get(setting)
+                    .GetDefaultValue(defaults,
+                        ProfileEditorDefaultProvider.DefaultDeviceIndex);
+                if (value != null &&
+                    !property.PropertyType.IsInstanceOfType(value))
+                {
+                    Convert.ChangeType(value, property.PropertyType,
+                        System.Globalization.CultureInfo.InvariantCulture);
+                }
+            }
+        }
+    }
+
+    [TestClass]
     public class ProfileEditorContractTests
     {
         private static readonly XNamespace Presentation =
@@ -176,6 +243,61 @@ namespace DS4WindowsTests
                 highlighter,
                 @"(?:Background|Foreground|BorderBrush)\s*=\s*""#[0-9A-Fa-f]"),
                 "Search highlighting must not hardcode colours.");
+        }
+
+        [TestMethod]
+        public void DenseRailNumericSettingsAllHaveResetEntries()
+        {
+            XDocument document = XDocument.Load(SourcePath("DS4Windows",
+                "DS4Forms", "ProfileEditor.xaml"));
+            string[] sectionNames =
+            {
+                "axisConfigSectionExpander",
+                "gyroSectionExpander",
+                "touchpadSectionExpander",
+            };
+            HashSet<string> boundSettings = new(StringComparer.Ordinal);
+
+            foreach (string sectionName in sectionNames)
+            {
+                XElement section = document.Descendants()
+                    .Single(element => element.Name.LocalName == "Expander" &&
+                        (string)element.Attribute(Xaml + "Name") ==
+                        sectionName);
+                foreach (XElement input in section.Descendants().Where(
+                    element => element.Name.LocalName == "Slider" ||
+                        element.Name.LocalName.EndsWith("UpDown",
+                            StringComparison.Ordinal)))
+                {
+                    string value = (string)input.Attribute("Value");
+                    System.Text.RegularExpressions.Match match =
+                        System.Text.RegularExpressions.Regex.Match(
+                            value ?? string.Empty,
+                            @"^\{Binding\s+([A-Za-z0-9]+)");
+                    if (match.Success)
+                    {
+                        boundSettings.Add(match.Groups[1].Value);
+                    }
+                }
+            }
+
+            HashSet<string> resetSettings = new(
+                ProfileEditorResetCatalog.Settings, StringComparer.Ordinal);
+            CollectionAssert.AreEquivalent(boundSettings.ToArray(),
+                resetSettings.ToArray());
+            Assert.AreEqual(108, boundSettings.Count,
+                "Update this audited count when dense-rail numeric inputs " +
+                "change.");
+
+            string controller = File.ReadAllText(SourcePath("DS4Windows",
+                "DS4Forms", "ProfileEditorResetController.cs"));
+            StringAssert.Contains(controller,
+                "LogicalTreeHelper.GetChildren(current)");
+            StringAssert.Contains(controller, "SetResourceReference");
+            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(
+                controller,
+                @"(?:Background|Foreground|BorderBrush)\s*=\s*""#[0-9A-Fa-f]"""),
+                "Reset affordances must not hardcode colours.");
         }
 
         private static string SourcePath(params string[] parts) =>

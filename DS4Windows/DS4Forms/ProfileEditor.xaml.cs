@@ -79,6 +79,7 @@ namespace DS4WinWPF.DS4Forms
         private Dictionary<Button, ImageSource> controllerHoverImages = new Dictionary<Button, ImageSource>();
         private Dictionary<Button, Geometry> vectorHoverGeometries = new Dictionary<Button, Geometry>();
         private readonly ProfileEditorSearchController profileEditorSearchController;
+        private readonly ProfileEditorResetController profileEditorResetController;
 
         private bool keepsize;
         private bool controllerReadingsTabActive = false;
@@ -131,6 +132,9 @@ namespace DS4WinWPF.DS4Forms
                 physicalController?.ConnectionType,
                 physicalController?.HidDevice?.Attributes?.VendorId,
                 physicalController?.HidDevice?.Attributes?.ProductId);
+            profileEditorResetController = new ProfileEditorResetController(
+                profileSettingsVM, axisConfigSectionExpander,
+                touchpadSectionExpander, gyroSectionExpander);
             picBoxHover.Visibility = Visibility.Hidden;
             picBoxHover2.Visibility = Visibility.Hidden;
 
@@ -1714,6 +1718,7 @@ namespace DS4WinWPF.DS4Forms
         private void ProfileEditor_Loaded(object sender, RoutedEventArgs e)
         {
             profileEditorSearchController.EnsureIndexed();
+            profileEditorResetController.EnsureAttached();
         }
 
         private void ProfileEditor_Unloaded(object sender, RoutedEventArgs e)

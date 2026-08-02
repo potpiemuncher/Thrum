@@ -75,6 +75,88 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void RumbleActionsRequireWritableControllerOutput()
+        {
+            ControllerUiCapabilities dualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4);
+            ControllerUiCapabilities switchPro =
+                ControllerUiCapabilities.For(InputDeviceType.SwitchPro);
+            ControllerUiCapabilities noOutputDualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4,
+                    ConnectionType.USB, 0x0F0D, 0x00EE,
+                    VidPidFeatureSet.NoOutputData);
+
+            Assert.IsTrue(dualShock4.SupportsRumble);
+            Assert.IsTrue(switchPro.SupportsRumble);
+            Assert.IsFalse(noOutputDualShock4.SupportsRumble);
+        }
+
+        [TestMethod]
+        public void GyroCapabilityUsesTheConservativeInventorySignal()
+        {
+            ControllerUiCapabilities dualSense =
+                ControllerUiCapabilities.For(InputDeviceType.DualSense);
+            ControllerUiCapabilities switchPro =
+                ControllerUiCapabilities.For(InputDeviceType.SwitchPro);
+            ControllerUiCapabilities noGyroCalibrationDs4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4,
+                    ConnectionType.USB, 0x1234, 0x5678,
+                    VidPidFeatureSet.NoGyroCalib);
+
+            Assert.IsTrue(dualSense.SupportsGyro);
+            Assert.IsTrue(switchPro.SupportsGyro);
+            Assert.IsFalse(noGyroCalibrationDs4.SupportsGyro);
+        }
+
+        [TestMethod]
+        public void TouchpadCapabilityCarriesPhysicalProjectionDimensions()
+        {
+            ControllerUiCapabilities dualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4);
+            ControllerUiCapabilities dualSense =
+                ControllerUiCapabilities.For(InputDeviceType.DualSense);
+            ControllerUiCapabilities switchPro =
+                ControllerUiCapabilities.For(InputDeviceType.SwitchPro);
+
+            Assert.IsTrue(dualShock4.SupportsTouchpad);
+            Assert.AreEqual(1920, dualShock4.TouchpadWidth);
+            Assert.AreEqual(942, dualShock4.TouchpadHeight);
+            Assert.IsTrue(dualSense.SupportsTouchpad);
+            Assert.AreEqual(1920, dualSense.TouchpadWidth);
+            Assert.AreEqual(1080, dualSense.TouchpadHeight);
+            Assert.IsFalse(switchPro.SupportsTouchpad);
+            Assert.AreEqual(0, switchPro.TouchpadWidth);
+            Assert.AreEqual(0, switchPro.TouchpadHeight);
+        }
+
+        [TestMethod]
+        public void LiveTesterButtonVisibilityComesFromTheCapabilityPolicy()
+        {
+            ControllerUiCapabilities dualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4);
+            ControllerUiCapabilities switchPro =
+                ControllerUiCapabilities.For(InputDeviceType.SwitchPro);
+            ControllerUiCapabilities joyCon =
+                ControllerUiCapabilities.For(InputDeviceType.JoyConL);
+            ControllerUiCapabilities dualSenseEdge =
+                ControllerUiCapabilities.For(InputDeviceType.DualSense,
+                    ConnectionType.USB, 0x054C, 0x0DF2);
+
+            Assert.IsFalse(dualShock4.IsLiveTesterControlAvailable(
+                DS4Controls.Capture));
+            Assert.IsTrue(switchPro.IsLiveTesterControlAvailable(
+                DS4Controls.Capture));
+            Assert.IsFalse(switchPro.IsLiveTesterControlAvailable(
+                DS4Controls.SideL));
+            Assert.IsTrue(joyCon.IsLiveTesterControlAvailable(
+                DS4Controls.SideL));
+            Assert.IsFalse(dualShock4.IsLiveTesterControlAvailable(
+                DS4Controls.FnL));
+            Assert.IsTrue(dualSenseEdge.IsLiveTesterControlAvailable(
+                DS4Controls.FnL));
+        }
+
+        [TestMethod]
         public void ControllerCardChargingStateIsReadableAtAGlance()
         {
             Assert.AreEqual("Charging",

@@ -89,6 +89,27 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         internal bool SupportsLightbar =>
             (IsDualShock4 || IsDualSense) &&
             !FeatureSet.HasFlag(VidPidFeatureSet.NoOutputData);
+        internal bool SupportsRumble => DeviceType.HasValue &&
+            !FeatureSet.HasFlag(VidPidFeatureSet.NoOutputData);
+        // NoGyroCalib is the only negative sensor signal in the inherited
+        // device inventory. It is deliberately treated conservatively here:
+        // some compatible pads merely lack the calibration command, but many
+        // entries use the same bit because the sensor itself is absent.
+        internal bool SupportsGyro => DeviceType switch
+        {
+            InputDeviceType.DS4 =>
+                !FeatureSet.HasFlag(VidPidFeatureSet.NoGyroCalib),
+            InputDeviceType.DualSense or InputDeviceType.SwitchPro or
+                InputDeviceType.JoyConL or InputDeviceType.JoyConR or
+                InputDeviceType.JoyConGrip or InputDeviceType.DS3 => true,
+            _ => false,
+        };
+        internal bool SupportsTouchpad => IsDualShock4 || IsDualSense;
+        internal int TouchpadWidth => SupportsTouchpad ? 1920 : 0;
+        internal int TouchpadHeight => IsDualSense ? 1080 :
+            IsDualShock4 ? 942 : 0;
+        internal bool IsDualSenseEdge => IsDualSense &&
+            ProductId == 0x0DF2;
         internal string FeedbackLabel { get; }
         internal string AudioHeader { get; }
         internal string AudioDescription { get; }
@@ -245,6 +266,42 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 control == DS4Controls.FnR ||
                 control == DS4Controls.BLP ||
                 control == DS4Controls.BRP;
+        }
+
+        internal bool IsLiveTesterControlAvailable(DS4Controls control)
+        {
+            if (DeviceType == null) return true;
+
+            if (control == DS4Controls.Mute)
+            {
+                return SupportsMuteButton;
+            }
+
+            if (control == DS4Controls.Capture)
+            {
+                return DeviceType == InputDeviceType.SwitchPro ||
+                    DeviceType == InputDeviceType.JoyConL ||
+                    DeviceType == InputDeviceType.JoyConR ||
+                    DeviceType == InputDeviceType.JoyConGrip;
+            }
+
+            if (control == DS4Controls.SideL ||
+                control == DS4Controls.SideR)
+            {
+                return DeviceType == InputDeviceType.JoyConL ||
+                    DeviceType == InputDeviceType.JoyConR ||
+                    DeviceType == InputDeviceType.JoyConGrip;
+            }
+
+            if (control == DS4Controls.FnL ||
+                control == DS4Controls.FnR ||
+                control == DS4Controls.BLP ||
+                control == DS4Controls.BRP)
+            {
+                return IsDualSenseEdge;
+            }
+
+            return true;
         }
 
         internal static ControllerUiCapabilities ForDevice(DS4Device device)

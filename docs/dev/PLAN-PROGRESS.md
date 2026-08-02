@@ -4150,3 +4150,58 @@ Deliberately unverified: no live audio endpoint was opened, no physical controll
 state was touched, and neither page was rendered. Real SteelSeries Sonar enumeration, endpoint
 hot-unplug timing, app/process-tree capture, meter visual smoothness, theme rendering and live
 haptic response require a maintainer hardware/UI smoke pass.
+
+## Task 4.4 — the live input tester
+
+The old `ControllerReadingsControl` remains unchanged in ProfileEditor for 4.5. Its new
+user-facing replacement is a separate, non-modal `ControllerTesterWindow` reached from the
+Overview quick actions and from every Controllers card. One live window is kept per physical
+controller identity, so a reconnect that reuses the same slot cannot silently display a
+different pad.
+
+`ControllerTesterControl` owns one non-auto-reset `System.Timers.Timer` at 60 Hz. Each tick takes
+one immutable primitive snapshot while holding the established `ReadWaitEv` gate and performs
+one dispatcher transition; neither `DS4State` nor a device enters the view-model. The timer
+stops on hide, unload and host-window minimization. A removed controller produces the explicit
+"Controller disconnected" state, clears live input and traces, and disables output and
+calibration actions without closing the page.
+
+The tester shows all physical digital-button fields, raw and mapped stick axes, raw and mapped
+trigger travel, radial or axial stick overlays, active-profile dead/anti/max zones, trigger
+dead/max marks, numeric gyro and acceleration, fixed 90-sample magnitude traces, a rolling
+angular-velocity drift diagnostic, and two projected touch identifiers in a physical-aspect
+rectangle. Profile geometry is copied from the selected controller slot on every snapshot, so
+an active-profile switch or edit replaces the overlays without recreating the page. The 2.0
+degrees/second drift threshold is described as a resting diagnostic only, not calibration or
+sensor fusion.
+
+Rumble and lightbar actions are capability-gated at both presentation and action boundaries.
+The 450 ms rumble pulse exchanges state through the existing composed rumble path, restores the
+prior request with an explicit zero stop when needed, and refuses to overwrite feedback with a
+newer revision. Lightbar testing calls the existing 4.2 `IdentifyLightbarAsync` /
+`ControllerLightbarIdentify` lease rather than creating a second flash path. Both buttons use
+access keys and are single-flighted. The existing stick calibrator is opened for either stick;
+its old ProfileEditor constructor remains, while a narrow callback adapter lets this page save
+the resulting offsets to the current active profile.
+
+Two limits in the brief needed to be made explicit. The existing calibrator does not accumulate
+the prompted movements: it samples one centered `DS4State` when Save is pressed and writes that
+offset. It was linked, not rewritten. The inherited device inventory also has no authoritative
+per-pad touchpad/rumble feature bits: `NoOutputData` is the reliable negative output signal, and
+`NoGyroCalib` is used conservatively for DS4-compatible sensor visibility even though a few pads
+may have an uncalibrated sensor. Touchpad visibility follows the nominal DS4/DualSense policy.
+
+Verification: untouched branch baseline **957/957**; final x64 Release suite **974/974**;
+no-incremental x64 solution build **0 errors**, 17 known warnings. The 17 new tests cover radial
+and axial profile geometry, live profile replacement, calm/drifting synthetic sensor samples,
+two-touch projection and identifiers, capability and connection gating, disconnect-while-open,
+bounded rumble restoration/newer-feedback ownership/explicit stop, timer and dispatcher
+discipline, DynamicResource/action contracts, both card entry points, and the four new capability
+policy seams. Negative controls both failed for the intended assertion and were reverted:
+zeroing the anti-deadzone geometry reported expected width 50 versus 0; reversing the drift
+threshold comparison failed the calm/drifting separation test.
+
+Deliberately unverified: the window was not rendered or visually inspected, and no controller
+input, touchpad, motion sensor, rumble motor or lightbar was exercised. Actual update-rate feel,
+trace smoothness, theme layout, reconnect behavior, physical touch bounds, drift noise and the
+calibrator handoff require the planned maintainer hardware/UI pass.

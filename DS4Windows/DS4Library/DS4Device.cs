@@ -168,7 +168,7 @@ namespace DS4Windows
         }
     }
 
-    public class DS4Device
+    public class DS4Device : IControllerTransientRumbleTarget
     {
         public class GyroMouseSens
         {
@@ -2333,18 +2333,24 @@ namespace DS4Windows
         }
 
         protected DS4HapticState testRumble = new DS4HapticState();
+        private readonly object testRumbleSync = new();
+        private long testRumbleRevision;
 
         public void setRumble(byte rightLightFastMotor, byte leftHeavySlowMotor)
         {
-            testRumble.rumbleState.RumbleMotorStrengthRightLightFast = rightLightFastMotor;
-            testRumble.rumbleState.RumbleMotorStrengthLeftHeavySlow = leftHeavySlowMotor;
-            testRumble.rumbleState.RumbleMotorsExplicitlyOff = rightLightFastMotor == 0 && leftHeavySlowMotor == 0;
-            testRumble.dirty = true;
+            bool explicitlyOff = rightLightFastMotor == 0 &&
+                leftHeavySlowMotor == 0;
+            lock (testRumbleSync)
+            {
+                SetRequestedRumble(rightLightFastMotor,
+                    leftHeavySlowMotor);
+                testRumbleRevision++;
+            }
 
             // If rumble autostop timer (msecs) is enabled for this device then restart autostop timer everytime rumble is modified (or stop the timer if rumble is set to zero)
             if (rumbleAutostopTime > 0)
             {
-                if (testRumble.rumbleState.RumbleMotorsExplicitlyOff)
+                if (explicitlyOff)
                     rumbleAutostopTimer.Reset();   // A proper zero-rumble notification arrived; no safety stop is needed.
                 else if (currentHap.rumbleState.RumbleMotorStrengthLeftHeavySlow != leftHeavySlowMotor || currentHap.rumbleState.RumbleMotorStrengthRightLightFast != rightLightFastMotor)
                     rumbleAutostopTimer.Restart(); // Guard against a lost virtual-output zero-rumble notification.
@@ -2353,18 +2359,71 @@ namespace DS4Windows
 
         protected void MergeStates()
         {
-            if (testRumble.IsRumbleSet())
+            lock (testRumbleSync)
             {
-                if (testRumble.rumbleState.RumbleMotorsExplicitlyOff)
-                    testRumble.rumbleState.RumbleMotorsExplicitlyOff = false;
+                if (testRumble.IsRumbleSet())
+                {
+                    if (testRumble.rumbleState.RumbleMotorsExplicitlyOff)
+                        testRumble.rumbleState.RumbleMotorsExplicitlyOff = false;
 
-                //currentHap.rumbleState.RumbleMotorStrengthLeftHeavySlow = testRumble.rumbleState.RumbleMotorStrengthLeftHeavySlow;
-                //currentHap.rumbleState.RumbleMotorStrengthRightLightFast = testRumble.rumbleState.RumbleMotorStrengthRightLightFast;
-                currentHap.rumbleState = testRumble.rumbleState;
+                    //currentHap.rumbleState.RumbleMotorStrengthLeftHeavySlow = testRumble.rumbleState.RumbleMotorStrengthLeftHeavySlow;
+                    //currentHap.rumbleState.RumbleMotorStrengthRightLightFast = testRumble.rumbleState.RumbleMotorStrengthRightLightFast;
+                    currentHap.rumbleState = testRumble.rumbleState;
+                }
+
+                currentHap.dirty = testRumble.dirty;
+                testRumble.dirty = false;
             }
+        }
 
-            currentHap.dirty = testRumble.dirty;
-            testRumble.dirty = false;
+        ControllerTransientRumbleLeaseState
+            IControllerTransientRumbleTarget.BeginTransientRumble(
+                byte rightLightFastMotor, byte leftHeavySlowMotor)
+        {
+            lock (testRumbleSync)
+            {
+                DS4ForceFeedbackState previous = testRumble.rumbleState;
+                SetRequestedRumble(rightLightFastMotor,
+                    leftHeavySlowMotor);
+                testRumbleRevision++;
+                return new ControllerTransientRumbleLeaseState(previous,
+                    testRumbleRevision);
+            }
+        }
+
+        bool IControllerTransientRumbleTarget.RestoreTransientRumble(
+            ControllerTransientRumbleLeaseState lease)
+        {
+            lock (testRumbleSync)
+            {
+                // A game or another feature has produced newer feedback. Its
+                // state owns the ordinary output path and must not be replaced.
+                if (testRumbleRevision != lease.Revision)
+                {
+                    return false;
+                }
+
+                DS4ForceFeedbackState previous =
+                    ControllerTransientRumblePolicy.PrepareRestoreState(
+                        lease.PreviousState);
+
+                testRumble.rumbleState = previous;
+                testRumble.dirty = true;
+                testRumbleRevision++;
+                return true;
+            }
+        }
+
+        private void SetRequestedRumble(byte rightLightFastMotor,
+            byte leftHeavySlowMotor)
+        {
+            testRumble.rumbleState.RumbleMotorStrengthRightLightFast =
+                rightLightFastMotor;
+            testRumble.rumbleState.RumbleMotorStrengthLeftHeavySlow =
+                leftHeavySlowMotor;
+            testRumble.rumbleState.RumbleMotorsExplicitlyOff =
+                rightLightFastMotor == 0 && leftHeavySlowMotor == 0;
+            testRumble.dirty = true;
         }
 
         public DS4State getRawCurrentState()

@@ -32,6 +32,7 @@ namespace DS4WinWPF.DS4Forms
         }
 
         public event EventHandler EditProfileRequested;
+        public event EventHandler TestInputsRequested;
         public event EventHandler<OverviewProfileSelectionChangedEventArgs>
             ActiveProfileChangedRequested;
         public event EventHandler ControllerDetailsRequested;
@@ -41,6 +42,9 @@ namespace DS4WinWPF.DS4Forms
 
         private void EditProfileBtn_Click(object sender, RoutedEventArgs e) =>
             EditProfileRequested?.Invoke(this, EventArgs.Empty);
+
+        private void TestInputsBtn_Click(object sender, RoutedEventArgs e) =>
+            TestInputsRequested?.Invoke(this, EventArgs.Empty);
 
         private void ActiveProfileComboBox_SelectionChanged(object sender,
             SelectionChangedEventArgs e)

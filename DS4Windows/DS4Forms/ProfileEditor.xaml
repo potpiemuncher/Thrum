@@ -18,6 +18,27 @@
         <localConvert:InvertBoolToVisibilityConverter x:Key="InvertBoolToVisibilityConverter" />
         <local:ControlIndexCheck x:Key="controlIndexCheck" />
         <local:ResourcePaths x:Key="resourcesPaths" />
+        <Style x:Key="ProfileEditorCardGroupBoxStyle" TargetType="GroupBox">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Style="{StaticResource BridgeCardStyle}"
+                                Margin="0" Padding="{TemplateBinding Padding}">
+                            <StackPanel>
+                                <TextBlock Text="{TemplateBinding Header}"
+                                           Style="{StaticResource BridgeSectionTitleStyle}" />
+                                <TextBlock Text="{TemplateBinding Tag}"
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                                <ContentPresenter Content="{TemplateBinding Content}" />
+                            </StackPanel>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -486,7 +507,8 @@
                 </TabItem.Resources>
                 <ScrollViewer>
                     <StackPanel>
-                        <GroupBox Header="LS">
+                        <GroupBox Header="LS" Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Tune left-stick output, dead zones, curves, acceleration, and outer bindings.">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <Label Content="{lex:Loc OutputMode}" />
@@ -696,7 +718,9 @@
                                                         Tag="0" />
                                             </Grid>
 
-                                            <GroupBox Header="{lex:Loc DeltaAcceleration}" DockPanel.Dock="Top">
+                                            <GroupBox Header="{lex:Loc DeltaAcceleration}" DockPanel.Dock="Top"
+                                                      Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                                      Tag="Adjust how quickly left-stick output responds to direction changes.">
                                                 <StackPanel Orientation="Vertical">
                                                     <DockPanel LastChildFill="False">
                                                         <Label Content="{lex:Loc Enabled}" ContentStringFormat="{}{0}:" DockPanel.Dock="Left" />
@@ -794,7 +818,8 @@
 
                         </GroupBox>
 
-                        <GroupBox Header="RS">
+                        <GroupBox Header="RS" Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Tune right-stick output, dead zones, curves, acceleration, and outer bindings.">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <Label Content="{lex:Loc OutputMode}" />
@@ -1004,7 +1029,9 @@
                                                         Tag="1" />
                                             </Grid>
 
-                                            <GroupBox Header="{lex:Loc DeltaAcceleration}" DockPanel.Dock="Top">
+                                            <GroupBox Header="{lex:Loc DeltaAcceleration}" DockPanel.Dock="Top"
+                                                      Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                                      Tag="Adjust how quickly right-stick output responds to direction changes.">
                                                 <StackPanel Orientation="Vertical">
                                                     <DockPanel LastChildFill="False">
                                                         <Label Content="{lex:Loc Enabled}" ContentStringFormat="{}{0}:" DockPanel.Dock="Left" />
@@ -1102,7 +1129,8 @@
 
                         </GroupBox>
 
-                        <GroupBox Header="L2 &amp; R2">
+                        <GroupBox Header="L2 &amp; R2" Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Tune trigger dead zones, maximum zones, curves, and sensitivity.">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition></RowDefinition>
@@ -1227,7 +1255,8 @@
                             </Grid>
                         </GroupBox>
 
-                        <GroupBox Header="{lex:Loc SixAxisAccel}">
+                        <GroupBox Header="{lex:Loc SixAxisAccel}" Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Tune motion-axis dead zones, maximum zones, curves, and sensitivity.">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition></RowDefinition>
@@ -1328,7 +1357,9 @@
 
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <GroupBox x:Name="colorGB" Header="{lex:Loc Color}" Padding="4">
+                                    <GroupBox x:Name="colorGB" Header="{lex:Loc Color}" Padding="4"
+                                              Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                              Tag="Choose the normal lightbar colour and battery-based behaviour.">
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <Label Content="R" />
@@ -1345,7 +1376,9 @@
                                         </StackPanel>
                                     </GroupBox>
 
-                                    <GroupBox x:Name="emptyColorGB" Header="Empty" Padding="4">
+                                    <GroupBox x:Name="emptyColorGB" Header="Empty" Padding="4"
+                                              Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                              Tag="Choose the colour used when the battery reaches the empty threshold.">
                                         <StackPanel>
 
                                             <StackPanel Orientation="Horizontal">
@@ -1676,7 +1709,9 @@
                                     </StackPanel>
 
                                     <CheckBox Content="Smoothing" IsChecked="{Binding TouchMouseStickSmooth}" Margin="{StaticResource spaceMargin}" />
-                                    <GroupBox Header="Smoothing Options" IsEnabled="{Binding TouchMouseStickSmooth, FallbackValue='False'}" Margin="{StaticResource spaceMargin}" Padding="2">
+                                    <GroupBox Header="Smoothing Options" IsEnabled="{Binding TouchMouseStickSmooth, FallbackValue='False'}" Margin="{StaticResource spaceMargin}" Padding="2"
+                                              Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                              Tag="Fine-tune touchpad mouse-joystick smoothing and filter response.">
                                         <StackPanel>
                                             <StackPanel x:Name="touchMouseStickOneEuroPanel" Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                                                 <StackPanel Orientation="Horizontal">
@@ -1791,7 +1826,9 @@
                                         </ComboBox>
                                     </StackPanel>
 
-                                    <GroupBox Header="360 Steering Wheel" Margin="0,16,0,0" Padding="2,4">
+                                    <GroupBox Header="360 Steering Wheel" Margin="0,16,0,0" Padding="2,4"
+                                              Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                              Tag="Configure motion steering range, calibration, output axis, and smoothing.">
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                 <Label Content="Steering wheel axis" />
@@ -1929,7 +1966,9 @@
                                     <CheckBox Content="Toggle" IsChecked="{Binding GyroMouseToggle}" Margin="{StaticResource spaceMargin}" />
 
                                     <CheckBox Content="Smoothing" IsChecked="{Binding GyroMouseSmooth,FallbackValue='False'}"  Margin="{StaticResource spaceMargin}" />
-                                    <GroupBox Header="Smoothing Options" IsEnabled="{Binding GyroMouseSmooth,FallbackValue='False'}" Margin="{StaticResource spaceMargin}">
+                                    <GroupBox Header="Smoothing Options" IsEnabled="{Binding GyroMouseSmooth,FallbackValue='False'}" Margin="{StaticResource spaceMargin}"
+                                              Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                              Tag="Fine-tune gyro mouse smoothing and filter response.">
                                         <StackPanel>
                                             <ComboBox x:Name="gyroMouseSmoothMethodCombo" Margin="{StaticResource spaceMargin}" SelectedIndex="{Binding GyroMouseSmoothMethodIndex,FallbackValue='0'}">
                                                 <ComboBoxItem Content="1&#x20ac; Filter" />
@@ -2057,7 +2096,9 @@
                                         IsChecked="{Binding GyroMouseStickJitterCompensation}" ToolTip="{lex:Loc GyroTriggerJitterCompensationTooltip}" />
 
                                     <CheckBox Content="Smoothing" IsChecked="{Binding GyroMouseStickSmooth}" Margin="{StaticResource spaceMargin}" />
-                                    <GroupBox Header="Smoothing Options" IsEnabled="{Binding GyroMouseStickSmooth,FallbackValue='False'}" Margin="{StaticResource spaceMargin}">
+                                    <GroupBox Header="Smoothing Options" IsEnabled="{Binding GyroMouseStickSmooth,FallbackValue='False'}" Margin="{StaticResource spaceMargin}"
+                                              Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                              Tag="Fine-tune gyro mouse-joystick smoothing and filter response.">
                                         <StackPanel>
                                             <ComboBox x:Name="gyroMouseStickSmoothMethodCombo" Margin="{StaticResource spaceMargin}" SelectedIndex="{Binding GyroMouseStickSmoothMethodIndex,FallbackValue='0'}">
                                                 <ComboBoxItem Content="1&#x20ac; Filter" />
@@ -2202,7 +2243,9 @@
             <TabItem Header="Advanced" Tag="Output device, rumble, audio, latency, compatibility, and custom hooks">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <GroupBox Header="{lex:Loc VirtualControllerSettings}" MinHeight="50" Margin="4,4,4,0" Padding="0,4,0,4">
+                        <GroupBox Header="{lex:Loc VirtualControllerSettings}" MinHeight="50" Margin="4,4,4,0" Padding="0,4,0,4"
+                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Choose the virtual output controller and profile-level output hooks.">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                     <Label Content="{lex:Loc EmulatedController}" ToolTip="{lex:Loc OutContNotice}" />
@@ -2262,14 +2305,18 @@
                                   Margin="0,8,0,0" />-->
                             </StackPanel>
                         </GroupBox>
-                        <GroupBox Header="Debouncing" MinHeight="30" Margin="4,4,4,0" Padding="0,4,0,4">
+                        <GroupBox Header="Debouncing" MinHeight="30" Margin="4,4,4,0" Padding="0,4,0,4"
+                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Ignore repeated button transitions within the selected interval.">
                             <StackPanel Orientation="Horizontal">
                                 <xctk:IntegerUpDown x:Name="Debouncing" Value="{Binding DebouncingMs}" Minimum="0" Maximum="1000"
                                                     MinWidth="50" DockPanel.Dock="Left" />
                                 <Label Content="ms" />
                             </StackPanel>
                         </GroupBox>
-                        <GroupBox Header="{lex:Loc Rumble}" MinHeight="50" Margin="4,4,4,0" Padding="0,4,0,4">
+                        <GroupBox Header="{lex:Loc Rumble}" MinHeight="50" Margin="4,4,4,0" Padding="0,4,0,4"
+                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Configure feedback strength, timeout, and PlayStation controller output.">
                             <StackPanel>
                             <UniformGrid Rows="1" Columns="3">
                                 <UniformGrid Columns="2" HorizontalAlignment="Left">
@@ -2291,10 +2338,14 @@
                             </UniformGrid>
                                 <CheckBox Content="{lex:Loc InverseMotors}" IsChecked="{Binding InverseRumbleMotors}" />
                                 <GroupBox Header="PlayStation controller features" Margin="0,12,0,0" Padding="2,4"
+                                          Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                          Tag="Settings shown here continue to follow the existing capability bindings."
                                           Visibility="{Binding ShowPlayStationControllerSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
 
                                     <StackPanel>
                                         <GroupBox Header="DualSense haptics" Padding="8,5"
+                                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                                  Tag="Translate game rumble for DualSense hardware when this profile is active."
                                                   Visibility="{Binding ShowDualSenseHardwareControls, Converter={StaticResource BooleanToVisibilityConverter}}">
                                             <StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
@@ -2325,6 +2376,8 @@
                                         </GroupBox>
 
                                         <GroupBox Header="{Binding ControllerAudioHeader}" Margin="0,10,0,0" Padding="8,5"
+                                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                                  Tag="Route controller speaker and microphone audio without changing capability detection."
                                                   Visibility="{Binding ShowControllerAudioSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding ControllerAudioDescription}" Margin="2,0,2,7"
@@ -2468,6 +2521,8 @@
                                         </GroupBox>
 
                                         <GroupBox Header="DualSense mute button" Margin="0,10,0,0" Padding="2,4"
+                                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                                  Tag="Configure mute-light, microphone, and optional profile-switch behaviour."
                                                   Visibility="{Binding ShowDualSenseHardwareControls, Converter={StaticResource BooleanToVisibilityConverter}}">
                                             <Grid>
                                                 <Grid.RowDefinitions>
@@ -2565,7 +2620,9 @@
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource MutedForegroundColor}" />
                         </StackPanel>
-                        <GroupBox Header="Game Bar" Margin="0,8,0,0" Padding="2,4">
+                        <GroupBox Header="Game Bar" Margin="0,8,0,0" Padding="2,4"
+                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Temporarily route mapped input through an Xbox-compatible companion while Game Bar is visible.">
                             <StackPanel>
                                 <CheckBox Content="Enable Game Bar controller compatibility" IsChecked="{Binding GameBarControllerCompatibility}"
                                           Margin="{StaticResource spaceMargin}"
@@ -2620,7 +2677,9 @@
                             </ComboBox>
                         </StackPanel>
 
-                        <GroupBox Header="{lex:Loc AbsoluteMouseOptions}" Margin="0,8,0,0">
+                        <GroupBox Header="{lex:Loc AbsoluteMouseOptions}" Margin="0,8,0,0"
+                                  Style="{StaticResource ProfileEditorCardGroupBoxStyle}"
+                                  Tag="Define the absolute pointer area, centre, anti-radius, and snap behaviour.">
                             <StackPanel Orientation="Vertical">
                                 <Expander IsExpanded="False" Header="Settings">
                                     <Grid>

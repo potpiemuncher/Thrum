@@ -11,6 +11,8 @@
              lex:LocalizeDictionary.DesignCulture=""
              lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
              lex:ResxLocalizationProvider.DefaultDictionary="Strings"
+             Loaded="ProfileEditor_Loaded"
+             Unloaded="ProfileEditor_Unloaded"
              mc:Ignorable="d" 
              d:DesignHeight="550" d:DesignWidth="1000">
     <UserControl.Resources>
@@ -53,6 +55,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="280" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -68,7 +71,45 @@
                              TextChanged="ProfileNameTxt_TextChanged" />
                 </Grid>
 
-                <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Margin="8,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="Search settings" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ForegroundColor}" />
+                    <TextBox x:Name="profileSettingsSearchBox" Margin="0,3,0,0"
+                             VerticalContentAlignment="Center"
+                             TextChanged="ProfileSettingsSearchBox_TextChanged"
+                             PreviewKeyDown="ProfileSettingsSearchBox_PreviewKeyDown" />
+                    <TextBlock x:Name="profileSettingsSearchStatusText"
+                               Text="Type a setting label, then press Enter to open it."
+                               Margin="0,3,0,0" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedForegroundColor}" />
+                    <Popup x:Name="profileSettingsSearchPopup"
+                           PlacementTarget="{Binding ElementName=profileSettingsSearchBox}"
+                           Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                           Width="{Binding ActualWidth, ElementName=profileSettingsSearchBox}">
+                        <Border Margin="0,4,0,0" Padding="4"
+                                Background="{DynamicResource CardBackgroundColor}"
+                                BorderBrush="{DynamicResource AccentColor}"
+                                BorderThickness="1" CornerRadius="4">
+                            <ListBox x:Name="profileSettingsSearchResultsList"
+                                     MaxHeight="300" BorderThickness="0"
+                                     SelectionChanged="ProfileSettingsSearchResultsList_SelectionChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="6,4">
+                                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding SectionName}" Margin="0,2,0,0"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource MutedForegroundColor}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+
+                <WrapPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button x:Name="presetBtn" Content="Select Preset" Margin="0,3,0,3" Click="PresetBtn_Click" />
                     <Button x:Name="applyBtn" Content="{lex:Loc Apply}" Margin="8,3,0,3" Click="ApplyBtn_Click" IsEnabled="False" Style="{StaticResource BridgeSecondaryButtonStyle}" />
                     <Button x:Name="cancelBtn" Content="{lex:Loc Cancel}" Margin="8,3,0,3" Click="CancelBtn_Click" Style="{StaticResource BridgeSecondaryButtonStyle}" />

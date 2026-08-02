@@ -64,6 +64,7 @@ namespace DS4WinWPF.DS4Forms
 
         public event EventHandler Closed;
         public event EventHandler ProfileNameChanged;
+        public event Action<int> NavigationRequested;
 
         public delegate void CreatedProfileHandler(ProfileEditor sender, string profile);
 
@@ -77,6 +78,7 @@ namespace DS4WinWPF.DS4Forms
         private Dictionary<int, Button> reverseHoverIndexes = new Dictionary<int, Button>();
         private Dictionary<Button, ImageSource> controllerHoverImages = new Dictionary<Button, ImageSource>();
         private Dictionary<Button, Geometry> vectorHoverGeometries = new Dictionary<Button, Geometry>();
+        private readonly ProfileEditorSearchController profileEditorSearchController;
 
         private bool keepsize;
         private bool controllerReadingsTabActive = false;
@@ -106,6 +108,13 @@ namespace DS4WinWPF.DS4Forms
             profileEditorSectionState = ProfileEditorSectionStateViewModel.Create(
                 Global.store, device);
             InitializeComponent();
+            profileEditorSearchController = new ProfileEditorSearchController(
+                profileSettingsTabCon, axisConfigSectionExpander,
+                touchpadSectionExpander, gyroSectionExpander,
+                profileSettingsSearchPopup, profileSettingsSearchStatusText,
+                NavigateFromSearch);
+            profileSettingsSearchResultsList.ItemsSource =
+                profileEditorSearchController.Results;
 
             deviceNum = device;
             triggerPreviewDeviceIndex = controllerContextDevice >= 0 &&
@@ -1700,6 +1709,61 @@ namespace DS4WinWPF.DS4Forms
         private void ProfileNameTxt_TextChanged(object sender, TextChangedEventArgs e)
         {
             ProfileNameChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void ProfileEditor_Loaded(object sender, RoutedEventArgs e)
+        {
+            profileEditorSearchController.EnsureIndexed();
+        }
+
+        private void ProfileEditor_Unloaded(object sender, RoutedEventArgs e)
+        {
+            profileEditorSearchController.ClearHighlight();
+        }
+
+        private void ProfileSettingsSearchBox_TextChanged(object sender,
+            TextChangedEventArgs e)
+        {
+            profileSettingsSearchResultsList.SelectedItem = null;
+            profileEditorSearchController.UpdateResults(
+                profileSettingsSearchBox.Text);
+        }
+
+        private void ProfileSettingsSearchBox_PreviewKeyDown(object sender,
+            System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && profileEditorSearchController.OpenFirst())
+            {
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                profileEditorSearchController.ClosePopup();
+                e.Handled = true;
+            }
+        }
+
+        private void ProfileSettingsSearchResultsList_SelectionChanged(
+            object sender, SelectionChangedEventArgs e)
+        {
+            if (profileSettingsSearchResultsList.SelectedItem is
+                ProfileEditorSearchEntry result)
+            {
+                profileEditorSearchController.Open(result);
+                profileSettingsSearchResultsList.SelectedItem = null;
+            }
+        }
+
+        private void NavigateFromSearch(int navigationIndex)
+        {
+            if (NavigationRequested != null)
+            {
+                NavigationRequested(navigationIndex);
+            }
+            else
+            {
+                SelectWorkspaceSection(navigationIndex - 1);
+            }
         }
 
         public void Reload(int device, ProfileEntity profile = null, bool profileAlreadyLoaded = false)

@@ -88,6 +88,27 @@ namespace DS4WindowsTests
     }
 
     [TestClass]
+    public class ProfileEditorSearchIndexTests
+    {
+        [TestMethod]
+        public void LabelSearchMapsToSectionAndMissIsEmpty()
+        {
+            object axisTarget = new();
+            ProfileEditorSearchIndex index = new();
+            index.Add("Dead Zone:", "Axis Config", axisTarget);
+            index.Add("Gyro sensitivity", "Gyro", new object());
+
+            IReadOnlyList<ProfileEditorSearchEntry> match =
+                index.Search("dead zone");
+            Assert.AreEqual(1, match.Count);
+            Assert.AreEqual("Dead Zone", match[0].Label);
+            Assert.AreEqual("Axis Config", match[0].SectionName);
+            Assert.AreSame(axisTarget, match[0].Target);
+            Assert.AreEqual(0, index.Search("not a setting").Count);
+        }
+    }
+
+    [TestClass]
     public class ProfileEditorContractTests
     {
         private static readonly XNamespace Presentation =
@@ -125,6 +146,36 @@ namespace DS4WindowsTests
                         ?.Contains("BridgeSectionDescriptionStyle",
                             StringComparison.Ordinal) == true));
             }
+        }
+
+        [TestMethod]
+        public void SearchUsesRuntimeLabelsAndThemeResourceHighlighting()
+        {
+            XDocument document = XDocument.Load(SourcePath("DS4Windows",
+                "DS4Forms", "ProfileEditor.xaml"));
+            XElement searchBox = document.Descendants(
+                    Presentation + "TextBox")
+                .Single(element =>
+                    (string)element.Attribute(Xaml + "Name") ==
+                    "profileSettingsSearchBox");
+            Assert.AreEqual("ProfileSettingsSearchBox_TextChanged",
+                (string)searchBox.Attribute("TextChanged"));
+
+            string searchController = File.ReadAllText(SourcePath(
+                "DS4Windows", "DS4Forms",
+                "ProfileEditorSearchController.cs"));
+            StringAssert.Contains(searchController,
+                "LogicalTreeHelper.GetChildren(current)");
+            StringAssert.Contains(searchController, "TryGetSearchLabel");
+
+            string highlighter = File.ReadAllText(SourcePath("DS4Windows",
+                "DS4Forms", "ProfileEditorSearchHighlighter.cs"));
+            StringAssert.Contains(highlighter,
+                "SetResourceReference(Border.BorderBrushProperty");
+            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(
+                highlighter,
+                @"(?:Background|Foreground|BorderBrush)\s*=\s*""#[0-9A-Fa-f]"),
+                "Search highlighting must not hardcode colours.");
         }
 
         private static string SourcePath(params string[] parts) =>

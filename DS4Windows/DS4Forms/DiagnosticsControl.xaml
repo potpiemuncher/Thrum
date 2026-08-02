@@ -1,0 +1,97 @@
+<UserControl x:Class="DS4WinWPF.DS4Forms.DiagnosticsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="720" d:DesignWidth="940"
+             Loaded="DiagnosticsControl_Loaded">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto"
+                  Background="{DynamicResource SurfaceBackgroundColor}">
+        <StackPanel Margin="4,8,14,8" MaxWidth="920"
+                    HorizontalAlignment="Left">
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Diagnostics" FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ForegroundColor}" />
+                    <TextBlock Text="A read-only snapshot for troubleshooting. Slow Windows and backend reads run in the background; collecting does not install, start, stop, attach, or change anything."
+                               Style="{StaticResource BridgeSectionDescriptionStyle}"
+                               Margin="0,5,20,0" MaxWidth="680" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            VerticalAlignment="Top">
+                    <Button Content="Refresh" Margin="0,0,8,0"
+                            Style="{StaticResource BridgeSecondaryButtonStyle}"
+                            IsEnabled="{Binding CanRefresh}"
+                            Click="RefreshButton_Click"
+                            ToolTip="Collect a new read-only snapshot" />
+                    <Button Content="Copy full report"
+                            Style="{StaticResource BridgePrimaryButtonStyle}"
+                            IsEnabled="{Binding CanCopy}"
+                            Click="CopyReportButton_Click"
+                            ToolTip="Copy the redacted text report to the clipboard" />
+                </StackPanel>
+            </Grid>
+
+            <ProgressBar Height="4" Margin="0,0,0,9"
+                         IsIndeterminate="True"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <TextBlock Text="{Binding StatusText}" FontSize="11"
+                       Foreground="{DynamicResource MutedForegroundColor}"
+                       Margin="0,0,0,3" />
+            <TextBlock Text="{Binding CopyStatusText}" FontSize="11"
+                       Foreground="{DynamicResource AccentColor}"
+                       Margin="0,0,0,12" />
+
+            <!--
+                Six cards remain in the visual tree for every state. A source
+                failure replaces that card's content with "Could not read";
+                it never falls through to an empty success template.
+            -->
+            <ItemsControl ItemsSource="{Binding Sections}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource BridgeCardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{StaticResource BridgeSectionTitleStyle}"
+                                               Margin="0,0,14,4" />
+                                    <Border Grid.Column="1"
+                                            Style="{StaticResource BridgeStatusBadgeStyle}">
+                                        <TextBlock Text="{Binding BadgeText}"
+                                                   Style="{StaticResource BridgeStatusBadgeTextStyle}" />
+                                    </Border>
+                                </Grid>
+                                <TextBlock Text="{Binding Description}"
+                                           Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                                <ItemsControl ItemsSource="{Binding Lines}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"
+                                                       Style="{StaticResource BridgeCardListItemStyle}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

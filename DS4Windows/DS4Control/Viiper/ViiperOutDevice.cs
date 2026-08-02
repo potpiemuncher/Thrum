@@ -245,6 +245,16 @@ namespace DS4Windows
             microphoneDisableRetries =
                 new MicrophoneDisableRetryTracker<DS4Device>();
         private readonly ViiperFeedbackDispatchBuffer feedbackDispatchBuffer;
+
+        /// <summary>
+        /// Read-only access to the dispatch counters used by diagnostics.
+        /// Reading the counters through the buffer's Interlocked-backed
+        /// properties does not take its real-time audio lock or alter the
+        /// queue.
+        /// </summary>
+        internal ViiperFeedbackDispatchBuffer FeedbackDispatchBuffer =>
+            feedbackDispatchBuffer;
+
         private ViiperDeviceStream deviceStream;
         private Thread feedbackThread;
         private Thread feedbackSpeakerDispatchThread;

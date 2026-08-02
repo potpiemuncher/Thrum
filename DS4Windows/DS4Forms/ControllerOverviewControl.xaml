@@ -232,8 +232,11 @@
                             <TextBlock Text="BATTERY" Style="{StaticResource OverviewEyebrowStyle}"
                                        HorizontalAlignment="Right" />
                             <TextBlock Text="{Binding SelectedControllerBattery}" Margin="0,5,0,0"
-                                       FontSize="20" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SuccessColor}" HorizontalAlignment="Right" />
+                                        FontSize="20" FontWeight="SemiBold"
+                                        Foreground="{DynamicResource SuccessColor}" HorizontalAlignment="Right" />
+                            <TextBlock Text="{Binding SelectedControllerChargingState}"
+                                       Margin="0,3,0,0" HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource MutedForegroundColor}" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -245,6 +248,9 @@
                             <TextBlock Text="{Binding SelectedControllerConnection}" Margin="0,11,0,3"
                                        Style="{StaticResource OverviewValueStyle}" />
                             <TextBlock Text="{Binding SelectedControllerLatency, StringFormat=Input latency {0}}"
+                                        Foreground="{DynamicResource MutedForegroundColor}" />
+                            <TextBlock Text="{Binding SelectedControllerAccessStatus}"
+                                       TextWrapping="Wrap"
                                        Foreground="{DynamicResource MutedForegroundColor}" />
                         </StackPanel>
                     </Border>
@@ -252,8 +258,13 @@
                     <Border Style="{StaticResource OverviewCardStyle}" Width="218" MinHeight="112" Margin="6">
                         <StackPanel>
                             <TextBlock Text="ACTIVE PROFILE" Style="{StaticResource OverviewEyebrowStyle}" />
-                            <TextBlock Text="{Binding CurrentProfileName}" Margin="0,11,0,3"
-                                       Style="{StaticResource OverviewValueStyle}" />
+                            <ComboBox x:Name="ActiveProfileComboBox"
+                                      ItemsSource="{Binding SelectedController.ProfileListCol}"
+                                      DisplayMemberPath="Name"
+                                      SelectedIndex="{Binding SelectedController.SelectedIndex, Mode=TwoWay}"
+                                      Style="{StaticResource BridgeProfileComboBoxStyle}"
+                                      HorizontalAlignment="Left" Margin="0,8,0,5"
+                                      SelectionChanged="ActiveProfileComboBox_SelectionChanged" />
                              <TextBlock Text="Settings below save to this profile"
                                         TextWrapping="Wrap"
                                        Foreground="{DynamicResource MutedForegroundColor}" />
@@ -457,6 +468,11 @@
                             <Button Content="Controller details" Margin="0,0,8,0"
                                     Style="{StaticResource BridgeSecondaryButtonStyle}"
                                     Click="ControllerDetailsBtn_Click" />
+                            <Button x:Name="IdentifyControllerButton" Content="Identify" Margin="0,0,8,0"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    Visibility="{Binding SelectedController.SupportsLightbar, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    ToolTip="Briefly flashes the physical controller lightbar, then restores its current lightbar state"
+                                    Click="IdentifyControllerBtn_Click" />
                             <Button Content="Lightbar controls" Margin="0,0,8,0"
                                     Style="{StaticResource BridgeSecondaryButtonStyle}"
                                     ToolTip="Use profile lightbar controls or choose a temporary custom color"

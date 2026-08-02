@@ -32,6 +32,12 @@ using DS4Windows.InputDevices;
 
 namespace DS4WinWPF.DS4Forms.ViewModels
 {
+    internal static class ControllerCardStatusFormatter
+    {
+        internal static string ChargingState(bool charging) =>
+            charging ? "Charging" : "On battery";
+    }
+
     public class ControllerListViewModel
     {
         //private object _colLockobj = new object();
@@ -215,6 +221,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         private ProfileEntity selectedEntity;
         private int selectedIndex = -1;
         private int devIndex;
+        private bool identifyInProgress;
 
         public bool IsSynchronizingRuntimeProfile { get; private set; }
 
@@ -258,6 +265,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public bool SupportsControllerAudio =>
             UiCapabilities.SupportsControllerAudio;
+        public bool SupportsLightbar => UiCapabilities.SupportsLightbar;
+        public bool UsesDualSenseHapticPowerLevels =>
+            UiCapabilities.UsesDualSenseHapticPowerLevels;
         public ProfileList ProfileEntities { get => profileListHolder; set => profileListHolder = value; }
         public ObservableCollection<ProfileEntity> ProfileListCol => profileListHolder.ProfileListCol;
 
@@ -299,6 +309,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
         }
         public event EventHandler BatteryStateChanged;
+
+        public string ChargingState =>
+            ControllerCardStatusFormatter.ChargingState(device.Charging);
+        public event EventHandler ChargingStateChanged;
 
         public bool HasControllerArtwork => UiCapabilities.HasControllerArtwork;
 
@@ -470,7 +484,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             this.device = device;
             uiCapabilities = ControllerUiCapabilities.ForDevice(device);
             device.BatteryChanged += (sender, e) => BatteryStateChanged?.Invoke(this, e);
-            device.ChargingChanged += (sender, e) => BatteryStateChanged?.Invoke(this, e);
+            device.ChargingChanged += (sender, e) =>
+            {
+                BatteryStateChanged?.Invoke(this, e);
+                ChargingStateChanged?.Invoke(this, e);
+            };
             device.MacAddressChanged += (sender, e) => IdTextChanged?.Invoke(this, e);
             this.devIndex = devIndex;
             this.selectedProfile = profile;
@@ -729,6 +747,33 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 {
                     device.DisconnectDongle();
                 }
+            }
+        }
+
+        public async Task IdentifyLightbarAsync()
+        {
+            // Keep the capability check at the action boundary as well as in
+            // XAML so automation cannot force output data onto a pad without
+            // a writable lightbar. One live lease also prevents repeated
+            // clicks from capturing the identify flash as the prior state.
+            if (!SupportsLightbar || identifyInProgress)
+            {
+                return;
+            }
+
+            identifyInProgress = true;
+            ControllerLightbarIdentify lease =
+                ControllerLightbarIdentify.Begin(devIndex);
+            try
+            {
+                await Task.Delay(ControllerLightbarIdentify.Duration);
+            }
+            finally
+            {
+                // The lease restores the prior forced state only if no newer
+                // lightbar effect has replaced this flash in the meantime.
+                lease.Restore();
+                identifyInProgress = false;
             }
         }
     }

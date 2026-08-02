@@ -43,6 +43,47 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void HapticStorageFormatIsSelectedByCapabilityPolicy()
+        {
+            ControllerUiCapabilities dualSense =
+                ControllerUiCapabilities.For(InputDeviceType.DualSense);
+            ControllerUiCapabilities dualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4);
+
+            Assert.IsTrue(dualSense.UsesDualSenseHapticPowerLevels);
+            Assert.IsFalse(dualShock4.UsesDualSenseHapticPowerLevels);
+        }
+
+        [TestMethod]
+        public void LightbarActionsRequireWritablePlayStationLightbar()
+        {
+            ControllerUiCapabilities dualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4);
+            ControllerUiCapabilities dualSense =
+                ControllerUiCapabilities.For(InputDeviceType.DualSense);
+            ControllerUiCapabilities noOutputDualShock4 =
+                ControllerUiCapabilities.For(InputDeviceType.DS4,
+                    ConnectionType.USB, 0x0F0D, 0x00EE,
+                    VidPidFeatureSet.NoOutputData);
+            ControllerUiCapabilities switchPro =
+                ControllerUiCapabilities.For(InputDeviceType.SwitchPro);
+
+            Assert.IsTrue(dualShock4.SupportsLightbar);
+            Assert.IsTrue(dualSense.SupportsLightbar);
+            Assert.IsFalse(noOutputDualShock4.SupportsLightbar);
+            Assert.IsFalse(switchPro.SupportsLightbar);
+        }
+
+        [TestMethod]
+        public void ControllerCardChargingStateIsReadableAtAGlance()
+        {
+            Assert.AreEqual("Charging",
+                ControllerCardStatusFormatter.ChargingState(true));
+            Assert.AreEqual("On battery",
+                ControllerCardStatusFormatter.ChargingState(false));
+        }
+
+        [TestMethod]
         public void OfflineProfileEditingKeepsCompleteBackendSurfaceAvailable()
         {
             ControllerUiCapabilities capabilities =

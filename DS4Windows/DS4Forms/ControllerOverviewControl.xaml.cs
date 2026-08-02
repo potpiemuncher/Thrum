@@ -14,6 +14,16 @@ using System.Windows.Controls;
 
 namespace DS4WinWPF.DS4Forms
 {
+    public sealed class OverviewProfileSelectionChangedEventArgs : EventArgs
+    {
+        public OverviewProfileSelectionChangedEventArgs(int selectedIndex)
+        {
+            SelectedIndex = selectedIndex;
+        }
+
+        public int SelectedIndex { get; }
+    }
+
     public partial class ControllerOverviewControl : UserControl
     {
         public ControllerOverviewControl()
@@ -22,15 +32,37 @@ namespace DS4WinWPF.DS4Forms
         }
 
         public event EventHandler EditProfileRequested;
+        public event EventHandler<OverviewProfileSelectionChangedEventArgs>
+            ActiveProfileChangedRequested;
         public event EventHandler ControllerDetailsRequested;
+        public event EventHandler IdentifyRequested;
         public event EventHandler LightbarRequested;
         public event EventHandler DisconnectRequested;
 
         private void EditProfileBtn_Click(object sender, RoutedEventArgs e) =>
             EditProfileRequested?.Invoke(this, EventArgs.Empty);
 
+        private void ActiveProfileComboBox_SelectionChanged(object sender,
+            SelectionChangedEventArgs e)
+        {
+            // Runtime profile synchronization also updates this binding. Only
+            // a focused user interaction should request another profile load.
+            if (!ActiveProfileComboBox.IsKeyboardFocusWithin)
+            {
+                return;
+            }
+
+            ActiveProfileChangedRequested?.Invoke(this,
+                new OverviewProfileSelectionChangedEventArgs(
+                    ActiveProfileComboBox.SelectedIndex));
+        }
+
         private void ControllerDetailsBtn_Click(object sender, RoutedEventArgs e) =>
             ControllerDetailsRequested?.Invoke(this, EventArgs.Empty);
+
+        private void IdentifyControllerBtn_Click(object sender,
+            RoutedEventArgs e) =>
+            IdentifyRequested?.Invoke(this, EventArgs.Empty);
 
         private void LightbarBtn_Click(object sender, RoutedEventArgs e) =>
             LightbarRequested?.Invoke(this, EventArgs.Empty);

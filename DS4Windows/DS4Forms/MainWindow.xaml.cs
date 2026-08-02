@@ -1123,11 +1123,46 @@ Suspend support not enabled.", true);
             }
         }
 
+        private void ControllerOverview_ActiveProfileChangedRequested(
+            object sender, OverviewProfileSelectionChangedEventArgs e)
+        {
+            CompositeDeviceModel controller = mainWinVM.SelectedController;
+            // A controller can disappear while the drop-down is open, and a
+            // runtime synchronization must never recursively reload a profile.
+            if (controller == null ||
+                controller.IsSynchronizingRuntimeProfile ||
+                e.SelectedIndex < 0 ||
+                e.SelectedIndex >= controller.ProfileListCol.Count)
+            {
+                return;
+            }
+
+            controller.SelectedIndex = e.SelectedIndex;
+            FlushOverviewQuickSettings(controller.DevIndex, false);
+            controller.ChangeSelectedProfile();
+            mainWinVM.RefreshRuntimeState(App.rootHub);
+            trayIconVM.PopulateContextMenu();
+        }
+
         private void ControllerOverview_ControllerDetailsRequested(object sender, EventArgs e)
         {
             mainTabCon.SelectedItem = controllersTab;
             controllerLV.SelectedItem = mainWinVM.SelectedController;
             controllerLV.ScrollIntoView(mainWinVM.SelectedController);
+        }
+
+        private async void ControllerOverview_IdentifyRequested(object sender,
+            EventArgs e)
+        {
+            CompositeDeviceModel controller = mainWinVM.SelectedController;
+            // Selection may be cleared by a disconnect between rendering the
+            // capability-gated button and dispatching its click.
+            if (controller == null)
+            {
+                return;
+            }
+
+            await controller.IdentifyLightbarAsync();
         }
 
         private void ControllerOverview_LightbarRequested(object sender, EventArgs e)

@@ -69,9 +69,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         internal bool IsPlayStationController { get; }
         internal bool IsDualShock4 => DeviceType == InputDeviceType.DS4;
         internal bool IsDualSense => DeviceType == InputDeviceType.DualSense;
+        internal bool UsesDualSenseHapticPowerLevels => IsDualSense;
         internal ConnectionType? ConnectionType { get; private set; }
         internal int? VendorId { get; private set; }
         internal int? ProductId { get; private set; }
+        internal VidPidFeatureSet FeatureSet { get; private set; }
         internal bool PhysicalIdentityKnown { get; private set; }
         internal bool ShowControllerAudioSettings { get; }
         internal bool ShowDualSenseHardwareControls { get; }
@@ -82,6 +84,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         internal bool SupportsAdaptiveTriggers => DeviceType == null || IsDualSense;
         internal bool SupportsAdvancedHaptics => DeviceType == null || IsDualSense;
         internal bool SupportsMuteButton => DeviceType == null || IsDualSense;
+        // NoOutputData is stronger evidence than the nominal device family:
+        // several DS4-compatible pads cannot accept lightbar writes at all.
+        internal bool SupportsLightbar =>
+            (IsDualShock4 || IsDualSense) &&
+            !FeatureSet.HasFlag(VidPidFeatureSet.NoOutputData);
         internal string FeedbackLabel { get; }
         internal string AudioHeader { get; }
         internal string AudioDescription { get; }
@@ -250,12 +257,13 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             int? vendorId = device.HidDevice?.Attributes?.VendorId;
             int? productId = device.HidDevice?.Attributes?.ProductId;
             return For(device.DeviceType, device.ConnectionType, vendorId,
-                productId, physicalIdentityKnown: true);
+                productId, device.FeatureSet, physicalIdentityKnown: true);
         }
 
         internal static ControllerUiCapabilities For(InputDeviceType? deviceType)
         {
             return For(deviceType, null, null, null,
+                VidPidFeatureSet.DefaultDS4,
                 physicalIdentityKnown: false);
         }
 
@@ -263,12 +271,21 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             ConnectionType? connectionType, int? vendorId, int? productId)
         {
             return For(deviceType, connectionType, vendorId, productId,
+                VidPidFeatureSet.DefaultDS4,
                 physicalIdentityKnown: true);
+        }
+
+        internal static ControllerUiCapabilities For(InputDeviceType? deviceType,
+            ConnectionType? connectionType, int? vendorId, int? productId,
+            VidPidFeatureSet featureSet)
+        {
+            return For(deviceType, connectionType, vendorId, productId,
+                featureSet, physicalIdentityKnown: true);
         }
 
         private static ControllerUiCapabilities For(InputDeviceType? deviceType,
             ConnectionType? connectionType, int? vendorId, int? productId,
-            bool physicalIdentityKnown)
+            VidPidFeatureSet featureSet, bool physicalIdentityKnown)
         {
             ControllerUiCapabilities capabilities = deviceType switch
             {
@@ -375,6 +392,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             capabilities.ConnectionType = connectionType;
             capabilities.VendorId = vendorId;
             capabilities.ProductId = productId;
+            capabilities.FeatureSet = featureSet;
             capabilities.PhysicalIdentityKnown = physicalIdentityKnown;
             return capabilities;
         }

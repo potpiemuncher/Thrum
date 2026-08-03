@@ -39,6 +39,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public string Name { get; }
         public OutContType Type { get; }
+
+        // Bound into a selector by display path, so UI Automation reports
+        // ToString(); without this the Overview output list announced this
+        // class's own type name for every entry. Same defect as #57.
+        public override string ToString() => Name;
     }
 
     public sealed class QuickProfileSettingChangedEventArgs : EventArgs

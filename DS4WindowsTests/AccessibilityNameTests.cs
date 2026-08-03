@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
@@ -49,6 +50,12 @@ public class AccessibilityNameTests
         DisplayBoundItemTypes =
         {
             ("AudioSourceChoice", "DisplayName"),
+
+            // Both found by sweeping a live UIA dump of all nine pages for
+            // the app's own namespace while fixing #62 - the same defect #57
+            // described, still present in two more lists.
+            ("OverviewOutputControllerChoice", "Name"),
+            ("FullPullModeChoice", "Name"),
         };
 
     [TestMethod]
@@ -80,10 +87,29 @@ public class AccessibilityNameTests
                 "the entries apart. Override ToString() to return " +
                 displayProperty + ".");
 
-            // And it must actually return the display text, not something else.
-            object instance = Activator.CreateInstance(type, nonPublic: true);
-            display.SetValue(instance, "Speakers (Test Device)");
-            Assert.AreEqual("Speakers (Test Device)", instance.ToString(),
+            // And it must actually return the display text, not something
+            // else. Built without running a constructor and written through
+            // the backing field where needed, so this works for types with
+            // required constructor arguments and get-only properties too.
+            object instance = RuntimeHelpers.GetUninitializedObject(type);
+            const string probe = "Speakers (Test Device)";
+            if (display.CanWrite)
+            {
+                display.SetValue(instance, probe);
+            }
+            else
+            {
+                FieldInfo backing = type.GetField(
+                    "<" + displayProperty + ">k__BackingField",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.IsNotNull(backing,
+                    typeName + "." + displayProperty + " is read-only and " +
+                    "has no auto-property backing field, so this guard " +
+                    "cannot set it - adjust the guard.");
+                backing.SetValue(instance, probe);
+            }
+
+            Assert.AreEqual(probe, instance.ToString(),
                 typeName + ".ToString() does not return " + displayProperty +
                 ".");
         }

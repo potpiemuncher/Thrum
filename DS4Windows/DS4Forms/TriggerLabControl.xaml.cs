@@ -224,6 +224,8 @@ namespace DS4WinWPF.DS4Forms
                 // controller happened to be connected.
                 profileHeaderRow.IsEnabled = available;
                 profileSidesRow.IsEnabled = available;
+                saveLeftUserPresetButton.IsEnabled = available;
+                saveRightUserPresetButton.IsEnabled = available;
                 IsEnabled = true;
                 if (!available)
                 {

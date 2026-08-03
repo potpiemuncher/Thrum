@@ -18,8 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace DS4WindowsTests;
 
@@ -82,5 +85,97 @@ public class AccessibilityNameTests
                 typeName + ".ToString() does not return " + displayProperty +
                 ".");
         }
+    }
+
+    /// <summary>
+    /// The same defect one level up: a <c>ContentControl</c> or
+    /// <c>ContentPresenter</c> whose <c>Content</c> is bound to a data object
+    /// names itself from that object's <c>ToString()</c>, so the container for
+    /// a whole page of content announces a view-model type name.
+    ///
+    /// <para>The first-run wizard's step host did exactly that - a screen
+    /// reader met "FirstRunWelcomeStepViewModel" as the name of the first thing
+    /// a new user sees (#62). Unlike #57 the fix belongs on the host, not on
+    /// every view-model, so this checks the XAML rather than the types.</para>
+    /// </summary>
+    [TestMethod]
+    public void ContentHostsBoundToDataObjectsCarryAnAccessibleName()
+    {
+        Regex host = new(
+            @"<(?<tag>ContentControl|ContentPresenter)\b(?<attrs>[^>]*?)/?>",
+            RegexOptions.Singleline);
+
+        // A binding with an explicit property path - Content="{Binding Foo}".
+        Regex boundContent = new(
+            @"Content\s*=\s*""(?<binding>\{\s*Binding[^""]*)""");
+
+        List<string> unnamed = new();
+        int inspected = 0;
+
+        foreach (string file in Directory.GetFiles(
+            Path.Combine(FindRepositoryRoot(), "DS4Windows", "DS4Forms"),
+            "*.xaml", SearchOption.AllDirectories))
+        {
+            string xaml = File.ReadAllText(file);
+            foreach (Match match in host.Matches(xaml))
+            {
+                string attrs = match.Groups["attrs"].Value;
+                Match content = boundContent.Match(attrs);
+                if (!content.Success)
+                {
+                    continue;
+                }
+
+                string binding = content.Groups["binding"].Value;
+
+                // Template plumbing, not a defect: with {TemplateBinding},
+                // {RelativeSource TemplatedParent} or a path-less {Binding},
+                // the content comes from whatever uses the template or from
+                // the item being presented. The name belongs to that consumer
+                // or to the item peer (which #57 covers), not here.
+                if (binding.Contains("RelativeSource") ||
+                    !Regex.IsMatch(binding, @"\{\s*Binding\s+(Path\s*=\s*)?[A-Za-z_]"))
+                {
+                    continue;
+                }
+
+                inspected++;
+                if (!attrs.Contains("AutomationProperties.Name") &&
+                    !attrs.Contains("AutomationProperties.LabeledBy"))
+                {
+                    unnamed.Add(Path.GetFileName(file) + ": " +
+                        match.Value.Trim());
+                }
+            }
+        }
+
+        Assert.IsTrue(inspected >= 1,
+            "Found no ContentControl/ContentPresenter with a bound Content, " +
+            "so this guard inspected nothing. Either the pattern moved or the " +
+            "regex stopped matching - fix it rather than letting it pass on " +
+            "an empty set.");
+
+        Assert.AreEqual(0, unnamed.Count,
+            "These content hosts are bound to a data object and have no " +
+            "AutomationProperties.Name or LabeledBy, so UI Automation names " +
+            "them from the bound object's ToString() - typically its type " +
+            "name:\n  " + string.Join("\n  ", unnamed));
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo directory = new(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName,
+                "DS4WindowsWPF.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Repository root not found.");
     }
 }

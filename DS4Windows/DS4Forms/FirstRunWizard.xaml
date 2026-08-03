@@ -229,7 +229,16 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       KeyboardNavigation.TabNavigation="Continue">
-            <ContentControl Content="{Binding CurrentStep}" />
+            <!--
+                The Name is required, not decoration. A ContentControl bound to
+                a data object takes its accessible name from Content.ToString(),
+                so this announced "FirstRunWelcomeStepViewModel" as the name of
+                the whole step body - the first thing a new user meets (#62).
+                A fixed region name rather than the step title, which the
+                heading immediately above already announces.
+            -->
+            <ContentControl Content="{Binding CurrentStep}"
+                            AutomationProperties.Name="Setup step content" />
         </ScrollViewer>
 
         <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">

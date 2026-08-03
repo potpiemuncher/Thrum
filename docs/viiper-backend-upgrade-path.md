@@ -47,6 +47,34 @@ attach ABI, startup gating on that ABI, and release-workflow fixes that produce
 the correct embedded stamp. The v0.0.6 release note saying "No changes" is not
 an accurate description of the artifact delta.
 
+## PadSense V5 transport compatibility
+
+Thrum negotiates the v0.0.6 PadSense personas first:
+`dualsensecombinedaudioduplexv5`, `dualsenseaudioonlyduplexv5`, and
+`dualsenseedgecombinedaudioduplexv5`. These streams use VPCM frame version 5,
+474-byte feedback, 1,920-byte microphone PCM, and atomic feedback-plus-speaker
+generations. The older V4, V3, V2, and HID-only names remain as fallbacks for
+older backends.
+
+This was validated in `Win 11 25H2 Test ENV` from checkpoint
+`viiper-006-installer-validated-20260803`, with VIIPER 0.0.6 and usbip-win2
+0.9.7.7. The pre-fix build exhausted its legacy names and received
+`400 Bad Request: unknown device type`. The V5-first build created an explicit
+virtual DualSense through Thrum's Output Slots UI. Independent checks showed:
+
+- API type `dualsensecombinedaudioduplexv5`, VID/PID `054c:0ce6`, and an active
+  speaker stream across two censuses 30 seconds apart;
+- a live `usbip://localhost:3241/1-1` import;
+- the HID game-controller, composite USB, media, speaker, and microphone
+  interfaces present and healthy; and
+- a clean Unplug: no VIIPER buses, no usbip import, no present DualSense PnP
+  devices, and a still-running backend and usbip service.
+
+The VM had no physical controller passed through. This proves V5 negotiation,
+stream ownership, attach/enumeration, audio-interface creation, stability, and
+teardown; it does not claim physical input, motor feedback, or non-zero audio
+payload validation. Those three checks remain a maintainer hardware pass.
+
 ## Profile migration
 
 The retired serialized values `X360` and `DS4` remain readable solely for

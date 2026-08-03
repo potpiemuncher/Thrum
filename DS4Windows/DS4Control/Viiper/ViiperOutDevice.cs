@@ -155,6 +155,7 @@ namespace DS4Windows
         private const byte ViiperStreamFrameVersionV2 = 0x02;
         private const byte ViiperStreamFrameVersionV3 = 0x03;
         private const byte ViiperStreamFrameVersionV4 = 0x04;
+        private const byte ViiperStreamFrameVersionV5 = 0x05;
         private const byte FeedbackSpeakerKindPcm = 0;
         private const byte FeedbackSpeakerKindAtomicAudioHaptics = 1;
         private const int AtomicAudioHapticsFeedbackLengthPrefix = 2;
@@ -838,6 +839,26 @@ namespace DS4Windows
                     try
                     {
                         ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
+                            "dualsenseaudioonlyduplexv5");
+                        activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                        activeStreamUsesFramedProtocol = true;
+                        activeStreamSupportsMicrophone = true;
+                        activeStreamSupportsDirectSpeaker = true;
+                        activeStreamSupportsAtomicAudioHaptics = true;
+                        activeStreamUsesAudioOnlyDescriptor = true;
+                        activeStreamFrameVersion = ViiperStreamFrameVersionV5;
+                        return stream;
+                    }
+                    catch (IOException ex)
+                    {
+                        AppLogger.LogToGui(
+                            $"VIIPER DualSense audio-only sidecar V5 unavailable, trying V4: {ex.Message}",
+                            false);
+                    }
+
+                    try
+                    {
+                        ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
                             "dualsenseaudioonlyduplexv4");
                         activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
                         activeStreamUsesFramedProtocol = true;
@@ -881,6 +902,25 @@ namespace DS4Windows
                 if (!audio)
                 {
                     return CreateDualSenseHidOnlyStream();
+                }
+
+                try
+                {
+                    ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
+                        "dualsensecombinedaudioduplexv5");
+                    activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                    activeStreamUsesFramedProtocol = true;
+                    activeStreamSupportsMicrophone = true;
+                    activeStreamSupportsDirectSpeaker = true;
+                    activeStreamSupportsAtomicAudioHaptics = true;
+                    activeStreamFrameVersion = ViiperStreamFrameVersionV5;
+                    return stream;
+                }
+                catch (IOException ex)
+                {
+                    AppLogger.LogToGui(
+                        $"VIIPER DualSense PadSense V5 stream unavailable, trying V4: {ex.Message}",
+                        false);
                 }
 
                 try
@@ -942,6 +982,25 @@ namespace DS4Windows
                 if (!audio)
                 {
                     return CreateDualSenseEdgeHidOnlyStream();
+                }
+
+                try
+                {
+                    ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
+                        "dualsenseedgecombinedaudioduplexv5");
+                    activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                    activeStreamUsesFramedProtocol = true;
+                    activeStreamSupportsMicrophone = true;
+                    activeStreamSupportsDirectSpeaker = true;
+                    activeStreamSupportsAtomicAudioHaptics = true;
+                    activeStreamFrameVersion = ViiperStreamFrameVersionV5;
+                    return stream;
+                }
+                catch (IOException ex)
+                {
+                    AppLogger.LogToGui(
+                        $"VIIPER DualSense Edge PadSense V5 stream unavailable, trying V4: {ex.Message}",
+                        false);
                 }
 
                 try
@@ -5939,6 +5998,7 @@ namespace DS4Windows
         private const byte FrameVersionV2 = 0x02;
         private const byte FrameVersionV3 = 0x03;
         private const byte FrameVersionV4 = 0x04;
+        private const byte FrameVersionV5 = 0x05;
 
         public ViiperDeviceStream(TcpClient tcp, Stream stream,
             ViiperVirtualDeviceLifetime deviceLifetime)
@@ -5995,7 +6055,7 @@ namespace DS4Windows
                 throw new ArgumentOutOfRangeException(nameof(data));
             }
             if (version != FrameVersionV2 && version != FrameVersionV3 &&
-                version != FrameVersionV4)
+                version != FrameVersionV4 && version != FrameVersionV5)
             {
                 throw new ArgumentOutOfRangeException(nameof(version));
             }

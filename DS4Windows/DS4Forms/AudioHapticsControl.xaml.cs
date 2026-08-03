@@ -33,6 +33,18 @@ namespace DS4WinWPF.DS4Forms
             public string ProcessPath { get; init; } = string.Empty;
             public string SessionIdentifier { get; init; } = string.Empty;
             public string SessionInstanceIdentifier { get; init; } = string.Empty;
+
+            /// <summary>
+            /// The combo renders these through DisplayMemberPath, which is a
+            /// purely visual binding: UI Automation falls back to ToString()
+            /// and would otherwise report the type name for every entry, so a
+            /// screen reader heard "AudioSourceChoice" twenty times and could
+            /// not tell the sources apart (found on hardware, issue #57).
+            /// </summary>
+            public override string ToString() =>
+                string.IsNullOrWhiteSpace(DisplayName)
+                    ? base.ToString()
+                    : DisplayName;
         }
 
         private int deviceIndex = -1;

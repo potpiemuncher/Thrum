@@ -10,6 +10,7 @@
         lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
         lex:ResxLocalizationProvider.DefaultDictionary="Strings"
         xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
+        xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
         xmlns:localConverters="clr-namespace:DS4WinWPF.DS4Forms.Converters"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
         xml:lang="en-US"
@@ -44,7 +45,7 @@
                 <Label x:Name="lastMsgLb" Content="{Binding Message}" ToolTip="{Binding Message}" Foreground="{Binding Color}" Margin="4,0,2,0" />
             </DockPanel>
         </StackPanel>
-        <TabControl x:Name="mainTabCon" DockPanel.Dock="Top" SelectionChanged="MainTabCon_SelectionChanged" Style="{StaticResource BridgeMainTabControlStyle}">
+        <controls:ContentHostTabControl x:Name="mainTabCon" DockPanel.Dock="Top" SelectionChanged="MainTabCon_SelectionChanged" Style="{StaticResource BridgeMainTabControlStyle}">
             <TabItem x:Name="overviewTab" Header="Overview" Tag="&#xE80F;" ToolTip="At-a-glance status and quick profile controls for the selected controller." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
                 <local:ControllerOverviewControl x:Name="controllerOverviewControl"
                                                  TestInputsRequested="ControllerOverview_TestInputsRequested"
@@ -1138,6 +1139,6 @@
                 </Grid>
             </TabItem>
 
-        </TabControl>
+        </controls:ContentHostTabControl>
     </DockPanel>
 </Window>

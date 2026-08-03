@@ -1,9 +1,9 @@
 ﻿<UserControl x:Class="DS4WinWPF.DS4Forms.RecordBox"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              xmlns:lex="clr-namespace:DS4WinWPF.DS4Forms.Localization"
              xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
              mc:Ignorable="d" 
@@ -16,13 +16,13 @@
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="EditTemplate">
-            <xctk:IntegerUpDown x:Name="waitIUD" Value="{Binding DisplayValue,UpdateSourceTrigger=Explicit}"
+            <controls:IntegerUpDown x:Name="waitIUD" Value="{Binding DisplayValue,UpdateSourceTrigger=Explicit}"
                                 KeyDown="WaitIUD_KeyDown" />
         </DataTemplate>
         <DataTemplate x:Key="EditRumbleTemplate">
             <StackPanel x:Name="rumbleEditPabel" Orientation="Horizontal">
-                <xctk:IntegerUpDown x:Name="heavyRumbleUD" Value="{Binding RumbleHeavy,UpdateSourceTrigger=Explicit}" Minimum="0" Maximum="255" />
-                <xctk:IntegerUpDown x:Name="lightRumbleUD" Value="{Binding RumbleLight,UpdateSourceTrigger=Explicit}" Minimum="0" Maximum="255" />
+                <controls:IntegerUpDown x:Name="heavyRumbleUD" Value="{Binding RumbleHeavy,UpdateSourceTrigger=Explicit}" Minimum="0" Maximum="255" />
+                <controls:IntegerUpDown x:Name="lightRumbleUD" Value="{Binding RumbleLight,UpdateSourceTrigger=Explicit}" Minimum="0" Maximum="255" />
             </StackPanel>
         </DataTemplate>
 

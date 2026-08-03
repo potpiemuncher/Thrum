@@ -894,7 +894,7 @@ Suspend support not enabled.", true);
         {
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = this;
-            dialog.colorPicker.SelectedColor = sender.CustomLightColor;
+            dialog.SelectedColor = sender.CustomLightColor;
             dialog.ColorChanged += (sender2, color) =>
             {
                 sender.UpdateCustomLightColor(color);

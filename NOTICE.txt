@@ -11,17 +11,16 @@ text in each vendored source tree, or the upstream project's own licence — not
 against secondary sources. The method and the evidence are recorded in
 docs/dev/third-party-audit.md.
 
-Three items could not be resolved to a clean licence grant. They are listed in
+Two items remain without a clean licence grant. They are listed in
 the UNRESOLVED section at the end of this file and are release-blocking. Do not
 publish a binary release while that section is non-empty without a deliberate,
 recorded decision about each item.
 
-As of 2026-08-03 all three carry such a decision, taken for the 0.9.0-beta.1
-release and written into their entries below: item 1 ships with a licence
-request outstanding, item 2 ships with replacement scheduled, item 3 ships with
-reasons stated. Recorded is not the same as resolved — every item stays listed
-until it is genuinely resolved, and a later release must re-examine each one
-rather than inherit these decisions by default.
+As of 2026-08-03 both carry a decision taken for the 0.9.0-beta.1 release and
+written into their entries below: item 1 ships with a licence request
+outstanding, and item 2 ships with reasons stated. Recorded is not the same as
+resolved — every item stays listed until it is genuinely resolved, and a later
+release must re-examine each one rather than inherit these decisions by default.
 
 Two files in the tree carry their own notices and are authoritative for what
 they cover; this file does not restate them:
@@ -80,11 +79,6 @@ BSD-3-Clause
         Copyright (c) Ookii Dialogs contributors
         https://github.com/ookii-dialogs/ookii-dialogs-wpf
 
-Microsoft Public License (Ms-PL)  ** SEE ITEM 2: PARTIALLY RESOLVED; ONE REPLACEMENT REMAINS **
-    DotNetProjects.Extended.Wpf.Toolkit 5.0.106
-        — DotNetProjects.Wpf.Extended.Toolkit.dll
-        https://github.com/dotnetprojects/WpfExtendedToolkit
-
 Published by Microsoft, MIT
     System.Management 7.0.2 — System.Management.dll
     System.Memory 4.5.5 — licence at https://github.com/dotnet/corefx/blob/master/LICENSE.TXT
@@ -121,7 +115,7 @@ MIT — vendored web asset
         project's npm dependencies, including React (MIT). The bundle is
         minified and carries no per-dependency licence manifest, so the full set
         of embedded packages cannot be enumerated from the artifact; one
-        embedded package declares ISC. See UNRESOLVED item 3 for the
+        embedded package declares ISC. See UNRESOLVED item 2 for the
         consequence. The C# port of the easing maths in
         DS4Windows/BezierCurveEditor/BezierCurve.cs carries its own MIT grant in
         its header and credits https://github.com/gre/bezier-easing.
@@ -229,34 +223,7 @@ UNRESOLVED — release-blocking
    that replacement ships. Anyone redistributing this release should be aware
    the wrapper's terms are unresolved.
 
-2. One Ms-PL component still ships inside a GPL-3.0 program.
-
-   DotNetProjects.Extended.Wpf.Toolkit is Microsoft Public License. The Free
-   Software Foundation states of Ms-PL: "This is a free software license; it
-   has a copyleft that is not strong, but incompatible with the GNU GPL."
-   (https://www.gnu.org/licenses/license-list.en.html)
-
-   Thrum is GPL-3.0-or-later and links this assembly, so this is a genuine
-   compatibility question rather than a paperwork gap. It is inherited from
-   upstream DS4Windows, which also ships the component, so the exposure is not
-   new — but it remains unresolved for a public release.
-
-   PARTIAL RESOLUTION (2026-08-03): issue #72 removed WPFLocalizeExtension and
-   its transitive XAMLMarkupExtensions assembly. Their runtime work is now done
-   by Thrum's clean-room GPL-3.0-or-later LocExtension; neither former package
-   is referenced or redistributed. A fresh self-contained win-x64 publish
-   contains zero copies of both localization DLLs, retains all 23 translation
-   satellites, and still contains DotNetProjects.Wpf.Extended.Toolkit.dll.
-
-   The first beta shipped all three Ms-PL assemblies transparently under the
-   maintainer decision recorded here. The remaining toolkit replacement is
-   tracked as project issue #71. Relicensing Thrum is not available as an
-   option: the GPL-3.0 licence is inherited from the DS4Windows lineage and its
-   copyright holders. The FSF-position summary above stands unchanged and is
-   not legal advice. Note that the Apache-2.0 components (SbcSharp, Crc32) are
-   fine — Apache-2.0 is GPLv3-compatible, though not GPLv2-compatible.
-
-3. Two vendored items cannot be fully enumerated or licensed.
+2. Two vendored items cannot be fully enumerated or licensed.
 
    a) DS4Windows/OneEuroFilter.cs carries no licence header. The 1€ filter
       authors' own page lists the C# implementation under "other implementations

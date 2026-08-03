@@ -4403,3 +4403,48 @@ warnings; the full x64 Release suite passes **1032/1032**. This is a managed
 load-time resource change with no driver, controller or VIIPER path, so it has
 no VM or hardware validation requirement. A normal app restart/UI smoke remains
 useful release validation but is not a source-level blocker for #72.
+
+## 2026-08-03 — Beta 2 dependency cleanup: issue #71
+
+The final Extended WPF Toolkit dependency is gone. Clean-room GPL in-house
+controls now cover the exact runtime surface Thrum used: integer, double,
+decimal, signed-byte and unsigned-integer numeric editors plus the split button.
+The replacement preserves the existing dependency-property names, value-change
+routing, formatting, ranges, increments, bindings, commands and dropdown
+behavior. Keyboard input and UI Automation are first-class: the numeric controls
+expose range/value patterns, while the split button exposes invoke and
+expand/collapse patterns with disabled-state enforcement.
+Review-driven regressions cover RecordBox Enter-key bubbling, stepping from
+freshly typed text, arrow-button keyboard routing and UIA value/range/expansion
+property-change notifications, type-correct unbounded UIA ranges, and the
+single intended editor tab stop.
+
+All audited application instances were migrated without changing their binding
+expressions: 53 integer, 92 double, 5 decimal, 4 signed-byte and 1 unsigned-
+integer editor, plus the one split button. The old Xceed namespaces, copied
+spinner-arrow geometries, toolkit templates and implicit styles were removed.
+The bridge theme now merges `InHouseControls.xaml`, whose styles use the existing
+dynamic theme resources and survive a default-to-dark theme switch in one
+`Application` instance.
+
+The toolkit color picker was also replaced with a Thrum-owned dialog containing
+RGB sliders, swatches, a preview and hexadecimal output. `SelectedColor` is now
+the dialog's public boundary; 17 external accesses through its former internal
+picker were removed while the existing live `ColorChanged` behavior was kept.
+Accessible names cover its interactive controls.
+
+The `DotNetProjects.Extended.Wpf.Toolkit` package reference and final Ms-PL
+NOTICE entry were removed, and the third-party audit now records the concrete
+replacement evidence. A fresh self-contained win-x64 publish contains 527 files,
+all 23 `Thrum.resources.dll` satellites and zero filenames matching
+`DotNetProjects`, `Extended.Toolkit`, `WPFLocalizeExtension` or
+`XAMLMarkupExtensions`. The restored transitive package graph contains zero
+matches for those former dependency families.
+
+Verification: the focused toolkit/theme/NOTICE/static-resource/profile set
+passes **21/21**; the no-incremental canonical x64 Release solution build
+completes with **0 errors** and the same 17 known warnings; the full x64 Release
+suite passes **1045/1045**. This is a managed UI replacement with no driver,
+controller or VIIPER path, so it has no VM or hardware validation requirement.
+A normal app/UI smoke remains useful release validation but is not a source-level
+blocker for #71.

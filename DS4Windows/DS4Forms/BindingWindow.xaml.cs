@@ -1226,7 +1226,7 @@ namespace DS4WinWPF.DS4Forms
             dialog.Owner = Application.Current.MainWindow;
             OutBinding actBind = bindingVM.ActionBinding;
             Color tempcolor = actBind.ExtrasColorMedia;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             bindingVM.StartForcedColor(tempcolor);
             dialog.ColorChanged += (sender2, color) =>
             {
@@ -1234,7 +1234,7 @@ namespace DS4WinWPF.DS4Forms
             };
             dialog.ShowDialog();
             bindingVM.EndForcedColor();
-            actBind.UpdateExtrasColor(dialog.colorPicker.SelectedColor.GetValueOrDefault());
+            actBind.UpdateExtrasColor(dialog.SelectedColor);
         }
 
         private void DefaultBtn_Click(object sender, RoutedEventArgs e)

@@ -29,7 +29,7 @@ public partial class LightbarMacroCreator : Window
             Owner = Application.Current.MainWindow
         };
         dialog.ShowDialog();
-        OutBinding.CurrentColor = dialog.colorPicker.SelectedColor.GetValueOrDefault();
+        OutBinding.CurrentColor = dialog.SelectedColor;
     }
 
     private void AddColor_OnClick(object sender, RoutedEventArgs e)

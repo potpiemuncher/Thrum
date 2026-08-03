@@ -4,7 +4,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:tb="http://www.hardcodet.net/taskbar"
-        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         xmlns:lex="clr-namespace:DS4WinWPF.DS4Forms.Localization"
         xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
         xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
@@ -154,15 +153,15 @@
                                                 Style="{StaticResource BridgeSecondaryButtonStyle}"
                                                 Tag="{Binding DevIndex, Mode=OneTime}"
                                                 Click="TestInputsBtn_Click" />
-                                        <xctk:SplitButton Grid.Column="3" x:Name="ProfEditSBtn" Content="{lex:Loc Edit}"
+                                        <controls:SplitButton Grid.Column="3" x:Name="ProfEditSBtn" Content="{lex:Loc Edit}"
                                                           MinWidth="84" Height="34" Margin="0,18,10,0"
                                                           Visibility="{Binding PrimaryDevice, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                           Tag="{Binding DevIndex, Mode=OneTime}" Click="ProfEditSBtn_Click" VerticalAlignment="Center">
-                                            <xctk:SplitButton.DropDownContent>
+                                            <controls:SplitButton.DropDownContent>
                                                 <Button x:Name="newProfBtn" Content="{lex:Loc NewProfile}" MinWidth="140"
                                                         Tag="{Binding DevIndex, Mode=OneTime}" Click="NewProfBtn_Click" />
-                                            </xctk:SplitButton.DropDownContent>
-                                        </xctk:SplitButton>
+                                            </controls:SplitButton.DropDownContent>
+                                        </controls:SplitButton>
                                         <StackPanel Grid.Column="4" HorizontalAlignment="Right">
                                             <TextBlock Text="LIGHTBAR" FontSize="10" FontWeight="Bold"
                                                        Foreground="{DynamicResource MutedForegroundColor}" Margin="0,0,0,5" />
@@ -535,7 +534,7 @@
                             <StackPanel Orientation="Horizontal" Margin="8,0,0,0"
                                     IsEnabled="{Binding FlashHighLatency,FallbackValue='False'}">
                                 <!--<TextBox Text="20" VerticalContentAlignment="Center" />-->
-                                <xctk:IntegerUpDown d:IsHidden="True" Value="{Binding FlashHighLatencyAt}" MinWidth="30" ButtonSpinnerLocation="Right" Increment="1" Maximum="100" Minimum="10" />
+                                <controls:IntegerUpDown d:IsHidden="True" Value="{Binding FlashHighLatencyAt}" MinWidth="30" ButtonSpinnerLocation="Right" Increment="1" Maximum="100" Minimum="10" />
                                 <Label Content="ms" />
                             </StackPanel>
                         </StackPanel>
@@ -584,7 +583,7 @@
                                 IsEnabled="{Binding CheckForUpdates}">
                             <Label Content="{lex:Loc CheckEvery}" />
                             <!--<TextBox Text="0" VerticalAlignment="Center" />-->
-                            <xctk:IntegerUpDown d:IsHidden="True" Value="{Binding CheckEvery}" MinWidth="30" Margin="8,0,0,0"
+                            <controls:IntegerUpDown d:IsHidden="True" Value="{Binding CheckEvery}" MinWidth="30" Margin="8,0,0,0"
                                             ButtonSpinnerLocation="Right" Increment="1" Maximum="30" Minimum="0" />
                             <ComboBox SelectedIndex="{Binding CheckEveryUnit,FallbackValue=1}" Margin="8,0,0,0" Foreground="{DynamicResource ForegroundColor}" MinWidth="60">
                                 <ComboBoxItem Content="{lex:Loc Hours}" />
@@ -875,7 +874,7 @@
                                 <StackPanel Orientation="Horizontal" MinHeight="20">
                                     <CheckBox x:Name="useOscServerCk" Content="{lex:Loc EnableOscServer}" IsChecked="{Binding UseOSCServer}" Click="UseOscServerCk_Click" VerticalAlignment="Center" />
                                     <Label Content="Port" Padding="0" VerticalAlignment="Center" Margin="20,0,0,0" />
-                                    <xctk:IntegerUpDown d:IsHidden="False" x:Name="oscPortNum" IsEnabled="{Binding UseOSCServer}" MinWidth="20" Margin="8,0,0,0"
+                                    <controls:IntegerUpDown d:IsHidden="False" x:Name="oscPortNum" IsEnabled="{Binding UseOSCServer}" MinWidth="20" Margin="8,0,0,0"
                                         Value="{Binding OscPort, UpdateSourceTrigger=LostFocus,FallbackValue='9000'}" ButtonSpinnerLocation="Right" Increment="1" Maximum="65535" Minimum="0" />
                                 </StackPanel>
 
@@ -886,7 +885,7 @@
                                     <TextBox x:Name="oscSenderTxt" IsEnabled="{Binding UseOSCSender,Mode=OneWay}" Text="{Binding OscSenderAddress, UpdateSourceTrigger=LostFocus,FallbackValue='127.0.0.1'}"
                                  Margin="8,0,0,0" />
                                     <Label Content="Port" Padding="0" Margin="20,0,0,0" VerticalAlignment="Center"/>
-                                    <xctk:IntegerUpDown d:IsHidden="False" x:Name="oscSendPort" IsEnabled="{Binding UseOSCSender}" MinWidth="20" Margin="8,0,0,0"
+                                    <controls:IntegerUpDown d:IsHidden="False" x:Name="oscSendPort" IsEnabled="{Binding UseOSCSender}" MinWidth="20" Margin="8,0,0,0"
                                             Value="{Binding OscSendPort, UpdateSourceTrigger=LostFocus,FallbackValue='9000'}" ButtonSpinnerLocation="Right" Increment="1" Maximum="65535" Minimum="0" />
                                 </StackPanel>
                             </StackPanel>
@@ -902,7 +901,7 @@
                                  Margin="8,0,0,0" />
                                     <Label Content="{lex:Loc Port}" Padding="0" Margin="20,0,0,0" VerticalAlignment="Center" />
                                     <!--<TextBox x:Name="updPortNum" IsEnabled="{Binding UseUDPServer}" Text="{Binding UdpPort, UpdateSourceTrigger=LostFocus,FallbackValue='26760'}" />-->
-                                    <xctk:IntegerUpDown d:IsHidden="True" x:Name="updPortNum" IsEnabled="{Binding UseUDPServer}" MinWidth="20" Margin="8,0,0,0"
+                                    <controls:IntegerUpDown d:IsHidden="True" x:Name="updPortNum" IsEnabled="{Binding UseUDPServer}" MinWidth="20" Margin="8,0,0,0"
                                             Value="{Binding UdpPort, UpdateSourceTrigger=LostFocus,FallbackValue='26760'}" ButtonSpinnerLocation="Right" Increment="1" Maximum="65535" Minimum="0" />
                                 </StackPanel>
 
@@ -910,12 +909,12 @@
                                 <StackPanel x:Name="udpEuroPanel" Orientation="Horizontal" Margin="{StaticResource spaceMargin}" Visibility="{Binding UdpServerOneEuroPanelVisibility,FallbackValue='Collapsed'}">
                                     <StackPanel Orientation="Horizontal">
                                         <Label Content="{lex:Loc MainWin.OneEuroMinCutoff}" />
-                                        <xctk:DoubleUpDown d:IsHidden="True" FormatString="F5" Value="{Binding UdpSmoothMinCutoff,FallbackValue=1.0,UpdateSourceTrigger=LostFocus}"
+                                        <controls:DoubleUpDown d:IsHidden="True" FormatString="F5" Value="{Binding UdpSmoothMinCutoff,FallbackValue=1.0,UpdateSourceTrigger=LostFocus}"
                                                            Minimum="0.00001" Maximum="100.0" Increment="0.1" MinWidth="60" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="30,0,0,0">
                                         <Label Content="{lex:Loc MainWin.OneEuroBeta}" />
-                                        <xctk:DoubleUpDown  d:IsHidden="True" FormatString="F5" Value="{Binding UdpSmoothBeta,FallbackValue=0.0,UpdateSourceTrigger=LostFocus}"
+                                        <controls:DoubleUpDown  d:IsHidden="True" FormatString="F5" Value="{Binding UdpSmoothBeta,FallbackValue=0.0,UpdateSourceTrigger=LostFocus}"
                                                            Minimum="0.0" Maximum="1.0" Increment="0.1" MinWidth="60" />
                                     </StackPanel>
                                 </StackPanel>

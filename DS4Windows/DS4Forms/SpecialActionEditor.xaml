@@ -1,10 +1,10 @@
 ﻿<UserControl x:Class="DS4WinWPF.DS4Forms.SpecialActionEditor"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
-             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              xmlns:lex="clr-namespace:DS4WinWPF.DS4Forms.Localization"
              xmlns:entity="clr-namespace:DS4WinWPF"
              mc:Ignorable="d" 
@@ -397,7 +397,7 @@
                             <StackPanel Margin="{StaticResource spaceMargin}">
                                 <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                                     <Label Content="{lex:Loc SpecialActionEdit.HoldFor}" ContentStringFormat="{}{0} "></Label>
-                                    <xctk:DecimalUpDown Value="{Binding Delay}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
+                                    <controls:DecimalUpDown Value="{Binding Delay}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
                                     <Label Content="secs" />
                                 </StackPanel>
                                 <Grid Margin="{StaticResource spaceMargin}">
@@ -466,7 +466,7 @@
                         <TabItem x:Name="disconnectBTTab" Header="DisBT">
                             <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                                 <Label Content="{lex:Loc SpecialActionEdit.HoldFor}" ContentStringFormat="{}{0} "></Label>
-                                <xctk:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
+                                <controls:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
                                 <Label Content="secs" />
                             </StackPanel>
                         </TabItem>
@@ -474,7 +474,7 @@
                             <StackPanel Margin="{StaticResource spaceMargin}">
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
                                     <Label Content="{lex:Loc SpecialActionEdit.HoldFor}" ContentStringFormat="{}{0} "></Label>
-                                    <xctk:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5"/>
+                                    <controls:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5"/>
                                     <Label Content="secs" />
                                 </StackPanel>
                                 <CheckBox Content="{lex:Loc SpecialActionEdit.ViaNotification}" IsChecked="{Binding Notification}" Margin="{StaticResource spaceMargin}" />
@@ -524,14 +524,14 @@
                         <TabItem x:Name="sixaxisWheelCalibrateTab" Header="Sixaxis Wheel">
                             <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                                 <Label Content="{lex:Loc HoldFor}" ContentStringFormat="{}{0} "></Label>
-                                <xctk:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
+                                <controls:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
                                 <Label Content="secs" />
                             </StackPanel>
                         </TabItem>
                         <TabItem x:Name="gyroCalibrateTab" Header="{lex:Loc SpecialActionEdit.CalibrateGyro}">
                             <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                                 <Label Content="{lex:Loc HoldFor}" ContentStringFormat="{}{0} "></Label>
-                                <xctk:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
+                                <controls:DecimalUpDown Value="{Binding HoldInterval}" Width="60" Minimum="0" Maximum="60" FormatString= "F2" Increment="0.5" />
                                 <Label Content="secs" />
                             </StackPanel>
                         </TabItem>

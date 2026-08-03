@@ -2280,6 +2280,17 @@ namespace DS4Windows
                     Global.linkedProfileCheck[index] = false;
                 }
 
+                // A slot with no remembered profile loads nothing at all: no
+                // mappings, no lightbar routine, no output, and no explanation
+                // on screen - the controller simply does nothing. The ordinary
+                // way to reach that state is enabling a device family the
+                // configuration has never seen, because the per-slot entries in
+                // Profiles.xml only exist for slots that have already been
+                // used. Fall back to the default profile the application writes
+                // for exactly this purpose.
+                ProfilePath[index] = Global.ResolveProfileOrDefault(
+                    ProfilePath[index]);
+
                 // Now attempt to load requested profile and settings
                 StartupDiag($"LoadProfile begin index={index} profile=\"{ProfilePath[index]}\" linked={Global.linkedProfileCheck[index]}");
                 profileLoaded = LoadProfile(index, false, this, false, false);

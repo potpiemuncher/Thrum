@@ -472,11 +472,47 @@ namespace DS4WinWPF.DS4Forms
 
             AudioHapticsRuntimeStatus runtime =
                 Program.rootHub.GetAudioHapticsStatus(deviceIndex);
+
+            // Capture, the level meter and this status are all independent of
+            // whether anything reaches the controller. Audio-derived haptics
+            // are patched into the feedback report coming back from the virtual
+            // output device (ViiperOutDevice does it on the way to the pad), so
+            // with no virtual output there is no report to patch and the
+            // feature produces silence while looking entirely healthy. Report
+            // that instead of "Active" - a meter moving next to the word Active
+            // is a stronger claim than the app can make.
+            if (runtime.Active && !AudioHapticsOutputPathAvailable())
+            {
+                statusText.Text = "Capturing, but not reaching the controller";
+                sourceStatusText.Text = SourceDisplayName(settings) +
+                    " - needs virtual controller output";
+                statusDot.Fill = FindBrush("WarningColor", Brushes.Goldenrod);
+                return;
+            }
+
             statusText.Text = runtime.Active &&
                 !settings.AutomaticGameDetection ? "Active" : runtime.Message;
             statusDot.Fill = runtime.Active
                 ? FindBrush("SuccessColor", Brushes.LimeGreen)
                 : FindBrush("AccentColor", Brushes.DodgerBlue);
+        }
+
+        /// <summary>
+        /// Whether a virtual output device exists for this slot, which is the
+        /// only route audio-derived haptics currently have to the controller:
+        /// <c>ApplyAudioHapticsToGameReport</c> is called solely from
+        /// <c>ViiperOutDevice</c>'s feedback path.
+        ///
+        /// <para>Reads the array directly rather than through
+        /// <c>OutputSlotManager.GetOutSlotDevice</c>, whose unsynchronised
+        /// dictionary lookup can spin against a concurrent plug or removal.</para>
+        /// </summary>
+        private bool AudioHapticsOutputPathAvailable()
+        {
+            OutputDevice[] outputs = Program.rootHub?.outputDevices;
+            return outputs != null &&
+                deviceIndex >= 0 && deviceIndex < outputs.Length &&
+                outputs[deviceIndex] != null;
         }
 
         private static string SourceDisplayName(AudioHapticsProfileSettings settings) => settings.Source switch

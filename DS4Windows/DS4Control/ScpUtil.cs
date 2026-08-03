@@ -3029,6 +3029,61 @@ namespace DS4Windows
         //public static bool Load() => m_Config.Load();
         public static bool Load() => m_Config.Load();
 
+        /// <summary>
+        /// The profile a controller falls back to when its slot has no usable
+        /// one. Named rather than inlined because the default profile is
+        /// written by <see cref="SaveDefault"/> and referenced from more than
+        /// one place; a second spelling of it would rot.
+        /// </summary>
+        public const string DefaultProfileName = "Default";
+
+        /// <summary>
+        /// Returns <paramref name="profileName"/> when it names a profile that
+        /// exists, otherwise the default profile when that exists, otherwise
+        /// the original value unchanged.
+        ///
+        /// <para>An empty or dangling slot assignment used to be loaded as-is,
+        /// which left the controller with no mappings, no lightbar routine and
+        /// no output while still appearing connected. Enabling a device family
+        /// the configuration has not seen before is the ordinary route into
+        /// that state, so a fresh DualSense or Switch Pro user hit it on first
+        /// run. Falling back keeps a controller functional; returning the input
+        /// unchanged when there is no default keeps the caller's existing
+        /// "not using a profile" reporting honest rather than inventing one.</para>
+        /// </summary>
+        public static string ResolveProfileOrDefault(string profileName)
+        {
+            if (ProfileFileExists(profileName))
+            {
+                return profileName;
+            }
+
+            return ProfileFileExists(DefaultProfileName)
+                ? DefaultProfileName
+                : profileName;
+        }
+
+        private static bool ProfileFileExists(string profileName)
+        {
+            if (string.IsNullOrWhiteSpace(profileName))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(Path.Combine(appdatapath, "Profiles",
+                    $"{profileName}.xml"));
+            }
+            catch (Exception)
+            {
+                // A malformed remembered name (illegal path characters from a
+                // hand-edited Profiles.xml) must not stop a controller from
+                // connecting; treat it as absent and let the default apply.
+                return false;
+            }
+        }
+
         public static bool LoadProfile(int device, bool launchprogram, ControlService control,
             bool xinputChange = true, bool postLoad = true)
         {

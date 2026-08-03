@@ -7,11 +7,28 @@ This branch keeps three DualSense feedback paths separate:
 | Path | Source | Physical controller transport |
 | --- | --- | --- |
 | Rumble, adaptive triggers, lightbar, LEDs | DualSense HID output report `0x02` | normal DualSense HID output (`0x31` on Bluetooth) |
-| Advanced haptics | VIIPER virtual UAC channels 3/4 | Bluetooth HID `0x32`, packet `0x12`, 3 kHz signed stereo PCM |
+| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM (`0x32` is the one-off amplifier setup only) |
 | Controller speaker audio | selected Windows render endpoint, including VIIPER's virtual `Wireless Controller` endpoint | Bluetooth HID `0x35`, packet `0x13`, 48 kHz stereo Opus |
 | Controller microphone | physical DualSense Opus or DualShock 4 SBC microphone frames | VIIPER virtual DualSense/Edge 48 kHz stereo or DualShock 4 16 kHz mono UAC capture endpoint |
 
 The channels are intentionally not mixed. In particular, the advanced-haptics PCM stream is never converted to generic rumble or routed to the controller speaker.
+
+**Report IDs, stated precisely, because getting them wrong misdirects debugging.**
+The steady haptics stream is report `0x36` — 398 bytes, carrying the PID `0x12`
+haptics packet at offsets 76-141. Report `0x32` is the 142-byte one-off amplifier
+setup, sent once per stream start. Treating `0x32` as the streaming report makes
+a transport-ownership problem look like a missing mutex; see
+`dev/bt-haptics-attenuation.md` for the bug that cost.
+
+**Advanced haptics no longer require a virtual controller.** Audio Haptics can
+capture any Windows render endpoint and stream the derived PCM straight to a
+physically connected DualSense over Bluetooth — no VIIPER, no USB/IP, no driver
+(issue #58, confirmed on hardware 2026-08-03). The VIIPER UAC path below remains
+the route for games that address the controller as an audio device.
+
+This path is **Bluetooth-only**. Over USB the streamer does not run and audio
+haptics still need a virtual controller; the Audio Haptics page says so rather
+than reporting success. Tracked as issue #65.
 
 Speaker and microphone routing follows the emulated controller selected by the
 profile, not the physical model. A physical DualSense can therefore feed a

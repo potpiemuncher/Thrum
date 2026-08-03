@@ -4296,3 +4296,62 @@ with its evidence assigned to `vm-validation-reports/phase4-ui-pass-20260802/`; 
 from that folder is present in this branch at close-out. Phase 4's source acceptance criterion is
 therefore closed — every page/dialog is modernized or logged with a reason — while theme/layout,
 keyboard and live hardware results remain bounded by that independent pass.
+
+## Phase 4 validation era — 2026-08-02 to 2026-08-03
+
+Phase 4's *source* acceptance criterion closed at PR #47. Everything below came
+from actually running the app, and it is recorded separately because the lesson
+is about the gap between a green suite and working software.
+
+**Two shipped crashes that 974 passing tests could not see.** Both were XAML
+faults that compile clean and throw only when a template instantiates:
+
+| | surface | cause | fix |
+| --- | --- | --- | --- |
+| #48 | first-run wizard, step 2 | `{StaticResource}` converter referenced in three `DataTemplate`s but never declared | `XamlStaticResourceTests` |
+| #55 | input tester (killed the whole app) | `RangeBase.Value` is `BindsTwoWayByDefault`; four `ProgressBar`s bound to get-only properties | `XamlBindingModeTests` |
+
+Each fix added a guard for the *class*, not the instance. That is the pattern
+worth keeping: two of these in one phase means the next one is likely.
+
+**Accessibility cluster.** #49 (profile editor invisible to UIA) was two layers:
+editor pages orphaned because `BridgeProfileTabControlStyle` has no items host,
+and the nav rail invisible because `TabControlAutomationPeer.GetChildrenCore()`
+reports only `TabItem` peers, so anything in a `TabControl`'s template is
+unreachable. Fixed in PR #60 with `ContentHostTabControl`; measured 42 → 171
+elements. #57 and #62 were the same defect at two altitudes — a UIA name falling
+back to `ToString()` on a data object — fixed on the item type and on the content
+host respectively, the latter needing the name on the enclosing `ScrollViewer`
+too, since it also derives from `ContentControl`. Two further instances turned up
+by sweeping a live dump for the app's own namespace, which is now the standing
+heuristic. #51's filed symptom did not reproduce; a real adjacent defect
+(opacity-hidden sidebars staying keyboard-focusable) was fixed instead, and #51
+stays open for re-verification.
+
+**#58 was the substantial one, and it was not what the issue said.** Audio
+Haptics was not missing a capability: it computed haptic frames correctly and
+routed them to an output that only exists when a virtual controller is present.
+PR #64 ports the Bluetooth haptics streamer so a physically connected DualSense
+receives them with no VIIPER, no USB/IP and no driver.
+
+The port was byte-identical to the reference and still produced almost nothing.
+The cause was transport ownership, not signal processing: Thrum owns a
+single-owner Bluetooth output subsystem that the reference build does not have,
+and the copied streamer kept direct `HidDevice` writes that bypassed it, so
+ordinary controller state went out as a competing `0x31`. Full analysis in
+`bt-haptics-attenuation.md`, including the report-ID correction (`0x36` carries
+the haptics packet; `0x32` is only the amplifier setup) that misdirects the
+search if you get it wrong.
+
+**Confirmed on hardware** both without a virtual controller and with one plugged
+in. The second case is the one that mattered — contention was the original
+failure mode, so passing only the first would have proven nothing.
+
+**Open going into Phase 5:** #51 (re-verify keyboard nav), #65 (this path is
+Bluetooth-only; USB still needs a virtual controller), #66 (stream restarts twice
+on connect). Suite 983 → **1017**.
+
+Phase 5 begins with the runtime packaging decision, which is the one remaining
+blocker where a release artifact cannot start at all on a machine without the
+.NET Desktop Runtime — both validation passes had to work around it with a
+self-contained publish, so no real release artifact has ever been run.

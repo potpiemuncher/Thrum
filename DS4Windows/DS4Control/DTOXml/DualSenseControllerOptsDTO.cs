@@ -40,16 +40,88 @@ namespace DS4WinWPF.DS4Control.DTOXml
             get; set;
         }
 
+        [XmlElement("BTHapticsMode")]
+        public HapticsMode BTHapticsMode
+        {
+            get; set;
+        } = HapticsMode.Off;
+
+        [XmlElement("BTHapticsGain")]
+        public double BTHapticsGain
+        {
+            get; set;
+        } = 3.0;
+
+        [XmlElement("BTHapticsLowPassHz")]
+        public int BTHapticsLowPassHz
+        {
+            get; set;
+        } = 350;
+
+        [XmlElement("BTHapticsHFTexture")]
+        public bool BTHapticsHFTexture
+        {
+            get; set;
+        } = false;
+
+        [XmlElement("BTHapticsAudioDeviceId")]
+        public string BTHapticsAudioDeviceId
+        {
+            get; set;
+        } = string.Empty;
+
+        [XmlElement("BTAudioEnabled")]
+        public bool BTAudioEnabled
+        {
+            get; set;
+        } = false;
+
+        [XmlElement("BTAudioRoute")]
+        public AudioOutputRoute BTAudioRoute
+        {
+            get; set;
+        } = AudioOutputRoute.Auto;
+
+        [XmlElement("BTAudioVolume")]
+        public int BTAudioVolume
+        {
+            get; set;
+        } = 85;
+
+        [XmlElement("BTAudioLatency")]
+        public AudioLatencyMode BTAudioLatency
+        {
+            get; set;
+        } = AudioLatencyMode.Smooth;
+
         public void MapFrom(DualSenseControllerOptions source)
         {
             LEDMode = source.LedMode;
             MuteLedMode = source.MuteLedMode;
+            BTHapticsMode = source.BTHapticsMode;
+            BTHapticsGain = source.BTHapticsGain;
+            BTHapticsLowPassHz = source.BTHapticsLowPassHz;
+            BTHapticsHFTexture = source.BTHapticsHFTexture;
+            BTHapticsAudioDeviceId = source.BTHapticsAudioDeviceId;
+            BTAudioEnabled = source.BTAudioEnabled;
+            BTAudioRoute = source.BTAudioRoute;
+            BTAudioVolume = source.BTAudioVolume;
+            BTAudioLatency = source.BTAudioLatency;
         }
 
         public void MapTo(DualSenseControllerOptions destination)
         {
             destination.LedMode = LEDMode;
             destination.MuteLedMode = MuteLedMode;
+            destination.BTHapticsMode = BTHapticsMode;
+            destination.BTHapticsGain = BTHapticsGain;
+            destination.BTHapticsLowPassHz = BTHapticsLowPassHz;
+            destination.BTHapticsHFTexture = BTHapticsHFTexture;
+            destination.BTHapticsAudioDeviceId = BTHapticsAudioDeviceId;
+            destination.BTAudioEnabled = BTAudioEnabled;
+            destination.BTAudioRoute = BTAudioRoute;
+            destination.BTAudioVolume = BTAudioVolume;
+            destination.BTAudioLatency = BTAudioLatency;
         }
     }
 }

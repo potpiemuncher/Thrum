@@ -12,16 +12,29 @@ a kernel driver package it cannot positively identify.
 
 ## Status
 
-**Pre-alpha bootstrap.** This repository was seeded on 2026-07-25 from the
-DS4Windows lineage and has not been rebranded yet — the application still
-builds and runs under its internal `DS4Windows` identity (assembly name, data
-folder, window title, scheduled-task and IPC names). Renaming that identity is
-a dedicated upcoming phase, and until it lands, running this alongside a real
-DS4Windows install is not supported.
+**Pre-release, version 0.9.0-beta.1.** This repository was seeded on 2026-07-25
+from the DS4Windows lineage.
 
-There are **no releases**. There are no installers, no prebuilt binaries, and
-no update feed. The only supported way to run Thrum today is to build it from
-source (see [Building](#building)).
+The **user-facing identity is rebranded**: the assembly and executable are
+`Thrum`, settings live in `%APPDATA%\Thrum`, and the window titles and log
+banner say Thrum. What remains on the DS4Windows name is *internal* — the
+solution and project files (`DS4WindowsWPF.sln`, `DS4WindowsTests`), the
+`DS4Windows` namespaces, and the `DS4WinWPF` root namespace. That is why the
+build commands below still reference DS4Windows paths.
+
+Running alongside a real DS4Windows install works but is not a supported
+configuration: both will contend for the same physical controller.
+
+There are **no releases and no installers**. The only supported way to run
+Thrum today is to build it from source (see [Building](#building)).
+
+One thing to know before you build a release artifact: CI packages are
+framework-dependent, so a machine without the .NET 8 Desktop Runtime cannot
+start `Thrum.exe` at all. Until that is resolved, publish self-contained:
+
+```powershell
+dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true
+```
 
 ## Lineage and attribution
 

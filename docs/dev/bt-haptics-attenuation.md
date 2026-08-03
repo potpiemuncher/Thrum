@@ -137,14 +137,37 @@ Proven by code/build/tests:
   report enables the combined transport;
 - profile-backed options are reapplied only after readiness on fresh connect.
 
-Still requiring a physical DualSense Bluetooth run:
+## Hardware run — completed 2026-08-03
 
-- that sustained actuator strength now matches the known-good reference;
-- that no firmware-specific state field is still being reset or attenuated;
-- that optional controller listening audio remains clean when another Thrum
-  speaker producer is configured;
-- real write latency, drops, underruns, and stop/reconfigure behavior under the
-  user's actual radio conditions.
+The run this section previously listed as outstanding has happened: real
+DualSense over Bluetooth, SteelSeries Sonar - Gaming as the source, on the
+development PC.
 
-The implementation is therefore code-validated, not hardware-validated. It
-must not be described as confirmed working until that run is completed.
+Confirmed:
+
+- **sustained actuator strength**, reported as strong rather than the pre-fix
+  "smallest amount of vibration";
+- **strength holds under the contention the fix was written for** — tested with a
+  virtual Xbox 360 controller plugged in and associated, which is the
+  configuration that was failing. This is the result that matters; passing only
+  the no-virtual-controller case would have proven nothing about ownership;
+- transport behaviour under real radio conditions: `underruns=0 drops=0
+  stallSkips=0`, 7-11 slow writes, `maxWrite` 26-30 ms across several sampling
+  windows;
+- the connect ordering fix, observed in the log: the pre-readiness refresh
+  reports `ready=False` and the real apply lands after `StartUpdate` with
+  `mode=SystemAudio ... conType=BT`.
+
+Still **not** verified, and not claimed:
+
+- **optional controller listening audio coexisting with another Thrum speaker
+  producer.** The run had no speaker producer configured, so the queue-intact
+  path for `0x36` frames carrying an Opus lane is still code-only.
+- **that no firmware-specific state field is being attenuated.** Strength is
+  now subjectively equal to the known-good build; nothing measured the actuator
+  signal itself, so a small systematic difference would not have been detected.
+- USB. This path is Bluetooth-only by construction; see issue #65.
+
+Two defects were found by the run rather than by the code, both filed: the
+stream restarts twice on connect (#66), and the Bluetooth-only limitation is
+surfaced honestly but still leaves USB users without the feature (#65).

@@ -1,5 +1,19 @@
 ## User Guide
-After completing the initial setup of the required drivers and dependencies, you are greeted with the main DS4Windows tab, controllers.
+
+> **This guide is out of date and needs a rewrite, not a rebrand.**
+>
+> It was inherited from DS4Windows and describes the pre-Phase-4 **tabbed** UI.
+> Thrum now uses a navigation rail with ten pages, a first-run wizard, and pages
+> that did not exist when this was written — Overview, Diagnostics, Trigger Lab,
+> Audio Haptics. Page names below no longer match the app: "Controller Readings"
+> is now the input tester, and setup is handled by the wizard rather than by
+> manual driver steps.
+>
+> The application names have been corrected to Thrum so it is not actively
+> misleading about *what* it documents, but the structure it describes is wrong.
+> Tracked as an issue; do not treat it as current until that lands.
+
+After completing the initial setup of the required drivers and dependencies, you are greeted with the main Thrum tab, controllers.
 
 ### Controllers
 ![Controller Tab](https://user-images.githubusercontent.com/32114370/189562818-8e2d5e0a-3c61-4eb0-a53c-caa731b120e4.png)
@@ -34,7 +48,7 @@ The **Controls** tab is for remapping the controller button outputs. To open the
 
 The **Special Actions** tab allows you to create actions that are triggered when a button or combination of button presses occur.
 
-The **Controller Readings** tab gives a live readout of the data from the joysticks being transmitted to DS4Windows
+The **Controller Readings** tab gives a live readout of the data from the joysticks being transmitted to Thrum
 
 The **Axis Config** tab allows you to adjust the settings of the joysticks and adjust parameters such as deadzone and sensativity. 
 
@@ -54,22 +68,22 @@ The **Other** tab contains the settings for which controller is being emulated, 
 ### Output Slots
 ![Output Slots Screenshot](https://user-images.githubusercontent.com/32114370/189568564-b46a38b2-f492-43a4-bd20-f2171edc7b0c.png)
 
-**Output Slots** shows which controllers that are connected are designated to the 8 slots that DS4Windows allows to be plugged in at one time. Here you can also select a controller and virtually plug and unplug it in.
+**Output Slots** shows which controllers that are connected are designated to the 8 slots that Thrum allows to be plugged in at one time. Here you can also select a controller and virtually plug and unplug it in.
 
 ### Settings
 ![Settings Screenshot](https://user-images.githubusercontent.com/75176311/232901882-6e271499-cdff-4f93-bfa5-921205c7fb69.PNG)
 
-The **Settings** tab is where the settings for the DS4Windows application are. Options such as *Run at Startup*, *Start Minimized*, or *Show Notifications* live here.
+The **Settings** tab is where the settings for the Thrum application are. Options such as *Run at Startup*, *Start Minimized*, or *Show Notifications* live here.
 
-**Disconenct from BT when Stopping** - Stops the bluetooth connection to the controllers when DS4Windows is quit
+**Disconnect from BT when Stopping** - Stops the bluetooth connection to the controllers when Thrum is quit
 
-**Flash Lightbar at High Latency** - Flashes the DualShock 4's lightbar red when DS4Windows detects high input latency
+**Flash Lightbar at High Latency** - Flashes the DualShock 4's lightbar red when Thrum detects high input latency
 
 **Quick Change** - Auto disables bluetooth when connecting a controller via USB
 
-**Icon Choice** - Changes the Icon of the DS4Windows application
+**Icon Choice** - Changes the Icon of the Thrum application
 
-**App Theme** - Switch DS4Windows to Light or Dark mode
+**App Theme** - Switch Thrum to Light or Dark mode
 
 **External OSC Control & Monitoring** - Use Open Sound Control messages to remotely control and monitor buttons, sticks, triggers, and battery levels
 
@@ -77,11 +91,11 @@ The **Settings** tab is where the settings for the DS4Windows application are. O
 
 ### Log
 
-The **Log** tab is where you can look at all of the events that the DS4Windows application has encountered. There is also a button to export the log for debugging purposes.
+The **Log** tab is where you can look at all of the events that the Thrum application has encountered. There is also a button to export the log for debugging purposes.
 
 ## Device Detection Issue
 
-If your DS4 is not detected by DS4Windows and the lightbar continues to
+If your DS4 is not detected by Thrum and the lightbar continues to
 flash yellow, there is a chance that Exclusive Mode has permanently
 disabled your DS4 in Windows. The easiest way to test if this has happened is
 for you to plug in the controller into a different USB port and see if it
@@ -106,9 +120,9 @@ With recent updates to the Steam client at the time writing this (2018-12-13),
 Steam has enabled Xbox Configuration Support in the Steam client by default.
 What this means is that Steam will automatically map a detected Xbox 360
 controller to KB+M bindings initially (Desktop Mode) before launching Steam
-Big Picture Mode or launching a game. This presents a problem for DS4Windows
+Big Picture Mode or launching a game. This presents a problem for Thrum
 since the created virtual Xbox 360 controller will be mapped to KB+M actions
 for desktop mode and games launched outside of the Steam client. In order to
-use DS4Windows properly, you have to open Steam Big Picture Mode, navigate to
+use Thrum properly, you have to open Steam Big Picture Mode, navigate to
 Settings > Controller> Controller Settings and uncheck **Xbox Configuration
 Support** along with **PlayStation Configuration Support**.

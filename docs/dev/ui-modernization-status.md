@@ -6,8 +6,9 @@ Every main page and every non-theme XAML surface under `DS4Windows/DS4Forms` now
 two required dispositions: **modernized**, with the landing PR or pre-4.1 groundwork named, or
 **logged with a reason**.
 
-This is a source-and-verification close-out. It does not convert the separate rendered-surface
-pass into a result: the VM pass is still in progress, as recorded under [Rendered verification](#rendered-verification).
+This is a source-and-verification close-out. The separate rendered-surface passes have since
+completed and are recorded under [Rendered verification](#rendered-verification) — including the
+findings they produced, which the source close-out could not have caught.
 
 ## Counting method
 
@@ -120,10 +121,24 @@ removed or renamed, and 0 were added. The final builds retain the same 17 known 
 ## Rendered verification
 
 Every implementation PR above explicitly recorded that its changed surface was not rendered in
-that PR. The separate VM UI pass is **in progress**, with evidence assigned to
-`vm-validation-reports/phase4-ui-pass-20260802/`. No completed report from that folder exists in
-this branch at close-out, so this document does not claim theme, layout, keyboard, live hardware,
-audio, haptics or controller results from it.
+that PR. Both separate passes have now **completed**, each with a `REPORT.md`:
+
+| Pass | Evidence | Outcome |
+| --- | --- | --- |
+| VM UI pass, 2026-08-02 | `vm-validation-reports/phase4-ui-pass-20260802/` | Caught a shipped release blocker — the first-run wizard crashed on step 2 (#48). Filed #49–#54. |
+| Hardware pass, 2026-08-02 | `vm-validation-reports/phase4-hw-pass-20260802/` | Caught a second shipped crash — the input tester killed the app (#55). Filed #56–#58. |
+
+**The point worth keeping:** this document's source close-out was accurate and
+still missed two crashes that made surfaces unusable. Both were XAML faults that
+compile clean, pass every unit test, and throw only when a template instantiates.
+Counting `Bridge*Style` references cannot see that class of defect; only running
+the app can.
+
+All findings from both passes are now resolved except **#51** (keyboard
+navigation — the filed symptom did not reproduce on `main`, left open for
+re-verification), **#65** and **#66**. Rendered results for theme, layout,
+keyboard, live hardware, audio, haptics and controller behaviour are therefore
+claimable from those reports rather than from this document.
 
 Phase 4's source acceptance criterion is closed: every page/dialog is either modernized or
 logged above with a current reason. The VM folder remains the honest evidence boundary for the

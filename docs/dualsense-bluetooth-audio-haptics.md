@@ -89,4 +89,17 @@ When the virtual audio interface is active, a VIIPER traffic capture should cont
 - `audio-haptics-out` for host audio written to the virtual UAC OUT endpoint.
 - `saxense-hid-0x32` for the generated Bluetooth haptics report.
 
+Both are **VIIPER-side capture labels**, emitted by the VIIPER backend — neither
+string exists anywhere in Thrum's own source. `saxense-hid-0x32` is historical
+naming from the SAxense-derived `0x32` transport that path was built around; do
+not read it as the report ID Thrum's own streamer emits, which is `0x36` as
+described above. If VIIPER's labels change, this section is the thing that is
+out of date, not the code.
+
+The Bluetooth path added for issue #58 does not appear in a VIIPER capture at
+all — it never involves VIIPER. Diagnose it from Thrum's own Log tab instead,
+which reports stream start (`BT streaming started`), the resolved capture
+endpoint (`capturing audio from "..."`), and periodic health counters
+(`BT stream health: underruns=... drops=... stallSkips=... slowWrites=...`).
+
 If the Windows `Wireless Controller` audio endpoint has an error state, remove stale VIIPER DualSense devices, restart VIIPER, then recreate the output. The endpoint descriptor changed after the initial experimental build, so Windows can retain an old failed device instance until the virtual device is recreated.

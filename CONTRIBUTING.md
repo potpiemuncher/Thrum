@@ -1,9 +1,11 @@
 # Contributing to Thrum
 
-Thrum is in pre-alpha bootstrap. The codebase is an imported DS4Windows tree
-that has not been rebranded yet, so expect internal names, paths, and strings
-that still say `DS4Windows`. That is deliberate and is being handled as a
-dedicated phase; please do not open drive-by renaming pull requests.
+Thrum is pre-release (0.9.0-beta.1). The codebase is an imported DS4Windows tree
+and, while the shipped product is rebranded (assembly, executable, data folder,
+window titles), plenty of **internal** names still say `DS4Windows`: the solution
+and project files, the namespaces, and the `DS4WinWPF` root namespace. That is
+deliberate — renaming namespaces would make merging from upstream painful, and
+Thrum still tracks upstream. Please do not open drive-by renaming pull requests.
 
 ## Prerequisites
 

@@ -73,7 +73,7 @@ BSD-3-Clause
         Copyright (c) Ookii Dialogs contributors
         https://github.com/ookii-dialogs/ookii-dialogs-wpf
 
-Microsoft Public License (Ms-PL)  ** SEE UNRESOLVED ITEM 2 **
+Microsoft Public License (Ms-PL)  ** SEE ITEM 2: DECIDED, REPLACEMENT SCHEDULED **
     DotNetProjects.Extended.Wpf.Toolkit 5.0.106
         — DotNetProjects.Wpf.Extended.Toolkit.dll
         https://github.com/dotnetprojects/WpfExtendedToolkit
@@ -230,11 +230,16 @@ UNRESOLVED — release-blocking
    components, so the exposure is not new — but it is unresolved, and a first
    public release is the point at which it starts to matter.
 
-   This needs a decision by the maintainer, and the wording above is a summary
-   of the FSF's published position, not legal advice. Options: obtain counsel's
-   view; replace the three components; or relicense. Note that the Apache-2.0
-   components (SbcSharp, Crc32) are fine — Apache-2.0 is GPLv3-compatible,
-   though not GPLv2-compatible.
+   MAINTAINER DECISION (2026-08-03): the first beta ships with these three
+   assemblies and this notice, and they are scheduled for replacement in the
+   following release — tracked as project issues #71 (Extended.Wpf.Toolkit)
+   and #72 (WPFLocalizeExtension + XAMLMarkupExtensions). Relicensing Thrum is
+   not available as an option: the GPL-3.0 licence is inherited from the
+   DS4Windows lineage and its copyright holders. The FSF-position summary
+   above stands unchanged and is not legal advice; the combination is shipped
+   transparently rather than silently, exactly as this file has always aimed
+   to do. Note that the Apache-2.0 components (SbcSharp, Crc32) are fine —
+   Apache-2.0 is GPLv3-compatible, though not GPLv2-compatible.
 
 3. Two vendored items cannot be fully enumerated or licensed.
 

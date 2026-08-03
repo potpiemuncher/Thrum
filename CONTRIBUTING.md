@@ -29,6 +29,12 @@ dotnet build .\DS4WindowsWPF.sln -c Release -p:Platform=x64
 dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64
 ```
 
+To produce the same self-contained win-x64 output that CI packages:
+
+```powershell
+dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64
+```
+
 Run the **full** suite before opening a pull request, not just the tests near
 your change. Report failures verbatim; do not summarise them.
 

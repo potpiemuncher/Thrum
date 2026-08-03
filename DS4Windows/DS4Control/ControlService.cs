@@ -2879,12 +2879,6 @@ namespace DS4Windows
                 AudioHapticsStreamerMapping.Map(
                     Global.store.audioHapticsSettings[deviceIndex]);
 
-            // [DIAG] Temporary: retain for the next physical-controller run.
-            AppLogger.LogToGui($"[DIAG] Audio haptics apply slot={deviceIndex} " +
-                $"mode={opts.Mode} gain={opts.Gain:F2} hz={opts.LowPassHz} " +
-                $"endpoint={(string.IsNullOrWhiteSpace(opts.EndpointId) ? "(default)" : "set")} " +
-                $"conType={ds.ConnectionType}", false);
-
             ds.NativeOptionsStore.BTHapticsMode = opts.Mode;
             ds.NativeOptionsStore.BTHapticsGain = opts.Gain;
             ds.NativeOptionsStore.BTHapticsLowPassHz = opts.LowPassHz;

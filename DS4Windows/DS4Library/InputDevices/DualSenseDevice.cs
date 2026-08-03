@@ -1860,10 +1860,6 @@ namespace DS4Windows.InputDevices
 
         private void RefreshHapticsStreamerState()
         {
-            // [DIAG] Temporary: retain for the next physical-controller run.
-            AppLogger.LogToGui($"[DIAG] BT haptics refresh mac={MacAddress} " +
-                $"conType={conType} store={(nativeOptionsStore != null ? "set" : "null")} " +
-                $"ready={hapticsStreamerReady}", false);
             if (conType != ConnectionType.BT || nativeOptionsStore == null || !hapticsStreamerReady)
             {
                 return;

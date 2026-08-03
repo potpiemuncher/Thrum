@@ -308,9 +308,34 @@ namespace DS4Windows
         public unsafe bool WriteOutputReportViaInterrupt(byte[] outputBuffer,
             int reportLength, int timeout)
         {
+            return WriteOutputReportViaInterrupt(outputBuffer, reportLength,
+                timeout, out _);
+        }
+
+        public unsafe bool WriteOutputReportViaInterrupt(byte[] outputBuffer,
+            int timeout, out int win32Error)
+        {
+            return WriteOutputReportViaInterrupt(outputBuffer,
+                outputBuffer?.Length ?? 0, timeout, out win32Error);
+        }
+
+        /// <summary>
+        /// The one implementation. The overloads above differ only in whether
+        /// the caller wants the Win32 error; the audio-haptics streamer logs it
+        /// to tell a congested Bluetooth link apart from a disconnect, and
+        /// duplicating this overlapped write to add that parameter would leave
+        /// two copies of the cancel-and-drain path free to drift.
+        /// </summary>
+        public unsafe bool WriteOutputReportViaInterrupt(byte[] outputBuffer,
+            int reportLength, int timeout, out int win32Error)
+        {
             if (outputBuffer == null || reportLength <= 0 ||
                 reportLength > outputBuffer.Length)
             {
+                // Nothing was submitted, so there is no Win32 error to report;
+                // GetLastWin32Error() here would return whatever unrelated call
+                // happened to fail last.
+                win32Error = (int)WIN32_ERROR.ERROR_INVALID_PARAMETER;
                 return false;
             }
             SafeReadHandle ??= OpenHandle(_devicePath, true, false);
@@ -323,12 +348,14 @@ namespace DS4Windows
                     SafeReadHandle.DangerousGetHandle(), buffer,
                     (uint)reportLength, null, &ov))
                 {
+                    win32Error = 0;
                     return true;
                 }
 
-                if (Marshal.GetLastWin32Error() !=
-                    (uint)WIN32_ERROR.ERROR_IO_PENDING)
+                uint pendingError = (uint)Marshal.GetLastWin32Error();
+                if (pendingError != (uint)WIN32_ERROR.ERROR_IO_PENDING)
                 {
+                    win32Error = (int)pendingError;
                     return false;
                 }
 
@@ -345,9 +372,11 @@ namespace DS4Windows
                         PInvoke.GetOverlappedResult(SafeReadHandle, ov, out _, true);
                     }
 
+                    win32Error = (int)error;
                     return false;
                 }
 
+                win32Error = 0;
                 return true;
             }
         }

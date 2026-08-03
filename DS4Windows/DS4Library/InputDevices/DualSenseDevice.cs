@@ -1514,6 +1514,17 @@ namespace DS4Windows.InputDevices
         private DualSenseControllerOptions nativeOptionsStore;
         public DualSenseControllerOptions NativeOptionsStore { get => nativeOptionsStore; }
 
+        private DualSenseHapticsStreamer hapticsStreamer;
+        public DualSenseHapticsStreamer HapticsStreamer { get => hapticsStreamer; }
+        private volatile bool hapticsStreamerReady;
+
+        // Current rumble targets for the haptics streamer's rumble-to-haptics synth
+        internal byte CurrentRumbleHeavy => currentHap.rumbleState.RumbleMotorStrengthLeftHeavySlow;
+        internal byte CurrentRumbleLight => currentHap.rumbleState.RumbleMotorStrengthRightLightFast;
+
+        private bool headsetPlugged = false;
+        public bool HeadsetPlugged => headsetPlugged;
+
         public bool IsProfileMicrophoneMuted =>
             Volatile.Read(ref profileMicrophoneMuteState) == 2;
 
@@ -1814,6 +1825,12 @@ namespace DS4Windows.InputDevices
                 ds4Input.Name = "DualSense Input thread: " + Mac;
                 ds4Input.IsBackground = true;
                 ds4Input.Start();
+
+                if (conType == ConnectionType.BT)
+                {
+                    hapticsStreamerReady = true;
+                    RefreshHapticsStreamerState();
+                }
             }
             else
                 Console.WriteLine("Thread already running for DS4: " + Mac);
@@ -1839,6 +1856,42 @@ namespace DS4Windows.InputDevices
                     Thread.Sleep(READ_STREAM_TIMEOUT);
                 }
             }
+        }
+
+        private void RefreshHapticsStreamerState()
+        {
+            if (conType != ConnectionType.BT || nativeOptionsStore == null || !hapticsStreamerReady)
+            {
+                return;
+            }
+
+            // StartUpdate, settings loading, and option-change notifications can
+            // all refresh concurrently during discovery. Atomic publication keeps
+            // those callers on one streamer instead of leaking orphan writer threads.
+            DualSenseHapticsStreamer streamer = Volatile.Read(ref hapticsStreamer);
+            if (streamer == null)
+            {
+                DualSenseHapticsStreamer candidate = new DualSenseHapticsStreamer(this);
+                streamer = Interlocked.CompareExchange(ref hapticsStreamer, candidate, null) ?? candidate;
+            }
+
+            streamer.Configure(nativeOptionsStore.BTHapticsMode,
+                nativeOptionsStore.BTHapticsGain,
+                nativeOptionsStore.BTHapticsLowPassHz,
+                nativeOptionsStore.BTHapticsHFTexture,
+                nativeOptionsStore.BTHapticsAudioDeviceId,
+                nativeOptionsStore.BTAudioEnabled,
+                nativeOptionsStore.BTAudioRoute,
+                nativeOptionsStore.BTAudioVolume,
+                nativeOptionsStore.BTAudioLatency);
+
+            // Push a fresh 0x31 report so the rumble-emulation flags reflect the
+            // new streaming state right away.
+            queueEvent(() =>
+            {
+                outputDirty = true;
+                currentHap.dirty = true;
+            });
         }
 
         private unsafe void ReadInput()
@@ -2104,6 +2157,9 @@ namespace DS4Windows.InputDevices
                     if ((this.featureSet & VidPidFeatureSet.NoBatteryReading) == 0)
                     {
                         tempByte = inputReport[54 + reportOffset];
+                        // Bit 0 of the status byte flags a headset in the 3.5mm jack;
+                        // used for automatic BT audio routing.
+                        headsetPlugged = (tempByte & 0x01) != 0;
                         tempCharging = (tempByte & 0x08) != 0;
                         if (tempCharging != charging)
                         {
@@ -2405,6 +2461,8 @@ namespace DS4Windows.InputDevices
 
         protected override void StopOutputUpdate()
         {
+            hapticsStreamerReady = false;
+            hapticsStreamer?.Stop();
             // Publish the gate before waiting for transport ownership. A
             // speaker callback that was already dispatched must either finish
             // before this lock is acquired or observe the gate and abort; it
@@ -2735,6 +2793,13 @@ namespace DS4Windows.InputDevices
                 outputReport[0] = OUTPUT_REPORT_ID_BT; // Report ID
                 outputReport[1] = OUTPUT_REPORT_ID_DATA;
 
+                // The firmware treats rumble emulation and the 0x32 haptic audio
+                // stream as mutually exclusive modes: any report that asserts the
+                // motor flags or the improved-rumble bit knocks it back into
+                // rumble emulation and mutes the stream. While the haptics
+                // streamer is active, keep all rumble emulation out of 0x31.
+                bool hapticsStreamActive = hapticsStreamer?.Active ?? false;
+
                 // 0x01 Set the main motors (also requires flag 0x02)
                 // 0x02 Set the main motors (also requires flag 0x01)
                 // 0x04 Set the right trigger motor
@@ -2748,6 +2813,11 @@ namespace DS4Windows.InputDevices
                         (headsetOnlyAudio ? 0x00 :
                             DualSenseOutputFlag0SpeakerVolumeEnable) : 0x00));
 
+                if (hapticsStreamActive)
+                {
+                    outputReport[2] = 0x0C; // trigger flags only; do not touch the main motors
+                }
+
                 // 0x01 Toggling microphone LED, 0x02 Toggling Audio/Mic Mute
                 // 0x04 Toggling LED strips on the sides of the Touchpad, 0x08 Turn off all LED lights
                 // 0x10 Toggle player LED lights below Touchpad, 0x20 ???
@@ -2758,7 +2828,7 @@ namespace DS4Windows.InputDevices
                     (muteLedOverride || microphoneMuteOverride ? 0x01 : 0x00) |
                     (microphoneMuteOverride ? 0x02 : 0x00));
 
-                if (useRumble || useAccurateRumble)
+                if ((useRumble || useAccurateRumble) && !hapticsStreamActive)
                 {
                     // Right? High Freq Motor
                     outputReport[4] = currentHap.rumbleState.RumbleMotorStrengthRightLightFast;
@@ -2826,7 +2896,13 @@ namespace DS4Windows.InputDevices
                 // 0x01 Enabled LED brightness (value in index 43)
                 // 0x02 Uninterruptable blue LED pulse (action in index 42)
                 // 0x04 Enable improved rumble emulation (Requires 2.24 firmware or newer)
-                outputReport[40] = useAccurateRumble ? (byte)0x06 : (byte)0x02; 
+                // Improved rumble emulation drives the same actuators the
+                // haptics stream writes to, so it stands down while the stream
+                // runs - the other three streamer guards in this method came
+                // across with the port and this one did not, which compiles
+                // clean and shows up only as the motors fighting the audio.
+                outputReport[40] = (useAccurateRumble && !hapticsStreamActive)
+                    ? (byte)0x06 : (byte)0x02;
 
                 // 0x01 Slowly (2s?) fade to blue (scheduled to when the regular LED settings are active)
                 // 0x02 Slowly (2s?) fade out (scheduled after fade-in completion) with eventual switch back to configured LED color; only a fade-out can cancel the pulse (neither index 2, 0x08, nor turning this off will cancel it!)
@@ -3006,6 +3082,153 @@ namespace DS4Windows.InputDevices
 
             return WriteBluetoothHapticsSamples(report, offset + 13,
                 BluetoothCombinedHapticsDataLength, waitForWrite);
+        }
+
+        /// <summary>
+        /// Submits a self-contained 0x36 report produced by the local audio-
+        /// haptics streamer through Thrum's single-owner Bluetooth transport.
+        /// Haptics-only reports use the normal combined-state publication path;
+        /// reports with a listening-audio lane retain that fresh Opus frame.
+        /// </summary>
+        internal bool WriteBluetoothHapticsStreamerOutputReport(byte[] report,
+            out int win32Error)
+        {
+            win32Error = 0;
+            if (!IsValidBluetoothHapticsStreamerReport(report))
+            {
+                LastBluetoothHapticsWriteStatus =
+                    "Rejected: invalid Bluetooth haptics streamer report.";
+                return false;
+            }
+
+            if (!HasBluetoothHapticsStreamerSpeakerFrame(report))
+            {
+                return WriteBluetoothCombinedHapticsAudioOutputReport(report,
+                    0, report.Length);
+            }
+
+            if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                !EnsureBluetoothCombinedOutputTransport())
+            {
+                return false;
+            }
+
+            lock (bluetoothCombinedTransportWriteLock)
+            {
+                if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                    Volatile.Read(ref bluetoothAudioLifecycleTransitioning) != 0)
+                {
+                    LastBluetoothHapticsWriteStatus =
+                        "Rejected streamer report: Bluetooth output ownership is transitioning.";
+                    return false;
+                }
+
+                long hapticsGeneration =
+                    CacheBluetoothCombinedSpeakerReport(report, 0);
+                byte[] combined = (byte[])report.Clone();
+                ApplyNextBluetoothCombinedSequence(combined);
+                ApplyBluetoothCombinedCrc(combined);
+
+                bool written = TryQueueBluetoothAudioPacerReport(combined,
+                    PersistentBluetoothHapticsExpiryQpc,
+                    out bool pacerOwnsTransport);
+                if (!pacerOwnsTransport)
+                {
+                    written = TrySubmitBluetoothCombinedReport(combined,
+                        "audio-haptics streamer frame");
+                }
+
+                if (!written)
+                {
+                    return false;
+                }
+
+                MarkBluetoothCombinedHapticsSubmitted(hapticsGeneration);
+                ClaimBluetoothSpeakerClock(
+                    BluetoothSpeakerClockPresentedLeaseMilliseconds);
+                LastBluetoothHapticsWriteStatus =
+                    "Audio-haptics streamer frame accepted by the combined Bluetooth transport.";
+                return true;
+            }
+        }
+
+        internal static bool IsValidBluetoothHapticsStreamerReport(
+            byte[] report)
+        {
+            return report != null &&
+                report.Length == BluetoothCombinedOutputReportLength &&
+                report[0] == 0x36 && report[2] == 0x91 &&
+                report[11] == 0x90 &&
+                report[12] == BluetoothCombinedStateLength &&
+                report[BluetoothCombinedHapticsOffset] == 0x92 &&
+                report[BluetoothCombinedHapticsOffset + 1] ==
+                    BluetoothCombinedHapticsDataLength;
+        }
+
+        internal static bool HasBluetoothHapticsStreamerSpeakerFrame(
+            byte[] report)
+        {
+            if (!IsValidBluetoothHapticsStreamerReport(report) ||
+                report[BluetoothCombinedSpeakerOffset + 1] !=
+                    BluetoothCombinedSpeakerFrameLength)
+            {
+                return false;
+            }
+
+            byte packetId = (byte)(report[BluetoothCombinedSpeakerOffset] &
+                0x7F);
+            return packetId == 0x13 || packetId == 0x16;
+        }
+
+        /// <summary>
+        /// Performs the streamer's one-off 0x32 amplifier setup only after all
+        /// asynchronous 0x36 owners have released the HID handle. The following
+        /// streamer frame re-establishes the normal combined writer.
+        /// </summary>
+        internal bool WriteBluetoothHapticsStreamerAmplifierSetup(byte[] report,
+            out int win32Error)
+        {
+            win32Error = 0;
+            if (report == null || report.Length != 142 || report[0] != 0x32 ||
+                report[1] != 0x10 || report[2] != 0x90 || report[3] != 0x3F)
+            {
+                LastBluetoothHapticsWriteStatus =
+                    "Rejected: invalid Bluetooth haptics amplifier setup report.";
+                return false;
+            }
+
+            if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                !EnsureBluetoothCombinedOutputTransport())
+            {
+                return false;
+            }
+
+            lock (bluetoothCombinedTransportWriteLock)
+            {
+                if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                    Volatile.Read(ref bluetoothAudioLifecycleTransitioning) != 0)
+                {
+                    LastBluetoothHapticsWriteStatus =
+                        "Rejected amplifier setup: Bluetooth output ownership is transitioning.";
+                    return false;
+                }
+
+                StopBluetoothAudioPacerLocked();
+                if (!DisposeBluetoothRealtimeWriter(
+                    BluetoothWriterOwnershipHandoffTimeoutMilliseconds))
+                {
+                    LastBluetoothHapticsWriteStatus =
+                        "Could not send amplifier setup: prior Bluetooth HID ownership is still retiring.";
+                    return false;
+                }
+
+                bool written = hDevice.WriteOutputReportViaInterrupt(report,
+                    100, out win32Error);
+                LastBluetoothHapticsWriteStatus = written ?
+                    "Bluetooth haptics amplifier setup completed." :
+                    $"Bluetooth haptics amplifier setup failed with Win32 error {win32Error}.";
+                return written;
+            }
         }
 
         /// <summary>
@@ -4332,6 +4555,11 @@ namespace DS4Windows.InputDevices
                     PreparePlayerLEDBarByte();
                     queueEvent(() => { outputDirty = true; });
                 };
+
+                nativeOptionsStore.BTHapticsOptionChanged += (sender, e) =>
+                {
+                    RefreshHapticsStreamerState();
+                };
             }
         }
 
@@ -4341,6 +4569,7 @@ namespace DS4Windows.InputDevices
             {
                 PrepareMuteLEDByte();
                 PreparePlayerLEDBarByte();
+                RefreshHapticsStreamerState();
             }
         }
     }

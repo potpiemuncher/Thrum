@@ -96,6 +96,58 @@ namespace DS4WindowsTests
                     BindingFlags.Static | BindingFlags.NonPublic);
 
         [TestMethod]
+        public void AudioHapticsStreamerDoesNotOwnThePhysicalHidHandle()
+        {
+            FieldInfo[] hidFields = typeof(DualSenseHapticsStreamer)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Where(field => field.FieldType == typeof(HidDevice))
+                .ToArray();
+
+            Assert.AreEqual(0, hidFields.Length,
+                "The local streamer must submit through DualSenseDevice's combined transport, not write behind it.");
+        }
+
+        [TestMethod]
+        public void AudioHapticsStreamerRecognizesHapticsOnlyCombinedReport()
+        {
+            byte[] report = BuildCombinedControlReport(
+                sequence: 0, packetSequence: 0, microphoneEnabled: false);
+
+            Assert.IsTrue(DualSenseDevice
+                .IsValidBluetoothHapticsStreamerReport(report));
+            Assert.IsFalse(DualSenseDevice
+                .HasBluetoothHapticsStreamerSpeakerFrame(report));
+        }
+
+        [DataTestMethod]
+        [DataRow((byte)0x93)]
+        [DataRow((byte)0x96)]
+        public void AudioHapticsStreamerPreservesRecognizedListeningAudioLane(
+            byte packetType)
+        {
+            byte[] report = BuildCombinedControlReport(
+                sequence: 0, packetSequence: 0, microphoneEnabled: false);
+            report[142] = packetType;
+            report[143] = 200;
+
+            Assert.IsTrue(DualSenseDevice
+                .HasBluetoothHapticsStreamerSpeakerFrame(report));
+        }
+
+        [TestMethod]
+        public void AudioHapticsStreamerRejectsMalformedCombinedReport()
+        {
+            byte[] report = BuildCombinedControlReport(
+                sequence: 0, packetSequence: 0, microphoneEnabled: false);
+            report[77] = 63;
+
+            Assert.IsFalse(DualSenseDevice
+                .IsValidBluetoothHapticsStreamerReport(report));
+            Assert.IsFalse(DualSenseDevice
+                .HasBluetoothHapticsStreamerSpeakerFrame(report));
+        }
+
+        [TestMethod]
         public void DiagnosticPcmTraceHasRecoverableStreamingHeaderImmediately()
         {
             string path = Path.Combine(Path.GetTempPath(),

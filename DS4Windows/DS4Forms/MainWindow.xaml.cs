@@ -1086,6 +1086,7 @@ Suspend support not enabled.", true);
             ProfileFeatureSettingsChangedEventArgs e)
         {
             overviewDirtyControllerIndices.Add(e.DeviceIndex);
+            App.rootHub?.ApplyAudioHapticsDeviceOptions(e.DeviceIndex);
             mainWinVM.RefreshRuntimeState(App.rootHub);
             overviewProfileSaveTimer.Stop();
             overviewProfileSaveTimer.Start();

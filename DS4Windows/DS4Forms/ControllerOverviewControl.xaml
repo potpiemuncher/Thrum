@@ -162,6 +162,18 @@
                 <TextBlock Text="Connect a controller, then choose it from the device cards in the upper-left corner."
                            Foreground="{DynamicResource MutedForegroundColor}" TextAlignment="Center"
                            TextWrapping="Wrap" />
+                <!--
+                    Shown disabled rather than hidden. With no controller the
+                    quick-action bar is not rendered at all, so nothing on this
+                    page tells a first-time user the input tester exists; they
+                    would have to connect a pad to discover the feature that
+                    tells them whether their pad works.
+                -->
+                <Button Content="_Test inputs" Margin="0,18,0,0"
+                        HorizontalAlignment="Center" IsEnabled="False"
+                        Style="{StaticResource BridgeSecondaryButtonStyle}"
+                        ToolTip="Connect a controller to test its buttons, sticks, triggers, gyro and touchpad."
+                        Click="TestInputsBtn_Click" />
             </StackPanel>
         </Border>
 

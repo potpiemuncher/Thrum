@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -215,10 +215,23 @@ namespace DS4WinWPF.DS4Forms
             {
                 TriggerLabProfileSettings settings = CurrentSettings;
                 bool available = settings != null;
-                IsEnabled = available;
+
+                // Only the per-profile surface needs a controller. Disabling the
+                // whole page also disabled the user preset library, which is
+                // stored under the data folder independently of profiles and
+                // says so in its own subtitle - so browsing, renaming, deleting,
+                // importing and exporting presets were all unreachable until a
+                // controller happened to be connected.
+                profileHeaderRow.IsEnabled = available;
+                profileSidesRow.IsEnabled = available;
+                saveLeftUserPresetButton.IsEnabled = available;
+                saveRightUserPresetButton.IsEnabled = available;
+                IsEnabled = true;
                 if (!available)
                 {
-                    labStatusText.Text = "Select a controller or profile to open Trigger Lab.";
+                    labStatusText.Text =
+                        "Select a controller or profile to edit trigger effects. " +
+                        "The user preset library below stays available.";
                     RefreshUserPresetLibrary();
                     return;
                 }

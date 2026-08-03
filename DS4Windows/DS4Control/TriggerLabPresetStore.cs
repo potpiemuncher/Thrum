@@ -1,4 +1,4 @@
-/*
+﻿/*
 DS4Windows
 Copyright (C) 2026  DS4Windows contributors
 
@@ -271,7 +271,8 @@ namespace DS4Windows
                 ? " It was quarantined and a new library can be created."
                 : " It was ignored and a new library can replace it on the next save.";
             return new TriggerLabPresetLoadResult(false,
-                $"The Trigger Lab preset library is invalid: {detail}.{recovery}",
+                $"The Trigger Lab preset library is invalid: " +
+                $"{detail.TrimEnd('.')}.{recovery}",
                 quarantinePath);
         }
 

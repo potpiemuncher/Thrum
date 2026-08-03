@@ -442,6 +442,12 @@ Suspend support not enabled.", true);
         private void MainWinVM_FullTabsEnabledChanged(object sender, EventArgs e)
         {
             settingsWrapVM.ViewEnabled = mainWinVM.FullTabsEnabled;
+
+            // Trigger Lab is the one page that stays enabled with nothing
+            // connected, so that its data-folder preset library remains
+            // reachable. Nothing else re-runs its gating when the service
+            // starts or stops, so it would keep showing the previous state.
+            triggerLabControl?.RefreshSettings();
         }
 
         private void TrayIconVM_RequestServiceChange(object sender, EventArgs e)
@@ -2754,8 +2760,13 @@ Suspend support not enabled.", true);
             void LogOpenPhase(string phase)
             {
                 long totalMs = openTimer.ElapsedMilliseconds;
-                AppLogger.LogToGui($"[ProfileEditorTiming] {phase}: " +
-                    $"phase={totalMs - previousPhaseMs}ms total={totalMs}ms", false);
+                // Developer timing, not a user-facing event: it was appearing
+                // in the Log tab and the status line among real messages.
+                // AppLogger.LogToGui is the only path to those, so this goes to
+                // the debug listener instead and stays out of both.
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ProfileEditorTiming] {phase}: " +
+                    $"phase={totalMs - previousPhaseMs}ms total={totalMs}ms");
                 previousPhaseMs = totalMs;
             }
 

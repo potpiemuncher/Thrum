@@ -186,7 +186,16 @@
                 <local:AudioHapticsControl x:Name="audioHapticsControl" SettingsChanged="ProfileFeatureControl_SettingsChanged" />
             </TabItem>
 
-            <TabItem x:Name="triggerLabTab" Header="Trigger Lab" Tag="TriggerPair" ToolTip="Build adaptive-trigger effects in the selected controller's active profile." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
+            <!--
+                No FullTabsEnabled binding, unlike its neighbours: the user
+                preset library on this page is stored under the data folder
+                independently of controller profiles, so it is usable with
+                nothing connected. Disabling the TabItem disables everything
+                it hosts, and a child cannot be re-enabled inside a disabled
+                parent - so the page gates its own per-profile surface in
+                TriggerLabControl.RefreshSettings instead.
+            -->
+            <TabItem x:Name="triggerLabTab" Header="Trigger Lab" Tag="TriggerPair" ToolTip="Build adaptive-trigger effects in the selected controller's active profile.">
                 <local:TriggerLabControl x:Name="triggerLabControl" SettingsChanged="ProfileFeatureControl_SettingsChanged" />
             </TabItem>
 

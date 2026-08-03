@@ -80,7 +80,8 @@
                                         <Setter Property="Foreground" Value="{DynamicResource ForegroundColor}" />
                                     </Trigger>
                                     <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Opacity" Value="0.45" />
+                                        <Setter Property="Opacity" Value="0.75" />
+                                        <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundColor}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -154,7 +155,8 @@
                             <Setter TargetName="ProfileArrow" Property="Stroke" Value="{DynamicResource AccentColor}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Opacity" Value="0.75" />
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundColor}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -297,7 +299,8 @@
                             <Setter TargetName="NavTriggerGlyph" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Opacity" Value="0.75" />
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundColor}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -322,8 +325,17 @@
                                 <ColumnDefinition Width="36" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
+                            <!--
+                                The rail's glyphs are general Unicode symbols
+                                (arrows, geometric shapes), not private-use icon
+                                codepoints. Segoe Fluent Icons contains only the
+                                latter, so naming it alone rendered most of them
+                                as missing-glyph boxes. The fallback list keeps
+                                any glyph the icon font does have and resolves
+                                the rest from the general-purpose faces.
+                            -->
                             <TextBlock x:Name="EditorNavGlyph" Text="{TemplateBinding Tag}"
-                                       FontFamily="Segoe Fluent Icons"
+                                       FontFamily="Segoe Fluent Icons, Segoe UI Symbol, Segoe UI"
                                        Foreground="{DynamicResource MutedForegroundColor}"
                                        FontSize="13" Width="28" TextAlignment="Center"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />

@@ -1,11 +1,19 @@
-<UserControl x:Class="DS4WinWPF.DS4Forms.AudioHapticsControl"
+﻿<UserControl x:Class="DS4WinWPF.DS4Forms.AudioHapticsControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignHeight="760" d:DesignWidth="1040"
-             HorizontalAlignment="Left" VerticalAlignment="Stretch"
-             Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource ShellViewportWidth}, ConverterParameter=318}">
+             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+             MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource ShellViewportWidth}, ConverterParameter=318}">
+    <!--
+        MaxWidth, not Width: the binding subtracts the shell's sidebar from the
+        window, which is right when the shell hosts this page and wrong when the
+        profile editor does - the editor gives it less room, so a fixed width
+        sized for the shell clipped the content while leaving empty space beside
+        it. As a cap it still matches the shell exactly and shrinks to fit
+        anywhere narrower.
+    -->
     <UserControl.Resources>
         <Style x:Key="FeatureCard" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundColor}" />

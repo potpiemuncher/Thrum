@@ -2879,11 +2879,8 @@ namespace DS4Windows
                 AudioHapticsStreamerMapping.Map(
                     Global.store.audioHapticsSettings[deviceIndex]);
 
-            ds.NativeOptionsStore.BTHapticsMode = opts.Mode;
-            ds.NativeOptionsStore.BTHapticsGain = opts.Gain;
-            ds.NativeOptionsStore.BTHapticsLowPassHz = opts.LowPassHz;
-            ds.NativeOptionsStore.BTHapticsHFTexture = opts.HFTexture;
-            ds.NativeOptionsStore.BTHapticsAudioDeviceId = opts.EndpointId;
+            ds.NativeOptionsStore.ApplyBTHapticsOptions(opts.Mode, opts.Gain,
+                opts.LowPassHz, opts.HFTexture, opts.EndpointId);
         }
 
         private static bool IsControllerSpeakerEnabled(int index) =>

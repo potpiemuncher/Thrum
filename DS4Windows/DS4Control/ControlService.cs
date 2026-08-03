@@ -2753,6 +2753,8 @@ namespace DS4Windows
                 {
                     dualSenseMicrophonePassthrough.Stop();
                 }
+
+                ApplyAudioHapticsDeviceOptions(ind);
             }
             else
             {
@@ -2846,6 +2848,34 @@ namespace DS4Windows
             return settings?.Enabled == true &&
                 settings.Source == AudioHapticsSourceKind.AppSession &&
                 settings.StreamAppAudioToController;
+        }
+
+        /// <summary>
+        /// Pushes the Audio Haptics profile settings for one slot onto the
+        /// device's <c>BTHaptics*</c> options so that the Bluetooth haptics
+        /// streamer picks up the change through its existing event wiring.
+        /// </summary>
+        internal void ApplyAudioHapticsDeviceOptions(int deviceIndex)
+        {
+            if (deviceIndex < 0 ||
+                deviceIndex >= Global.store.audioHapticsSettings.Length)
+            {
+                return;
+            }
+
+            InputDevices.DualSenseDevice ds = DS4Controllers[deviceIndex] as
+                InputDevices.DualSenseDevice;
+            if (ds?.NativeOptionsStore == null) return;
+
+            AudioHapticsStreamerMapping.BTHapticsOptions opts =
+                AudioHapticsStreamerMapping.Map(
+                    Global.store.audioHapticsSettings[deviceIndex]);
+
+            ds.NativeOptionsStore.BTHapticsMode = opts.Mode;
+            ds.NativeOptionsStore.BTHapticsGain = opts.Gain;
+            ds.NativeOptionsStore.BTHapticsLowPassHz = opts.LowPassHz;
+            ds.NativeOptionsStore.BTHapticsHFTexture = opts.HFTexture;
+            ds.NativeOptionsStore.BTHapticsAudioDeviceId = opts.EndpointId;
         }
 
         private static bool IsControllerSpeakerEnabled(int index) =>

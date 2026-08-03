@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using DS4Windows;
+using DS4Windows.InputDevices;
 using DS4WinWPF.DS4Forms.ViewModels;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
@@ -487,17 +488,18 @@ namespace DS4WinWPF.DS4Forms
 
             // Capture, the level meter and this status are all independent of
             // whether anything reaches the controller. Audio-derived haptics
-            // are patched into the feedback report coming back from the virtual
-            // output device (ViiperOutDevice does it on the way to the pad), so
-            // with no virtual output there is no report to patch and the
-            // feature produces silence while looking entirely healthy. Report
-            // that instead of "Active" - a meter moving next to the word Active
-            // is a stronger claim than the app can make.
+            // for SystemAudio/Endpoint sources can reach the pad either through
+            // the virtual output device (ViiperOutDevice patches
+            // ApplyAudioHapticsToGameReport into the feedback report) or
+            // directly over Bluetooth via the haptics streamer. When neither
+            // route is available the feature produces silence while looking
+            // entirely healthy — report that with a specific reason so the
+            // user knows what to change.
             if (runtime.Active && !AudioHapticsOutputPathAvailable())
             {
                 statusText.Text = "Capturing, but not reaching the controller";
                 sourceStatusText.Text = SourceDisplayName(settings) +
-                    " - needs virtual controller output";
+                    AudioHapticsBlockerReason(settings);
                 statusDot.Fill = FindBrush("WarningColor", Brushes.Goldenrod);
                 return;
             }
@@ -510,10 +512,11 @@ namespace DS4WinWPF.DS4Forms
         }
 
         /// <summary>
-        /// Whether a virtual output device exists for this slot, which is the
-        /// only route audio-derived haptics currently have to the controller:
-        /// <c>ApplyAudioHapticsToGameReport</c> is called solely from
-        /// <c>ViiperOutDevice</c>'s feedback path.
+        /// Whether audio-derived haptics can reach the controller for this slot.
+        /// The Bluetooth haptics streamer serves SystemAudio and Endpoint
+        /// sources directly over the BT link; the virtual output device serves
+        /// all sources by patching <c>ApplyAudioHapticsToGameReport</c> into
+        /// the feedback report on the way to the pad.
         ///
         /// <para>Reads the array directly rather than through
         /// <c>OutputSlotManager.GetOutSlotDevice</c>, whose unsynchronised
@@ -521,10 +524,58 @@ namespace DS4WinWPF.DS4Forms
         /// </summary>
         private bool AudioHapticsOutputPathAvailable()
         {
+            // Bluetooth haptics streamer is active (works when the pad is
+            // connected over Bluetooth and the source is SystemAudio or
+            // Endpoint — AppSession and ControllerAudio are not served).
+            DualSenseDevice ds = Program.rootHub?.DS4Controllers[deviceIndex]
+                as DualSenseDevice;
+            if (ds?.HapticsStreamer?.Active == true) return true;
+
+            // Fall back to the legacy virtual-output path.
             OutputDevice[] outputs = Program.rootHub?.outputDevices;
             return outputs != null &&
                 deviceIndex >= 0 && deviceIndex < outputs.Length &&
                 outputs[deviceIndex] != null;
+        }
+
+        /// <summary>
+        /// Returns a short phrase explaining why audio haptics cannot reach
+        /// the controller when <see cref="AudioHapticsOutputPathAvailable"/>
+        /// returns false. The caller appends it to the source display name.
+        /// </summary>
+        private string AudioHapticsBlockerReason(
+            AudioHapticsProfileSettings settings)
+        {
+            // Unsupported source types cannot be served by the Bluetooth
+            // streamer (it captures a render endpoint, not AppSession).
+            if (settings.Source == AudioHapticsSourceKind.AppSession ||
+                settings.Source == AudioHapticsSourceKind.ControllerAudio)
+            {
+                return " - unsupported source";
+            }
+
+            DualSenseDevice ds = Program.rootHub?.DS4Controllers[deviceIndex]
+                as DualSenseDevice;
+            if (ds == null)
+            {
+                // Not a DualSense, so the Bluetooth streamer never applies and
+                // the virtual output device is the only route.
+                return " - needs virtual controller output";
+            }
+
+            // Not "pad on USB": ConnectionType also covers the wireless
+            // dongle, and naming the wrong transport in the one place built to
+            // stop this page overclaiming would be its own small dishonesty.
+            if (ds.ConnectionType != ConnectionType.BT)
+            {
+                return " - Bluetooth haptics need a Bluetooth link";
+            }
+
+            // Bluetooth, and the source is one the streamer serves, so this is
+            // the route that should be carrying it and something stopped it -
+            // say that rather than pointing at the virtual output device the
+            // user does not need.
+            return " - Bluetooth haptics not running";
         }
 
         private static string SourceDisplayName(AudioHapticsProfileSettings settings) => settings.Source switch

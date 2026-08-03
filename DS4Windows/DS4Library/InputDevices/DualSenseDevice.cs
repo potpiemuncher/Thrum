@@ -4422,6 +4422,7 @@ namespace DS4Windows.InputDevices
             {
                 PrepareMuteLEDByte();
                 PreparePlayerLEDBarByte();
+                Program.rootHub?.ApplyAudioHapticsDeviceOptions(DeviceSlotNumber);
                 RefreshHapticsStreamerState();
             }
         }

@@ -25,8 +25,11 @@ public class ViiperInstallerPolicyTests
     private const string PinnedUsbipDigest =
         "51620FA5F9F8BE5932BC9D786DEEE557CE06D5407A99CAB490DCFAC71F185FEA";
 
-    private const string PinnedViiperDigest =
-        "3AD872D006DF2FC282E381A68B5A5B3C51E4DA3614D250AB3FDA1C272EF745D0";
+    private const string PinnedViiperArchiveDigest =
+        "6EC76B298AF402AC65BA21F00DFFC9D3DA36909BDD1C909AEE9047FE4F9B0D1B";
+
+    private const string PinnedViiperPayloadDigest =
+        "90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A";
 
     private const string PinnedSigner = "Cloudyne Systems (Scheibling Consulting AB)";
 
@@ -59,17 +62,36 @@ public class ViiperInstallerPolicyTests
     public void TheViiperPinIsAnExactAssetAndNotAReleaseQuery()
     {
         ViiperPinnedDownload pin = ViiperInstallerPins.ViiperBackend;
-        Assert.AreEqual("v0.0.5", pin.ReleaseLabel);
-        Assert.AreEqual(PinnedViiperDigest, pin.Sha256);
+        Assert.AreEqual("v0.0.6", pin.ReleaseLabel);
+        Assert.AreEqual("viiper-windows-amd64.zip", pin.FileName);
+        Assert.AreEqual(4735340L, pin.SizeInBytes);
+        Assert.AreEqual(PinnedViiperArchiveDigest, pin.Sha256);
         Assert.AreEqual(
-            "https://github.com/hbashton/VIIPER/releases/download/v0.0.5/viiper.exe",
+            "https://github.com/hbashton/VIIPER/releases/download/v0.0.6/" +
+                "viiper-windows-amd64.zip",
             pin.Url);
+
+        Assert.IsNotNull(pin.ExtractedPayload);
+        Assert.AreEqual("viiper.exe", pin.ExtractedPayload.FileName);
+        Assert.AreEqual(11223552L, pin.ExtractedPayload.SizeInBytes);
+        Assert.AreEqual(PinnedViiperPayloadDigest,
+            pin.ExtractedPayload.Sha256);
 
         // Upstream publishes this asset unsigned, so requiring Authenticode
         // would fail on every honest download. The digest is the whole
         // identity, and the pin has to say so rather than quietly skip a check.
         Assert.IsFalse(pin.RequireAuthenticode);
         Assert.IsNull(pin.ExpectedSignerCommonName);
+    }
+
+    [TestMethod]
+    public void TheExpectedStampConstantMatchesTheBackendPin()
+    {
+        Assert.AreEqual(
+            ViiperInstallerPins.ViiperBackendExpectedEmbeddedVersionStamp,
+            ViiperInstallerPins.ViiperBackend.ExpectedEmbeddedVersionStamp);
+        Assert.AreEqual("v0.0.6 (e85575d)",
+            ViiperInstallerPins.ViiperBackend.ExpectedEmbeddedVersionStamp);
     }
 
     [TestMethod]
@@ -247,6 +269,25 @@ public class ViiperInstallerPolicyTests
     }
 
     [TestMethod]
+    public void AWrongSizeIsRefusedEvenWithTheCorrectDigest()
+    {
+        ViiperDownloadObservation observation = GoodViiperArchiveObservation(
+            PinnedViiperArchiveDigest);
+        observation = new ViiperDownloadObservation
+        {
+            FileName = observation.FileName,
+            Exists = true,
+            SizeInBytes = observation.SizeInBytes - 1,
+            Sha256 = observation.Sha256,
+        };
+
+        var decision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.ViiperBackend, observation);
+
+        Assert.AreEqual(ViiperDownloadVerdict.SizeMismatch, decision.Action);
+    }
+
+    [TestMethod]
     public void AMissingFileIsUnavailableRatherThanAMismatch()
     {
         var decision = ViiperInstallerPolicy.DecideDownloadVerification(
@@ -339,15 +380,16 @@ public class ViiperInstallerPolicyTests
             ViiperInstallerPins.ViiperBackend,
             new ViiperDownloadObservation
             {
-                FileName = "viiper.exe",
+                FileName = "viiper-windows-amd64.zip",
                 Exists = true,
                 SizeInBytes = ViiperInstallerPins.ViiperBackend.SizeInBytes,
-                Sha256 = PinnedViiperDigest,
+                Sha256 = PinnedViiperArchiveDigest,
                 SignatureEvaluated = false,
             });
 
         Assert.AreEqual(ViiperDownloadVerdict.Approved, decision.Action);
-        StringAssert.StartsWith(decision.Summary, "viiper.exe matches");
+        StringAssert.StartsWith(decision.Summary,
+            "viiper-windows-amd64.zip matches");
         Assert.IsTrue(decision.Lines.Any(line => line.Contains(
             "not required for this component")));
     }
@@ -360,11 +402,56 @@ public class ViiperInstallerPolicyTests
             new ViiperDownloadObservation
             {
                 Exists = true,
-                SizeInBytes = 10,
+                SizeInBytes = ViiperInstallerPins.ViiperBackend.SizeInBytes,
                 Sha256 = new string('B', 64),
             });
 
         Assert.AreEqual(ViiperDownloadVerdict.DigestMismatch, decision.Action);
+    }
+
+    [TestMethod]
+    public void AZipDigestMismatchRefusesBeforeExtraction()
+    {
+        var archiveDecision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.ViiperBackend,
+            GoodViiperArchiveObservation(new string('A', 64)));
+
+        Assert.AreEqual(ViiperDownloadVerdict.DigestMismatch,
+            archiveDecision.Action);
+    }
+
+    [TestMethod]
+    public void APayloadDigestMismatchRefusesAfterExtraction()
+    {
+        var archiveDecision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.ViiperBackend,
+            GoodViiperArchiveObservation(PinnedViiperArchiveDigest));
+        var payloadDecision = ViiperInstallerPolicy.
+            DecideExtractedPayloadVerification(
+                ViiperInstallerPins.ViiperBackend,
+                GoodViiperPayloadObservation(new string('B', 64)));
+
+        Assert.AreEqual(ViiperDownloadVerdict.Approved,
+            archiveDecision.Action);
+        Assert.AreEqual(ViiperDownloadVerdict.DigestMismatch,
+            payloadDecision.Action);
+    }
+
+    [TestMethod]
+    public void AValidZipAndPayloadBothProceed()
+    {
+        var archiveDecision = ViiperInstallerPolicy.DecideDownloadVerification(
+            ViiperInstallerPins.ViiperBackend,
+            GoodViiperArchiveObservation(PinnedViiperArchiveDigest));
+        var payloadDecision = ViiperInstallerPolicy.
+            DecideExtractedPayloadVerification(
+                ViiperInstallerPins.ViiperBackend,
+                GoodViiperPayloadObservation(PinnedViiperPayloadDigest));
+
+        Assert.AreEqual(ViiperDownloadVerdict.Approved,
+            archiveDecision.Action);
+        Assert.AreEqual(ViiperDownloadVerdict.Approved,
+            payloadDecision.Action);
     }
 
     [TestMethod]
@@ -771,6 +858,27 @@ public class ViiperInstallerPolicyTests
             SignatureTrusted = true,
             SignerCommonName = PinnedSigner,
             SignatureDiagnostic = "trusted",
+        };
+
+    private static ViiperDownloadObservation GoodViiperArchiveObservation(
+        string sha256) => new ViiperDownloadObservation
+        {
+            FileName = ViiperInstallerPins.ViiperBackend.FileName,
+            Exists = true,
+            SizeInBytes = ViiperInstallerPins.ViiperBackend.SizeInBytes,
+            Sha256 = sha256,
+            SignatureEvaluated = false,
+        };
+
+    private static ViiperDownloadObservation GoodViiperPayloadObservation(
+        string sha256) => new ViiperDownloadObservation
+        {
+            FileName = ViiperInstallerPins.ViiperBackend.ExtractedPayload.FileName,
+            Exists = true,
+            SizeInBytes =
+                ViiperInstallerPins.ViiperBackend.ExtractedPayload.SizeInBytes,
+            Sha256 = sha256,
+            SignatureEvaluated = false,
         };
 
     private static ViiperDownloadObservation With(

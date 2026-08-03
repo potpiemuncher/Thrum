@@ -148,6 +148,13 @@ namespace DS4Windows
         /// </summary>
         public string PinnedVersion { get; init; }
 
+        /// <summary>
+        /// The embedded stamp expected in the pinned executable. This is a
+        /// human-readable cross-check only; it is not observed at runtime and
+        /// never participates in validation.
+        /// </summary>
+        public string ExpectedEmbeddedVersionStamp { get; init; }
+
         /// <summary>Devices the backend hosts, described without identifiers.</summary>
         public IReadOnlyList<string> Holdings { get; init; }
             = Array.Empty<string>();

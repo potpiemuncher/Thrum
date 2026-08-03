@@ -142,6 +142,9 @@ namespace DS4Windows
         /// <summary>The bytes are not the pinned bytes.</summary>
         DigestMismatch,
 
+        /// <summary>The file length does not match the pinned identity.</summary>
+        SizeMismatch,
+
         /// <summary>Windows would not accept the signature.</summary>
         SignatureNotTrusted,
 
@@ -363,6 +366,44 @@ namespace DS4Windows
         {
             if (pin == null) throw new ArgumentNullException(nameof(pin));
 
+            return DecideFileVerification(pin.ReleaseLabel, pin.FileName,
+                pin.Url, pin.Sha256, pin.SizeInBytes,
+                pin.RequireAuthenticode, pin.ExpectedSignerCommonName,
+                pin.MatchesDigest, observation);
+        }
+
+        /// <summary>
+        /// Decides whether the executable extracted from a pinned archive may
+        /// be installed. Archive approval is deliberately a separate decision;
+        /// callers must obtain it before extraction and then obtain this one
+        /// for the payload.
+        /// </summary>
+        public static ViiperInstallerDecision<ViiperDownloadVerdict>
+            DecideExtractedPayloadVerification(ViiperPinnedDownload archivePin,
+                ViiperDownloadObservation observation)
+        {
+            if (archivePin == null)
+                throw new ArgumentNullException(nameof(archivePin));
+            ViiperPinnedPayload payload = archivePin.ExtractedPayload ??
+                throw new ArgumentException(
+                    "The pin does not define an extracted payload.",
+                    nameof(archivePin));
+
+            return DecideFileVerification(archivePin.ReleaseLabel,
+                payload.FileName, archivePin.Url + " -> " + payload.FileName,
+                payload.Sha256, payload.SizeInBytes,
+                requireAuthenticode: false, expectedSignerCommonName: null,
+                payload.MatchesDigest, observation);
+        }
+
+        private static ViiperInstallerDecision<ViiperDownloadVerdict>
+            DecideFileVerification(string releaseLabel, string expectedFileName,
+                string source, string expectedSha256, long expectedSizeInBytes,
+                bool requireAuthenticode, string expectedSignerCommonName,
+                Func<string, bool> matchesDigest,
+                ViiperDownloadObservation observation)
+        {
+
             // Every sentence about the file names the file that was examined,
             // not the file the pin expected: a corrupted staged copy reported
             // under the pinned name reads as an accusation against the
@@ -377,11 +418,11 @@ namespace DS4Windows
             List<string> lines = new List<string>
             {
                 "Verifying " + inspected + " against pinned release " +
-                    pin.ReleaseLabel + ".",
-                "File name: expected " + pin.FileName + ", actual " +
+                    releaseLabel + ".",
+                "File name: expected " + expectedFileName + ", actual " +
                     (observedName.Length == 0
                         ? "(not recorded)" : observedName) + ".",
-                "Source: " + pin.Url,
+                "Source: " + source,
             };
 
             if (observation == null || !observation.Exists)
@@ -398,14 +439,23 @@ namespace DS4Windows
             }
 
             lines.Add("Size: expected " +
-                pin.SizeInBytes.ToString(CultureInfo.InvariantCulture) +
+                expectedSizeInBytes.ToString(CultureInfo.InvariantCulture) +
                 " bytes, actual " +
                 observation.SizeInBytes.ToString(CultureInfo.InvariantCulture) +
                 " bytes.");
 
+            if (observation.SizeInBytes != expectedSizeInBytes)
+            {
+                return Decide(ViiperDownloadVerdict.SizeMismatch,
+                    "Verification failed: " + inspected + " is not the " +
+                    "pinned size. The file is discarded and nothing is run " +
+                    "from it.",
+                    lines);
+            }
+
             string actualDigest =
                 ViiperPinnedDownload.NormalizeDigest(observation.Sha256);
-            lines.Add("SHA-256: expected " + pin.Sha256 + ", actual " +
+            lines.Add("SHA-256: expected " + expectedSha256 + ", actual " +
                 (actualDigest.Length == 0 ? "(not computed)" : actualDigest) +
                 ".");
 
@@ -423,7 +473,7 @@ namespace DS4Windows
                     lines);
             }
 
-            if (!pin.MatchesDigest(actualDigest))
+            if (!matchesDigest(actualDigest))
             {
                 return Decide(ViiperDownloadVerdict.DigestMismatch,
                     "Verification failed: " + inspected + " does not have " +
@@ -432,14 +482,14 @@ namespace DS4Windows
                     lines);
             }
 
-            if (!pin.RequireAuthenticode)
+            if (!requireAuthenticode)
             {
                 lines.Add("Authenticode: not required for this component (" +
                     "upstream publishes it unsigned), so the pinned SHA-256 is " +
                     "the whole identity check.");
                 return Decide(ViiperDownloadVerdict.Approved,
                     inspected + " matches the pinned SHA-256 for release " +
-                    pin.ReleaseLabel + ".",
+                    releaseLabel + ".",
                     lines);
             }
 
@@ -472,11 +522,11 @@ namespace DS4Windows
 
             string signer = (observation.SignerCommonName ?? string.Empty).Trim();
             lines.Add("Authenticode signer: expected \"" +
-                pin.ExpectedSignerCommonName + "\", actual " +
+                expectedSignerCommonName + "\", actual " +
                 (signer.Length == 0 ? "(not reported)" : "\"" + signer + "\"") +
                 ".");
 
-            if (!string.Equals(signer, pin.ExpectedSignerCommonName,
+            if (!string.Equals(signer, expectedSignerCommonName,
                     StringComparison.OrdinalIgnoreCase))
             {
                 return Decide(ViiperDownloadVerdict.UnexpectedSigner,
@@ -769,7 +819,7 @@ namespace DS4Windows
 
         /// <summary>
         /// Release labels reach us as <c>0.9.7.7</c>, <c>v.0.9.7.7</c> and
-        /// <c>v0.0.5</c> depending on who wrote them down. Only the leading
+        /// <c>v0.0.6</c> depending on who wrote them down. Only the leading
         /// <c>v</c>/<c>v.</c> is normalised away; the digits are compared
         /// literally, because "close enough" is how a floor comparison gets
         /// reinvented.

@@ -204,10 +204,76 @@ public class ViiperInstallerScriptTests
         Assert.AreEqual(2, Regex.Matches(script,
             Regex.Escape("Get-VerifiedPinnedFile \"")).Count,
             "both components must be fetched through the verifying helper.");
-        Assert.AreEqual(1, Regex.Matches(script,
+        Assert.AreEqual(2, Regex.Matches(script,
             @"\$verification\s*=\s*Invoke-InstallerPolicy").Count,
-            "there must be exactly one verification call site, shared by the " +
-            "download path and the staged-file path.");
+            "there must be one shared archive-verification call site and one " +
+            "extracted-payload verification call site.");
+    }
+
+    [TestMethod]
+    public void AZipDigestMismatchRefusesBeforeExtraction()
+    {
+        int archiveVerification = script.IndexOf(
+            "Get-VerifiedPinnedFile \"viiper\"", StringComparison.Ordinal);
+        int extraction = script.IndexOf(
+            "$payload = Expand-AndVerifyViiperPayload",
+            StringComparison.Ordinal);
+        string verificationFunction = FunctionBody("Get-VerifiedPinnedFile");
+
+        Assert.IsTrue(archiveVerification >= 0 && extraction >= 0);
+        Assert.IsTrue(archiveVerification < extraction,
+            "the zip must pass its digest check before extraction is called");
+        StringAssert.Contains(verificationFunction,
+            "if ($verification.ExitCode -ne 0)");
+        StringAssert.Contains(verificationFunction,
+            "The downloaded file was discarded and nothing was run from it.");
+    }
+
+    [TestMethod]
+    public void APayloadDigestMismatchRefusesAfterExtraction()
+    {
+        string payloadFunction = FunctionBody(
+            "Expand-AndVerifyViiperPayload");
+        int extraction = payloadFunction.IndexOf("Expand-Archive",
+            StringComparison.Ordinal);
+        int payloadVerification = payloadFunction.IndexOf(
+            "\"--scope\", \"payload\"", StringComparison.Ordinal);
+        int refusal = payloadFunction.IndexOf(
+            "if ($verification.ExitCode -ne 0)", StringComparison.Ordinal);
+        int successReturn = payloadFunction.IndexOf("return @{",
+            StringComparison.Ordinal);
+
+        Assert.IsTrue(extraction >= 0 && payloadVerification >= 0 &&
+            refusal >= 0 && successReturn >= 0);
+        Assert.IsTrue(extraction < payloadVerification &&
+            payloadVerification < refusal && refusal < successReturn,
+            "the exe must be extracted, verified, and refused before a " +
+            "successful payload can be returned");
+        StringAssert.Contains(payloadFunction,
+            "The extracted payload was discarded and nothing was installed");
+    }
+
+    [TestMethod]
+    public void AValidZipAndPayloadProceedWithTheLicenseRollup()
+    {
+        int archiveVerification = script.IndexOf(
+            "Get-VerifiedPinnedFile \"viiper\"", StringComparison.Ordinal);
+        int payloadVerification = script.IndexOf(
+            "$payload = Expand-AndVerifyViiperPayload",
+            StringComparison.Ordinal);
+        int install = script.IndexOf(
+            "Install-ViiperAtomically $payload.ExecutablePath " +
+                "$payload.LicensesPath", StringComparison.Ordinal);
+
+        Assert.IsTrue(archiveVerification >= 0 && payloadVerification >= 0 &&
+            install >= 0);
+        Assert.IsTrue(archiveVerification < payloadVerification &&
+            payloadVerification < install,
+            "installation must follow both successful verification stages");
+        StringAssert.Contains(script,
+            "$licensesPath = Join-Path $extractionDir \"licenses.txt\"");
+        StringAssert.Contains(script,
+            "VIIPER and its licenses.txt were installed");
     }
 
     [TestMethod]
@@ -256,5 +322,16 @@ public class ViiperInstallerScriptTests
         }
 
         return null;
+    }
+
+    private static string FunctionBody(string name)
+    {
+        int start = script.IndexOf("function " + name,
+            StringComparison.Ordinal);
+        Assert.IsTrue(start >= 0, "script function was not found: " + name);
+        int next = script.IndexOf("\nfunction ", start + 1,
+            StringComparison.Ordinal);
+        return next < 0 ? script.Substring(start) :
+            script.Substring(start, next - start);
     }
 }

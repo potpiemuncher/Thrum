@@ -147,6 +147,18 @@ namespace DS4Windows
                     (pin.RequireAuthenticode ? "true" : "false"));
                 output.Add(prefix + "signer=" +
                     Sanitize(pin.ExpectedSignerCommonName ?? string.Empty));
+                if (pin.ExtractedPayload != null)
+                {
+                    output.Add(prefix + "payload.filename=" +
+                        pin.ExtractedPayload.FileName);
+                    output.Add(prefix + "payload.sha256=" +
+                        pin.ExtractedPayload.Sha256);
+                    output.Add(prefix + "payload.size=" +
+                        pin.ExtractedPayload.SizeInBytes.ToString(
+                            CultureInfo.InvariantCulture));
+                }
+                output.Add(prefix + "expectedembeddedstamp=" +
+                    Sanitize(pin.ExpectedEmbeddedVersionStamp ?? string.Empty));
                 output.Add("log=Pinned " + Key(pin.Component) + ": " +
                     pin.FileName + " (" + pin.ReleaseLabel + "), SHA-256 " +
                     pin.Sha256 + ", " + (pin.RequireAuthenticode
@@ -194,13 +206,42 @@ namespace DS4Windows
             }
 
             ViiperPinnedDownload pin = ViiperInstallerPins.For(component);
-            ViiperDownloadObservation observation = Observe(path, pin);
+            string scope = (ReadOption(args, "--scope") ?? "archive")
+                .Trim().ToLowerInvariant();
+            if (scope != "archive" && scope != "payload")
+            {
+                output.Add("error=unknown verification scope");
+                output.Add("log=Installer policy was asked to verify an " +
+                    "unknown file scope '" + Sanitize(scope) + "'.");
+                return ExitCouldNotRun;
+            }
+            if (scope == "payload" && pin.ExtractedPayload == null)
+            {
+                output.Add("error=no extracted payload pin");
+                output.Add("log=Installer policy was asked to verify an " +
+                    "extracted payload for a component that has no payload pin.");
+                return ExitCouldNotRun;
+            }
+
+            bool requireAuthenticode = scope == "archive"
+                ? pin.RequireAuthenticode
+                : false;
+            ViiperDownloadObservation observation = Observe(path,
+                requireAuthenticode);
             ViiperInstallerDecision<ViiperDownloadVerdict> decision =
-                ViiperInstallerPolicy.DecideDownloadVerification(pin, observation);
+                scope == "payload"
+                    ? ViiperInstallerPolicy.DecideExtractedPayloadVerification(
+                        pin, observation)
+                    : ViiperInstallerPolicy.DecideDownloadVerification(
+                        pin, observation);
+
+            string expectedSha256 = scope == "payload"
+                ? pin.ExtractedPayload.Sha256
+                : pin.Sha256;
 
             output.Add("verdict=" + decision.Action);
             output.Add("summary=" + Sanitize(decision.Summary));
-            output.Add("expectedsha256=" + pin.Sha256);
+            output.Add("expectedsha256=" + expectedSha256);
             output.Add("actualsha256=" + Sanitize(observation.Sha256 ?? string.Empty));
             output.Add("expectedsigner=" +
                 Sanitize(pin.ExpectedSignerCommonName ?? string.Empty));
@@ -220,7 +261,7 @@ namespace DS4Windows
         /// <see cref="ViiperInstallerPolicy"/>.
         /// </summary>
         private static ViiperDownloadObservation Observe(string path,
-            ViiperPinnedDownload pin)
+            bool requireAuthenticode)
         {
             // Base name only: the observation is quoted verbatim in reports
             // and logs, and those must not carry user paths.
@@ -269,7 +310,7 @@ namespace DS4Windows
                 };
             }
 
-            if (!pin.RequireAuthenticode)
+            if (!requireAuthenticode)
             {
                 return new ViiperDownloadObservation
                 {

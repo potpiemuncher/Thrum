@@ -22,6 +22,44 @@ using System.Collections.Generic;
 namespace DS4Windows
 {
     /// <summary>
+    /// One file inside a pinned archive whose identity must be checked after
+    /// extraction and before it can be installed.
+    /// </summary>
+    public sealed class ViiperPinnedPayload
+    {
+        public ViiperPinnedPayload(string fileName, string sha256,
+            long sizeInBytes)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("A payload file name is required.",
+                    nameof(fileName));
+            if (string.IsNullOrWhiteSpace(sha256))
+                throw new ArgumentException("A payload SHA-256 is required.",
+                    nameof(sha256));
+            if (sizeInBytes <= 0)
+                throw new ArgumentOutOfRangeException(nameof(sizeInBytes));
+
+            FileName = fileName;
+            Sha256 = ViiperPinnedDownload.NormalizeDigest(sha256);
+            SizeInBytes = sizeInBytes;
+        }
+
+        /// <summary>The exact path-independent file name inside the archive.</summary>
+        public string FileName { get; }
+
+        /// <summary>Upper-case hexadecimal, no separators.</summary>
+        public string Sha256 { get; }
+
+        /// <summary>The exact extracted file size.</summary>
+        public long SizeInBytes { get; }
+
+        public bool MatchesDigest(string candidate) =>
+            !string.IsNullOrWhiteSpace(candidate) &&
+            string.Equals(ViiperPinnedDownload.NormalizeDigest(candidate),
+                Sha256, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Which bundled component a pin describes.
     /// </summary>
     public enum ViiperInstallerComponent
@@ -55,7 +93,8 @@ namespace DS4Windows
             string releaseLabel, string fileName, string url, string sha256,
             long sizeInBytes, bool requireAuthenticode,
             string expectedSignerCommonName, string digestProvenance,
-            string notes = null)
+            string notes = null, ViiperPinnedPayload extractedPayload = null,
+            string expectedEmbeddedVersionStamp = null)
         {
             if (string.IsNullOrWhiteSpace(releaseLabel))
                 throw new ArgumentException("A release label is required.",
@@ -92,12 +131,14 @@ namespace DS4Windows
                 : null;
             DigestProvenance = digestProvenance;
             Notes = notes;
+            ExtractedPayload = extractedPayload;
+            ExpectedEmbeddedVersionStamp = expectedEmbeddedVersionStamp;
         }
 
         public ViiperInstallerComponent Component { get; }
 
         /// <summary>
-        /// Upstream release label, e.g. <c>0.9.7.7</c> or <c>v0.0.5</c>. For the
+        /// Upstream release label, e.g. <c>0.9.7.7</c> or <c>v0.0.6</c>. For the
         /// driver this is the label a <see cref="ViiperDriverRelease"/> carries,
         /// which is what ties a download to a tier.
         /// </summary>
@@ -142,6 +183,21 @@ namespace DS4Windows
 
         /// <summary>Anything a reader needs in order not to misread the pin.</summary>
         public string Notes { get; }
+
+        /// <summary>
+        /// An executable payload whose bytes must be verified after this
+        /// archive has itself passed verification, or null for a bare file.
+        /// Both checks are required when present; neither substitutes for the
+        /// other.
+        /// </summary>
+        public ViiperPinnedPayload ExtractedPayload { get; }
+
+        /// <summary>
+        /// The human-readable version stamp expected inside the pinned
+        /// payload, or null when none is recorded. This is diagnostic context
+        /// only and is never a validation input; the digest is the identity.
+        /// </summary>
+        public string ExpectedEmbeddedVersionStamp { get; }
 
         public bool MatchesDigest(string candidate) =>
             !string.IsNullOrWhiteSpace(candidate) &&
@@ -216,50 +272,58 @@ namespace DS4Windows
                     "re-validated after setup rather than trusted from this pin.");
 
         /// <summary>
-        /// VIIPER v0.0.5, the backend release whose framed audio/haptics
-        /// protocol this application negotiates against.
+        /// VIIPER v0.0.6, the backend release whose framed audio/haptics
+        /// protocol this application negotiates against. Its published asset
+        /// is a zip, so the archive and its executable payload carry separate,
+        /// mandatory pins.
         ///
-        /// <para>Two things a reader has to know. First, upstream does not sign
-        /// this asset at all — it is an unsigned Go binary published by a
-        /// release workflow — so the digest is the whole identity and
+        /// <para>Upstream does not sign this asset or the executable inside it;
+        /// they are published by a release workflow. The two digests are the
+        /// whole identity and
         /// <see cref="ViiperPinnedDownload.RequireAuthenticode"/> is false
-        /// rather than a check that would fail on every honest download.
-        /// Second, the published binary is <em>mis-stamped</em>: it reports
-        /// <c>v0.0.3-18-g02fffe6</c> as its own version because the release
-        /// workflow built it without fetching tags. hbashton/VIIPER#3 (ours)
-        /// fixes that workflow. Until it lands, nothing may validate this file
-        /// by the version it claims — only by
-        /// <see cref="ViiperPinnedDownload.Sha256"/>.</para>
+        /// rather than a check that would fail on every honest download. The
+        /// embedded <c>v0.0.6 (e85575d)</c> stamp is correctly produced by the
+        /// repaired release workflow, but it remains a human-readable
+        /// diagnostic cross-check, never a validation input. The archive and
+        /// extracted-executable digests are the identities.</para>
         /// </summary>
         public static ViiperPinnedDownload ViiperBackend { get; } =
             new ViiperPinnedDownload(
                 component: ViiperInstallerComponent.ViiperBackend,
-                releaseLabel: "v0.0.5",
-                fileName: "viiper.exe",
+                releaseLabel: "v0.0.6",
+                fileName: "viiper-windows-amd64.zip",
                 url: "https://github.com/hbashton/VIIPER/releases/download/" +
-                    "v0.0.5/viiper.exe",
+                    "v0.0.6/viiper-windows-amd64.zip",
                 sha256:
-                    "3AD872D006DF2FC282E381A68B5A5B3C51E4DA3614D250AB3FDA1C272EF745D0",
-                sizeInBytes: 11255296L,
+                    "6EC76B298AF402AC65BA21F00DFFC9D3DA36909BDD1C909AEE9047FE4F9B0D1B",
+                sizeInBytes: 4735340L,
                 requireAuthenticode: false,
                 expectedSignerCommonName: null,
                 digestProvenance:
-                    "Computed locally from the downloaded hbashton/VIIPER v0.0.5 " +
-                    "asset and cross-checked against the digest GitHub reports " +
-                    "for that same release asset.",
+                    "Computed locally from the downloaded hbashton/VIIPER v0.0.6 " +
+                    "zip and cross-checked against the digest GitHub reports " +
+                    "for that same release asset; the extracted executable was " +
+                    "hashed independently from that archive.",
                 notes:
-                    "Unsigned upstream. The asset mis-reports its own version as " +
-                    "v0.0.3-18-g02fffe6 (hbashton/VIIPER#3 fixes the release " +
-                    "workflow), so the embedded version string is never a " +
-                    "validation input.");
+                    "Unsigned upstream. The embedded version stamp is diagnostic " +
+                    "context only and never a validation input. VIIPER 0.0.6 " +
+                    "itself gates startup on the safe usbip-win2 0.9.7.7 attach " +
+                    "ABI, which is why these two pins form a coherent pair.",
+                extractedPayload: new ViiperPinnedPayload(
+                    fileName: "viiper.exe",
+                    sha256:
+                        "90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A",
+                    sizeInBytes: 11223552L),
+                expectedEmbeddedVersionStamp:
+                    ViiperBackendExpectedEmbeddedVersionStamp);
 
         /// <summary>
-        /// The version string the pinned VIIPER asset reports about itself.
-        /// Recorded so a diagnostic can say "this is the known mis-stamp"
-        /// instead of a reader concluding the wrong file was downloaded.
+        /// The correctly stamped, human-readable version string in the pinned
+        /// VIIPER executable. Diagnostics expose it as an expected-stamp
+        /// cross-check only; validation continues to use the two digests.
         /// </summary>
-        public const string ViiperBackendEmbeddedVersionMisstamp =
-            "v0.0.3-18-g02fffe6";
+        public const string ViiperBackendExpectedEmbeddedVersionStamp =
+            "v0.0.6 (e85575d)";
 
         public static IReadOnlyList<ViiperPinnedDownload> All { get; } =
             new[] { UsbipWin2, ViiperBackend };

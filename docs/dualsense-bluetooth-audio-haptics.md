@@ -7,18 +7,34 @@ This branch keeps three DualSense feedback paths separate:
 | Path | Source | Physical controller transport |
 | --- | --- | --- |
 | Rumble, adaptive triggers, lightbar, LEDs | DualSense HID output report `0x02` | normal DualSense HID output (`0x31` on Bluetooth) |
-| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM (`0x32` is the one-off amplifier setup only) |
+| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM |
 | Controller speaker audio | selected Windows render endpoint, including VIIPER's virtual `Wireless Controller` endpoint | Bluetooth HID `0x35`, packet `0x13`, 48 kHz stereo Opus |
 | Controller microphone | physical DualSense Opus or DualShock 4 SBC microphone frames | VIIPER virtual DualSense/Edge 48 kHz stereo or DualShock 4 16 kHz mono UAC capture endpoint |
 
 The channels are intentionally not mixed. In particular, the advanced-haptics PCM stream is never converted to generic rumble or routed to the controller speaker.
 
 **Report IDs, stated precisely, because getting them wrong misdirects debugging.**
-The steady haptics stream is report `0x36` — 398 bytes, carrying the PID `0x12`
-haptics packet at offsets 76-141. Report `0x32` is the 142-byte one-off amplifier
-setup, sent once per stream start. Treating `0x32` as the streaming report makes
-a transport-ownership problem look like a missing mutex; see
-`dev/bt-haptics-attenuation.md` for the bug that cost.
+The BT descriptor declares `0x32`–`0x39` as container reports, and more than one
+of them can carry a PID `0x12` haptics packet — SAxense streams haptics on the
+142-byte `0x32`, which is where the protocol notes and most public references
+start.
+
+**Thrum does not.** `DualSenseHapticsStreamer` streams on report **`0x36`**
+(`HAPTICS_REPORT_ID`/`AUDIO_REPORT_ID`) — 398 bytes, PID `0x12` packet at offsets
+76-141 — because that container also carries controller state and the optional
+Opus lane, so one owner can publish all three coherently. In this codebase `0x32`
+(`STATE_SETUP_REPORT_ID`) is used only for the one-off amplifier setup at stream
+start.
+
+So "the haptics report is `0x32`" is true of the protocol literature and false of
+this implementation. Carrying the first into a Thrum debugging session makes a
+transport-ownership problem look like a missing mutex between two `0x32` writers,
+when the real contention is over `0x36`. See `dev/bt-haptics-attenuation.md`.
+
+Related, and already known before it bit us: firmware rumble emulation and
+haptics streaming are mutually exclusive. Asserting the motor flags or the
+improved-rumble bit in `0x31` while streaming silences the stream, which is why
+`DualSenseDevice` has four separate `hapticsStreamActive` guards.
 
 **Advanced haptics no longer require a virtual controller.** Audio Haptics can
 capture any Windows render endpoint and stream the derived PCM straight to a

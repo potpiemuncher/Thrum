@@ -1,4 +1,4 @@
-<UserControl x:Class="DS4WinWPF.DS4Forms.ControllerTesterControl"
+﻿<UserControl x:Class="DS4WinWPF.DS4Forms.ControllerTesterControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -159,12 +159,12 @@
                                         <TextBlock Grid.Column="1" Text="{Binding RawValue}"
                                                    HorizontalAlignment="Right" Margin="0,0,8,0"
                                                    Foreground="{DynamicResource MutedForegroundColor}" />
-                                        <ProgressBar Grid.Column="2" Value="{Binding RawValue}"
+                                        <ProgressBar Grid.Column="2" Value="{Binding RawValue, Mode=OneWay}"
                                                      Style="{StaticResource TesterProgressStyle}" />
                                         <TextBlock Grid.Column="3" Text="{Binding MappedValue}"
                                                    HorizontalAlignment="Right" Margin="0,0,8,0"
                                                    Foreground="{DynamicResource AccentColor}" />
-                                        <ProgressBar Grid.Column="4" Value="{Binding MappedValue}"
+                                        <ProgressBar Grid.Column="4" Value="{Binding MappedValue, Mode=OneWay}"
                                                      Style="{StaticResource TesterProgressStyle}" />
                                     </Grid>
                                 </DataTemplate>
@@ -272,7 +272,7 @@
                                                    VerticalAlignment="Center" Margin="0,0,8,0"
                                                    Foreground="{DynamicResource MutedForegroundColor}" />
                                         <Grid Grid.Column="2" Width="280">
-                                            <ProgressBar Value="{Binding RawValue}"
+                                            <ProgressBar Value="{Binding RawValue, Mode=OneWay}"
                                                          Style="{StaticResource TesterProgressStyle}" />
                                             <Canvas Width="280" Height="14" IsHitTestVisible="False">
                                                 <Line X1="{Binding DeadZonePosition}" X2="{Binding DeadZonePosition}"
@@ -287,7 +287,7 @@
                                                    VerticalAlignment="Center" Margin="9,0,8,0"
                                                    Foreground="{DynamicResource AccentColor}" />
                                         <Grid Grid.Column="4" Width="280">
-                                            <ProgressBar Value="{Binding MappedValue}"
+                                            <ProgressBar Value="{Binding MappedValue, Mode=OneWay}"
                                                          Style="{StaticResource TesterProgressStyle}" />
                                             <Canvas Width="280" Height="14" IsHitTestVisible="False">
                                                 <Line X1="{Binding DeadZonePosition}" X2="{Binding DeadZonePosition}"

@@ -36,6 +36,11 @@ self-contained package from source:
 dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true
 ```
 
+## User guide
+
+See the [Thrum User Guide](USERGUIDE.md) for the first-run wizard, the ten-page
+navigation rail, profiles, Audio Haptics, Trigger Lab, and VIIPER safety gates.
+
 ## Lineage and attribution
 
 Thrum continues the DS4Windows line of work and is not a replacement for the

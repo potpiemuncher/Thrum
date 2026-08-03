@@ -16,6 +16,13 @@ the UNRESOLVED section at the end of this file and are release-blocking. Do not
 publish a binary release while that section is non-empty without a deliberate,
 recorded decision about each item.
 
+As of 2026-08-03 all three carry such a decision, taken for the 0.9.0-beta.1
+release and written into their entries below: item 1 ships with a licence
+request outstanding, item 2 ships with replacement scheduled, item 3 ships with
+reasons stated. Recorded is not the same as resolved — every item stays listed
+until it is genuinely resolved, and a later release must re-examine each one
+rather than inherit these decisions by default.
+
 Two files in the tree carry their own notices and are authoritative for what
 they cover; this file does not restate them:
 
@@ -216,6 +223,18 @@ UNRESOLVED — release-blocking
    from Ryochan7/FakerInput, IS MIT-licensed — only the .NET wrapper is
    affected. Inherited from upstream DS4Windows, not introduced by Thrum.
 
+   MAINTAINER DECISION (2026-08-03): the 0.9.0-beta.1 release ships this
+   assembly while the grant is outstanding. A licence request has been filed
+   with the author (Ryochan7/FakerInputWrapper issue #1) asking for MIT, to
+   match the native FakerInput project. If no grant is forthcoming, the
+   fallback is to remove the dependency: FakerInput is the *optional* keyboard
+   and mouse output handler — SendInput is the default and is what the
+   validation passes ran on — and its used surface measures at roughly ten
+   P/Invoke members, so a clean-room wrapper over the MIT-licensed
+   FakerInputDll.dll is small. This item stays open until there is a grant or
+   that replacement ships. Anyone redistributing this release should be aware
+   the wrapper's terms are unresolved.
+
 2. Three Ms-PL components ship inside a GPL-3.0 program.
 
    DotNetProjects.Extended.Wpf.Toolkit, WPFLocalizeExtension and its transitive
@@ -258,6 +277,25 @@ UNRESOLVED — release-blocking
       editor is still wanted, rebuild it from source so a dependency licence
       manifest can be generated; if it is not, delete it. It is a vendored web
       asset with no other role in the application.
+
+   MAINTAINER DECISION (2026-08-03) for both (a) and (b): the 0.9.0-beta.1
+   release ships them as-is, for these stated reasons rather than by oversight.
+
+   (a) The 1€ filter is published research (Casiez, Roussel, Vogel, CHI 2012)
+       and its authors publish their own ports under BSD or MIT; only this C#
+       port lacks a stated licence, and it is 105 lines implementing a
+       documented algorithm. Planned resolution is reimplementation from the
+       paper so the file carries a Thrum GPL-3.0 header outright.
+
+   (b) The Bezier editor bundle's top-level project is MIT and its embedded npm
+       dependencies are the usual MIT/ISC web set; what is missing is a
+       per-dependency manifest, not a permissive grant. Planned resolution is to
+       rebuild from source so the manifest can be generated, or to delete the
+       editor if it is not wanted.
+
+   Both are inherited from upstream DS4Windows and neither is believed to be
+   non-permissive. They remain listed here — a planned resolution is not a
+   resolution — and this notice is the record that shipping them was deliberate.
 
 
 ================================================================================

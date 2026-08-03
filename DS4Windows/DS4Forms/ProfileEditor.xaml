@@ -5,6 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
+        xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
              xmlns:localConvert="clr-namespace:DS4WinWPF.DS4Forms.Converters"
              xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              xmlns:lex="http://wpflocalizeextension.codeplex.com"
@@ -124,7 +125,7 @@
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" x:Name="sidebarTabControl"
+        <controls:ContentHostTabControl Grid.Row="1" x:Name="sidebarTabControl"
                     Style="{StaticResource BridgeProfileTabControlStyle}"
                     SelectionChanged="SidebarTabControl_SelectionChanged">
             <TabItem Header="{lex:Loc Controls}">
@@ -532,13 +533,13 @@
             <TabItem x:Name="contReadingsTab" Header="Controller Readings" IsEnabled="False">
                 <local:ControllerReadingsControl x:Name="conReadingsUserCon" />
             </TabItem>
-        </TabControl>
+        </controls:ContentHostTabControl>
 
-        <TabControl Grid.Row="1" x:Name="profileSettingsTabCon" Visibility="Collapsed"
+        <controls:ContentHostTabControl Grid.Row="1" x:Name="profileSettingsTabCon" Visibility="Collapsed"
                     Style="{StaticResource BridgeProfileTabControlStyle}">
-            <TabControl.Resources>
+            <controls:ContentHostTabControl.Resources>
                 <Thickness x:Key="spaceMargin" Bottom="8" />
-            </TabControl.Resources>
+            </controls:ContentHostTabControl.Resources>
 
             <TabItem Header="{lex:Loc AxisConfig}" Tag="Sticks, triggers, dead zones, curves, and motion axes">
                 <TabItem.Resources>
@@ -2816,6 +2817,6 @@
                 </ScrollViewer>
 
             </TabItem>
-        </TabControl>
+        </controls:ContentHostTabControl>
     </Grid>
 </UserControl>

@@ -166,8 +166,13 @@ Still **not** verified, and not claimed:
 - **that no firmware-specific state field is being attenuated.** Strength is
   now subjectively equal to the known-good build; nothing measured the actuator
   signal itself, so a small systematic difference would not have been detected.
-- USB. This path is Bluetooth-only by construction; see issue #65.
+- the wired USB Audio Haptics route. Issue #65 now uses the physical
+  four-channel DualSense render endpoint (haptics on channels 3/4) and suppresses
+  competing HID motor ownership only while that output is live, but the result
+  is still code-verified rather than felt on hardware.
 
-Two defects were found by the run rather than by the code, both filed: the
-stream restarts twice on connect (#66), and the Bluetooth-only limitation is
-surfaced honestly but still leaves USB users without the feature (#65).
+Two defects were found by the run rather than by the code: the stream restarts
+twice on connect (#66), and USB users were incorrectly rejected (#65). The #65
+implementation is complete in code; its remaining evidence is a wired hardware
+pass covering strength, ordinary-rumble contention, unplug/failure status and
+ordinary-rumble restoration.

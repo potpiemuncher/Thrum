@@ -7,7 +7,7 @@ This branch keeps three DualSense feedback paths separate:
 | Path | Source | Physical controller transport |
 | --- | --- | --- |
 | Rumble, adaptive triggers, lightbar, LEDs | DualSense HID output report `0x02` | normal DualSense HID output (`0x31` on Bluetooth) |
-| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM |
+| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM; **or** the physical DualSense four-channel USB render endpoint, channels 3/4 |
 | Controller speaker audio | selected Windows render endpoint, including VIIPER's virtual `Wireless Controller` endpoint | Bluetooth HID `0x35`, packet `0x13`, 48 kHz stereo Opus |
 | Controller microphone | physical DualSense Opus or DualShock 4 SBC microphone frames | VIIPER virtual DualSense/Edge 48 kHz stereo or DualShock 4 16 kHz mono UAC capture endpoint |
 
@@ -37,14 +37,23 @@ improved-rumble bit in `0x31` while streaming silences the stream, which is why
 `DualSenseDevice` has four separate `hapticsStreamActive` guards.
 
 **Advanced haptics no longer require a virtual controller.** Audio Haptics can
-capture any Windows render endpoint and stream the derived PCM straight to a
-physically connected DualSense over Bluetooth — no VIIPER, no USB/IP, no driver
-(issue #58, confirmed on hardware 2026-08-03). The VIIPER UAC path below remains
-the route for games that address the controller as an audio device.
+capture any Windows render endpoint and send the derived PCM straight to a
+physically connected DualSense — no VIIPER, no USB/IP, no virtual audio driver.
+Bluetooth uses the HID `0x36` path above (issue #58, confirmed on hardware
+2026-08-03). Wired USB uses the controller's existing four-channel physical
+WASAPI render endpoint and writes the haptics signal to channels 3/4 (issue
+#65, code-verified; hardware confirmation remains pending). The VIIPER UAC path
+below remains the route for games that address the controller as an audio
+device.
 
-This path is **Bluetooth-only**. Over USB the streamer does not run and audio
-haptics still need a virtual controller; the Audio Haptics page says so rather
-than reporting success. Tracked as issue #65.
+USB HID output report `0x02` is controller state, **not** a PCM transport. Once
+the physical four-channel endpoint opens, Audio Haptics takes a scoped actuator
+lease. While that lease is active, normal `0x02` output continues to carry
+adaptive-trigger, lightbar and LED state, but its main-motor enable bits,
+motor values and improved-rumble bit are suppressed so firmware rumble cannot
+fight the PCM stream. Stop, startup failure, playback failure and controller
+disconnect all retire or invalidate the lease, which restores ordinary USB
+rumble ownership on the next output report.
 
 Speaker and microphone routing follows the emulated controller selected by the
 profile, not the physical model. A physical DualSense can therefore feed a

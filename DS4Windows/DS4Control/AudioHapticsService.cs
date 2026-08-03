@@ -31,6 +31,9 @@ namespace DS4Windows
         private readonly object[] slotLocks = Enumerable.Range(0,
             ControllerCount).Select(_ => new object()).ToArray();
         private readonly SlotRuntime[] slots = new SlotRuntime[ControllerCount];
+        private readonly AudioHapticsRuntimeStatus[] slotStatuses =
+            Enumerable.Range(0, ControllerCount)
+                .Select(_ => AudioHapticsRuntimeStatus.Inactive).ToArray();
         private bool disposed;
 
         public void Start(int slot, DS4Device device,
@@ -63,6 +66,7 @@ namespace DS4Windows
                     return;
                 }
 
+                slotStatuses[slot] = AudioHapticsRuntimeStatus.Starting;
                 OutContType normalizedOutputType = outputType.Normalize();
                 SlotRuntime runtime = slots[slot];
                 if (runtime != null && runtime.TryUpdateSettings(settings,
@@ -88,6 +92,8 @@ namespace DS4Windows
                 catch (Exception exception)
                 {
                     runtime.Dispose();
+                    slotStatuses[slot] = AudioHapticsRuntimeStatus.Failed(
+                        $"Audio Haptics could not start: {exception.Message}");
                     AppLogger.LogToGui(
                         $"Audio Haptics could not start for controller {slot + 1}: {exception.Message}",
                         true);
@@ -107,6 +113,7 @@ namespace DS4Windows
                 SlotRuntime runtime = slots[slot];
                 slots[slot] = null;
                 runtime?.Dispose();
+                slotStatuses[slot] = AudioHapticsRuntimeStatus.Inactive;
             }
         }
 
@@ -152,8 +159,7 @@ namespace DS4Windows
             }
             lock (slotLocks[slot])
             {
-                return slots[slot]?.Status ??
-                    AudioHapticsRuntimeStatus.Inactive;
+                return slots[slot]?.Status ?? slotStatuses[slot];
             }
         }
 
@@ -211,6 +217,8 @@ namespace DS4Windows
             private string requestedPhysicalEndpointId;
             private int controllerAudioUsbipPort;
             private readonly object captureLifecycleLock = new object();
+            private readonly object usbOutputLifecycleLock = new object();
+            private readonly object usbFrameWriteLock = new object();
             private readonly object frameLock = new object();
             private readonly byte[][] frameQueue = Enumerable.Range(0,
                 QueueCapacity).Select(_ => new byte[FrameBytes]).ToArray();
@@ -231,6 +239,7 @@ namespace DS4Windows
             private MMDevice usbOutputEndpoint;
             private WasapiOut usbOutput;
             private BufferedWaveProvider usbProvider;
+            private IDisposable usbAudioHapticsOwnershipLease;
             private byte[] usbScratch = Array.Empty<byte>();
             private int captureFramePosition;
             private int queueRead;
@@ -258,6 +267,8 @@ namespace DS4Windows
             private long nextCaptureRetryTimestamp;
             private long nextBluetoothTransportRetryTimestamp;
             private int bluetoothTransportReady;
+            private int usbTransportReady;
+            private string usbOutputFailureMessage;
 
             public SlotRuntime(int slot, DualSenseDevice device,
                 AudioHapticsProfileSettings settings, OutContType outputType,
@@ -274,7 +285,27 @@ namespace DS4Windows
             }
 
             public string SourceDisplayName => sourceDisplayName;
-            public AudioHapticsRuntimeStatus Status => status;
+            public AudioHapticsRuntimeStatus Status =>
+                PreferUsbFailureStatus(device.ConnectionType,
+                    Volatile.Read(ref usbOutputFailureMessage), status);
+
+            internal static AudioHapticsRuntimeStatus PreferUsbFailureStatus(
+                ConnectionType connectionType, string failureMessage,
+                AudioHapticsRuntimeStatus current)
+            {
+                return connectionType != ConnectionType.BT &&
+                    !string.IsNullOrWhiteSpace(failureMessage)
+                        ? AudioHapticsRuntimeStatus.Failed(failureMessage)
+                        : current;
+            }
+
+            internal static bool IsOutputTransportReusable(
+                ConnectionType connectionType, bool usbTransportReady)
+            {
+                return connectionType == ConnectionType.BT ||
+                    usbTransportReady;
+            }
+
             public float InputLevel => inputLevelMeter.Level;
 
             public void Start()
@@ -306,7 +337,6 @@ namespace DS4Windows
                 if (device.ConnectionType != ConnectionType.BT)
                 {
                     StartUsbHapticsOutput();
-                    Volatile.Write(ref bluetoothTransportReady, 1);
                 }
                 else
                 {
@@ -582,6 +612,14 @@ namespace DS4Windows
                     return;
                 }
 
+                string usbFailure = Volatile.Read(
+                    ref usbOutputFailureMessage);
+                if (device.ConnectionType != ConnectionType.BT &&
+                    !string.IsNullOrWhiteSpace(usbFailure))
+                {
+                    status = AudioHapticsRuntimeStatus.Failed(usbFailure);
+                    return;
+                }
                 AudioHapticsProfileSettings activeSettings =
                     Volatile.Read(ref settings);
                 bool captureReady = activeSettings.Source ==
@@ -610,7 +648,25 @@ namespace DS4Windows
                     return;
                 }
 
-                status = AudioHapticsRuntimeStatus.Running;
+                if (device.ConnectionType != ConnectionType.BT &&
+                    Volatile.Read(ref usbTransportReady) == 0)
+                {
+                    status = new AudioHapticsRuntimeStatus(false,
+                        "Starting wired USB haptics output");
+                    return;
+                }
+
+                status = CreateRunningStatus();
+            }
+
+            private AudioHapticsRuntimeStatus CreateRunningStatus(
+                string message = null)
+            {
+                bool wired = device.ConnectionType != ConnectionType.BT;
+                return new AudioHapticsRuntimeStatus(true,
+                    message ?? (wired ? "Active over wired USB" :
+                        "Audio Haptics is active."),
+                    wiredOutputActive: wired);
             }
 
             public bool TryUpdateSettings(
@@ -619,7 +675,9 @@ namespace DS4Windows
                 int nextUsbipPort)
             {
                 if (Volatile.Read(ref disposed) != 0 ||
-                    Volatile.Read(ref started) == 0)
+                    Volatile.Read(ref started) == 0 ||
+                    !IsOutputTransportReusable(device.ConnectionType,
+                        Volatile.Read(ref usbTransportReady) != 0))
                 {
                     return false;
                 }
@@ -822,10 +880,12 @@ namespace DS4Windows
             {
                 sourceDisplayName = eventArgs.DisplayName;
                 status = eventArgs.ProcessId > 0
-                    ? new AudioHapticsRuntimeStatus(true,
+                    ? CreateRunningStatus(
                         $"Active · {eventArgs.DisplayName}")
                     : new AudioHapticsRuntimeStatus(false,
                         "Waiting for a detected game");
+                status = PreferUsbFailureStatus(device.ConnectionType,
+                    Volatile.Read(ref usbOutputFailureMessage), status);
             }
 
             private void ProcessPcm(byte[] buffer, int byteCount,
@@ -1040,7 +1100,7 @@ namespace DS4Windows
                                 ref standaloneCarrierDeferrals);
                         }
                     }
-                    else
+                    else if (Volatile.Read(ref usbTransportReady) != 0)
                     {
                         if (publishStandaloneFrame)
                         {
@@ -1127,6 +1187,33 @@ namespace DS4Windows
                         MaximumLivePacketAgeMilliseconds / 1000;
             }
 
+            internal static void StartUsbOutputWithOwnership(
+                Action initializeOutput, Func<IDisposable> acquireOwnership,
+                Action<IDisposable> publishOwnership, Action startOutput,
+                Func<bool> outputRunning, Action rollbackOutput)
+            {
+                IDisposable ownership = null;
+                try
+                {
+                    initializeOutput();
+                    ownership = acquireOwnership();
+                    publishOwnership(ownership);
+                    ownership = null;
+                    startOutput();
+                    if (!outputRunning())
+                    {
+                        throw new InvalidOperationException(
+                            "Wired USB haptics output stopped during startup.");
+                    }
+                }
+                catch
+                {
+                    try { rollbackOutput(); } catch { }
+                    ownership?.Dispose();
+                    throw;
+                }
+            }
+
             private void StartUsbHapticsOutput()
             {
                 using MMDeviceEnumerator enumerator = new MMDeviceEnumerator();
@@ -1160,24 +1247,155 @@ namespace DS4Windows
                         "No four-channel physical DualSense audio endpoint was found for USB haptics.");
                 }
 
-                usbOutputEndpoint = endpoint;
-                WaveFormat format = endpoint.AudioClient.MixFormat;
-                usbProvider = new BufferedWaveProvider(format)
+                lock (usbOutputLifecycleLock)
                 {
-                    BufferDuration = TimeSpan.FromMilliseconds(250),
-                    DiscardOnBufferOverflow = true,
-                    ReadFully = true,
-                };
-                usbOutput = new WasapiOut(endpoint,
-                    AudioClientShareMode.Shared, true,
-                    UsbOutputLatencyMilliseconds);
-                usbOutput.Init(usbProvider);
-                usbOutput.Play();
+                    Volatile.Write(ref usbOutputFailureMessage, null);
+                    usbOutputEndpoint = endpoint;
+                    WaveFormat format = endpoint.AudioClient.MixFormat;
+                    usbProvider = new BufferedWaveProvider(format)
+                    {
+                        BufferDuration = TimeSpan.FromMilliseconds(250),
+                        DiscardOnBufferOverflow = true,
+                        ReadFully = true,
+                    };
+                    usbOutput = new WasapiOut(endpoint,
+                        AudioClientShareMode.Shared, true,
+                        UsbOutputLatencyMilliseconds);
+                    usbOutput.PlaybackStopped += UsbOutput_PlaybackStopped;
+                    try
+                    {
+                        StartUsbOutputWithOwnership(
+                            () => usbOutput.Init(usbProvider),
+                            device.AcquireUsbAudioHapticsOutputOwnership,
+                            ownership => usbAudioHapticsOwnershipLease =
+                                ownership,
+                            usbOutput.Play,
+                            () => usbOutput?.PlaybackState ==
+                                PlaybackState.Playing,
+                            () => RetireUsbHapticsOutputLocked(
+                                stopPlayback: true));
+                        Volatile.Write(ref usbTransportReady, 1);
+                    }
+                    catch
+                    {
+                        RetireUsbHapticsOutputLocked(stopPlayback: true);
+                        throw;
+                    }
+                }
+            }
+
+            private void UsbOutput_PlaybackStopped(object sender,
+                StoppedEventArgs eventArgs)
+            {
+                if (sender is not WasapiOut output)
+                {
+                    return;
+                }
+
+                string reason = eventArgs?.Exception?.Message;
+                FailUsbHapticsOutput(output, expectedProvider: null,
+                    string.IsNullOrWhiteSpace(reason)
+                        ? "Wired USB haptics output stopped."
+                        : $"Wired USB haptics output stopped: {reason}",
+                    stopPlayback: false);
+            }
+
+            private void FailUsbHapticsOutput(WasapiOut expectedOutput,
+                BufferedWaveProvider expectedProvider, string message,
+                bool stopPlayback)
+            {
+                lock (usbOutputLifecycleLock)
+                {
+                    if ((expectedOutput != null &&
+                            !ReferenceEquals(expectedOutput, usbOutput)) ||
+                        (expectedProvider != null &&
+                            !ReferenceEquals(expectedProvider, usbProvider)))
+                    {
+                        return;
+                    }
+
+                    Volatile.Write(ref usbOutputFailureMessage, message);
+                    RetireUsbHapticsOutputLocked(stopPlayback);
+                }
+
+                if (Volatile.Read(ref disposed) != 0)
+                {
+                    return;
+                }
+
+                status = AudioHapticsRuntimeStatus.Failed(message);
+                AppLogger.LogToGui(
+                    $"Audio Haptics controller {slot + 1}: {message}", true);
+            }
+
+            private void RetireUsbHapticsOutputLocked(bool stopPlayback)
+            {
+                WasapiOut currentOutput = usbOutput;
+                MMDevice currentEndpoint = usbOutputEndpoint;
+                IDisposable currentOwnership =
+                    usbAudioHapticsOwnershipLease;
+                usbOutput = null;
+                usbOutputEndpoint = null;
+                usbProvider = null;
+                usbAudioHapticsOwnershipLease = null;
+                Volatile.Write(ref usbTransportReady, 0);
+
+                try
+                {
+                    if (currentOutput != null)
+                    {
+                        currentOutput.PlaybackStopped -=
+                            UsbOutput_PlaybackStopped;
+                        if (stopPlayback)
+                        {
+                            try { currentOutput.Stop(); } catch { }
+                        }
+                        try { currentOutput.Dispose(); } catch { }
+                    }
+                    try { currentEndpoint?.Dispose(); } catch { }
+                }
+                finally
+                {
+                    currentOwnership?.Dispose();
+                }
+            }
+
+            internal static bool TryWriteUsbSamples(
+                Action<byte[], int, int> writeSamples, byte[] buffer,
+                int count, Action<Exception> handleFailure)
+            {
+                try
+                {
+                    writeSamples(buffer, 0, count);
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    try { handleFailure(exception); } catch { }
+                    return false;
+                }
             }
 
             private void WriteUsbFrame(byte[] frame)
             {
-                WaveFormat format = usbProvider?.WaveFormat;
+                lock (usbFrameWriteLock)
+                {
+                    WriteUsbFrameLocked(frame);
+                }
+            }
+
+            private void WriteUsbFrameLocked(byte[] frame)
+            {
+                BufferedWaveProvider provider;
+                lock (usbOutputLifecycleLock)
+                {
+                    if (Volatile.Read(ref usbTransportReady) == 0)
+                    {
+                        return;
+                    }
+                    provider = usbProvider;
+                }
+                WaveFormat format = provider?.WaveFormat;
                 if (format == null)
                 {
                     return;
@@ -1218,7 +1436,11 @@ namespace DS4Windows
                     WriteSample(usbScratch,
                         outputOffset + bytesPerSample * 3, format, right);
                 }
-                usbProvider.AddSamples(usbScratch, 0, bytesNeeded);
+                TryWriteUsbSamples(provider.AddSamples, usbScratch,
+                    bytesNeeded, exception => FailUsbHapticsOutput(
+                        expectedOutput: null, expectedProvider: provider,
+                        $"Wired USB haptics output write failed: {exception.Message}",
+                        stopPlayback: true));
             }
 
             private static float ReadSample(byte[] buffer, int byteCount,
@@ -1324,6 +1546,17 @@ namespace DS4Windows
                     return;
                 }
                 status = AudioHapticsRuntimeStatus.Inactive;
+                stopped.Set();
+                lock (captureLifecycleLock)
+                {
+                    RetireProcessCapture(stopRecording: true);
+                    RetireCapture(stopRecording: true);
+                }
+                if (writerThread != null &&
+                    !ReferenceEquals(writerThread, Thread.CurrentThread))
+                {
+                    writerThread.Join(1200);
+                }
                 if (standaloneHapticsActive)
                 {
                     Array.Clear(writerFrame, 0, writerFrame.Length);
@@ -1342,20 +1575,10 @@ namespace DS4Windows
                     }
                     standaloneHapticsActive = false;
                 }
-                stopped.Set();
-                lock (captureLifecycleLock)
+                lock (usbOutputLifecycleLock)
                 {
-                    RetireProcessCapture(stopRecording: true);
-                    RetireCapture(stopRecording: true);
+                    RetireUsbHapticsOutputLocked(stopPlayback: true);
                 }
-                if (writerThread != null &&
-                    !ReferenceEquals(writerThread, Thread.CurrentThread))
-                {
-                    writerThread.Join(1200);
-                }
-                try { usbOutput?.Stop(); } catch { }
-                usbOutput?.Dispose();
-                usbOutputEndpoint?.Dispose();
                 captureEndpoint?.Dispose();
                 stopped.Dispose();
             }
@@ -1385,13 +1608,22 @@ namespace DS4Windows
         public static AudioHapticsRuntimeStatus Running =>
             new AudioHapticsRuntimeStatus(true, "Audio Haptics is active.");
 
-        public AudioHapticsRuntimeStatus(bool active, string message)
+        public static AudioHapticsRuntimeStatus Failed(string message) =>
+            new AudioHapticsRuntimeStatus(false, message,
+                wiredOutputActive: false, error: true);
+
+        public AudioHapticsRuntimeStatus(bool active, string message,
+            bool wiredOutputActive = false, bool error = false)
         {
             Active = active;
             Message = message ?? string.Empty;
+            WiredOutputActive = wiredOutputActive;
+            Error = error;
         }
 
         public bool Active { get; }
         public string Message { get; }
+        public bool WiredOutputActive { get; }
+        public bool Error { get; }
     }
 }

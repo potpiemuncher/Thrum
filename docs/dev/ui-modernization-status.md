@@ -134,11 +134,15 @@ compile clean, pass every unit test, and throw only when a template instantiates
 Counting `Bridge*Style` references cannot see that class of defect; only running
 the app can.
 
-All findings from both passes are now resolved except **#51** (keyboard
-navigation — the filed symptom did not reproduce on `main`, left open for
-re-verification), **#65** and **#66**. Rendered results for theme, layout,
-keyboard, live hardware, audio, haptics and controller behaviour are therefore
-claimable from those reports rather than from this document.
+Every finding now has a verified source disposition. **#51** is closed and
+completed after the Phase 4 closure pass. **#66** is code-complete and locally
+validated, although its GitHub issue remains open pending publication. **#65**
+now has a code-complete wired USB route; its remaining hardware evidence is
+tracked separately and is not claimed by this source close-out. Those
+publication and hardware boundaries do not reopen Phase 4 source acceptance.
+Rendered results for theme, layout, keyboard, live hardware, audio, haptics and
+controller behaviour are therefore claimable from those reports rather than
+from this document.
 
 Phase 4's source acceptance criterion is closed: every page/dialog is either modernized or
 logged above with a current reason. The VM folder remains the honest evidence boundary for the

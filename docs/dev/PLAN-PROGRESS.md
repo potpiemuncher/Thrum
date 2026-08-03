@@ -4448,3 +4448,39 @@ suite passes **1045/1045**. This is a managed UI replacement with no driver,
 controller or VIIPER path, so it has no VM or hardware validation requirement.
 A normal app/UI smoke remains useful release validation but is not a source-level
 blocker for #71.
+
+## 2026-08-03 — Issue #65: wired USB Audio Haptics code closure
+
+The issue's proposed transport was based on the wrong premise: USB HID output
+report `0x02` is controller state and rumble, not a PCM carrier. Thrum already
+had the correct wired path in `AudioHapticsService`: open the physical
+DualSense's four-channel WASAPI render endpoint and write the derived haptics
+signal to channels 3/4. The missing piece was actuator ownership around that
+existing output.
+
+The wired runtime now acquires a scoped USB-audio-haptics lease only after
+`WasapiOut.Init` has opened the endpoint. While the lease is live, the final
+ordinary USB HID write boundary clears only the two main-motor enable bits,
+motor values and improved-rumble bit. Adaptive triggers, lightbar, LEDs and
+other controller state remain intact, and the Bluetooth path is unchanged.
+Stop, startup rollback, immediate playback stop, sample-write failure and
+device disconnect all retire or invalidate the lease so ordinary USB rumble
+can resume. Shutdown stops and joins the writer before publishing its last zero
+frame, then retires the endpoint and lease.
+
+The Audio Haptics page now reports **Active over wired USB** only for a live
+wired output and preserves a visible failure reason after playback/write
+failure. A subsequent settings apply rebuilds a failed wired runtime rather
+than reusing it.
+
+Verification:
+
+- focused ownership/lifecycle/status suite: **12/12**;
+- canonical x64 Release solution build: **0 warnings, 0 errors**;
+- canonical x64 Release full suite: **1038/1038**.
+
+This closes the code path, not the hardware claim. A wired DualSense pass still
+has to prove non-zero haptics are felt, ordinary game rumble does not fight the
+PCM stream while active, unplug/playback failure is surfaced, and stopping or
+reconnecting restores ordinary rumble. No controller, audio-device, app or VM
+operation was performed in this code-only pass.

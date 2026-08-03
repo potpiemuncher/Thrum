@@ -10,11 +10,23 @@ caches it for the session, and exposes it on `ViiperPrerequisiteStatus`
 alongside the unchanged `Ready` flag. The Settings driver-status card renders
 it (task 2.2).
 
-**What it is still not wired into:** installation, virtual-device attachment,
-controller release, or any refusal. Reaching a state does not change what the
-application will do; gating on the state is task 2.3, and runtime guardrails are
-task 2.5. `ViiperPrerequisiteStatus.Ready` deliberately still means "the backend
-can run" and is unaffected by the tier.
+**Gating is live** (tasks 2.3 and 2.5 landed; validated in the VM as Phase C, and
+exercised repeatedly on hardware since). Reaching a state now changes what the
+application does: virtual-device creation is refused unless the experimental
+driver has been explicitly acknowledged, and the refusal is surfaced to the user
+with the reason. A representative log line:
+
+```
+Refused to create the virtual Xbox 360 output. Virtual controllers run on a
+third-party kernel driver that is still experimental, and that has not been
+acknowledged yet.
+```
+
+Virtual audio and microphone endpoints are additionally off by default and gated
+separately, because the confirmed kernel defect is in endpoint teardown.
+
+`ViiperPrerequisiteStatus.Ready` still means "the backend can run" and is
+unaffected by the tier — that separation is deliberate and unchanged.
 
 **Read-only guarantees, unchanged.** Nothing here installs, uninstalls,
 elevates, attaches, detaches, starts a server, releases a controller, or writes
@@ -32,20 +44,31 @@ WinVerifyTrust paths can be exercised on disposable Windows 11 snapshots:
 - 0.9.7.8 records the earlier local controlled-test dossier.
 
 Matching either entry is not production approval. The entries are diagnostic
-baselines only; 0.9.7.8 remains known-risk after a reproduced request-lifetime
-failure in `usbip2_ude.sys`, and package identity/signing alone does not
-establish that 0.9.7.7 is safe to run.
+baselines only, and package identity/signing alone does not establish that a
+release is safe to run.
 
-Before runtime enforcement:
+**Correction on 0.9.7.8's root cause.** This file previously attributed it to a
+reproduced request-lifetime failure in `usbip2_ude.sys`. That was our working
+theory and it is **not** the cause: the defect was subsequently confirmed to be
+an `argv<>` overrun in `usbip2_filter`. Our own patch for the lifetime races was
+submitted as usbip-win2 PR #182 and the maintainer's separate fix addresses the
+real overrun. 0.9.7.8 remains known-risk, but for that reason, not this one.
 
-1. collect an installed 0.9.7.7 report on a clean, checkpointed VM without
-   attaching a controller;
-2. agree with maintainers whether either release may be used experimentally;
-3. decide whether DS4Windows, VIIPER, or both enforce the manifest;
-4. add a read-only user-facing diagnostic command;
-5. add download verification and post-install validation; and
-6. keep production approval gated on a signed fixed driver or an accepted
-   replacement driver strategy.
+Status of the original pre-enforcement checklist:
+
+1. ~~collect an installed report on a clean, checkpointed VM without attaching a
+   controller~~ — done; evidence in `vm-validation-reports/`.
+2. ~~agree whether either release may be used experimentally~~ — resolved as
+   explicit user acknowledgement rather than a blanket decision.
+3. ~~decide whether Thrum, VIIPER, or both enforce the manifest~~ — Thrum
+   enforces, via `ViiperInstallerPins` digest pinning.
+4. ~~add a read-only user-facing diagnostic~~ — the Diagnostics page.
+5. ~~add download verification and post-install validation~~ — landed with the
+   hardened installer path (VM Phase B).
+6. **Still open:** production approval stays gated on an upstream release
+   containing the confirmed fix. Until such a release exists, the gate reports
+   `Production approved: no` for every known package, which is the intended
+   outcome rather than a gap.
 
 The offline tests use fake inspectors and trust verifiers. They do not install
 a driver, request elevation, attach a virtual device, or require a controller.

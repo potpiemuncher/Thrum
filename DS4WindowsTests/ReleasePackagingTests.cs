@@ -127,7 +127,7 @@ public class ReleasePackagingTests
         string script = File.ReadAllText(scriptPath);
         int copyCall = script.LastIndexOf("copy_required_package_root_files()",
             StringComparison.Ordinal);
-        int manifestBuild = script.IndexOf("managed_files = sorted(",
+        int manifestBuild = script.IndexOf("\nmanaged_files = sorted(",
             StringComparison.Ordinal);
         int archiveMove = script.IndexOf("shutil.move(zip_dir, target_zip_path)",
             StringComparison.Ordinal);

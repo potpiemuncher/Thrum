@@ -116,6 +116,38 @@ public class ReleasePackagingTests
         }
     }
 
+    [TestMethod]
+    public void PostBuildPackagesLegalFilesAndVerifiesTheArchive()
+    {
+        string repoRoot = FindRepositoryRoot();
+        string scriptPath = Path.Combine(repoRoot, "utils", "post-build.py");
+        Assert.IsTrue(File.Exists(scriptPath),
+            scriptPath + " does not exist; release packaging cannot be guarded.");
+
+        string script = File.ReadAllText(scriptPath);
+        int copyCall = script.LastIndexOf("copy_required_package_root_files()",
+            StringComparison.Ordinal);
+        int manifestBuild = script.IndexOf("managed_files = sorted(",
+            StringComparison.Ordinal);
+        int archiveMove = script.IndexOf("shutil.move(zip_dir, target_zip_path)",
+            StringComparison.Ordinal);
+        int verifyCall = script.LastIndexOf(
+            "verify_release_archive(target_zip_path)",
+            StringComparison.Ordinal);
+
+        StringAssert.Contains(script,
+            @"required_package_root_files = (""NOTICE.txt"", ""COPYING"")");
+        Assert.IsTrue(copyCall >= 0 && manifestBuild >= 0 &&
+            copyCall < manifestBuild,
+            "post-build.py must copy NOTICE.txt and COPYING before generating " +
+            "the updater managed-files manifest.");
+        Assert.IsTrue(archiveMove >= 0 && verifyCall > archiveMove,
+            "post-build.py must verify the completed ZIP after moving it to " +
+            "the release output directory.");
+        StringAssert.Contains(script,
+            @"archive.read(manifest_entry).decode(""utf-8"")");
+    }
+
     private static string FindRepositoryRoot()
     {
         DirectoryInfo directory = new(AppContext.BaseDirectory);

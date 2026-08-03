@@ -1,4 +1,4 @@
-/*
+﻿/*
 Thrum
 Copyright (C) 2026  Thrum contributors
 
@@ -61,26 +61,25 @@ namespace DS4WinWPF.DS4Forms.Controls
 
         protected override List<AutomationPeer> GetChildrenCore()
         {
-            // The base implementation returns TabItem peers. When the template
-            // hosts items normally those exist and are the right answer, so
-            // prefer them and only substitute the content when there are none.
-            List<AutomationPeer> fromItems = base.GetChildrenCore();
-            if (fromItems != null && fromItems.Count > 0)
-            {
-                return fromItems;
-            }
+            List<AutomationPeer> children = base.GetChildrenCore()
+                ?? new List<AutomationPeer>();
 
-            List<AutomationPeer> children = new List<AutomationPeer>();
-            CollectPeers(Owner, children);
+            // TabControlAutomationPeer returns TabItem peers and nothing else,
+            // so any functional control the ControlTemplate hosts alongside the
+            // items - the shell template puts the whole profile-editor
+            // navigation rail there - is unreachable no matter how ordinary
+            // that control is. Walk the template for the rest.
+            //
+            // The items host and the selected-content host are skipped: their
+            // contents are already reported, by the TabItem peers above and by
+            // the selected TabItem respectively, and walking them again would
+            // duplicate whole subtrees.
+            CollectTemplatePeers(Owner, children);
+
             return children;
         }
 
-        /// <summary>
-        /// Walks the visual tree and collects the topmost automation peer on
-        /// each branch. Descending past an element that has its own peer would
-        /// duplicate its subtree, since that peer already exposes its children.
-        /// </summary>
-        private static void CollectPeers(DependencyObject parent,
+        private static void CollectTemplatePeers(DependencyObject parent,
             List<AutomationPeer> into)
         {
             int count = VisualTreeHelper.GetChildrenCount(parent);
@@ -88,6 +87,28 @@ namespace DS4WinWPF.DS4Forms.Controls
             {
                 DependencyObject child = VisualTreeHelper.GetChild(parent,
                     index);
+
+                if (child is Panel panel && panel.IsItemsHost)
+                {
+                    continue;
+                }
+
+                if (child is ContentPresenter presenter &&
+                    presenter.Name == SelectedContentHostName)
+                {
+                    continue;
+                }
+
+                // The shell keeps both sidebars permanently loaded and swaps
+                // them by animating Opacity, so a template walk reaches the
+                // hidden one too. Reporting it would have a screen reader
+                // announce the profile-editor rail while the user is on
+                // Overview - worse than the omission being fixed here.
+                if (child is UIElement hidden &&
+                    (!hidden.IsVisible || hidden.Opacity <= 0.0))
+                {
+                    continue;
+                }
 
                 if (child is UIElement element)
                 {
@@ -100,8 +121,12 @@ namespace DS4WinWPF.DS4Forms.Controls
                     }
                 }
 
-                CollectPeers(child, into);
+                CollectTemplatePeers(child, into);
             }
         }
+
+        private const string SelectedContentHostName =
+            "PART_SelectedContentHost";
+
     }
 }

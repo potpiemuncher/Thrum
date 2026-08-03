@@ -28,9 +28,9 @@ configuration: both will contend for the same physical controller.
 There are **no releases and no installers**. The only supported way to run
 Thrum today is to build it from source (see [Building](#building)).
 
-One thing to know before you build a release artifact: CI packages are
-framework-dependent, so a machine without the .NET 8 Desktop Runtime cannot
-start `Thrum.exe` at all. Until that is resolved, publish self-contained:
+Release and CI artifacts are self-contained for win-x64, so they do not require
+the .NET 8 Desktop Runtime to be installed separately. To publish the same
+self-contained package from source:
 
 ```powershell
 dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true

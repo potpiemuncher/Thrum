@@ -188,7 +188,6 @@ namespace DS4Windows.InputDevices
         internal const byte RUMBLE_SYNTH_DEADZONE = 16;
 
         private readonly DualSenseDevice device;
-        private readonly HidDevice hidDevice;
         private readonly byte[] outputBTCrc32Head = new byte[] { 0xA2 };
 
         private readonly object stateLock = new object();
@@ -226,10 +225,9 @@ namespace DS4Windows.InputDevices
 
         public bool Active => running;
 
-        public DualSenseHapticsStreamer(DualSenseDevice device, HidDevice hidDevice)
+        public DualSenseHapticsStreamer(DualSenseDevice device)
         {
             this.device = device;
-            this.hidDevice = hidDevice;
         }
 
         public void Configure(DualSenseControllerOptions.HapticsMode newMode,
@@ -591,7 +589,8 @@ namespace DS4Windows.InputDevices
                     }
 
                     long writeStart = Stopwatch.GetTimestamp();
-                    bool wrote = hidDevice.WriteOutputReportViaInterrupt(report, 100, out int writeError);
+                    bool wrote = device.WriteBluetoothHapticsStreamerOutputReport(
+                        report, out int writeError);
                     double writeMs = (Stopwatch.GetTimestamp() - writeStart) * 1000.0 / Stopwatch.Frequency;
                     if (writeMs > maxWriteMs)
                     {
@@ -994,7 +993,8 @@ namespace DS4Windows.InputDevices
             pkt[4 + 37] = 0x02; // AudioControl2: SpeakerCompPreGain = 2
 
             ApplyCrc(pkt, STATE_SETUP_REPORT_SIZE);
-            return hidDevice.WriteOutputReportViaInterrupt(pkt, 100, out win32Error);
+            return device.WriteBluetoothHapticsStreamerAmplifierSetup(
+                pkt, out win32Error);
         }
 
         private void ApplyCrc(byte[] report, int totalSize)

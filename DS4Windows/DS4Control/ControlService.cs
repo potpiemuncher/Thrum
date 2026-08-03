@@ -2381,6 +2381,14 @@ namespace DS4Windows
             StartupDiag($"device.StartUpdate begin index={index}");
             device.StartUpdate();
             StartupDiag($"device.StartUpdate end index={index}");
+            if ((profileLoaded || useAutoProfile) &&
+                device is InputDevices.DualSenseDevice)
+            {
+                // The profile is authoritative and StartUpdate has now made the
+                // physical stream ready. Do not rely on a later UI refresh to
+                // repair the pre-profile defaults applied during discovery.
+                ApplyAudioHapticsDeviceOptions(index);
+            }
             StartupDiag($"Controller prep end index={index}");
         }
 
@@ -2870,6 +2878,12 @@ namespace DS4Windows
             AudioHapticsStreamerMapping.BTHapticsOptions opts =
                 AudioHapticsStreamerMapping.Map(
                     Global.store.audioHapticsSettings[deviceIndex]);
+
+            // [DIAG] Temporary: retain for the next physical-controller run.
+            AppLogger.LogToGui($"[DIAG] Audio haptics apply slot={deviceIndex} " +
+                $"mode={opts.Mode} gain={opts.Gain:F2} hz={opts.LowPassHz} " +
+                $"endpoint={(string.IsNullOrWhiteSpace(opts.EndpointId) ? "(default)" : "set")} " +
+                $"conType={ds.ConnectionType}", false);
 
             ds.NativeOptionsStore.BTHapticsMode = opts.Mode;
             ds.NativeOptionsStore.BTHapticsGain = opts.Gain;

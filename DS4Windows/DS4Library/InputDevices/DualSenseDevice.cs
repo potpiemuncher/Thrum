@@ -1860,6 +1860,10 @@ namespace DS4Windows.InputDevices
 
         private void RefreshHapticsStreamerState()
         {
+            // [DIAG] Temporary: retain for the next physical-controller run.
+            AppLogger.LogToGui($"[DIAG] BT haptics refresh mac={MacAddress} " +
+                $"conType={conType} store={(nativeOptionsStore != null ? "set" : "null")} " +
+                $"ready={hapticsStreamerReady}", false);
             if (conType != ConnectionType.BT || nativeOptionsStore == null || !hapticsStreamerReady)
             {
                 return;
@@ -1871,7 +1875,7 @@ namespace DS4Windows.InputDevices
             DualSenseHapticsStreamer streamer = Volatile.Read(ref hapticsStreamer);
             if (streamer == null)
             {
-                DualSenseHapticsStreamer candidate = new DualSenseHapticsStreamer(this, hDevice);
+                DualSenseHapticsStreamer candidate = new DualSenseHapticsStreamer(this);
                 streamer = Interlocked.CompareExchange(ref hapticsStreamer, candidate, null) ?? candidate;
             }
 
@@ -3082,6 +3086,153 @@ namespace DS4Windows.InputDevices
 
             return WriteBluetoothHapticsSamples(report, offset + 13,
                 BluetoothCombinedHapticsDataLength, waitForWrite);
+        }
+
+        /// <summary>
+        /// Submits a self-contained 0x36 report produced by the local audio-
+        /// haptics streamer through Thrum's single-owner Bluetooth transport.
+        /// Haptics-only reports use the normal combined-state publication path;
+        /// reports with a listening-audio lane retain that fresh Opus frame.
+        /// </summary>
+        internal bool WriteBluetoothHapticsStreamerOutputReport(byte[] report,
+            out int win32Error)
+        {
+            win32Error = 0;
+            if (!IsValidBluetoothHapticsStreamerReport(report))
+            {
+                LastBluetoothHapticsWriteStatus =
+                    "Rejected: invalid Bluetooth haptics streamer report.";
+                return false;
+            }
+
+            if (!HasBluetoothHapticsStreamerSpeakerFrame(report))
+            {
+                return WriteBluetoothCombinedHapticsAudioOutputReport(report,
+                    0, report.Length);
+            }
+
+            if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                !EnsureBluetoothCombinedOutputTransport())
+            {
+                return false;
+            }
+
+            lock (bluetoothCombinedTransportWriteLock)
+            {
+                if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                    Volatile.Read(ref bluetoothAudioLifecycleTransitioning) != 0)
+                {
+                    LastBluetoothHapticsWriteStatus =
+                        "Rejected streamer report: Bluetooth output ownership is transitioning.";
+                    return false;
+                }
+
+                long hapticsGeneration =
+                    CacheBluetoothCombinedSpeakerReport(report, 0);
+                byte[] combined = (byte[])report.Clone();
+                ApplyNextBluetoothCombinedSequence(combined);
+                ApplyBluetoothCombinedCrc(combined);
+
+                bool written = TryQueueBluetoothAudioPacerReport(combined,
+                    PersistentBluetoothHapticsExpiryQpc,
+                    out bool pacerOwnsTransport);
+                if (!pacerOwnsTransport)
+                {
+                    written = TrySubmitBluetoothCombinedReport(combined,
+                        "audio-haptics streamer frame");
+                }
+
+                if (!written)
+                {
+                    return false;
+                }
+
+                MarkBluetoothCombinedHapticsSubmitted(hapticsGeneration);
+                ClaimBluetoothSpeakerClock(
+                    BluetoothSpeakerClockPresentedLeaseMilliseconds);
+                LastBluetoothHapticsWriteStatus =
+                    "Audio-haptics streamer frame accepted by the combined Bluetooth transport.";
+                return true;
+            }
+        }
+
+        internal static bool IsValidBluetoothHapticsStreamerReport(
+            byte[] report)
+        {
+            return report != null &&
+                report.Length == BluetoothCombinedOutputReportLength &&
+                report[0] == 0x36 && report[2] == 0x91 &&
+                report[11] == 0x90 &&
+                report[12] == BluetoothCombinedStateLength &&
+                report[BluetoothCombinedHapticsOffset] == 0x92 &&
+                report[BluetoothCombinedHapticsOffset + 1] ==
+                    BluetoothCombinedHapticsDataLength;
+        }
+
+        internal static bool HasBluetoothHapticsStreamerSpeakerFrame(
+            byte[] report)
+        {
+            if (!IsValidBluetoothHapticsStreamerReport(report) ||
+                report[BluetoothCombinedSpeakerOffset + 1] !=
+                    BluetoothCombinedSpeakerFrameLength)
+            {
+                return false;
+            }
+
+            byte packetId = (byte)(report[BluetoothCombinedSpeakerOffset] &
+                0x7F);
+            return packetId == 0x13 || packetId == 0x16;
+        }
+
+        /// <summary>
+        /// Performs the streamer's one-off 0x32 amplifier setup only after all
+        /// asynchronous 0x36 owners have released the HID handle. The following
+        /// streamer frame re-establishes the normal combined writer.
+        /// </summary>
+        internal bool WriteBluetoothHapticsStreamerAmplifierSetup(byte[] report,
+            out int win32Error)
+        {
+            win32Error = 0;
+            if (report == null || report.Length != 142 || report[0] != 0x32 ||
+                report[1] != 0x10 || report[2] != 0x90 || report[3] != 0x3F)
+            {
+                LastBluetoothHapticsWriteStatus =
+                    "Rejected: invalid Bluetooth haptics amplifier setup report.";
+                return false;
+            }
+
+            if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                !EnsureBluetoothCombinedOutputTransport())
+            {
+                return false;
+            }
+
+            lock (bluetoothCombinedTransportWriteLock)
+            {
+                if (Volatile.Read(ref bluetoothOutputTransportStopping) != 0 ||
+                    Volatile.Read(ref bluetoothAudioLifecycleTransitioning) != 0)
+                {
+                    LastBluetoothHapticsWriteStatus =
+                        "Rejected amplifier setup: Bluetooth output ownership is transitioning.";
+                    return false;
+                }
+
+                StopBluetoothAudioPacerLocked();
+                if (!DisposeBluetoothRealtimeWriter(
+                    BluetoothWriterOwnershipHandoffTimeoutMilliseconds))
+                {
+                    LastBluetoothHapticsWriteStatus =
+                        "Could not send amplifier setup: prior Bluetooth HID ownership is still retiring.";
+                    return false;
+                }
+
+                bool written = hDevice.WriteOutputReportViaInterrupt(report,
+                    100, out win32Error);
+                LastBluetoothHapticsWriteStatus = written ?
+                    "Bluetooth haptics amplifier setup completed." :
+                    $"Bluetooth haptics amplifier setup failed with Win32 error {win32Error}.";
+                return written;
+            }
         }
 
         /// <summary>
@@ -4422,7 +4573,6 @@ namespace DS4Windows.InputDevices
             {
                 PrepareMuteLEDByte();
                 PreparePlayerLEDBarByte();
-                Program.rootHub?.ApplyAudioHapticsDeviceOptions(DeviceSlotNumber);
                 RefreshHapticsStreamerState();
             }
         }

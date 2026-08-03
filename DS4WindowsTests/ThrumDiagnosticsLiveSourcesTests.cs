@@ -76,6 +76,11 @@ public class ThrumDiagnosticsLiveSourcesTests
         Assert.AreEqual(false, tryStartServer,
             "a diagnostics read requested the mutating backend-start path");
         Assert.IsFalse(section.ServerRunning);
+        Assert.AreEqual(ViiperInstallerPins.ViiperBackend.ReleaseLabel,
+            section.PinnedVersion);
+        Assert.AreEqual(
+            ViiperInstallerPins.ViiperBackendExpectedEmbeddedVersionStamp,
+            section.ExpectedEmbeddedVersionStamp);
         StringAssert.Contains(section.Detail, "not enumerated");
     }
 

@@ -129,6 +129,8 @@ namespace DS4Windows
             AppendField(builder, "ownership", backend.OwnershipState);
             AppendField(builder, "detail", backend.Detail);
             AppendField(builder, "expected version", backend.PinnedVersion);
+            AppendField(builder, "expected embedded stamp (diagnostic only)",
+                backend.ExpectedEmbeddedVersionStamp);
             // Stated rather than omitted: a reader who sees only "expected"
             // should know the running version is unavailable by design, not
             // missing by accident.

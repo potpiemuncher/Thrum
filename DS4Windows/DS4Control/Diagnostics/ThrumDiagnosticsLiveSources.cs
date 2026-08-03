@@ -151,6 +151,8 @@ namespace DS4Windows
                 OwnershipState = report.State.ToString(),
                 Detail = DescribeBackendDetail(report),
                 PinnedVersion = ViiperInstallerPins.ViiperBackend.ReleaseLabel,
+                ExpectedEmbeddedVersionStamp = ViiperInstallerPins.ViiperBackend.
+                    ExpectedEmbeddedVersionStamp,
                 Holdings = DescribeBackendHoldings(report),
             };
         }

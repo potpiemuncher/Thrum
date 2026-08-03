@@ -170,14 +170,18 @@ public class ThrumDiagnosticsReportFormatterTests
             {
                 HelperInstalled = true,
                 ServerRunning = true,
-                PinnedVersion = "v0.0.5",
+                PinnedVersion = "v0.0.6",
+                ExpectedEmbeddedVersionStamp = "v0.0.6 (e85575d)",
             },
         };
 
         string report = ThrumDiagnosticsReportFormatter.Format(snapshot);
 
         StringAssert.Contains(report, "expected version");
-        StringAssert.Contains(report, "v0.0.5");
+        StringAssert.Contains(report, "v0.0.6");
+        StringAssert.Contains(report,
+            "expected embedded stamp (diagnostic only)");
+        StringAssert.Contains(report, "v0.0.6 (e85575d)");
         StringAssert.Contains(report, "running version");
         StringAssert.Contains(report, "not reported by the backend");
     }

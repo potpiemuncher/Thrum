@@ -46,7 +46,7 @@
     an offline convenience and a test hook, never a way past a check.
 
 .PARAMETER ViiperBackendFile
-    The same, for the VIIPER backend executable.
+    The same, for the VIIPER backend release archive.
 
 .NOTES
     Exit codes: 0 success (driver pair validated), 1 refused or failed,
@@ -314,11 +314,61 @@ function Get-VerifiedPinnedFile([string]$component, [hashtable]$pins,
     Write-SetupLog $verification.Data['summary'] Green
 }
 
+function Expand-AndVerifyViiperPayload([hashtable]$pins,
+        [string]$archivePath, [string]$extractionDir) {
+    $payloadName = $pins['viiper.payload.filename']
+    $payloadDigest = $pins['viiper.payload.sha256']
+    $payloadSize = $pins['viiper.payload.size']
+    if (-not $payloadName -or -not $payloadDigest -or -not $payloadSize) {
+        throw "The VIIPER archive pin does not define a complete payload pin."
+    }
+
+    New-Item -ItemType Directory -Path $extractionDir -Force | Out-Null
+    Expand-Archive -LiteralPath $archivePath -DestinationPath $extractionDir `
+        -Force
+
+    $payloadPath = Join-Path $extractionDir $payloadName
+    $licensesPath = Join-Path $extractionDir "licenses.txt"
+    if (-not (Test-Path -LiteralPath $licensesPath -PathType Leaf)) {
+        throw (
+            "The verified VIIPER archive did not contain licenses.txt. " +
+            "Nothing from it was installed.")
+    }
+
+    $verification = Invoke-InstallerPolicy @(
+        "verify-file", "--component", "viiper", "--scope", "payload",
+        "--path", $payloadPath)
+    if ($verification.ExitCode -ne 0) {
+        try {
+            Remove-Item -LiteralPath $extractionDir -Recurse -Force `
+                -ErrorAction SilentlyContinue
+        }
+        catch { }
+        throw (
+            "$($verification.Data['summary']) " +
+            "The extracted payload was discarded and nothing was installed " +
+            "from the archive.")
+    }
+
+    Write-SetupLog $verification.Data['summary'] Green
+    return @{
+        ExecutablePath = $payloadPath
+        LicensesPath = $licensesPath
+    }
+}
+
 function Install-ViiperAtomically([string]$candidatePath,
-        [string]$viiperPath) {
+        [string]$candidateLicensesPath, [string]$viiperPath) {
     $newPath = "$viiperPath.new"
     $backupPath = "$viiperPath.previous"
+    $licensesPath = Join-Path (Split-Path -Parent $viiperPath) "licenses.txt"
+    $newLicensesPath = "$licensesPath.new"
+    $backupLicensesPath = "$licensesPath.previous"
+    $hadViiper = Test-Path -LiteralPath $viiperPath
+    $hadLicenses = Test-Path -LiteralPath $licensesPath
     Copy-Item -LiteralPath $candidatePath -Destination $newPath -Force
+    Copy-Item -LiteralPath $candidateLicensesPath `
+        -Destination $newLicensesPath -Force
 
     # An explicit repair/update may replace a running backend. Stop only the
     # VIIPER process and leave Thrum and every physical Bluetooth device
@@ -331,16 +381,38 @@ function Install-ViiperAtomically([string]$candidatePath,
     Start-Sleep -Milliseconds 300
 
     try {
-        if (Test-Path -LiteralPath $viiperPath) {
+        if ($hadViiper) {
             [IO.File]::Replace($newPath, $viiperPath, $backupPath, $true)
         }
         else {
             Move-Item -LiteralPath $newPath -Destination $viiperPath -Force
         }
+
+        if ($hadLicenses) {
+            [IO.File]::Replace($newLicensesPath, $licensesPath,
+                $backupLicensesPath, $true)
+        }
+        else {
+            Move-Item -LiteralPath $newLicensesPath `
+                -Destination $licensesPath -Force
+        }
     }
     catch {
-        if (Test-Path -LiteralPath $backupPath) {
+        if ($hadViiper -and (Test-Path -LiteralPath $backupPath)) {
             Copy-Item -LiteralPath $backupPath -Destination $viiperPath -Force
+        }
+        elseif (-not $hadViiper) {
+            Remove-Item -LiteralPath $viiperPath -Force `
+                -ErrorAction SilentlyContinue
+        }
+        if ($hadLicenses -and
+            (Test-Path -LiteralPath $backupLicensesPath)) {
+            Copy-Item -LiteralPath $backupLicensesPath `
+                -Destination $licensesPath -Force
+        }
+        elseif (-not $hadLicenses) {
+            Remove-Item -LiteralPath $licensesPath -Force `
+                -ErrorAction SilentlyContinue
         }
         throw
     }
@@ -564,10 +636,14 @@ try {
 
     Write-Step "Installing VIIPER"
     $viiperPath = Join-Path $script:InstallDir "viiper.exe"
-    $candidatePath = Join-Path $script:TempDir "viiper.exe"
-    Get-VerifiedPinnedFile "viiper" $pins $candidatePath $ViiperBackendFile
-    Install-ViiperAtomically $candidatePath $viiperPath
-    Write-SetupLog "VIIPER installed to $viiperPath" Green
+    $archivePath = Join-Path $script:TempDir $pins['viiper.filename']
+    Get-VerifiedPinnedFile "viiper" $pins $archivePath $ViiperBackendFile
+    $extractionDir = Join-Path $script:TempDir "viiper-extracted"
+    $payload = Expand-AndVerifyViiperPayload $pins $archivePath $extractionDir
+    Install-ViiperAtomically $payload.ExecutablePath $payload.LicensesPath `
+        $viiperPath
+    Write-SetupLog (
+        "VIIPER and its licenses.txt were installed to $script:InstallDir") Green
 
     Write-Step "Startup behaviour"
     # No autostart entry is created here, by either mechanism. Thrum starts the

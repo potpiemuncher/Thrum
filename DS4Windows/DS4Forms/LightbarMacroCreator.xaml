@@ -3,12 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
-        xmlns:lex="http://wpflocalizeextension.codeplex.com"
+        xmlns:lex="clr-namespace:DS4WinWPF.DS4Forms.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
-        lex:LocalizeDictionary.DesignCulture=""
-        lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
-        lex:ResxLocalizationProvider.DefaultDictionary="Strings"
         mc:Ignorable="d"
         Style="{DynamicResource WindowStyle}"
         Title="Lightbar macro creator" Height="450" Width="800">

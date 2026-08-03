@@ -22,7 +22,7 @@ badge, or a third-party aggregator is not evidence about the thing we ship.
 5. **GPL compatibility** was checked against the FSF's published licence list rather than from
    memory.
 
-## What the publish output actually contains
+## What the beta.1 publish output actually contained
 
 Third-party assemblies in the package (excluding Thrum's own and the .NET runtime):
 
@@ -50,6 +50,21 @@ satellite culture folders.
 its `CompanyName` resource reads "GitHub Community" and it is dahall/TaskScheduler. Filtering an
 inventory by `Microsoft.*` hides it. And `ICSharpCode.AvalonEdit.dll` and `XAMLMarkupExtensions.dll`
 appear in no `PackageReference`; they are transitive, so a csproj-only inventory misses them.
+The inventory above is retained as the beta.1 audit baseline.
+
+### Beta 2 delta — issue #72 (2026-08-03)
+
+Issue #72 removed the `WPFLocalizeExtension` package and replaced its load-time resource lookup
+with Thrum's clean-room GPL-3.0-or-later `LocExtension`. That also removes the transitive
+`XAMLMarkupExtensions` package. A fresh self-contained win-x64 publish from the issue branch
+contains **0** `WPFLocalizeExtension.dll`, **0** `XAMLMarkupExtensions.dll`, **1**
+`DotNetProjects.Wpf.Extended.Toolkit.dll`, and all **23** `Thrum.resources.dll` satellites. The
+restored `dotnet list package --include-transitive` graph likewise names only the remaining
+toolkit when filtered for these three package families.
+
+This is a current artifact check, not an inference from the edited project file. The two removed
+rows remain in the evidence table below because they document what beta.1 redistributed and why
+the legal cleanup was required.
 
 ## Findings that changed the notice
 
@@ -87,8 +102,8 @@ as unresolved item 3(b).
 | System.Management 7.0.2 | MIT | nuspec `licenseExpression` |
 | System.Memory 4.5.5 | MIT | nuspec `licenseUrl` → dotnet/corefx LICENSE.TXT |
 | TaskScheduler 2.10.1 | MIT | nuspec `licenseExpression`, author David Hall |
-| WPFLocalizeExtension 3.9.4 | Ms-PL | bundled `LICENSE` — Ms-PL text |
-| XAMLMarkupExtensions 2.1.3 (transitive) | Ms-PL | bundled `LICENSE`; shipped DLL `ProductVersion` confirms 2.1.3 |
+| WPFLocalizeExtension 3.9.4 | Ms-PL | beta.1 evidence: bundled `LICENSE` — Ms-PL text; removed by issue #72 |
+| XAMLMarkupExtensions 2.1.3 (transitive) | Ms-PL | beta.1 evidence: bundled `LICENSE`; shipped DLL `ProductVersion` confirms 2.1.3; removed by issue #72 |
 | WpfScreenHelper 2.1.0 | MIT | nuspec `licenseExpression` |
 | YellowDogMan.RRNoise.NET 0.1.9 | MIT | nuspec `licenseExpression` |
 | rnnoise (native, in rnnoise.dll) | BSD-3-Clause | xiph/rnnoise via GitHub API |
@@ -119,22 +134,22 @@ Options: ask the author for a licence (cheapest, and the author is the original 
 author, so the ask is natural); drop the dependency; or reimplement the wrapper, which is a thin
 `DllImport` surface over `FakerInputDll.dll` and looks small.
 
-### 2. Three Ms-PL assemblies inside a GPL-3.0 program
+### 2. One Ms-PL assembly remains inside a GPL-3.0 program
 
-`DotNetProjects.Extended.Wpf.Toolkit`, `WPFLocalizeExtension` and its transitive
-`XAMLMarkupExtensions` are all Microsoft Public License. The FSF's licence list says of Ms-PL:
+`DotNetProjects.Extended.Wpf.Toolkit` is Microsoft Public License. The FSF's licence list says
+of Ms-PL:
 *"This is a free software license; it has a copyleft that is not strong, but incompatible with
 the GNU GPL."*
 
-Thrum is GPL-3.0-or-later and links all three, so this is a compatibility question, not a
-paperwork gap. It is **inherited from upstream DS4Windows**, which is also GPL-3.0 and ships the
-same three components — the exposure is not new, but a first public release is when it starts to
-matter.
+Thrum is GPL-3.0-or-later and still links the toolkit, so this remains a compatibility question,
+not a paperwork gap. It is **inherited from upstream DS4Windows** and tracked for replacement by
+issue #71.
 
-This needs the maintainer's decision, informed by counsel if they want one; the summary above is
-the FSF's published position, not legal advice. `WPFLocalizeExtension` is the most deeply wired
-of the three (195 localization tokens across 29 `.resx` files went through it in Phase 1.8), so
-replacing it is not a small change.
+Issue #72 resolved two thirds of the original finding: `WPFLocalizeExtension` and its transitive
+`XAMLMarkupExtensions` no longer appear in the project, restored package graph, or fresh
+self-contained publish. The replacement is in-house GPL-3.0-or-later code, so those two
+assemblies are no longer part of the distributed-work analysis. The summary above is the FSF's
+published position, not legal advice.
 
 For contrast, the Apache-2.0 components are fine: the FSF confirms Apache-2.0 is compatible with
 GPLv3 (though not GPLv2, which does not affect us).

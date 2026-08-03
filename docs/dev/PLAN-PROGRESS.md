@@ -4355,3 +4355,51 @@ Phase 5 begins with the runtime packaging decision, which is the one remaining
 blocker where a release artifact cannot start at all on a machine without the
 .NET Desktop Runtime — both validation passes had to work around it with a
 self-contained publish, so no real release artifact has ever been run.
+
+## 2026-08-03 — Beta 2 dependency cleanup: issue #72
+
+The Ms-PL localization dependency is gone. A clean-room GPL-3.0-or-later
+`DS4Forms/Localization/LocExtension.cs` now performs the one operation the UI
+needs: resolve a literal key at XAML object creation time. It supports both the
+parameterless-plus-`Key` and string-constructor forms, routes the exact
+case-sensitive `Resources:` prefix to `Properties.Resources` and every other
+bare or dotted key to `Translations.Strings`, and uses `CurrentUICulture` on
+every call without caching. A missing key renders a visible
+`[[Missing localization: …]]` marker instead of disappearing. It deliberately
+has no notification or live-language machinery; the existing language picker
+continues to state that a restart is required.
+
+All 26 localized XAML files now bind `lex` to the in-house namespace. The 24
+`LocalizeDictionary` / `ResxLocalizationProvider` attachment sets were removed,
+the 601 original `lex:Loc`/`lex:LocExtension` expressions were retained, and the
+two `lex:BLoc` sites became ordinary bindings whose source is `lex:Loc`. After
+excluding one disabled XAML comment, the audited runtime surface is 602
+expressions and every key resolves. That audit exposed four inherited invalid
+key spellings and one genuinely absent neutral tooltip; the bindings now reuse
+`PresetIntroText`, `EnhancedPrecision`, `DeadZone X` and `DeadZone Y`, and the
+DS3 gyro-simulation tooltip has neutral fallback text. The disabled Greek-only
+virtual-trigger key remains historical, not runtime content.
+
+The direct `WPFLocalizeExtension` package reference, its transitive
+`XAMLMarkupExtensions` package, the `App.xaml.cs` engine calls and all legacy
+runtime namespace/provider references were removed. The early
+`SatelliteAssemblyResolver` module initializer remains: WPF can still request a
+satellite while loading XAML before `Application_Startup`, independent of which
+markup extension initiates the lookup.
+
+Artifact evidence is current rather than inferred from the project edit. A
+fresh self-contained win-x64 publish contains zero copies of
+`WPFLocalizeExtension.dll` and `XAMLMarkupExtensions.dll`, all 23
+`Thrum.resources.dll` satellites, and one
+`DotNetProjects.Wpf.Extended.Toolkit.dll`. The restored transitive package graph
+likewise contains only that toolkit among the three original Ms-PL families.
+NOTICE item 2 is therefore partially resolved: issue #71 is the one remaining
+Ms-PL replacement, and its entry was deliberately retained.
+
+Verification: the new focused suite passes **6/6**; the combined localization,
+satellite and notice set passes **28/28**; the no-incremental canonical x64
+Release solution build completes with **0 errors** and the same 17 known
+warnings; the full x64 Release suite passes **1032/1032**. This is a managed
+load-time resource change with no driver, controller or VIIPER path, so it has
+no VM or hardware validation requirement. A normal app restart/UI smoke remains
+useful release validation but is not a source-level blocker for #72.

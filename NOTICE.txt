@@ -80,16 +80,10 @@ BSD-3-Clause
         Copyright (c) Ookii Dialogs contributors
         https://github.com/ookii-dialogs/ookii-dialogs-wpf
 
-Microsoft Public License (Ms-PL)  ** SEE ITEM 2: DECIDED, REPLACEMENT SCHEDULED **
+Microsoft Public License (Ms-PL)  ** SEE ITEM 2: PARTIALLY RESOLVED; ONE REPLACEMENT REMAINS **
     DotNetProjects.Extended.Wpf.Toolkit 5.0.106
         — DotNetProjects.Wpf.Extended.Toolkit.dll
         https://github.com/dotnetprojects/WpfExtendedToolkit
-    WPFLocalizeExtension 3.9.4 — WPFLocalizeExtension.dll
-        Copyright (c) Bernhard Millauer, Uwe Mayer, Konrad Mattheis
-        https://github.com/XAMLMarkupExtensions/WPFLocalizationExtension
-    XAMLMarkupExtensions 2.1.3 — XAMLMarkupExtensions.dll
-        Transitive dependency of WPFLocalizeExtension.
-        https://github.com/XAMLMarkupExtensions/XAMLMarkupExtensions
 
 Published by Microsoft, MIT
     System.Management 7.0.2 — System.Management.dll
@@ -235,30 +229,32 @@ UNRESOLVED — release-blocking
    that replacement ships. Anyone redistributing this release should be aware
    the wrapper's terms are unresolved.
 
-2. Three Ms-PL components ship inside a GPL-3.0 program.
+2. One Ms-PL component still ships inside a GPL-3.0 program.
 
-   DotNetProjects.Extended.Wpf.Toolkit, WPFLocalizeExtension and its transitive
-   XAMLMarkupExtensions are all Microsoft Public License. The Free Software
-   Foundation states of Ms-PL: "This is a free software license; it has a
-   copyleft that is not strong, but incompatible with the GNU GPL."
+   DotNetProjects.Extended.Wpf.Toolkit is Microsoft Public License. The Free
+   Software Foundation states of Ms-PL: "This is a free software license; it
+   has a copyleft that is not strong, but incompatible with the GNU GPL."
    (https://www.gnu.org/licenses/license-list.en.html)
 
-   Thrum is GPL-3.0-or-later and links these assemblies, so this is a genuine
+   Thrum is GPL-3.0-or-later and links this assembly, so this is a genuine
    compatibility question rather than a paperwork gap. It is inherited from
-   upstream DS4Windows, which is also GPL-3.0 and ships the same three
-   components, so the exposure is not new — but it is unresolved, and a first
-   public release is the point at which it starts to matter.
+   upstream DS4Windows, which also ships the component, so the exposure is not
+   new — but it remains unresolved for a public release.
 
-   MAINTAINER DECISION (2026-08-03): the first beta ships with these three
-   assemblies and this notice, and they are scheduled for replacement in the
-   following release — tracked as project issues #71 (Extended.Wpf.Toolkit)
-   and #72 (WPFLocalizeExtension + XAMLMarkupExtensions). Relicensing Thrum is
-   not available as an option: the GPL-3.0 licence is inherited from the
-   DS4Windows lineage and its copyright holders. The FSF-position summary
-   above stands unchanged and is not legal advice; the combination is shipped
-   transparently rather than silently, exactly as this file has always aimed
-   to do. Note that the Apache-2.0 components (SbcSharp, Crc32) are fine —
-   Apache-2.0 is GPLv3-compatible, though not GPLv2-compatible.
+   PARTIAL RESOLUTION (2026-08-03): issue #72 removed WPFLocalizeExtension and
+   its transitive XAMLMarkupExtensions assembly. Their runtime work is now done
+   by Thrum's clean-room GPL-3.0-or-later LocExtension; neither former package
+   is referenced or redistributed. A fresh self-contained win-x64 publish
+   contains zero copies of both localization DLLs, retains all 23 translation
+   satellites, and still contains DotNetProjects.Wpf.Extended.Toolkit.dll.
+
+   The first beta shipped all three Ms-PL assemblies transparently under the
+   maintainer decision recorded here. The remaining toolkit replacement is
+   tracked as project issue #71. Relicensing Thrum is not available as an
+   option: the GPL-3.0 licence is inherited from the DS4Windows lineage and its
+   copyright holders. The FSF-position summary above stands unchanged and is
+   not legal advice. Note that the Apache-2.0 components (SbcSharp, Crc32) are
+   fine — Apache-2.0 is GPLv3-compatible, though not GPLv2-compatible.
 
 3. Two vendored items cannot be fully enumerated or licensed.
 

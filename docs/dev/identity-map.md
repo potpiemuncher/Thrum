@@ -95,7 +95,7 @@ one commit.
 | `LANGUAGE_ASSEMBLY_NAME` | `DS4Control/ScpUtil.cs:683` | **DONE (1.1)** → `ProductInfo.LanguageAssemblyName` |
 | `assemblyIdentity name="Thrum.app"` | `DS4Windows/app.manifest:3` | **DONE (1.2)** — XML, cannot consume a constant |
 | 4 XAML pack URIs `/Thrum;component/Resources/*.png` | `DS4Forms/ProfileEditor.xaml:100,107,114,121` | **DONE (1.2)** |
-| 24 XAML `lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` | 24 `DS4Forms/*.xaml` files | **DONE (1.2)** for 23, **DONE (1.8)** for the 24th. A missed one kills that page’s localization at runtime only, which is why the count is written down. `ImportSettingsDialog.xaml` became the 24th when 1.8 moved its text into `Strings.resx`. |
+| 24 legacy `lex:ResxLocalizationProvider` attachment sets | 24 of 26 localized `DS4Forms/*.xaml` files | **RETIRED (issue #72)** — all provider attachments and the external XML namespace URI were removed. All 26 files now bind `lex` to `DS4WinWPF.DS4Forms.Localization`; 602 live localization expressions resolve through the in-house `LocExtension`. |
 | `ThemeResourceTests` relative pack URIs (2) | `DS4WindowsTests/ThemeResourceTests.cs` | **DONE (1.2)** — now composed from `ProductInfo.ExeBaseName` |
 | `PackageProjectUrl`, `RepositoryUrl` | `DS4WinWPF.csproj:29,31` | **DONE (1.2)** → `https://github.com/potpiemuncher/Thrum`. Package metadata. `ProductInfo.ReleaseOwnerRepo` caught up in **1.7**. |
 | Solution/project names `DS4WinWPF`, `DS4WindowsTests` | `DS4WindowsWPF.sln`, project files | **KEEP** — project/namespace identity, out of Phase 1 scope (no `RootNamespace` change) |
@@ -314,6 +314,7 @@ qualified type references, which stay. The identity-bearing ones:
 | Update-feed guard tests | `UpdateFeedTests.cs` | **DONE (1.7)** — the four `DS4Updater` artefacts appear here *on purpose*, as the binary scan's needles. Along with `StartupEntryIdentityTests.cs`, this is one of only two files in the repository that should contain them. |
 | Version compatibility tests | `VersionCompatibilityTests.cs` | **DONE (1.9)** — `app_version="4.0.2.1"` and `config_version` fixtures. These carry inherited version strings as *data being read*, which is the point of the file. |
 | Localization sweep guards | `LocalizationSweepTests.cs` | **DONE (1.8)** — 7 tests. The flipped values name this product and not the old one; the `CustomExeNameInfo` exceptions are pinned individually; the upstream wiki link survived; every hand-added designer property resolves to a real key; every import format string still has its placeholders; all 23 satellites load; no satellite declares a key the neutral file lacks. The old name appears here as needles, so this is a third file that should contain it on purpose. |
+| In-house localization guards | `LocalizationMarkupExtensionTests.cs` | **DONE (issue #72)** — 6 tests cover both constructors, bare/dotted/`Resources:` keys, exact prefix routing, visible misses, `CurrentUICulture` without caching, STA-loaded template/style syntax, every one of the 602 live XAML expressions, and zero legacy runtime references. |
 | Satellite resolution guards | `SatelliteAssemblyResolutionTests.cs` | **DONE (issue #6)** — 10 tests. The satellite path is a pure function of `AppContext.BaseDirectory`, `Global.PROBING_PATH` and `ProductInfo.LanguageAssemblyName`, so no working directory can enter it; the handler is registered from a module initializer before any of this assembly's code runs; and it stays inert for everything that is not a `.resources` assembly. |
 
 ---
@@ -377,21 +378,24 @@ cleanup phase that can regenerate the designers in the same commit.
 
 Method: a key counts as referenced only when it is reached the way the codebase
 actually reaches it — `Strings.<Key with dots as underscores>` in C#, or a
-`lex:Loc` / `lex:BLoc` / `lex:LocExtension` key token in XAML for
+`lex:Loc` / `lex:LocExtension` key token in XAML for
 `Strings.resx`; `Resources.<Key>` for `Properties/Resources.resx`. A bare
 identifier of the same name does not count, which is what an earlier pass got
-wrong. There is **no dynamic lookup anywhere in the tree** — no
-`ResourceManager.GetString(variable)`, no computed `lex` key — so a static scan
-is complete.
+wrong. Issue #72 retired the two `lex:BLoc` uses. The in-house extension is now
+the only dynamic `ResourceManager.GetString(variable)` path, and its variable is
+the literal `Key` from each XAML expression; `LocalizationMarkupExtensionTests`
+enumerates that complete live set and proves every key resolves.
 
-**`Translations/Strings.resx`: 31 of 462 entries unreferenced.**
+**`Translations/Strings.resx`: 28 of 463 entries unreferenced.** Issue #72
+corrected three live bindings that had been misspelled, so `DeadZone X`,
+`DeadZone Y` and `PresetIntroText` left this list; its new tooltip key is live.
 
-`AdvancedSupport`, `ControllerSupportMoonlight`, `DeadZone X`, `DeadZone Y`,
+`AdvancedSupport`, `ControllerSupportMoonlight`,
 `DS4LightbarPassthruDisabled`, `DualSRumbleModePassthru`,
 `DualSRumbleSpecificSettings`, `EnableOutputDataToDS4`,
 `EnableOutputDataToDS4Tip`, `FullBtnPull`, `FutureNetNotInstalled`, `HidHide`,
 `HidNinja`, `HipFireDelay`, `ID`, `Mode`, `Net8NoticeWin.WinTitle`,
-`Net8NotInstalledWinNotice`, `New`, `OK`, `Other`, `PresetIntroText`,
+`Net8NotInstalledWinNotice`, `New`, `OK`, `Other`,
 `SelectedProfile`, `Status`, `StickInputCurveTooltip`, `TwoStageMode`,
 `UpgradeNetCaption`, `ViGEm117MinNeeded`, `ViGEmPluginFailure`,
 `Welcome.Step1HelpText`, `Welcome.Step1Text`.
@@ -431,9 +435,9 @@ English.
 `Import.ProfileCountPlural`, `Import.ProfileCountSingular`,
 `Import.SourceText`, `Import.StartFreshButton`, `Import.WinTitle`.
 
-`ImportSettingsDialog.xaml` is now the 24th XAML file carrying
-`lex:ResxLocalizationProvider.DefaultAssembly="Thrum"` — the row in §2 that
-predicted this is closed.
+`ImportSettingsDialog.xaml` became the 24th provider-attached XAML file in 1.8.
+Issue #72 removed that attachment with the other 23 and now routes the dialog's
+unchanged `lex:Loc` expressions through the in-house extension.
 
 ### Indonesian has never shipped
 

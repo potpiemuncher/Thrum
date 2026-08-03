@@ -8,10 +8,7 @@
         xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
              xmlns:localConvert="clr-namespace:DS4WinWPF.DS4Forms.Converters"
              xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
-             xmlns:lex="http://wpflocalizeextension.codeplex.com"
-             lex:LocalizeDictionary.DesignCulture=""
-             lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
-             lex:ResxLocalizationProvider.DefaultDictionary="Strings"
+             xmlns:lex="clr-namespace:DS4WinWPF.DS4Forms.Localization"
              Loaded="ProfileEditor_Loaded"
              Unloaded="ProfileEditor_Unloaded"
              mc:Ignorable="d" 
@@ -65,7 +62,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="180" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{lex:BLoc Profile, StringFormat='{}{0}:'}"
+                    <TextBlock Text="{Binding Source={lex:Loc Profile}, StringFormat='{}{0}:'}"
                                VerticalAlignment="Center" Margin="0,0,8,0" />
                     <TextBox Grid.Column="1" x:Name="profileNameTxt" Text=""
                              VerticalContentAlignment="Center"
@@ -1359,7 +1356,7 @@
                                 <ComboBox Grid.Row="5" Grid.Column="1" SelectedIndex="{Binding SXOutputCurveIndex}"
                                           Margin="{StaticResource spaceMargin}">
                                     <ComboBoxItem Content="{lex:Loc Linear}" />
-                                    <ComboBoxItem Content="{lex:Loc EnhancePrecision}" />
+                                    <ComboBoxItem Content="{lex:Loc EnhancedPrecision}" />
                                     <ComboBoxItem Content="{lex:Loc Quadratic}" />
                                     <ComboBoxItem Content="{lex:Loc Cubic}" />
                                     <ComboBoxItem Content="{lex:Loc EaseoutQuad}" />
@@ -2266,14 +2263,22 @@
                                     </StackPanel>
 
                                     <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
-                                        <Label Content="{lex:Loc DeadZoneX}" />
+                                        <Label>
+                                            <Label.Content>
+                                                <lex:Loc Key="DeadZone X" />
+                                            </Label.Content>
+                                        </Label>
                                         <xctk:IntegerUpDown d:IsHidden="True" MinWidth="60" Margin="8,0,0,0"
                                                 Value="{Binding GyroSwipeDeadZoneX}" Minimum="0" Maximum="2000" />
                                         <Label Content="deg/sec." />
                                     </StackPanel>
 
                                     <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
-                                        <Label Content="{lex:Loc DeadZoneY}" />
+                                        <Label>
+                                            <Label.Content>
+                                                <lex:Loc Key="DeadZone Y" />
+                                            </Label.Content>
+                                        </Label>
                                         <xctk:IntegerUpDown d:IsHidden="True" MinWidth="60" Margin="8,0,0,0"
                                                 Value="{Binding GyroSwipeDeadZoneY}" Minimum="0" Maximum="2000" />
                                         <Label Content="deg/sec." />
@@ -2719,7 +2724,7 @@
                                 <Button.Content>
                                     <PriorityBinding>
                                         <Binding Path="LaunchProgramName" />
-                                        <lex:BLoc Key="Browse" />
+                                        <Binding Source="{lex:Loc Browse}" />
                                     </PriorityBinding>
                                 </Button.Content>
                             </Button>

@@ -14,6 +14,10 @@
     <SolidColorBrush x:Key="NavigationSelectionColor" Color="#FFDCEBFF" />
     <SolidColorBrush x:Key="ControllerSelectionBackgroundColor" Color="#253881D8" />
     <SolidColorBrush x:Key="MutedForegroundColor" Color="#FF5F7086" />
+    <!-- Disabled text. Explicit rather than dimming with Opacity: at
+         0.45 over a card the glyph collapsed into the background
+         (measured 1:1 in dark). 4.54:1 on the light card background. -->
+    <SolidColorBrush x:Key="DisabledForegroundColor" Color="#FF6B7789" />
     <SolidColorBrush x:Key="SuccessColor" Color="#FF16883F" />
     <SolidColorBrush x:Key="DangerColor" Color="#FFB4232C" />
     <!-- "Known, but not approved." Neither green nor red on purpose. -->

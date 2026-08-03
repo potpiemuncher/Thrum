@@ -2754,8 +2754,13 @@ Suspend support not enabled.", true);
             void LogOpenPhase(string phase)
             {
                 long totalMs = openTimer.ElapsedMilliseconds;
-                AppLogger.LogToGui($"[ProfileEditorTiming] {phase}: " +
-                    $"phase={totalMs - previousPhaseMs}ms total={totalMs}ms", false);
+                // Developer timing, not a user-facing event: it was appearing
+                // in the Log tab and the status line among real messages.
+                // AppLogger.LogToGui is the only path to those, so this goes to
+                // the debug listener instead and stays out of both.
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ProfileEditorTiming] {phase}: " +
+                    $"phase={totalMs - previousPhaseMs}ms total={totalMs}ms");
                 previousPhaseMs = totalMs;
             }
 

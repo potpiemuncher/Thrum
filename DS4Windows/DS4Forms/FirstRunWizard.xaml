@@ -226,10 +226,24 @@
                        FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" />
         </StackPanel>
 
+        <!--
+            Both of these carry the name, and both are required. A control
+            bound to a data object takes its accessible name from
+            Content.ToString(), so the step body announced
+            "FirstRunWelcomeStepViewModel" - the first thing a new user meets
+            (#62). ScrollViewer derives from ContentControl too and resolves a
+            name the same way, so naming only the inner control left UIA still
+            reporting the view-model type; that was measured, not assumed.
+
+            A fixed region name rather than the step title, which the heading
+            immediately above already announces.
+        -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      KeyboardNavigation.TabNavigation="Continue">
-            <ContentControl Content="{Binding CurrentStep}" />
+                      KeyboardNavigation.TabNavigation="Continue"
+                      AutomationProperties.Name="Setup step content">
+            <ContentControl Content="{Binding CurrentStep}"
+                            AutomationProperties.Name="Setup step content" />
         </ScrollViewer>
 
         <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">

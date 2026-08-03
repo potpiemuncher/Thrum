@@ -63,6 +63,11 @@ namespace DS4WinWPF.DS4Forms
             public TwoStageTriggerMode Mode { get; init; }
             public bool UsesDelay => Mode == TwoStageTriggerMode.HipFire ||
                 Mode == TwoStageTriggerMode.HipFireExclusiveButtons;
+
+            // As on ProfileChoice above: the full-pull mode list is bound by
+            // display path, so without this UI Automation announced this
+            // class's type name for all six entries. Same defect as #57.
+            public override string ToString() => Name;
         }
 
         private static readonly IReadOnlyList<FullPullModeChoice> FullPullModes =

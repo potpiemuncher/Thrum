@@ -10,6 +10,16 @@ DualSense haptic feedback, forwards adaptive-trigger effects, and adds a
 fail-closed driver-safety layer that refuses to run virtual-device features on
 a kernel driver package it cannot positively identify.
 
+Two caveats on that paragraph, because it describes intent and the current
+release falls short of it in two known ways:
+
+- **Virtual DualSense output does not work on the pinned backend.** VIIPER
+  v0.0.6 refuses to create it (`unknown device type: dualsense`); Xbox 360
+  output works. This is an upstream regression with a rollback pending — see
+  issues #70 and #79.
+- **Audio haptics reach the pad over Bluetooth only.** On USB they still need a
+  virtual controller, which runs into the point above. See issue #65.
+
 ## Status
 
 **Pre-release, version 0.9.0-beta.1.** This repository was seeded on 2026-07-25
@@ -91,9 +101,19 @@ and no install or teardown. Its verdict is fail-closed: a package the manifest
 does not list is treated as unvalidated, never as acceptable. "Signed" is not
 "kernel-safe"; the manifest decides admission, not the signature.
 
-Wiring that diagnostic into a runtime gate — including default-off, explicitly
-acknowledged opt-in for the audio-class features that reach the known race —
-is the next phase of work.
+That diagnostic **is** wired into a runtime gate, and has been since Phase 2 —
+this paragraph previously said it was future work, contradicting the opening
+section of this very file. Virtual-device creation is refused until the
+experimental driver is explicitly acknowledged, and the audio-class features
+that reach the known race are default-off behind a second flag
+(`ViiperExperimentalAcknowledged`, `AllowExperimentalAudioEndpoints`; both
+default false). Both were validated in the VM and are exercised on every run.
+
+What remains genuinely future work is **production approval**, which stays
+blocked until an upstream release carries the fix. Our fix for the corruption is
+merged upstream as usbip-win2 PR #182, alongside the maintainer's own root-cause
+fix — but no released build contains either, so every published release is still
+classed experimental and the gate still reports `Production approved: no`.
 
 Crash dumps from this ecosystem contain kernel memory. Read
 [`SECURITY.md`](SECURITY.md) before reporting a crash, and never attach a dump

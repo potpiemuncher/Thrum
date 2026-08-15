@@ -25,12 +25,20 @@ build commands below still reference DS4Windows paths.
 Running alongside a real DS4Windows install works but is not a supported
 configuration: both will contend for the same physical controller.
 
-There are **no releases and no installers**. The only supported way to run
-Thrum today is to build it from source (see [Building](#building)).
+**The first release is out: `v0.9.0-beta.1`**, a pre-release. It is a
+self-contained win-x64 zip, so it does **not** need the .NET 8 Desktop Runtime
+installed. There is still **no installer**.
 
-Release and CI artifacts are self-contained for win-x64, so they do not require
-the .NET 8 Desktop Runtime to be installed separately. To publish the same
-self-contained package from source:
+The build is **unsigned**, so Windows shows "Windows protected your PC". Verify
+what you downloaded against the SHA-256 published with the release rather than
+trusting or ignoring that warning. `NOTICE.txt` and `COPYING` are attached to
+the release as separate files because the archive does not yet contain them
+(issue #75).
+
+Read the release notes before installing: they list what is verified on real
+hardware and — deliberately at equal length — what is not.
+
+To publish the same self-contained package from source:
 
 ```powershell
 dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true
@@ -115,5 +123,6 @@ Thrum is licensed under the **GNU General Public License, version 3 or later**
 (GPL-3.0-or-later). The complete license text is in [`COPYING`](COPYING).
 
 The corresponding source for any Thrum build is this repository at the release
-tag that produced it. Because there are no releases yet, the corresponding
-source is this repository at the commit you built.
+tag that produced it — for the current release, tag `v0.9.0-beta.1` (commit
+`8132946`). For a build you made yourself, it is this repository at the commit
+you built.

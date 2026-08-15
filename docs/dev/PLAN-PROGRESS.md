@@ -4355,3 +4355,66 @@ Phase 5 begins with the runtime packaging decision, which is the one remaining
 blocker where a release artifact cannot start at all on a machine without the
 .NET Desktop Runtime — both validation passes had to work around it with a
 self-contained publish, so no real release artifact has ever been run.
+
+*(Superseded 2026-08-03: that blocker is closed. ADR-0004 landed in PR #68, both
+workflows now publish `-r win-x64 --self-contained true`, and `v0.9.0-beta.1`
+shipped self-contained with `release.yml` running successfully for the first
+time. See the section below.)*
+
+## Release and Phase 5 — 2026-08-03 to 2026-08-11
+
+**0.9.0-beta.1 shipped 2026-08-03** (tag `v0.9.0-beta.1`, commit `8132946`):
+unsigned, self-contained win-x64, ~83 MB zip. `release.yml` ran for the first
+time ever and succeeded. Two defects were found only by unpacking the published
+artifact and by looking at the running app — neither was visible to 1027 passing
+tests or a green CI:
+
+- the archive omits the top-level `NOTICE.txt` and `COPYING`, a GPL-3.0 §4 gap
+  worked around by attaching them as release assets (#75);
+- the Settings page carried an inherited "Support DS4Windows" card whose PayPal
+  button paid the upstream maintainer's personal account. Removed, with
+  `NoDonationSolicitationTests` guarding the class (PR #77).
+
+**Phase 5 items closed.** Runtime packaging: release and CI artifacts are now
+self-contained win-x64 (ADR-0004, PR #68), so an artifact starts on a machine
+with no .NET Desktop Runtime — the configuration every validation pass had
+actually been using. Code signing: tooling and ADR-0005 landed (PR #78); no
+certificate bought, so releases stay unsigned and the published SHA-256 is the
+verification mechanism. Signing is the last maintainer decision with lead time.
+
+**The VIIPER pin refresh to v0.0.6 (PR #69) shipped a regression, and the way it
+passed validation is the lesson.** Issue #70 established on 2026-08-10 that
+v0.0.6 returns `400 Bad Request: unknown device type: dualsense` and cannot
+create a virtual DualSense, while Xbox 360 works on the same backend and v0.0.5
+creates the DualSense fine. Rollback recommended in #79 and **not yet done**.
+
+PR #69's VM validation exercised the installer path — digests, tamper refusal,
+backend startup, API reachable — and never created a device. "The backend
+starts" was treated as evidence for "the backend can serve what we ask of it".
+The corrective rule is in `docs/viiper-backend-upgrade-path.md`: a pin is not
+validated until one virtual device of every supported type has been plugged.
+
+**Two methods worth reusing.** A virtual controller can be created with **no
+physical input device** by marking an output slot permanent in
+`OutputSlots.xml` — `AssignInitialDevices()` plugs it with `InputIndex = -1`.
+That is how #70 was finally answered, and it makes device-creation checks
+runnable unattended. Separately, USB passthrough into the guest was
+investigated and **refuted**: on this host DDA would be a one-way door
+(`Disable-PnpDevice` persists across reboot while `Enable-PnpDevice` needs a
+privilege the available token lacks) and would be blocked at
+`Add-VMAssignableDevice` anyway, since Windows 11 client supports only GPU and
+NVMe assignment. See `vm-validation-reports/usb-controller-map-20260808.md`.
+
+**Licensing.** All three NOTICE unresolved items now carry a recorded decision
+for this release (PR #73, #74). Ryochan7 replied on 2026-08-07 that he will
+license FakerInputWrapper under **LGPL** — GPL-compatible, so it resolves item 1
+— then archive the repo; the licence has not landed yet, and when it does we
+should snapshot the library source for our own LGPL source-provision obligation.
+Ms-PL replacement is scheduled for beta 2 (#71, #72).
+
+**Upstream.** usbip-win2 PR #182 (ours) is **merged into master**, alongside
+vadimgrn's `4139f44f6` root-cause fix — but no release carries either, so the
+0.9.7.7 pin, the known-risk status of 0.9.7.8 and plan item 3.5 are all
+unchanged. A release cut from master is the single event that unblocks them.
+
+**Open at handoff:** #51, #65, #66, #67, #70, #71, #72, #75, #79.

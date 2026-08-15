@@ -4,8 +4,11 @@ Thrum keeps the runtime and WPF binding layer it inherited from DS4Windows intac
 adopting the navigation, spacing, cards, descriptions, and progressive-disclosure patterns
 used by the DS5 Bridge companion app.
 
-Phase 4 tracks the remaining per-page work; `docs/dev/ui-modernization-status.md` holds the
-current inventory of which pages have adopted the card shell and which have not.
+**Phase 4 is closed and there is no per-page backlog left to consult.** Every
+non-theme XAML surface is either modernized or logged with a reason;
+`docs/dev/ui-modernization-status.md` is now a close-out record rather than a
+to-do list, and it also carries the results of the VM and hardware passes that
+followed. `0.9.0-beta.1` shipped on 2026-08-03.
 
 ## Why the frontend remains WPF
 
@@ -22,7 +25,19 @@ existing light and dark theme dictionaries, so runtime theme switching continues
 
 ## Current navigation and feature coverage
 
-Nothing in the existing UI has been removed. The main shell exposes:
+Nothing in the existing UI has been removed. The shell's navigation rail has
+**ten** pages. Four of them post-date this list's original writing and are the
+newest work in the app:
+
+- **Overview**: at-a-glance status, controller cards, and quick profile actions;
+  the default landing page.
+- **Audio Haptics**: turns system or app audio into DualSense haptics. Over
+  Bluetooth this needs no virtual controller and no driver at all (issue #58).
+- **Trigger Lab**: adaptive-trigger effect design with a user preset library.
+- **Diagnostics**: read-only troubleshooting snapshot with redaction, and the
+  driver-gate state.
+
+The remaining six:
 
 - **Controllers**: connection type, access status, battery, selected profile, per-device
   profile linking, profile editing/creation, temporary lightbar color, and wireless

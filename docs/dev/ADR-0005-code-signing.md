@@ -33,6 +33,23 @@ The maintainer is an individual in Canada distributing a free GPL-3.0 program,
 so the cheap token route is the likely choice and the CI-signing routes are
 either geographically unavailable or disproportionately expensive.
 
+**Amendment, 2026-08-10 — the table above is incomplete and its conclusion is
+weaker than it looks.** Certum also sells **Open Source Code Signing in the
+Cloud** at **EUR 49/yr**, using their SimplySign cloud HSM, which explicitly
+"eliminates the need to use a physical card and reader". That is cheaper than
+the token product, available to individuals, and not geographically restricted
+the way Azure Trusted Signing's individual tier is. So the premise "the
+realistic route for this project cannot sign in CI" does not hold: a cloud
+certificate is both the cheapest option and the CI-capable one.
+
+Whether SimplySign signs unattended in GitHub Actions still needs proving
+rather than assuming — its desktop client presents the certificate as a virtual
+smart card, which is straightforward locally and fiddlier headless. The local
+script below works either way, because it signs by thumbprint from the
+certificate store and the SimplySign client publishes into exactly that store.
+The decision to revisit is therefore *where* signing runs, not whether the
+tooling is right.
+
 ## Decision
 
 **Signing is a local release step, not a workflow job.** `release.yml` continues

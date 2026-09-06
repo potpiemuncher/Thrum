@@ -33,7 +33,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using WPFLocalizeExtension.Engine;
 
 namespace DS4WinWPF
 {
@@ -987,8 +986,6 @@ namespace DS4WinWPF
             {
                 //CultureInfo ci = new CultureInfo("ja");
                 CultureInfo ci = CultureInfo.GetCultureInfo(culture);
-                LocalizeDictionary.Instance.SetCurrentThreadCulture = true;
-                LocalizeDictionary.Instance.Culture = ci;
                 // fixes the culture in threads
                 CultureInfo.DefaultThreadCurrentCulture = ci;
                 CultureInfo.DefaultThreadCurrentUICulture = ci;

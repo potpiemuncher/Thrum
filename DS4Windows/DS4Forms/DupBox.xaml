@@ -4,10 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:DS4WinWPF.DS4Forms"
-             xmlns:lex="http://wpflocalizeextension.codeplex.com"
-             lex:LocalizeDictionary.DesignCulture=""
-             lex:ResxLocalizationProvider.DefaultAssembly="Thrum"
-             lex:ResxLocalizationProvider.DefaultDictionary="Strings"
+             xmlns:lex="clr-namespace:DS4WinWPF.DS4Forms.Localization"
              mc:Ignorable="d" Height="30" Width="436">
     <DockPanel Margin="4">
         <Canvas DockPanel.Dock="Left" Margin="20,0,0,0">

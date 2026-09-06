@@ -345,6 +345,30 @@ namespace DS4Windows
             }
         }
 
+        public void ApplyBTHapticsOptions(HapticsMode mode, double gain,
+            int lowPassHz, bool hfTexture, string audioDeviceId)
+        {
+            gain = Math.Clamp(gain, 0.1, 10.0);
+            lowPassHz = Math.Clamp(lowPassHz, 40, 1000);
+            audioDeviceId ??= string.Empty;
+
+            if (btHapticsMode == mode &&
+                btHapticsGain == gain &&
+                btHapticsLowPassHz == lowPassHz &&
+                btHapticsHFTexture == hfTexture &&
+                btHapticsAudioDeviceId == audioDeviceId)
+            {
+                return;
+            }
+
+            btHapticsMode = mode;
+            btHapticsGain = gain;
+            btHapticsLowPassHz = lowPassHz;
+            btHapticsHFTexture = hfTexture;
+            btHapticsAudioDeviceId = audioDeviceId;
+            BTHapticsOptionChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         // Bluetooth listening-audio (headphone jack / speaker) settings.
         private bool btAudioEnabled = false;
         public bool BTAudioEnabled

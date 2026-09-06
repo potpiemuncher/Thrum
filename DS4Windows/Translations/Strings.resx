@@ -1430,6 +1430,9 @@ Please click OK to confirm that you have read the message. Press Cancel to be re
   <data name="UseDs3PitchRollSim" xml:space="preserve">
     <value>[EXPERIMENTAL] Use DS3 gyro simulation</value>
   </data>
+  <data name="UseDs3PitchRollSimTooltip" xml:space="preserve">
+    <value>Use controller pitch and roll motion to emulate DualShock 3 gyroscope input.</value>
+  </data>
   <data name="StickCalibration" xml:space="preserve">
     <value>Stick Calibration</value>
   </data>

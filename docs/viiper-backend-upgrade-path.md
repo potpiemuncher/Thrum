@@ -5,18 +5,21 @@ types — Xbox 360, DualShock 4, DualSense, DualSense Edge, Switch 2 Pro — whi
 VIIPER presents through usbip-win2 as complete USB devices, including the
 applicable Sony audio interfaces.
 
-**Which of those five actually work depends on the backend release, and on the
-currently pinned one most do not.** Measured against the pinned v0.0.6:
+**Which of those five actually work depends on the backend release.** The pin
+is now VIIPER **v0.1.2** (2026-08-27). Status per output type:
 
-| Output type | On pinned v0.0.6 |
+| Output type | On pinned v0.1.2 |
 | --- | --- |
-| `ViiperX360` | works — plugs and enumerates |
-| `ViiperDualSense` | **refused**: `400 Bad Request: unknown device type: dualsense` |
-| `ViiperDualSenseEdge`, `ViiperSwitch2Pro` | almost certainly refused — the strings `dualsenseext`, `dualsensecombinedext` and `switch2pro` are absent from the v0.0.6 binary |
-| `ViiperDS4` | untested |
+| `ViiperX360` | `xbox360` is registered; unchanged from v0.0.6, where it plugged and enumerated |
+| `ViiperDualSense` | `dualsensecombinedaudioduplexv5` / `dualsenseaudioonlyduplexv5` are registered with the same wire contract Thrum validated against v0.0.6 (see *PadSense V5 transport compatibility*) - **VM plug validation against v0.1.2 itself is still pending** |
+| `ViiperDualSenseEdge` | `dualsenseedgecombinedaudioduplexv5` registered, same caveat |
+| `ViiperSwitch2Pro` | `ns2pro` registered |
+| `ViiperDS4` | `dualshock4` registered, untested |
 
-On v0.0.5 the DualSense plugs correctly, so this is a v0.0.6 regression. See the
-warning below, issue #79 (rollback, open) and #70 (evidence).
+The v0.0.6 story (the pin refused `dualsenseext`, so the DualSense could not be
+created - issues #70 and #79) was a *client-side* name mismatch, fixed by the
+V5-first negotiation below, not a backend regression that needed a rollback.
+That fix was validated against v0.0.6; v0.1.2 registers the same V5 names.
 
 ## User setup
 
@@ -30,29 +33,18 @@ actions.
 
 ## Pinned backend release
 
-> **WARNING — the pinned v0.0.6 backend cannot create a virtual DualSense.**
-> Measured in TESTENV on 2026-08-10: with v0.0.6 installed, requesting a
-> DualSense output returns `400 Bad Request: unknown device type: dualsense`
-> (and likewise for `dualsenseext` and `dualsensecombinedext`), so the plug
-> fails. Xbox 360 output on the *same* backend, driver and build works, and
-> v0.0.5 creates the DualSense correctly — so this is a v0.0.6 regression in
-> device-type registration, not a Thrum defect, and Thrum's three-tier fallback
-> is behaving correctly with nothing left to fall back to.
->
-> **A rollback to v0.0.5 is recommended and not yet done** — the pin below is
-> still v0.0.6. See issue #79 for the rollback and #70 for the evidence, and
-> `vm-validation-reports/viiper-006-dualsense-regression-20260810/REPORT.md`.
->
-> Everything else in this section is accurate and the archive+payload pin model
-> is sound; only the *choice of release* is wrong.
-
-Thrum pins VIIPER v0.0.6 as two identities because upstream now publishes a
+Thrum pins VIIPER v0.1.2 as two identities because upstream now publishes a
 zip rather than a bare executable:
 
-- `viiper-windows-amd64.zip`: 4,735,340 bytes, SHA-256
-  `6EC76B298AF402AC65BA21F00DFFC9D3DA36909BDD1C909AEE9047FE4F9B0D1B`
-- the extracted `viiper.exe`: 11,223,552 bytes, SHA-256
-  `90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A`
+- `viiper-windows-amd64.zip`: 4,809,388 bytes, SHA-256
+  `66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46`
+- the extracted `viiper.exe`: 11,407,872 bytes, SHA-256
+  `2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A`
+
+Both digests were computed locally on 2026-09-06 from the downloaded release
+asset; the archive digest matches the digest GitHub reports for that asset, and
+the executable was hashed independently after extraction. The archive contains
+exactly `viiper.exe` and `licenses.txt`, as v0.0.6's did.
 
 Setup downloads (or accepts a staged local copy of) the exact release archive,
 checks its size and digest before extraction, extracts into a temporary
@@ -61,18 +53,18 @@ directory, checks the executable's size and digest, and only then places it in
 `licenses.txt` is installed beside `viiper.exe`; it is upstream's third-party
 licence roll-up and is part of the installed backend material.
 
-The executable is correctly stamped `v0.0.6 (e85575d)`, built
-`2026-07-31T01:52:14Z`. That stamp is shown only as a human-readable diagnostic
+The executable is stamped `v0.1.2 (f5d097b)`. That stamp is shown only as a human-readable diagnostic
 cross-check. It is never a validation input: the archive and payload digests
 are the identities, with no version floor and no fallback to a latest release.
 
-VIIPER 0.0.6 gates its own startup on the supported usbip-win2 0.9.7.7 attach
-ABI, which happens to agree with Thrum's driver pin.
+VIIPER 0.1.2, like 0.0.6, gates its own startup on the supported usbip-win2
+0.9.7.7 attach ABI (the binary carries only that version string and links to
+the `v.0.9.7.7` release page), which happens to agree with Thrum's driver pin.
 
 **That agreement is a coincidence, not the reason for the driver pin, and the
 distinction matters.** An earlier revision of this file said Thrum "therefore"
-keeps 0.9.7.7 because 0.0.6 requires it — which invites the conclusion that
-rolling the backend back to v0.0.5 frees the driver pin to move. It does not.
+keeps 0.9.7.7 because the backend requires it — which invites the conclusion that
+moving the backend pin frees the driver pin to move. It does not.
 The real reason is in `ViiperInstallerPins.cs`: 0.9.7.7 is pinned because
 **0.9.7.8 is the release the request-lifetime corruption was reproduced on**.
 The driver pin does not move when the backend pin moves. (Nor is there anywhere
@@ -80,20 +72,73 @@ to move it to: usbip-win2 PR #182 and the maintainer's root-cause fix are merged
 to `master`, but no release carries them — the newest release is still
 `v.0.9.7.8`.)
 
-The real v0.0.5-to-v0.0.6 delta is 13 commits, including PadSense-native
-DualSense V5 audio transport, restoration of the safe usbip-win2 0.9.7.7
-attach ABI, startup gating on that ABI, and release-workflow fixes that produce
-the correct embedded stamp. The v0.0.6 release note saying "No changes" is not
-an accurate description of the artifact delta.
+## The v0.0.6 to v0.1.2 delta
 
-That PadSense-native DualSense rework is the most likely home of the
-device-type regression above: the literal string `dualsense` is still present
-in the v0.0.6 binary (as are `ds4`, `xbox360`, `dualsenseedge`) while
-`dualsenseext`, `dualsensecombinedext` and `switch2pro` are not — so the type
-appears to exist but is no longer registered with the create endpoint. That is
-a lead for an upstream report, not a conclusion.
+343 commits across releases v0.0.7, v0.0.9, v0.1.0 (no changes) and v0.1.2.
+What was checked against Thrum's client before re-pinning, all by reading the
+v0.1.2 source and the shipped binary - none of it is runtime evidence:
 
+- **Device-type names.** v0.1.2 registers `xbox360`, `dualshock4`,
+  `dualshock4audioduplexv3`, `dualshock4audioonlyduplexv3`, `ns2pro`,
+  `keyboard`, `mouse`, and the DualSense V5 family. The three V5 names Thrum
+  negotiates first (`dualsensecombinedaudioduplexv5`,
+  `dualsenseaudioonlyduplexv5`, `dualsenseedgecombinedaudioduplexv5`) are
+  unchanged. New aliases exist that Thrum does not request: `...gamepadv5`
+  (no audio interfaces), `...v5events` (adds ordered output lifecycle events)
+  and `...v5rawinput...` (negotiates a 53-byte input state instead of 33).
+- **Framed stream contract.** Magic `VPCM`, version byte, 16-byte header,
+  33-byte input state, 48-byte output report and 64-byte input report are
+  unchanged. v0.1.2 *requires* frame version 0x05 on every DualSense persona;
+  Thrum's V5-first path sends 0x05. The V4/V3/V2 fallbacks would be rejected
+  by v0.1.2 and exist only for older backends.
+- **New server-to-client frame types.** v0.1.2 adds `0x84`
+  (realtime haptics, published before the 480-frame speaker boundary) and
+  `0x85` (microphone interface state, only on the `...events` aliases). The
+  paired `0x83` atomic frame is still sent unchanged. Thrum's reader handles
+  `0x81`/`0x82`/`0x83` and drops any other frame type without error, so it
+  keeps working and simply does not use the lower-latency lane yet.
+- **API authentication (new in v0.0.9).** Remote clients must authenticate;
+  localhost clients are still accepted unauthenticated unless
+  `VIIPER_API_REQUIRE_LOCALHOST_AUTH` is set. Thrum only talks to localhost.
+- **Xbox 360 subtypes (breaking in v0.0.9).** The change is in the generated
+  client libraries; the `xbox360` device type takes no subtype on the create
+  endpoint that Thrum uses.
+- **CLI.** `serve` still accepts `--update-notify none`, which Thrum passes.
+
+## PadSense V5 transport compatibility
+
+Thrum negotiates the PadSense V5 personas (introduced in v0.0.6, unchanged in
+v0.1.2) first:
+`dualsensecombinedaudioduplexv5`, `dualsenseaudioonlyduplexv5`, and
+`dualsenseedgecombinedaudioduplexv5`. These streams use VPCM frame version 5,
+474-byte feedback, 1,920-byte microphone PCM, and atomic feedback-plus-speaker
+generations. The older V4, V3, V2, and HID-only names remain as fallbacks for
+older backends.
+
+This was validated in `Win 11 25H2 Test ENV` from checkpoint
+`viiper-006-installer-validated-20260803`, with VIIPER 0.0.6 and usbip-win2
+0.9.7.7. The pre-fix build exhausted its legacy names and received
+`400 Bad Request: unknown device type`. The V5-first build created an explicit
+virtual DualSense through Thrum's Output Slots UI. Independent checks showed:
+
+- API type `dualsensecombinedaudioduplexv5`, VID/PID `054c:0ce6`, and an active
+  speaker stream across two censuses 30 seconds apart;
+- a live `usbip://localhost:3241/1-1` import;
+- the HID game-controller, composite USB, media, speaker, and microphone
+  interfaces present and healthy; and
+- a clean Unplug: no VIIPER buses, no usbip import, no present DualSense PnP
+  devices, and a still-running backend and usbip service.
+
+The VM had no physical controller passed through. This proves V5 negotiation,
+stream ownership, attach/enumeration, audio-interface creation, stability, and
+teardown; it does not claim physical input, motor feedback, or non-zero audio
+payload validation. Those three checks remain a maintainer hardware pass.
 ## How to validate a backend pin
+
+**The v0.1.2 pin has had the static checks above and the installer-path tests
+only. The plug validation below has not yet been run against v0.1.2** - the
+last VM plug pass was against v0.0.6 from checkpoint
+`viiper-006-installer-validated-20260803`. Run it before shipping the pin.
 
 The lesson from the v0.0.6 refresh, recorded so it is not repeated: that pin
 was validated by exercising the **installer path only** — digests, refusal on a

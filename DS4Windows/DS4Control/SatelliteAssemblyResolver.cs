@@ -104,7 +104,7 @@ namespace DS4Windows
         /// the WPF entry point has already constructed <c>App</c> — running its
         /// static field initializers — and <c>InitializeComponent</c> has
         /// applied <c>App.xaml</c>, whose merged resource dictionaries and
-        /// <c>WPFLocalizeExtension</c> markup can reach the resource manager.
+        /// in-house <c>LocExtension</c> markup can reach the resource manager.
         /// A static constructor on <c>App</c> is earlier, but still runs after
         /// that type's own field initializers. A module initializer is emitted
         /// into the module's <c>.cctor</c>, which the runtime guarantees to run

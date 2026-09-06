@@ -2244,12 +2244,12 @@ namespace DS4WinWPF.DS4Forms
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = Application.Current.MainWindow;
             Color tempcolor = profileSettingsVM.FlashColorMedia;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             profileSettingsVM.StartForcedColor(tempcolor);
             dialog.ColorChanged += (sender2, color) => { profileSettingsVM.UpdateForcedColor(color); };
             dialog.ShowDialog();
             profileSettingsVM.EndForcedColor();
-            profileSettingsVM.UpdateFlashColor(dialog.colorPicker.SelectedColor.GetValueOrDefault());
+            profileSettingsVM.UpdateFlashColor(dialog.SelectedColor);
         }
 
         private void LowColorBtn_Click(object sender, RoutedEventArgs e)
@@ -2257,12 +2257,12 @@ namespace DS4WinWPF.DS4Forms
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = Application.Current.MainWindow;
             Color tempcolor = profileSettingsVM.LowColorMedia;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             profileSettingsVM.StartForcedColor(tempcolor);
             dialog.ColorChanged += (sender2, color) => { profileSettingsVM.UpdateForcedColor(color); };
             dialog.ShowDialog();
             profileSettingsVM.EndForcedColor();
-            profileSettingsVM.UpdateLowColor(dialog.colorPicker.SelectedColor.GetValueOrDefault());
+            profileSettingsVM.UpdateLowColor(dialog.SelectedColor);
         }
 
         private enum RumbleType
@@ -2449,7 +2449,7 @@ namespace DS4WinWPF.DS4Forms
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = Application.Current.MainWindow;
             Color tempcolor = profileSettingsVM.ChargingColorMedia;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             profileSettingsVM.StartForcedColor(tempcolor);
             dialog.ColorChanged += (sender2, color) =>
             {
@@ -2457,7 +2457,7 @@ namespace DS4WinWPF.DS4Forms
             };
             dialog.ShowDialog();
             profileSettingsVM.EndForcedColor();
-            profileSettingsVM.UpdateChargingColor(dialog.colorPicker.SelectedColor.GetValueOrDefault());
+            profileSettingsVM.UpdateChargingColor(dialog.SelectedColor);
         }
 
         private void SteeringWheelEmulationCalibrateBtn_Click(object sender, RoutedEventArgs e)
@@ -2686,7 +2686,7 @@ namespace DS4WinWPF.DS4Forms
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = Application.Current.MainWindow;
             Color tempcolor = profileSettingsVM.MainColor;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             profileSettingsVM.StartForcedColor(tempcolor);
             dialog.ColorChanged += (sender2, color) =>
             {
@@ -2694,7 +2694,7 @@ namespace DS4WinWPF.DS4Forms
             };
             dialog.ShowDialog();
             profileSettingsVM.EndForcedColor();
-            profileSettingsVM.UpdateMainColor(dialog.colorPicker.SelectedColor.GetValueOrDefault());
+            profileSettingsVM.UpdateMainColor(dialog.SelectedColor);
         }
 
         private void InputDS4(object sender, System.Timers.ElapsedEventArgs e)

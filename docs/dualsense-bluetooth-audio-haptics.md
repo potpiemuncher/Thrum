@@ -7,7 +7,7 @@ This branch keeps three DualSense feedback paths separate:
 | Path | Source | Physical controller transport |
 | --- | --- | --- |
 | Rumble, adaptive triggers, lightbar, LEDs | DualSense HID output report `0x02` | normal DualSense HID output (`0x31` on Bluetooth) |
-| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM |
+| Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM; **or** the physical DualSense four-channel USB render endpoint, channels 3/4 |
 | Controller speaker audio | selected Windows render endpoint, including VIIPER's virtual `Wireless Controller` endpoint | Bluetooth HID **`0x36`**, packet `0x13` (speaker) or `0x16` (headphones) at offset 142, Opus encoded at 48 kHz but **delivered at 45 kHz** |
 | Controller microphone | physical DualSense Opus or DualShock 4 SBC microphone frames | VIIPER virtual DualSense/Edge 48 kHz stereo or DualShock 4 16 kHz mono UAC capture endpoint |
 
@@ -47,14 +47,23 @@ the historical bug here was a *missing* guard, so someone told there are four
 will hunt for one that does not exist.
 
 **Advanced haptics no longer require a virtual controller.** Audio Haptics can
-capture any Windows render endpoint and stream the derived PCM straight to a
-physically connected DualSense over Bluetooth — no VIIPER, no USB/IP, no driver
-(issue #58, confirmed on hardware 2026-08-03). The VIIPER UAC path below remains
-the route for games that address the controller as an audio device.
+capture any Windows render endpoint and send the derived PCM straight to a
+physically connected DualSense — no VIIPER, no USB/IP, no virtual audio driver.
+Bluetooth uses the HID `0x36` path above (issue #58, confirmed on hardware
+2026-08-03). Wired USB uses the controller's existing four-channel physical
+WASAPI render endpoint and writes the haptics signal to channels 3/4 (issue
+#65, code-verified; hardware confirmation remains pending). The VIIPER UAC path
+below remains the route for games that address the controller as an audio
+device.
 
-This path is **Bluetooth-only**. Over USB the streamer does not run and audio
-haptics still need a virtual controller; the Audio Haptics page says so rather
-than reporting success. Tracked as issue #65.
+USB HID output report `0x02` is controller state, **not** a PCM transport. Once
+the physical four-channel endpoint opens, Audio Haptics takes a scoped actuator
+lease. While that lease is active, normal `0x02` output continues to carry
+adaptive-trigger, lightbar and LED state, but its main-motor enable bits,
+motor values and improved-rumble bit are suppressed so firmware rumble cannot
+fight the PCM stream. Stop, startup failure, playback failure and controller
+disconnect all retire or invalidate the lease, which restores ordinary USB
+rumble ownership on the next output report.
 
 Speaker and microphone routing follows the emulated controller selected by the
 profile, not the physical model. A physical DualSense can therefore feed a
@@ -65,11 +74,11 @@ native sample rate and channel layout.
 
 ## In-game setup
 
-> **This procedure cannot be completed on 0.9.0-beta.1 as shipped.** It pins
-> VIIPER v0.0.6, which refuses to create a virtual DualSense at all
+> **This procedure cannot be completed on 0.9.0-beta.1 as shipped.** That build
+> asks its VIIPER v0.0.6 backend for a device name it no longer registers
 > (`400 Bad Request: unknown device type: dualsense`), so step 2 fails and every
-> step after it is unreachable. It works on **v0.0.5**. Nothing below is wrong
-> about the *procedure* — the backend is. See issues #70 and #79.
+> step after it is unreachable. Builds with the V5-first negotiation (#70) and
+> the v0.1.2 backend pin do not have this problem. See issues #70 and #79.
 >
 > Everything in this section that mentions a virtual DualSense audio endpoint —
 > including the troubleshooting recipe at the end of this file — inherits that

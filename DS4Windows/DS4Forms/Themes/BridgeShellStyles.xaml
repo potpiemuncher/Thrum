@@ -1,6 +1,9 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:identity="clr-namespace:DS4Windows">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="InHouseControls.xaml" />
+    </ResourceDictionary.MergedDictionaries>
 
     <!--
         DS5 Bridge-inspired application shell.

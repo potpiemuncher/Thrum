@@ -81,6 +81,18 @@ public class ThirdPartyNoticeTests
     }
 
     [TestMethod]
+    public void RemovedToolkitIsAbsentFromTheProjectAndNotice()
+    {
+        const string package = "DotNetProjects.Extended.Wpf.Toolkit";
+        Assert.IsFalse(appCsproj.Contains(package,
+            StringComparison.OrdinalIgnoreCase),
+            "The resolved toolkit package was reintroduced.");
+        Assert.IsFalse(notice.Contains(package,
+            StringComparison.OrdinalIgnoreCase),
+            "NOTICE must not claim the removed toolkit is redistributed.");
+    }
+
+    [TestMethod]
     public void EveryBundledBinaryIsNamedInTheNotice()
     {
         string libs = Path.Combine(repoRoot, "DS4Windows", "libs");

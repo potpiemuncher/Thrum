@@ -13,10 +13,12 @@ a kernel driver package it cannot positively identify.
 Two caveats on that paragraph, because it describes intent and the current
 release falls short of it in two known ways:
 
-- **Virtual DualSense output does not work on the pinned backend.** VIIPER
-  v0.0.6 refuses to create it (`unknown device type: dualsense`); Xbox 360
-  output works. This is an upstream regression with a rollback pending — see
-  issues #70 and #79.
+- **Virtual DualSense output did not work in beta 1.** The shipped build asked
+  its VIIPER v0.0.6 backend for a device name it no longer registered
+  (`unknown device type: dualsense`); Xbox 360 output worked. The V5-first
+  negotiation fixes that, and the backend pin has moved to VIIPER v0.1.2, but
+  the new pin has not yet had its VM plug validation — see issues #70 and #79
+  and `docs/viiper-backend-upgrade-path.md`.
 - **Audio haptics reach the pad over Bluetooth only.** On USB they still need a
   virtual controller, which runs into the point above. See issue #65.
 
@@ -53,6 +55,11 @@ To publish the same self-contained package from source:
 ```powershell
 dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true
 ```
+
+## User guide
+
+See the [Thrum User Guide](USERGUIDE.md) for the first-run wizard, the ten-page
+navigation rail, profiles, Audio Haptics, Trigger Lab, and VIIPER safety gates.
 
 ## Lineage and attribution
 

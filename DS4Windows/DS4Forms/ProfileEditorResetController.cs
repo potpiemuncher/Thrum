@@ -5,6 +5,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using DS4Windows;
+using DS4WinWPF.DS4Forms.Controls;
 using DS4WinWPF.DS4Forms.ViewModels;
 
 namespace DS4WinWPF.DS4Forms
@@ -88,11 +89,8 @@ namespace DS4WinWPF.DS4Forms
 
         private static bool IsNumericInput(FrameworkElement element)
         {
-            Type type = element.GetType();
             return element is Slider ||
-                string.Equals(type.Namespace, "Xceed.Wpf.Toolkit",
-                    StringComparison.Ordinal) &&
-                type.Name.EndsWith("UpDown", StringComparison.Ordinal);
+                element is NumericUpDownBase;
         }
 
         private static bool TryGetValueBinding(FrameworkElement element,

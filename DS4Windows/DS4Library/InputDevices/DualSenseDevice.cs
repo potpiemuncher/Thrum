@@ -1517,6 +1517,8 @@ namespace DS4Windows.InputDevices
         private DualSenseHapticsStreamer hapticsStreamer;
         public DualSenseHapticsStreamer HapticsStreamer { get => hapticsStreamer; }
         private volatile bool hapticsStreamerReady;
+        private readonly DualSenseUsbAudioHapticsOwnership
+            usbAudioHapticsOwnership;
 
         // Current rumble targets for the haptics streamer's rumble-to-haptics synth
         internal byte CurrentRumbleHeavy => currentHap.rumbleState.RumbleMotorStrengthLeftHeavySlow;
@@ -1566,6 +1568,9 @@ namespace DS4Windows.InputDevices
         public DualSenseDevice(HidDevice hidDevice, string disName, VidPidFeatureSet featureSet = VidPidFeatureSet.DefaultDS4) :
             base(hidDevice, disName, featureSet)
         {
+            usbAudioHapticsOwnership =
+                new DualSenseUsbAudioHapticsOwnership(
+                    QueueUsbAudioHapticsOwnershipRefresh);
             synced = true;
             DeviceSlotNumberChanged += (sender, e) => {
                 CalculateDeviceSlotMask();
@@ -1887,6 +1892,31 @@ namespace DS4Windows.InputDevices
 
             // Push a fresh 0x31 report so the rumble-emulation flags reflect the
             // new streaming state right away.
+            queueEvent(() =>
+            {
+                outputDirty = true;
+                currentHap.dirty = true;
+            });
+        }
+
+        internal IDisposable AcquireUsbAudioHapticsOutputOwnership()
+        {
+            if (conType != ConnectionType.USB)
+            {
+                throw new InvalidOperationException(
+                    "USB audio haptics ownership requires a USB DualSense connection.");
+            }
+
+            return usbAudioHapticsOwnership.Acquire();
+        }
+
+        internal void ResetUsbAudioHapticsOutputOwnership(bool notify)
+        {
+            usbAudioHapticsOwnership.Reset(notify);
+        }
+
+        private void QueueUsbAudioHapticsOwnershipRefresh()
+        {
             queueEvent(() =>
             {
                 outputDirty = true;
@@ -2461,6 +2491,9 @@ namespace DS4Windows.InputDevices
 
         protected override void StopOutputUpdate()
         {
+            // Invalidate a surviving lease if removal beats service cleanup.
+            ResetUsbAudioHapticsOutputOwnership(notify: false);
+
             hapticsStreamerReady = false;
             hapticsStreamer?.Stop();
             // Publish the gate before waiting for transport ownership. A
@@ -2999,7 +3032,9 @@ namespace DS4Windows.InputDevices
             }
             else
             {
-                result = hDevice.WriteOutputReportViaInterrupt(outputReport, READ_STREAM_TIMEOUT);
+                result = usbAudioHapticsOwnership.WriteOrdinaryReport(
+                    outputReport, 0, () => hDevice
+                        .WriteOutputReportViaInterrupt(outputReport, READ_STREAM_TIMEOUT));
             }
 
             //Console.WriteLine("STAUTS: {0}", result);

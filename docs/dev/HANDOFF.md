@@ -20,18 +20,20 @@ made so they are not made twice.
    Phase 5 section.
 5. This file.
 
-## The one thing that is currently broken
+## The one thing that was broken, and where it stands
 
-**The pinned VIIPER backend (v0.0.6) cannot create a virtual DualSense.** It
-answers `400 Bad Request: unknown device type: dualsense`. Xbox 360 output works;
-v0.0.5 creates the DualSense fine. Rollback is recommended in issue **#79** and
-**has not been done** — the repo still pins v0.0.6, and so does the shipped
-beta. Evidence: issue #70 and
+**Beta 1 could not create a virtual DualSense.** Its VIIPER v0.0.6 backend
+answered `400 Bad Request: unknown device type: dualsense` because Thrum asked
+for the legacy `dualsenseext` name, which v0.0.6 had dropped in favour of the
+PadSense V5 personas. Evidence: issue #70 and
 `vm-validation-reports/viiper-006-dualsense-regression-20260810/REPORT.md`.
 
-This is a v0.0.6 regression, not a Thrum defect. Two decisions are waiting on
-the maintainer: roll back now versus wait for an upstream 0.0.7, and whether to
-report it to hbashton.
+Two things have happened since. The V5-first negotiation (#70) creates the
+DualSense correctly and was VM-validated against v0.0.6. And the backend pin
+has moved to **VIIPER v0.1.2** (2026-09-06), which registers the same V5
+names; that made the v0.0.5 rollback in #79 moot. **The v0.1.2 pin has only
+been checked statically and by the installer-path tests — the plug validation
+in `docs/viiper-backend-upgrade-path.md` has not been run against it yet.**
 
 ## What is genuinely verified, and what only looks it
 
@@ -138,6 +140,18 @@ source for our own LGPL source-provision obligation.
   Cloud**, EUR 49/yr, looks like the route; see ADR-0005 including its
   amendment. Tooling is built and proven with a throwaway certificate; only the
   success path is unproven because that needs a real one.
+
+## The workspace outside this repo
+
+The checkout lives in `C:\Users\patri\PS5Haptics`, which was reorganised on 2026-09-06 and
+has its own `README.md` describing the layout. The short version: `Thrum/` (this repo),
+`DS4Windows/` (the hbashton fork the BT haptics code came from), `upstream-hbashton-viiper/`,
+`usbip-win2-fix/` (the PR #182 tree), then `docs/` (the original phased plan, VM runbooks,
+upstream PR drafts, agent prompts), `evidence/` (every VM report, crash triage and
+measurement run — the reusable guest harness is in `evidence/vm/vm-phase2-evidence-20260730/`),
+`packages/`, `reference/`, `tools/` (Codex bridge and scripts) and `_archive/`. Nothing in
+this repo references those paths, so moving them again only affects memory notes and the
+harness scripts.
 
 ## Beta 2 queue
 

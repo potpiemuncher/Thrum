@@ -774,8 +774,11 @@ namespace DS4WindowsTests
             cleanup.AssertCleanedExactlyOnce(81, "8", 14);
         }
 
-        [TestMethod]
-        public void FramedReaderAcceptsAtomicV4GenerationWithoutChangingIt()
+        [DataTestMethod]
+        [DataRow((byte)0x04, DisplayName = "PadSense V4")]
+        [DataRow((byte)0x05, DisplayName = "PadSense V5")]
+        public void FramedReaderAcceptsAtomicGenerationWithoutChangingIt(
+            byte version)
         {
             var cleanup = new CleanupCounters();
             var lifetime = cleanup.CreateLifetime(82, "9", 15);
@@ -786,11 +789,11 @@ namespace DS4WindowsTests
             byte[] generation = Enumerable.Range(0, 2524)
                 .Select(index => (byte)(index * 23 + 5)).ToArray();
 
-            stream.WriteFrame(0x04, 0x83, generation);
+            stream.WriteFrame(version, 0x83, generation);
             payloadStream.Position = 0;
             byte[] received = new byte[4096];
 
-            int length = stream.ReadFrame(0x04, out byte frameType,
+            int length = stream.ReadFrame(version, out byte frameType,
                 received);
 
             Assert.AreEqual(0x83, frameType);

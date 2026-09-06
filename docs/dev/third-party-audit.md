@@ -22,7 +22,7 @@ badge, or a third-party aggregator is not evidence about the thing we ship.
 5. **GPL compatibility** was checked against the FSF's published licence list rather than from
    memory.
 
-## What the publish output actually contains
+## What the beta.1 publish output actually contained
 
 Third-party assemblies in the package (excluding Thrum's own and the .NET runtime):
 
@@ -50,6 +50,39 @@ satellite culture folders.
 its `CompanyName` resource reads "GitHub Community" and it is dahall/TaskScheduler. Filtering an
 inventory by `Microsoft.*` hides it. And `ICSharpCode.AvalonEdit.dll` and `XAMLMarkupExtensions.dll`
 appear in no `PackageReference`; they are transitive, so a csproj-only inventory misses them.
+The inventory above is retained as the beta.1 audit baseline.
+
+### Beta 2 delta — issue #72 (2026-08-03)
+
+Issue #72 removed the `WPFLocalizeExtension` package and replaced its load-time resource lookup
+with Thrum's clean-room GPL-3.0-or-later `LocExtension`. That also removes the transitive
+`XAMLMarkupExtensions` package. A fresh self-contained win-x64 publish from the issue branch
+contains **0** `WPFLocalizeExtension.dll`, **0** `XAMLMarkupExtensions.dll`, **1**
+`DotNetProjects.Wpf.Extended.Toolkit.dll`, and all **23** `Thrum.resources.dll` satellites. The
+restored `dotnet list package --include-transitive` graph likewise names only the remaining
+toolkit when filtered for these three package families.
+
+This is a current artifact check, not an inference from the edited project file. The two removed
+rows remain in the evidence table below because they document what beta.1 redistributed and why
+the legal cleanup was required.
+
+### Beta 2 delta — issue #71 (2026-08-03)
+
+Issue #71 removed `DotNetProjects.Extended.Wpf.Toolkit` and replaced the exact application
+surface with clean-room GPL-3.0-or-later WPF controls: five typed numeric up/down controls,
+`SplitButton`, the inverse-boolean converter, and the color picker. All application XAML,
+code-behind, reset logic, automation peers, and light/dark templates now use Thrum-owned code.
+
+A fresh self-contained win-x64 publish after a new restore contains **0**
+`DotNetProjects.Wpf.Extended.Toolkit.dll`, **0** `WPFLocalizeExtension.dll`, **0**
+`XAMLMarkupExtensions.dll`, and all **23** `Thrum.resources.dll` satellites. The restored
+`dotnet list package --include-transitive` graph has **0** matches across the former toolkit and
+localization package families.
+
+This is an artifact check, not an inference from the project edit. Together, issues #71 and #72
+remove all three Ms-PL assemblies from the distributed product. The beta.1 inventory and evidence
+rows remain below as a historical baseline documenting what that release redistributed and why
+the cleanup was required.
 
 ## Findings that changed the notice
 
@@ -69,7 +102,7 @@ not mention at all.
 `gre/bezier-easing-editor` (MIT) and embeds that project's npm dependency tree, including React.
 Searching the bundle finds 28 occurrences of `MIT` and one `license: "ISC"` field, but no
 per-package manifest, so the constituent notices are not recoverable from the artifact. Recorded
-as unresolved item 3(b).
+as unresolved item 2(b).
 
 ## Resolved entries and their evidence
 
@@ -77,7 +110,7 @@ as unresolved item 3(b).
 |---|---|---|
 | bloomtom.HttpProgress 2.3.2 | MIT | nuspec `licenseExpression` |
 | Concentus 2.2.2 | BSD-3-Clause | bundled `LICENSE`, read in full — IETF/Opus three-clause text |
-| DotNetProjects.Extended.Wpf.Toolkit 5.0.106 | Ms-PL | nuspec `licenseExpression` |
+| DotNetProjects.Extended.Wpf.Toolkit 5.0.106 | Ms-PL | beta.1 evidence: nuspec `licenseExpression`; removed by issue #71 |
 | H.NotifyIcon(.Wpf) 2.0.74 | MIT | nuspec `licenseExpression` |
 | MdXaml 1.27.0, MdXaml.Plugins | MIT | nuspec `licenseExpression` |
 | AvalonEdit (transitive) | MIT | nuspec `licenseExpression` |
@@ -87,8 +120,8 @@ as unresolved item 3(b).
 | System.Management 7.0.2 | MIT | nuspec `licenseExpression` |
 | System.Memory 4.5.5 | MIT | nuspec `licenseUrl` → dotnet/corefx LICENSE.TXT |
 | TaskScheduler 2.10.1 | MIT | nuspec `licenseExpression`, author David Hall |
-| WPFLocalizeExtension 3.9.4 | Ms-PL | bundled `LICENSE` — Ms-PL text |
-| XAMLMarkupExtensions 2.1.3 (transitive) | Ms-PL | bundled `LICENSE`; shipped DLL `ProductVersion` confirms 2.1.3 |
+| WPFLocalizeExtension 3.9.4 | Ms-PL | beta.1 evidence: bundled `LICENSE` — Ms-PL text; removed by issue #72 |
+| XAMLMarkupExtensions 2.1.3 (transitive) | Ms-PL | beta.1 evidence: bundled `LICENSE`; shipped DLL `ProductVersion` confirms 2.1.3; removed by issue #72 |
 | WpfScreenHelper 2.1.0 | MIT | nuspec `licenseExpression` |
 | YellowDogMan.RRNoise.NET 0.1.9 | MIT | nuspec `licenseExpression` |
 | rnnoise (native, in rnnoise.dll) | BSD-3-Clause | xiph/rnnoise via GitHub API |
@@ -119,27 +152,30 @@ Options: ask the author for a licence (cheapest, and the author is the original 
 author, so the ask is natural); drop the dependency; or reimplement the wrapper, which is a thin
 `DllImport` surface over `FakerInputDll.dll` and looks small.
 
-### 2. Three Ms-PL assemblies inside a GPL-3.0 program
+### Resolved: the inherited Ms-PL assemblies are removed
 
-`DotNetProjects.Extended.Wpf.Toolkit`, `WPFLocalizeExtension` and its transitive
-`XAMLMarkupExtensions` are all Microsoft Public License. The FSF's licence list says of Ms-PL:
-*"This is a free software license; it has a copyleft that is not strong, but incompatible with
-the GNU GPL."*
+The beta.1 package linked three inherited Ms-PL assemblies. The FSF's licence list says of
+Ms-PL: *"This is a free software license; it has a copyleft that is not strong, but incompatible
+with the GNU GPL."*
 
-Thrum is GPL-3.0-or-later and links all three, so this is a compatibility question, not a
-paperwork gap. It is **inherited from upstream DS4Windows**, which is also GPL-3.0 and ships the
-same three components — the exposure is not new, but a first public release is when it starts to
-matter.
+Issue #72 removed `WPFLocalizeExtension` and its transitive `XAMLMarkupExtensions` package,
+replacing their used surface with clean-room GPL-3.0-or-later localization code. Issue #71
+removed `DotNetProjects.Extended.Wpf.Toolkit`, replacing its typed numeric editors,
+`SplitButton`, converter, color picker, reset integration, templates, and automation peers with
+Thrum-owned GPL-3.0-or-later code.
 
-This needs the maintainer's decision, informed by counsel if they want one; the summary above is
-the FSF's published position, not legal advice. `WPFLocalizeExtension` is the most deeply wired
-of the three (195 localization tokens across 29 `.resx` files went through it in Phase 1.8), so
-replacing it is not a small change.
+The fresh post-restore self-contained publish contains no DLL from any of the three families,
+keeps all 23 translation satellites, and the restored transitive graph contains no former
+toolkit or localization package.
+
+This closes the former Ms-PL compatibility finding for the distributed product. Historical
+beta.1 evidence remains above so the audit trail is not erased. The FSF summary is not legal
+advice.
 
 For contrast, the Apache-2.0 components are fine: the FSF confirms Apache-2.0 is compatible with
 GPLv3 (though not GPLv2, which does not affect us).
 
-### 3. Two vendored items that cannot be cleanly licensed as they stand
+### 2. Two vendored items that cannot be cleanly licensed as they stand
 
 **(a) `DS4Windows/OneEuroFilter.cs`** — 105 lines, namespace `Sensorit.Base`, no licence header
 anywhere in the file. The 1€ filter authors' own page lists the C# implementation under "other
@@ -153,10 +189,11 @@ dependency licence manifest can be produced, or delete it if the editor is no lo
 
 ## Guard tests
 
-`DS4WindowsTests/ThirdPartyNoticeTests.cs` (4 tests) checks that every `PackageReference` and
+`DS4WindowsTests/ThirdPartyNoticeTests.cs` (5 tests) checks that every `PackageReference` and
 every DLL under `DS4Windows/libs` is named somewhere in `NOTICE.txt`, that the three
-authoritative notice files still exist and are still cross-referenced, and that the UNRESOLVED
-section keeps saying it is release-blocking for as long as it exists.
+authoritative notice files still exist and are still cross-referenced, that the removed toolkit
+does not return to the project or NOTICE, and that the UNRESOLVED section keeps saying it is
+release-blocking for as long as it exists.
 
 They check **presence of an entry, not correctness of a licence** — a licence can only be
 verified against the artifact, which is what this document is for. What they prevent is the

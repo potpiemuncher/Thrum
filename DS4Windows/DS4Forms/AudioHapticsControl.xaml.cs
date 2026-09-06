@@ -495,7 +495,8 @@ namespace DS4WinWPF.DS4Forms
             // route is available the feature produces silence while looking
             // entirely healthy — report that with a specific reason so the
             // user knows what to change.
-            if (runtime.Active && !AudioHapticsOutputPathAvailable())
+            if (runtime.Active && !runtime.WiredOutputActive &&
+                !AudioHapticsOutputPathAvailable())
             {
                 statusText.Text = "Capturing, but not reaching the controller";
                 sourceStatusText.Text = SourceDisplayName(settings) +
@@ -504,11 +505,15 @@ namespace DS4WinWPF.DS4Forms
                 return;
             }
 
-            statusText.Text = runtime.Active &&
-                !settings.AutomaticGameDetection ? "Active" : runtime.Message;
-            statusDot.Fill = runtime.Active
-                ? FindBrush("SuccessColor", Brushes.LimeGreen)
-                : FindBrush("AccentColor", Brushes.DodgerBlue);
+            statusText.Text = runtime.Active && runtime.WiredOutputActive
+                ? runtime.Message
+                : runtime.Active && !settings.AutomaticGameDetection
+                    ? "Active" : runtime.Message;
+            statusDot.Fill = runtime.Error
+                ? FindBrush("WarningColor", Brushes.Goldenrod)
+                : runtime.Active
+                    ? FindBrush("SuccessColor", Brushes.LimeGreen)
+                    : FindBrush("AccentColor", Brushes.DodgerBlue);
         }
 
         /// <summary>
@@ -524,6 +529,8 @@ namespace DS4WinWPF.DS4Forms
         /// </summary>
         private bool AudioHapticsOutputPathAvailable()
         {
+            // The physical USB route is represented by the runtime status.
+            // This fallback only decides whether a non-wired route exists.
             // Bluetooth haptics streamer is active (works when the pad is
             // connected over Bluetooth and the source is SystemAudio or
             // Endpoint — AppSession and ControllerAudio are not served).

@@ -430,7 +430,7 @@ namespace DS4WinWPF.DS4Forms
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = Application.Current.MainWindow;
             Color tempcolor = checkBatteryVM.EmptyColor;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             checkBatteryVM.StartForcedColor(tempcolor, specialActVM.DeviceNum);
             dialog.ColorChanged += (sender2, color) =>
             {
@@ -438,7 +438,7 @@ namespace DS4WinWPF.DS4Forms
             };
             dialog.ShowDialog();
             checkBatteryVM.EndForcedColor(specialActVM.DeviceNum);
-            checkBatteryVM.EmptyColor = dialog.colorPicker.SelectedColor.GetValueOrDefault();
+            checkBatteryVM.EmptyColor = dialog.SelectedColor;
         }
 
         private void BatteryFullColorBtn_Click(object sender, RoutedEventArgs e)
@@ -446,7 +446,7 @@ namespace DS4WinWPF.DS4Forms
             ColorPickerWindow dialog = new ColorPickerWindow();
             dialog.Owner = Application.Current.MainWindow;
             Color tempcolor = checkBatteryVM.FullColor;
-            dialog.colorPicker.SelectedColor = tempcolor;
+            dialog.SelectedColor = tempcolor;
             checkBatteryVM.StartForcedColor(tempcolor, specialActVM.DeviceNum);
             dialog.ColorChanged += (sender2, color) =>
             {
@@ -454,7 +454,7 @@ namespace DS4WinWPF.DS4Forms
             };
             dialog.ShowDialog();
             checkBatteryVM.EndForcedColor(specialActVM.DeviceNum);
-            checkBatteryVM.FullColor = dialog.colorPicker.SelectedColor.GetValueOrDefault();
+            checkBatteryVM.FullColor = dialog.SelectedColor;
         }
 
         private void MultiTapTrigBtn_Click(object sender, RoutedEventArgs e)

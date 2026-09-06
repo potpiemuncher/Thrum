@@ -4418,3 +4418,167 @@ vadimgrn's `4139f44f6` root-cause fix — but no release carries either, so the
 unchanged. A release cut from master is the single event that unblocks them.
 
 **Open at handoff:** #51, #65, #66, #67, #70, #71, #72, #75, #79.
+## 2026-08-03 — Beta 2 dependency cleanup: issue #72
+
+The Ms-PL localization dependency is gone. A clean-room GPL-3.0-or-later
+`DS4Forms/Localization/LocExtension.cs` now performs the one operation the UI
+needs: resolve a literal key at XAML object creation time. It supports both the
+parameterless-plus-`Key` and string-constructor forms, routes the exact
+case-sensitive `Resources:` prefix to `Properties.Resources` and every other
+bare or dotted key to `Translations.Strings`, and uses `CurrentUICulture` on
+every call without caching. A missing key renders a visible
+`[[Missing localization: …]]` marker instead of disappearing. It deliberately
+has no notification or live-language machinery; the existing language picker
+continues to state that a restart is required.
+
+All 26 localized XAML files now bind `lex` to the in-house namespace. The 24
+`LocalizeDictionary` / `ResxLocalizationProvider` attachment sets were removed,
+the 601 original `lex:Loc`/`lex:LocExtension` expressions were retained, and the
+two `lex:BLoc` sites became ordinary bindings whose source is `lex:Loc`. After
+excluding one disabled XAML comment, the audited runtime surface is 602
+expressions and every key resolves. That audit exposed four inherited invalid
+key spellings and one genuinely absent neutral tooltip; the bindings now reuse
+`PresetIntroText`, `EnhancedPrecision`, `DeadZone X` and `DeadZone Y`, and the
+DS3 gyro-simulation tooltip has neutral fallback text. The disabled Greek-only
+virtual-trigger key remains historical, not runtime content.
+
+The direct `WPFLocalizeExtension` package reference, its transitive
+`XAMLMarkupExtensions` package, the `App.xaml.cs` engine calls and all legacy
+runtime namespace/provider references were removed. The early
+`SatelliteAssemblyResolver` module initializer remains: WPF can still request a
+satellite while loading XAML before `Application_Startup`, independent of which
+markup extension initiates the lookup.
+
+Artifact evidence is current rather than inferred from the project edit. A
+fresh self-contained win-x64 publish contains zero copies of
+`WPFLocalizeExtension.dll` and `XAMLMarkupExtensions.dll`, all 23
+`Thrum.resources.dll` satellites, and one
+`DotNetProjects.Wpf.Extended.Toolkit.dll`. The restored transitive package graph
+likewise contains only that toolkit among the three original Ms-PL families.
+NOTICE item 2 is therefore partially resolved: issue #71 is the one remaining
+Ms-PL replacement, and its entry was deliberately retained.
+
+Verification: the new focused suite passes **6/6**; the combined localization,
+satellite and notice set passes **28/28**; the no-incremental canonical x64
+Release solution build completes with **0 errors** and the same 17 known
+warnings; the full x64 Release suite passes **1032/1032**. This is a managed
+load-time resource change with no driver, controller or VIIPER path, so it has
+no VM or hardware validation requirement. A normal app restart/UI smoke remains
+useful release validation but is not a source-level blocker for #72.
+
+## 2026-08-03 — Beta 2 dependency cleanup: issue #71
+
+The final Extended WPF Toolkit dependency is gone. Clean-room GPL in-house
+controls now cover the exact runtime surface Thrum used: integer, double,
+decimal, signed-byte and unsigned-integer numeric editors plus the split button.
+The replacement preserves the existing dependency-property names, value-change
+routing, formatting, ranges, increments, bindings, commands and dropdown
+behavior. Keyboard input and UI Automation are first-class: the numeric controls
+expose range/value patterns, while the split button exposes invoke and
+expand/collapse patterns with disabled-state enforcement.
+Review-driven regressions cover RecordBox Enter-key bubbling, stepping from
+freshly typed text, arrow-button keyboard routing and UIA value/range/expansion
+property-change notifications, type-correct unbounded UIA ranges, and the
+single intended editor tab stop.
+
+All audited application instances were migrated without changing their binding
+expressions: 53 integer, 92 double, 5 decimal, 4 signed-byte and 1 unsigned-
+integer editor, plus the one split button. The old Xceed namespaces, copied
+spinner-arrow geometries, toolkit templates and implicit styles were removed.
+The bridge theme now merges `InHouseControls.xaml`, whose styles use the existing
+dynamic theme resources and survive a default-to-dark theme switch in one
+`Application` instance.
+
+The toolkit color picker was also replaced with a Thrum-owned dialog containing
+RGB sliders, swatches, a preview and hexadecimal output. `SelectedColor` is now
+the dialog's public boundary; 17 external accesses through its former internal
+picker were removed while the existing live `ColorChanged` behavior was kept.
+Accessible names cover its interactive controls.
+
+The `DotNetProjects.Extended.Wpf.Toolkit` package reference and final Ms-PL
+NOTICE entry were removed, and the third-party audit now records the concrete
+replacement evidence. A fresh self-contained win-x64 publish contains 527 files,
+all 23 `Thrum.resources.dll` satellites and zero filenames matching
+`DotNetProjects`, `Extended.Toolkit`, `WPFLocalizeExtension` or
+`XAMLMarkupExtensions`. The restored transitive package graph contains zero
+matches for those former dependency families.
+
+Verification: the focused toolkit/theme/NOTICE/static-resource/profile set
+passes **21/21**; the no-incremental canonical x64 Release solution build
+completes with **0 errors** and the same 17 known warnings; the full x64 Release
+suite passes **1045/1045**. This is a managed UI replacement with no driver,
+controller or VIIPER path, so it has no VM or hardware validation requirement.
+A normal app/UI smoke remains useful release validation but is not a source-level
+blocker for #71.
+
+## 2026-08-03 — Issue #65: wired USB Audio Haptics code closure
+
+The issue's proposed transport was based on the wrong premise: USB HID output
+report `0x02` is controller state and rumble, not a PCM carrier. Thrum already
+had the correct wired path in `AudioHapticsService`: open the physical
+DualSense's four-channel WASAPI render endpoint and write the derived haptics
+signal to channels 3/4. The missing piece was actuator ownership around that
+existing output.
+
+The wired runtime now acquires a scoped USB-audio-haptics lease only after
+`WasapiOut.Init` has opened the endpoint. While the lease is live, the final
+ordinary USB HID write boundary clears only the two main-motor enable bits,
+motor values and improved-rumble bit. Adaptive triggers, lightbar, LEDs and
+other controller state remain intact, and the Bluetooth path is unchanged.
+Stop, startup rollback, immediate playback stop, sample-write failure and
+device disconnect all retire or invalidate the lease so ordinary USB rumble
+can resume. Shutdown stops and joins the writer before publishing its last zero
+frame, then retires the endpoint and lease.
+
+The Audio Haptics page now reports **Active over wired USB** only for a live
+wired output and preserves a visible failure reason after playback/write
+failure. A subsequent settings apply rebuilds a failed wired runtime rather
+than reusing it.
+
+Verification:
+
+- focused ownership/lifecycle/status suite: **12/12**;
+- canonical x64 Release solution build: **0 warnings, 0 errors**;
+- canonical x64 Release full suite: **1038/1038**.
+
+This closes the code path, not the hardware claim. A wired DualSense pass still
+has to prove non-zero haptics are felt, ordinary game rumble does not fight the
+PCM stream while active, unplug/playback failure is surfaced, and stopping or
+reconnecting restores ordinary rumble. No controller, audio-device, app or VM
+operation was performed in this code-only pass.
+
+## 2026-09-06 — VIIPER backend pin moved to v0.1.2 (supersedes #79)
+
+Upstream moved while beta 2 sat in local worktrees: hbashton/VIIPER shipped
+v0.0.7, v0.0.9, v0.1.0 and v0.1.2 (2026-08-27) after our v0.0.6 pin. The #79
+question (roll back to v0.0.5 or wait for 0.0.7) is moot: the DualSense failure
+was the client asking for `dualsenseext`, fixed by the V5-first negotiation
+(#70), and every release since v0.0.6 registers the same three V5 names.
+
+The pin is now v0.1.2 as two identities, both computed locally from the
+downloaded asset (archive digest cross-checked against GitHub's reported
+digest): `viiper-windows-amd64.zip` 4,809,388 B
+`66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46`, extracted
+`viiper.exe` 11,407,872 B
+`2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A`, stamped
+`v0.1.2 (f5d097b)`. The driver pin does not move: v0.1.2 still gates on the
+usbip-win2 0.9.7.7 attach ABI, and usbip-win2 still has no release past
+0.9.7.8 (the maintainer confirmed on 2026-09-05 that the signed release is
+blocked on the signer).
+
+Static compatibility review of the v0.0.6→v0.1.2 delta (343 commits) against
+`ViiperOutDevice`, recorded in `docs/viiper-backend-upgrade-path.md`: V5
+device names unchanged; framed contract unchanged and v0.1.2 now *requires*
+frame version 0x05, which the V5 path sends; two new server→client frame types
+(`0x84` realtime haptics, `0x85` mic interface state) that the reader drops
+harmlessly; localhost API still unauthenticated by default; `xbox360` takes no
+subtype on the create endpoint; `serve --update-notify none` still accepted.
+
+This entry sits on top of the beta-2 integration branch (all seven beta-2
+commits) merged with main; NOTICE.txt was reconciled by hand (Ms-PL item gone
+per #71/#72, item 4 from main renumbered to 3).
+
+Suite: **1062 passed / 0 failed** (CI filter), canonical x64 Release build
+0 errors / 17 known warnings. **Not yet done:** the VM plug validation of the
+new pin (one virtual device of every type) — the v0.0.6 pass from checkpoint
+`viiper-006-installer-validated-20260803` does not transfer.

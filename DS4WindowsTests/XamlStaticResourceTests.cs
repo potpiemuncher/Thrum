@@ -53,6 +53,7 @@ public class XamlStaticResourceTests
     private static readonly string[] LocallyDeclaredConverterKeys =
     {
         "BooleanToVisibilityConverter",
+        "InverseBoolConverter",
     };
 
     [TestMethod]

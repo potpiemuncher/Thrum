@@ -32,7 +32,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using NonFormTimer = System.Timers.Timer;
 using Microsoft.Win32;
-using Xceed.Wpf.Toolkit;
+using DS4WinWPF.DS4Forms.Controls;
 using DS4WinWPF.DS4Forms.ViewModels;
 
 namespace DS4WinWPF.DS4Forms
@@ -414,7 +414,7 @@ namespace DS4WinWPF.DS4Forms
                     colorDialog = new ColorPickerWindow();
                     colorDialog.Owner = Application.Current.MainWindow;
                     Color tempcolor = item.LightbarColorValue();
-                    colorDialog.colorPicker.SelectedColor = tempcolor;
+                    colorDialog.SelectedColor = tempcolor;
                     recordBoxVM.StartForcedColor(tempcolor);
                     colorDialog.ColorChanged += (sender2, color) =>
                     {
@@ -422,7 +422,7 @@ namespace DS4WinWPF.DS4Forms
                     };
                     colorDialog.ShowDialog();
                     recordBoxVM.EndForcedColor();
-                    item.UpdateLightbarValue(colorDialog.colorPicker.SelectedColor.GetValueOrDefault());
+                    item.UpdateLightbarValue(colorDialog.SelectedColor);
 
                     FocusNavigationDirection focusDirection = FocusNavigationDirection.Next;
                     TraversalRequest request = new TraversalRequest(focusDirection);

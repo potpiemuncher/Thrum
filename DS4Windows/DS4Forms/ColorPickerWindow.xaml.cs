@@ -43,11 +43,8 @@ namespace DS4WinWPF.DS4Forms
         public ColorPickerWindow()
         {
             InitializeComponent();
-        }
-
-        private void ColorPicker_SelectedColorChanged(object sender, RoutedPropertyChangedEventArgs<Color?> e)
-        {
-            ColorChanged?.Invoke(this, e.NewValue.GetValueOrDefault());
+            BuildColorPicker();
+            SelectedColor = Colors.Black;
         }
     }
 }

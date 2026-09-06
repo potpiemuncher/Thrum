@@ -3,10 +3,56 @@ from pathlib import Path
 import sys
 import shutil
 import subprocess
+import zipfile
 
 target_dir = Path(sys.argv[1])
-project_dir = Path(sys.argv[2])
+repo_dir = Path(sys.argv[2]).resolve()
 version = sys.argv[3]
+
+required_package_root_files = ("NOTICE.txt", "COPYING")
+
+def copy_required_package_root_files():
+    for file_name in required_package_root_files:
+        source_path = repo_dir / file_name
+        if not source_path.is_file():
+            raise FileNotFoundError(
+                f"Required release file does not exist: {source_path}")
+
+        shutil.copy2(source_path, target_dir / file_name)
+
+
+def verify_release_archive(archive_path):
+    archive_root = "Thrum/"
+    manifest_entry = archive_root + ".thrum-managed-files.txt"
+    expected_archive_entries = {
+        archive_root + file_name
+        for file_name in required_package_root_files
+    }
+
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        archive_entries = set(archive.namelist())
+        missing_entries = sorted(expected_archive_entries - archive_entries)
+        if missing_entries:
+            raise RuntimeError(
+                "Release archive is missing required legal file(s): " +
+                ", ".join(missing_entries))
+
+        if manifest_entry not in archive_entries:
+            raise RuntimeError(
+                f"Release archive is missing {manifest_entry}")
+
+        managed_files = {
+            line.strip()
+            for line in archive.read(manifest_entry).decode("utf-8").splitlines()
+            if line.strip()
+        }
+        missing_managed_files = sorted(
+            set(required_package_root_files) - managed_files)
+        if missing_managed_files:
+            raise RuntimeError(
+                "Managed-files manifest is missing required legal file(s): " +
+                ", ".join(missing_managed_files))
+
 
 # move l18n assemblies to a separate directory
 lang_dir = target_dir / "Lang"
@@ -29,9 +75,13 @@ for lang in langs:
 
 
 # run the script injecting new dependency paths to <AssemblyName>.deps.json
-lang_script = project_dir.parent / "utils" / "inject_deps_path.py"
+lang_script = repo_dir / "utils" / "inject_deps_path.py"
 deps_json_path = target_dir / "Thrum.deps.json"
 subprocess.run([sys.executable, str(lang_script), str(deps_json_path)], check=True)
+
+# The archive is the conveyed product. Keep its top-level attribution and GPL
+# licence beside the executable, before the updater manifest records ownership.
+copy_required_package_root_files()
 
 # Record every file owned by this package. DS4Updater uses this manifest on the
 # next update to remove package files that no longer ship, without touching
@@ -47,7 +97,7 @@ manifest_path.write_text("\n".join(managed_files) + "\n", encoding="utf-8")
 
 
 # write the version to newest.txt
-newest_txt = project_dir / "newest.txt"
+newest_txt = repo_dir / "newest.txt"
 with open(newest_txt, 'w') as file:
     file.write(version)
 
@@ -70,3 +120,7 @@ zip_dir = shutil.make_archive(zip_name, "zip", target_dir.parent)
 
 # move the zip to the build directory
 shutil.move(zip_dir, target_zip_path)
+
+# CI and release builds both execute this script, so validate the real artifact
+# rather than relying only on a source-level packaging assertion.
+verify_release_archive(target_zip_path)

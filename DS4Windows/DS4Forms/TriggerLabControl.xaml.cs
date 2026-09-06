@@ -11,7 +11,7 @@ using DS4Windows;
 using DS4Windows.InputDevices;
 using DS4WinWPF.DS4Forms.ViewModels;
 using Microsoft.Win32;
-using IntegerUpDown = Xceed.Wpf.Toolkit.IntegerUpDown;
+using IntegerUpDown = DS4WinWPF.DS4Forms.Controls.IntegerUpDown;
 
 namespace DS4WinWPF.DS4Forms
 {

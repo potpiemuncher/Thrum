@@ -1,4 +1,5 @@
 using DS4Windows;
+using DS4WinWPF.DS4Forms.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
@@ -6,6 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
+using System.Windows.Controls;
 using System.Xml.Linq;
 
 namespace DS4WindowsTests
@@ -59,9 +61,14 @@ namespace DS4WindowsTests
 
         private static string[] ReadShellDynamicResourceKeys()
         {
-            string styles = File.ReadAllText(Path.Combine(FindRepositoryRoot(),
-                "DS4Windows", "DS4Forms", "Themes",
-                "BridgeShellStyles.xaml"));
+            string themeDirectory = Path.Combine(FindRepositoryRoot(),
+                "DS4Windows", "DS4Forms", "Themes");
+            string styles = string.Join("\n", new[]
+            {
+                "BridgeShellStyles.xaml",
+                "InHouseControls.xaml",
+            }.Select(file => File.ReadAllText(Path.Combine(themeDirectory,
+                file))));
             return Regex.Matches(styles,
                     @"\{DynamicResource\s+([^}\s,]+)")
                 .Cast<Match>()
@@ -154,6 +161,29 @@ namespace DS4WindowsTests
                         "BridgeStatusBadgeTextStyle"));
                     Assert.IsNotNull(application.TryFindResource(
                         "BridgeCardListItemStyle"));
+
+                    AssertControlTemplate<IntegerUpDown>(application,
+                        "PART_TextBox", "PART_IncreaseButton",
+                        "PART_DecreaseButton");
+                    AssertControlTemplate<DoubleUpDown>(application,
+                        "PART_TextBox");
+                    AssertControlTemplate<DecimalUpDown>(application,
+                        "PART_TextBox");
+                    AssertControlTemplate<SByteUpDown>(application,
+                        "PART_TextBox");
+                    AssertControlTemplate<UIntegerUpDown>(application,
+                        "PART_TextBox");
+                    AssertControlTemplate<SplitButton>(application,
+                        "PART_MainButton", "PART_ToggleButton",
+                        "PART_Popup");
+
+                    defaultTheme.Source = new Uri(
+                        ComponentPrefix + "/DS4Forms/Themes/DarkTheme.xaml",
+                        UriKind.Relative);
+                    Assert.IsNotNull(application.TryFindResource(
+                        typeof(IntegerUpDown)));
+                    Assert.IsNotNull(application.TryFindResource(
+                        typeof(SplitButton)));
                     application.Shutdown();
                 }
                 catch (Exception ex)
@@ -168,6 +198,40 @@ namespace DS4WindowsTests
             if (failure != null)
             {
                 Assert.Fail(failure.ToString());
+            }
+        }
+
+        private static void AssertControlTemplate<T>(Application application,
+            params string[] partNames)
+            where T : Control, new()
+        {
+            Style style = application.TryFindResource(typeof(T)) as Style;
+            Assert.IsNotNull(style,
+                "The shared theme has no implicit style for " +
+                typeof(T).Name + ".");
+
+            var control = new T
+            {
+                Style = style,
+            };
+            Assert.IsTrue(control.ApplyTemplate(),
+                typeof(T).Name + " did not apply its template.");
+            foreach (string partName in partNames)
+            {
+                Assert.IsNotNull(control.Template.FindName(partName, control),
+                    typeof(T).Name + " is missing " + partName + ".");
+            }
+
+            if (control is NumericUpDownBase)
+            {
+                Assert.IsFalse(control.IsTabStop,
+                    typeof(T).Name +
+                    " must not add a duplicate parent tab stop.");
+                var editor = (TextBox)control.Template.FindName(
+                    NumericUpDownBase.TextBoxPartName, control);
+                Assert.IsNotNull(editor);
+                Assert.IsTrue(editor.IsTabStop,
+                    typeof(T).Name + " must tab directly to its editor.");
             }
         }
     }

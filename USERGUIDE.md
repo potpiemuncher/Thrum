@@ -1,128 +1,377 @@
-## User Guide
+# Thrum User Guide
 
-> **This guide is out of date and needs a rewrite, not a rebrand.**
->
-> It was inherited from DS4Windows and describes the pre-Phase-4 **tabbed** UI.
-> Thrum now uses a navigation rail with ten pages, a first-run wizard, and pages
-> that did not exist when this was written — Overview, Diagnostics, Trigger Lab,
-> Audio Haptics. Page names below no longer match the app: "Controller Readings"
-> is now the input tester, and setup is handled by the wizard rather than by
-> manual driver steps.
->
-> The application names have been corrected to Thrum so it is not actively
-> misleading about *what* it documents, but the structure it describes is wrong.
-> Tracked as an issue; do not treat it as current until that lands.
+Thrum reads supported physical controllers, applies a profile, and can present a
+virtual controller that games recognize. It also exposes DualSense features such
+as adaptive triggers, controller audio, and audio-driven haptics.
 
-After completing the initial setup of the required drivers and dependencies, you are greeted with the main Thrum tab, controllers.
+This guide describes the current navigation-rail interface and first-run wizard.
+Thrum is pre-release software, and its virtual-controller backend uses an
+experimental third-party kernel driver. Read the safety section before enabling
+virtual output.
 
-### Controllers
-![Controller Tab](https://user-images.githubusercontent.com/32114370/189562818-8e2d5e0a-3c61-4eb0-a53c-caa731b120e4.png)
+## Before you start
 
-Here all of the conected controllers are shown. Hovering your mouse over the Controller's ID will display the input delay of the specificed controller.
+- Use a 64-bit Windows system. Thrum and its VIIPER backend are currently x64-only.
+- Do not run Thrum and DS4Windows at the same time. Both applications can try to
+  claim the same physical controller.
+- Connecting and testing a physical controller does not require VIIPER. VIIPER is
+  needed when a game must see an emulated Xbox, PlayStation, or Switch controller.
+- A DualSense can receive Audio Haptics directly over Bluetooth without VIIPER or
+  usbip-win2 when the source is the Windows mix or a render endpoint.
 
-![Input Delay Screenshot](https://user-images.githubusercontent.com/32114370/189563985-e18c074e-3caf-49a7-af36-ed12d77f88c6.png)
+If you are building Thrum yourself, follow the requirements and commands in the
+[README](README.md#building).
 
-The Link Profile/ID checkbox allows you to link a specified profile to a certain Controller ID so that when you plug in the controller next time the Selected Profile will always be applied to it. This is helpful if you use more than one controller. The edit button will take you to the Profiles tab to edit the Selected Profile. You can also use the dropdown to create a new profile.
+## First-run setup
 
-### Profiles
+On a fresh configuration, Thrum opens **Set up Thrum** before starting the
+controller service. The wizard has seven named stages. The import stage appears
+only when a pristine app-data location and compatible DS4Windows settings are
+both found; importing an existing configuration can also skip the new-device
+defaults stage.
 
-![Profile Tab Screenshot](https://user-images.githubusercontent.com/32114370/189564567-f73805f8-e16a-4a0a-a7ca-619509b10b56.png)
+1. **Welcome to Thrum** explains the application and the optional VIIPER backend.
+2. **Choose where Thrum stores its data** defaults to **App data
+   (recommended)**, under `%APPDATA%\Thrum`. Expand **Advanced: portable data
+   location** only when you intentionally want settings beside `Thrum.exe`.
+   Portable mode is unavailable when the program folder is not writable.
+3. **Import existing settings** reviews any compatible DS4Windows configuration
+   found in the legacy data folder. Import skips files already present and does
+   not modify the source. Choose **Start fresh** in the review dialog to decline.
+4. **Choose supported controller types** keeps DualShock 4 enabled and lets you
+   add DualSense/Edge, Switch Pro, Joy-Con, or DualShock 3. DualShock 3 also
+   requires DsHidMini. These choices remain available under **Settings > Device
+   options**.
+5. **Backend and driver status** checks VIIPER and usbip-win2. **Install / Repair
+   VIIPER** runs the guided setup; **Recheck status** reads the state again.
+   Skipping this stage is safe, and Thrum offers setup again if a profile later
+   requests virtual output.
+6. **Connect a controller** reminds you to use USB or Bluetooth. Detection begins
+   after the wizard because the mapping service is deliberately not started
+   during setup.
+7. **You are ready to start** creates a Default profile when starting fresh and
+   opens the main window.
 
-The **Profiles** tab displays all the profiles created. Profiles can be used to assign different settings for your controller for different circumstances. Along with creating new profiles, editing, renaming, deleting, and renaming, you can also import other profiles, and export your's for sharing with friends. When creating a new profile, it is recommended to use a preset option. For the output method, it must be chosen accordingly to what you want Windows to recognize the controller as.
+Before the data location is committed, **Cancel setup** exits without starting
+Thrum. Afterwards the button changes to **Finish later** and completes the safe
+configuration work needed to continue.
 
-For Example:
+## The main window
 
-- You have a Pro Controller and want to use PS Remote Play with gyro? You need to choose DualShock 4 Output and adjust the profile for Gyro passthrough
-- You have any of the supported controllers and want to play Celest, which only supports XInput devices? Set the Output to Xbox 360
-- You have a fake DS4 controller that is not recognized as an official one, but want to play Witcher 3 with lightbar support and PS glyphs/icons? Then choose DualShock 4 Output and adjust for lightbar passthrough
+The navigation rail contains ten pages, in this order:
 
-![Output Controller Prompt Screenshot](https://user-images.githubusercontent.com/32114370/189565494-3bd6b11f-7298-4180-824e-7cde49daebb7.png)
+1. Overview
+2. Controllers
+3. Audio Haptics
+4. Trigger Lab
+5. Profiles
+6. Auto Profiles
+7. Output Slots
+8. Diagnostics
+9. Settings
+10. Log
 
-On the resulting screen is where you can fully customize the new profile.
+The footer shows the latest status message. The **Start**/**Stop** button controls
+the mapping service; it normally starts automatically after launch. **About**
+opens version, project, lineage, and contributor information.
 
-<img src="https://user-images.githubusercontent.com/32114370/189565801-485819c1-cfdc-4aca-8b28-1a91b925c5d9.png" width=75% height=75%>
+## Virtual output and the consent gate
 
-The **Controls** tab is for remapping the controller button outputs. To open the page below, click on the desired button to remap on the image of the controller. Then select the desired new output for that input.
+Virtual controllers are presented through VIIPER and the third-party
+`usbip-win2` kernel driver. Thrum refuses to create a new virtual device when the
+driver is missing or when its installed package cannot be matched to the pinned
+identity and trust manifest.
 
-<img src="https://user-images.githubusercontent.com/32114370/189566012-a734210b-05e6-45f7-a1f8-8a1d5f71514f.png" width=75% height=75%>
+Setup and consent are separate:
 
-The **Special Actions** tab allows you to create actions that are triggered when a button or combination of button presses occur.
+1. **Settings > VIIPER Virtual Controller Support** installs or repairs the pinned
+   backend and shows the detected driver status.
+2. **Use virtual controllers (experimental kernel driver)** records that you read
+   the one-time disclosure. No currently listed usbip-win2 release is treated as
+   production-approved. A kernel-driver fault can stop Windows, and Thrum cannot
+   catch or recover from it.
+3. **Allow virtual audio and microphone endpoints** is a separate, default-off
+   switch. Enabling it shows a second disclosure every time because those virtual
+   endpoints reach a confirmed usbip-win2 teardown defect that can corrupt kernel
+   memory and crash Windows. The upstream report is
+   [usbip-win2 #181](https://github.com/vadimgrn/usbip-win2/issues/181).
 
-The **Controller Readings** tab gives a live readout of the data from the joysticks being transmitted to Thrum
+You do not need virtual audio endpoints for buttons, sticks, triggers, rumble,
+gyro, touchpad, or lightbar output. Do not enable them merely to get ordinary
+controller emulation working. Turning either setting off does not tear down a
+device that is already running; the new policy applies on the next connection.
 
-The **Axis Config** tab allows you to adjust the settings of the joysticks and adjust parameters such as deadzone and sensativity. 
+Driver-free Audio Haptics is a different path. A physical DualSense or DualSense
+Edge connected over Bluetooth can receive the Windows mix or a selected render
+endpoint directly. Direct Bluetooth output does not serve an individual app
+session, and the driver-free direct path does not run over USB. The Audio Haptics
+status card reports when capture is active but no usable output path exists.
 
-The **Lightbar** tab allows you to change the color of the lighbar on DualShock 4 controllers.
+## 1. Overview
 
-The **Touchpad** tab allows configuration of the touchpad on DualShock 4 controllers to be output as mouse or controller movement.
+![Overview page](docs/images/tour/overview.png)
 
-The **Gyro** tab contains the gyro settings and allows you to assign specfic commands to certain tiling actions.
+Overview is the working dashboard for the selected controller. It shows battery,
+connection type, input latency, access state, current profile, emulated device,
+and controller startup status.
 
-The **Other** tab contains the settings for which controller is being emulated, rumble percentage, and the polling rate.
+The page also provides profile-backed quick controls for feedback strength,
+emulated device, and supported controller-audio options. **Quick actions** opens
+the full profile editor, controller details, temporary lightbar controls, or a
+wireless disconnect action. **Test inputs** opens the live input tester.
 
-### Auto Profiles
-![Auto Profiles Screenshot](https://user-images.githubusercontent.com/32114370/189568215-1fa93173-7982-4c5a-9b36-1deda15ce6a3.png)
+The input tester replaces the old workflow that treated controller readings as a
+profile-editor tab. It compares raw and mapped axes, plots sticks and trigger
+travel against the active profile, shows buttons, gyro, accelerometer, and
+touchpad state, and provides bounded rumble/lightbar tests plus stick calibration.
 
-**Auto Profiles** allows you to assign certain profiles to a specified application. This allows you to use different settings, controls, and mappings for different applications.
+## 2. Controllers
 
-### Output Slots
-![Output Slots Screenshot](https://user-images.githubusercontent.com/32114370/189568564-b46a38b2-f492-43a4-bd20-f2171edc7b0c.png)
+![Controllers page](docs/images/tour/controllers.png)
 
-**Output Slots** shows which controllers that are connected are designated to the 8 slots that Thrum allows to be plugged in at one time. Here you can also select a controller and virtually plug and unplug it in.
+Controllers lists every device Thrum currently manages. Each card shows identity,
+connection and access state, battery, active profile, and a temporary lightbar
+color.
 
-### Settings
-![Settings Screenshot](https://user-images.githubusercontent.com/75176311/232901882-6e271499-cdff-4f93-bfa5-921205c7fb69.PNG)
+- Choose a profile from **Active profile** to apply it to that controller.
+- Enable **Link profile/ID** to reuse that profile whenever the same physical
+  controller reconnects.
+- Select **Test inputs** for the live tester.
+- Select **Edit** for the active profile, or use its drop-down to make a new one.
+- Right-click the connection-status icon to disconnect a wireless controller.
 
-The **Settings** tab is where the settings for the Thrum application are. Options such as *Run at Startup*, *Start Minimized*, or *Show Notifications* live here.
+If a controller is connected but absent from this page, see
+[Troubleshooting](#troubleshooting).
 
-**Disconnect from BT when Stopping** - Stops the bluetooth connection to the controllers when Thrum is quit
+## 3. Audio Haptics
 
-**Flash Lightbar at High Latency** - Flashes the DualShock 4's lightbar red when Thrum detects high input latency
+![Audio Haptics page](docs/images/tour/audio-haptics.png)
 
-**Quick Change** - Auto disables bluetooth when connecting a controller via USB
+Audio Haptics converts captured audio energy into the native DualSense haptic
+lane. Its settings are saved in the selected controller's active profile.
 
-**Icon Choice** - Changes the Icon of the Thrum application
+1. Turn on **Enabled**.
+2. Choose a source: the Windows mix, a render endpoint, a running app and its
+   children, or the emulated controller-audio endpoint.
+3. Use **Low**, **Medium**, or **High** as a starting gain, then adjust the slider.
+4. Choose **Mix** to add audio detail to game haptics, or **Replace** to use only
+   the audio-derived feel.
+5. Tune bass focus, response, ramp, and fade only after confirming the live input
+   meter and status card respond to the source.
 
-**App Theme** - Switch Thrum to Light or Dark mode
+**Automatically follow games** can switch to recognized games while retaining the
+selected app as a fallback. For an app-session source, **Play app through
+controller** can also send that app to the controller speaker or AUX headset.
 
-**External OSC Control & Monitoring** - Use Open Sound Control messages to remotely control and monitor buttons, sticks, triggers, and battery levels
+The important status is the output status, not only the moving input meter. If it
+says **Capturing, but not reaching the controller**, read the reason shown beside
+the source. Direct Bluetooth haptics serves the Windows mix and render endpoints;
+an app session or controller-audio source needs a virtual output path.
 
-**UDP Server** - Setting for connecting the motion controls of a compatible controller to another program
+For transport details and controller-speaker setup, see
+[DualSense Bluetooth Audio and Haptics](docs/dualsense-bluetooth-audio-haptics.md).
 
-### Log
+## 4. Trigger Lab
 
-The **Log** tab is where you can look at all of the events that the Thrum application has encountered. There is also a button to export the log for debugging purposes.
+![Trigger Lab page](docs/images/tour/trigger-lab.png)
 
-## Device Detection Issue
+Trigger Lab designs persistent adaptive-trigger effects for L2 and R2 in the
+selected profile.
 
-If your DS4 is not detected by Thrum and the lightbar continues to
-flash yellow, there is a chance that Exclusive Mode has permanently
-disabled your DS4 in Windows. The easiest way to test if this has happened is
-for you to plug in the controller into a different USB port and see if it
-works then. Although this problem mainly affected older versions of
-DS4Windows (text written after version 1.5.15) for various reasons,
-other mapping programs can cause the same problem to occur.
+- **Linked** mirrors one effect design across both triggers; **Split** keeps
+  independent L2 and R2 designs.
+- Each trigger has its own **Active** switch, preset/effect selection, preview,
+  reset, game-rumble vibration, and full-pull action.
+- The page-level **Enabled** switch controls the lab override. An active lab
+  effect overrides adaptive-trigger output arriving from a game.
+- The user preset library is stored under the selected Thrum data folder,
+  independently of controller profiles. It supports save, rename, delete, JSON
+  import, and selected/all export.
 
-If you suspect that your DS4 has been disabled, open the Device Manager
-(Control Panel\Hardware and Sound\Device Manager) and look for devices listed
-under the path "Human Interface Devices\HID-compliant game controller".
+The preset library remains available without a connected controller. Profile
+controls stay unavailable until Thrum has a compatible selected controller and
+active profile.
 
-![Disabled Device Example](https://i.imgur.com/KI3QX2i.png)
+## 5. Profiles
 
-If the icon shown for a device has a down arrow icon then you should
-check the device's instance path and see if the device is a DualShock 4 device.
-Right click the device item and select "Enable device" from the menu.
-That will re-enable the device so it can be seen by applications again.
+![Profiles page](docs/images/tour/profiles.png)
 
-## Disable Steam Controller Mapping Support
+Profiles hold mappings and device behavior. The page can create, edit, duplicate,
+rename, delete, import, and export profiles. Search filters the profile cards;
+double-clicking a card opens it for editing.
 
-With recent updates to the Steam client at the time writing this (2018-12-13),
-Steam has enabled Xbox Configuration Support in the Steam client by default.
-What this means is that Steam will automatically map a detected Xbox 360
-controller to KB+M bindings initially (Desktop Mode) before launching Steam
-Big Picture Mode or launching a game. This presents a problem for Thrum
-since the created virtual Xbox 360 controller will be mapped to KB+M actions
-for desktop mode and games launched outside of the Steam client. In order to
-use Thrum properly, you have to open Steam Big Picture Mode, navigate to
-Settings > Controller> Controller Settings and uncheck **Xbox Configuration
-Support** along with **PlayStation Configuration Support**.
+When creating a profile, start with the preset closest to the output a game
+expects. Xbox 360 is the broad XInput-compatible choice. PlayStation and Switch
+outputs are useful when a game or tool expects those device families, but all
+virtual outputs still pass through the VIIPER gate.
+
+### Profile editor
+
+![Profile editor](docs/images/tour/profile-editor.png)
+
+The editor has these main sections:
+
+- **Controls** maps controller inputs to controller, keyboard, mouse, macro, or
+  unbound outputs. Select a control on the controller map or double-click its row.
+- **Special Actions** creates multi-input actions and manages protected Trigger
+  Lab effects.
+- **Axis Config** tunes stick and trigger dead zones, curves, output limits, and
+  motion axes.
+- **Lightbar**, **Touchpad**, and **Gyro** contain their device-specific behavior.
+- **Audio Haptics** and **Trigger Lab** edit the same profile-backed settings as
+  their main navigation pages.
+- **Advanced** selects the emulated controller and contains rumble, controller
+  audio, latency, compatibility, and output options.
+
+Use **Search settings** to jump to a label in the editor. **Apply** tests changes
+without closing; **Save profile** persists them.
+
+![Control remapping dialog](docs/images/tour/remapping-dialog.png)
+
+## 6. Auto Profiles
+
+![Auto Profiles page](docs/images/tour/auto-profiles.png)
+
+Auto Profiles switches controller profiles when a matching application or window
+is active.
+
+1. Use **Add programs** to import Steam games, Start-menu entries, a directory,
+   another executable, or a window-title rule.
+2. Select the rule and assign a profile per controller, or choose **All** for the
+   same profile across controllers.
+3. Use the device and window-title fields to narrow a rule when necessary.
+4. Select **Save**. Rules can be duplicated, removed, and moved up or down when
+   their matching order matters.
+
+The page also offers options to return to the Default profile when no rule
+matches, show debug messages, and choose how display switching is handled.
+
+## 7. Output Slots
+
+![Output Slots page](docs/images/tour/output-slots.png)
+
+Output Slots shows the physical input assignment and requested/current virtual
+device for each of Thrum's eight slots. It also reports the XInput slot number and
+whether the output is active.
+
+Select a row, then use **Plug** or **Unplug** to control a virtual device manually.
+A **Dynamic** reservation follows demand; a **Permanent** reservation keeps the
+chosen virtual-device type assigned to that slot. Select **Accept** after changing
+the reservation.
+
+Read the banner above the table before pressing **Plug**:
+
+- **New virtual controllers are blocked** means the driver is missing,
+  unvalidated, or not yet acknowledged. The banner gives the exact remedy.
+- **Virtual audio endpoints are off** means ordinary controller output remains
+  available but the separate audio-class opt-in is disabled.
+
+Existing attached devices continue running when the policy changes. The gate is
+authoritative for every new allocation, even if a button remains clickable.
+
+## 8. Diagnostics
+
+Diagnostics collects a read-only, redacted snapshot in the background. **Refresh**
+does not install, start, stop, attach, or change anything. It reports:
+
+- usbip-win2 driver-gate identity and trust state;
+- VIIPER helper/backend reachability and redacted holdings;
+- HidHide installation and whether Thrum is whitelisted;
+- audio endpoint defaults and virtual-audio consent state;
+- output-slot assignments; and
+- per-connection controller link-health counters.
+
+Use **Copy full report** when opening an issue. The report omits the HidHide
+whitelist and other unnecessary private data, but review it before sharing it.
+
+## 9. Settings
+
+![Settings page](docs/images/tour/settings.png)
+
+The top of Settings contains everyday options: physical-controller hiding,
+startup behavior, notifications, Bluetooth disconnect, charging, logging,
+appearance, and update checks.
+
+**VIIPER Virtual Controller Support** contains:
+
+- guided **Install / Repair VIIPER** and status refresh;
+- the read-only usbip-win2 identity/trust card and full diagnostic report;
+- backend ownership and holdings, with a guarded stop action only when Thrum can
+  prove it is safe to offer;
+- the virtual-controller acknowledgement; and
+- the separate virtual audio/microphone opt-in.
+
+Expand **Advanced settings** for OSC, UDP motion data, language, compatibility,
+process, monitor, device-registration, and maintenance controls. The **Utils**
+area opens the data/profile folders, manual settings import, Windows controller
+tools, HidHide, driver setup, update checks, and the changelog.
+
+## 10. Log
+
+Log shows live service events by time, subsystem category, and message. Search
+within the current buffer, select a category, or enable **Warnings only** to
+narrow it. Double-click a row for its detailed message.
+
+Use **Copy selection** for a small excerpt or **Export** for the complete current
+buffer. **Clear** affects only the visible log buffer; it does not change profiles
+or controller settings.
+
+## Troubleshooting
+
+### A connected controller does not appear
+
+1. Confirm the footer button says **Stop**, which means the service is running.
+   If it says **Start**, select it.
+2. Open **Settings > Device options** and enable the physical controller family.
+3. Close DS4Windows or any other mapper that may already own the device.
+4. Open **Diagnostics** and check the HidHide card. If HidHide is installed but
+   Thrum is not whitelisted, use the HidHide configuration client from Settings.
+5. Reconnect the same controller by USB or Bluetooth and check **Log** for its
+   detection/access message.
+
+### A game sees both the physical and virtual controller
+
+This is double input. Install/configure HidHide, enable **Hide DS4 Controller** in
+Settings, and make sure Thrum is present in HidHide's application whitelist. Do
+not disable the physical HID device in Device Manager as a routine workaround.
+
+### A virtual controller is blocked
+
+Open **Output Slots** and read the banner, then open the VIIPER section in
+Settings. Use **Install / Repair VIIPER** when the guided status calls for setup or
+repair, then use the driver card's **Re-check** after an external change. If the
+package is unvalidated, the card lists what could not be confirmed. Thrum
+intentionally fails closed rather than accepting an unknown or merely signed package.
+
+If the recognized driver is experimental, read and accept **Use virtual
+controllers (experimental kernel driver)**. The virtual-audio checkbox is not a
+general-purpose fix and should remain off unless you specifically need those
+endpoints and accept their separate risk.
+
+### Audio Haptics has input but no controller output
+
+1. Read the Audio Haptics status and the reason appended to the selected source.
+2. For the driver-free route, connect a DualSense/Edge over Bluetooth and select
+   the Windows mix or a render endpoint.
+3. For an app-session or controller-audio source, confirm a permitted virtual
+   output exists in **Output Slots**.
+4. Open **Log** and search for audio/haptics stream start, source resolution, or
+   health messages.
+
+### Reporting a problem
+
+Copy the Diagnostics report, export the relevant Log buffer, and include the
+controller model, connection type, profile output type, and exact steps. Crash
+dumps can contain kernel memory: follow [SECURITY.md](SECURITY.md) and never post
+a dump publicly.
+
+## Data and profiles
+
+The recommended data location is `%APPDATA%\Thrum`. Portable mode stores the same
+configuration beside `Thrum.exe`. **Settings > Advanced settings > Utils > Open
+data folder** opens the active location, and **Import settings...** can run the
+safe importer later.
+
+Profiles can be exported for backup or sharing. Treat imported profiles as
+configuration from another person: review their mappings, special actions,
+launch-with-profile settings, and emulated output before using them.

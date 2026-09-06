@@ -4582,3 +4582,20 @@ Suite: **1062 passed / 0 failed** (CI filter), canonical x64 Release build
 0 errors / 17 known warnings. **Not yet done:** the VM plug validation of the
 new pin (one virtual device of every type) — the v0.0.6 pass from checkpoint
 `viiper-006-installer-validated-20260803` does not transfer.
+
+## 2026-09-06 — Issue #82: ScpVBus driver archive deleted
+
+`extras/Virtual Bus Driver.zip` (519,112 B: ScpToolkit ScpVBus.sys x86/amd64 with
+signed catalogue, ScpDriver.exe, Microsoft DIFxAPI.dll) is removed from the tree.
+Defect origin: inherited from upstream DS4Windows, where it predates ViGEm; it was
+tracked here from the first commit and undocumented until 2026-08-11. Mechanism
+for deletion being safe: nothing installs, loads or packages it — the only
+remaining mentions are an inherited code comment in `ControlService.cs` and the
+inherited `OpenScpDriver` resource string, neither reachable from a Thrum code
+path — and the beta-1 release archive never contained it. NOTICE.txt: section 3
+entry removed, unresolved item 3 removed (two items remain: FakerInputWrapper
+licence, vendored items), and a dated "Removed" record added so the history is
+findable. Negative control: `git grep -i "Virtual Bus\|ScpVBus\|DIFxAPI"` now
+returns only NOTICE's removal record and the two inherited mentions above.
+
+Suite: **1062 passed / 0 failed** (CI filter), canonical x64 Release build.

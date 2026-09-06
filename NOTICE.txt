@@ -11,7 +11,7 @@ text in each vendored source tree, or the upstream project's own licence — not
 against secondary sources. The method and the evidence are recorded in
 docs/dev/third-party-audit.md.
 
-Three items remain without a clean licence grant. They are listed in
+Two items remain without a clean licence grant. They are listed in
 the UNRESOLVED section at the end of this file and are release-blocking. Do not
 publish a binary release while that section is non-empty without a deliberate,
 recorded decision about each item.
@@ -21,10 +21,10 @@ As of 2026-08-03 items 1 and 2 carry such a decision, taken for the
 licence request outstanding (the author has since answered - see the update in
 that entry), item 2 ships with reasons stated. The three Ms-PL components that
 beta 1 shipped under a replacement-scheduled decision (issues #71 and #72) have
-since been replaced by in-house code and no longer appear here. Item 3 was only
-discovered on 2026-08-11, after that release; it is not in the release archive,
-so it did not affect the shipped binary, but it has no decision yet and a future
-release must not inherit that silence.
+since been replaced by in-house code and no longer appear here. A third item,
+the ScpToolkit virtual bus driver archive found in extras/ on 2026-08-11, was
+deleted from the tree on 2026-09-06 (issue #82) and is recorded in the
+"Removed" section at the end of this file.
 
 Recorded is not the same as resolved — every item stays listed until it is
 genuinely resolved, and a later release must re-examine each one rather than
@@ -148,16 +148,6 @@ MIT — vendored web asset
         The native RNNoise library. Copyright (c) Jean-Marc Valin and the
         Xiph.Org Foundation.
         https://github.com/xiph/rnnoise
-
-    extras/Virtual Bus Driver.zip  ** SEE UNRESOLVED ITEM 3 **
-        Tracked in this repository and therefore redistributed with the source,
-        though NOT included in the release archive — the packaged application
-        ships only extras/install-viiper-backend.ps1 from that directory.
-        Contains the ScpToolkit virtual bus driver (ScpVBus.sys, .inf, signed
-        .cat, x86 and amd64), ScpDriver.exe, and Microsoft's DIFxAPI.dll for
-        both architectures. Inherited from upstream DS4Windows, where it
-        predates ViGEm; Thrum's virtual output is VIIPER, so nothing in the
-        current codebase installs or loads it.
 
 
 --------------------------------------------------------------------------------
@@ -293,31 +283,21 @@ UNRESOLVED — release-blocking
    non-permissive. They remain listed here — a planned resolution is not a
    resolution — and this notice is the record that shipping them was deliberate.
 
-3. A bundled kernel-driver archive is undocumented and probably vestigial.
 
-   extras/Virtual Bus Driver.zip is tracked in this repository and so is
-   redistributed with the source. It contains the ScpToolkit virtual bus driver
-   (ScpVBus.sys with a signed catalogue, x86 and amd64), ScpDriver.exe, and
-   Microsoft's DIFxAPI.dll. It is inherited from upstream DS4Windows, where it
-   predates ViGEm.
+================================================================================
+Removed on 2026-09-06 (issue #82)
+================================================================================
 
-   Two things are unestablished: its licence terms — ScpToolkit's own licensing
-   is not recorded anywhere in this tree, and Microsoft's DIFxAPI carries
-   separate redistribution terms — and whether Thrum has any use for it at all.
-   Nothing in the current codebase installs or loads it; virtual output is
-   VIIPER, and the driver gate deliberately admits only usbip-win2 packages it
-   can positively identify.
-
-   It is **not** in the release archive, so the shipped binary does not
-   redistribute it; the exposure is limited to source distribution. Discovered
-   2026-08-11 by a documentation audit, which is late — a file whose purpose is
-   to enumerate redistributed third-party material had omitted a signed kernel
-   driver for the whole of its existence.
-
-   Cheapest resolution is almost certainly deletion, but that is a maintainer
-   call and needs someone to confirm nothing references it. Tracked as a Thrum
-   issue.
-
+    extras/Virtual Bus Driver.zip — the ScpToolkit virtual bus driver
+        (ScpVBus.sys with a signed catalogue, x86 and amd64), ScpDriver.exe and
+        Microsoft's DIFxAPI.dll. Inherited from upstream DS4Windows, where it
+        predates ViGEm. Was never in a Thrum release archive; nothing in the
+        codebase installed or loaded it (verified by grep on 2026-09-06: the
+        only remaining mentions are an inherited code comment and an inherited
+        "Please Open ScpDriver.exe" resource string that no code path shows).
+        Its licence terms were never established, which is why it was
+        unresolved item 3 from 2026-08-11 until deletion. It remains in git
+        history; the last commit that carries it is db0f97f.
 
 ================================================================================
 Removed in the 2026-07-31 audit

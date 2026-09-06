@@ -141,6 +141,18 @@ source for our own LGPL source-provision obligation.
   amendment. Tooling is built and proven with a throwaway certificate; only the
   success path is unproven because that needs a real one.
 
+## The workspace outside this repo
+
+The checkout lives in `C:\Users\patri\PS5Haptics`, which was reorganised on 2026-09-06 and
+has its own `README.md` describing the layout. The short version: `Thrum/` (this repo),
+`DS4Windows/` (the hbashton fork the BT haptics code came from), `upstream-hbashton-viiper/`,
+`usbip-win2-fix/` (the PR #182 tree), then `docs/` (the original phased plan, VM runbooks,
+upstream PR drafts, agent prompts), `evidence/` (every VM report, crash triage and
+measurement run — the reusable guest harness is in `evidence/vm/vm-phase2-evidence-20260730/`),
+`packages/`, `reference/`, `tools/` (Codex bridge and scripts) and `_archive/`. Nothing in
+this repo references those paths, so moving them again only affects memory notes and the
+harness scripts.
+
 ## Beta 2 queue
 
 #51 keyboard nav re-verify · #65 Audio Haptics over USB · #66 double stream start

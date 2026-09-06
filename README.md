@@ -10,6 +10,16 @@ DualSense haptic feedback, forwards adaptive-trigger effects, and adds a
 fail-closed driver-safety layer that refuses to run virtual-device features on
 a kernel driver package it cannot positively identify.
 
+Two caveats on that paragraph, because it describes intent and the current
+release falls short of it in two known ways:
+
+- **Virtual DualSense output does not work on the pinned backend.** VIIPER
+  v0.0.6 refuses to create it (`unknown device type: dualsense`); Xbox 360
+  output works. This is an upstream regression with a rollback pending — see
+  issues #70 and #79.
+- **Audio haptics reach the pad over Bluetooth only.** On USB they still need a
+  virtual controller, which runs into the point above. See issue #65.
+
 ## Status
 
 **Pre-release, version 0.9.0-beta.1.** This repository was seeded on 2026-07-25
@@ -25,12 +35,20 @@ build commands below still reference DS4Windows paths.
 Running alongside a real DS4Windows install works but is not a supported
 configuration: both will contend for the same physical controller.
 
-There are **no releases and no installers**. The only supported way to run
-Thrum today is to build it from source (see [Building](#building)).
+**The first release is out: `v0.9.0-beta.1`**, a pre-release. It is a
+self-contained win-x64 zip, so it does **not** need the .NET 8 Desktop Runtime
+installed. There is still **no installer**.
 
-Release and CI artifacts are self-contained for win-x64, so they do not require
-the .NET 8 Desktop Runtime to be installed separately. To publish the same
-self-contained package from source:
+The build is **unsigned**, so Windows shows "Windows protected your PC". Verify
+what you downloaded against the SHA-256 published with the release rather than
+trusting or ignoring that warning. `NOTICE.txt` and `COPYING` are attached to
+the release as separate files because the archive does not yet contain them
+(issue #75).
+
+Read the release notes before installing: they list what is verified on real
+hardware and — deliberately at equal length — what is not.
+
+To publish the same self-contained package from source:
 
 ```powershell
 dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true
@@ -88,9 +106,19 @@ and no install or teardown. Its verdict is fail-closed: a package the manifest
 does not list is treated as unvalidated, never as acceptable. "Signed" is not
 "kernel-safe"; the manifest decides admission, not the signature.
 
-Wiring that diagnostic into a runtime gate — including default-off, explicitly
-acknowledged opt-in for the audio-class features that reach the known race —
-is the next phase of work.
+That diagnostic **is** wired into a runtime gate, and has been since Phase 2 —
+this paragraph previously said it was future work, contradicting the opening
+section of this very file. Virtual-device creation is refused until the
+experimental driver is explicitly acknowledged, and the audio-class features
+that reach the known race are default-off behind a second flag
+(`ViiperExperimentalAcknowledged`, `AllowExperimentalAudioEndpoints`; both
+default false). Both were validated in the VM and are exercised on every run.
+
+What remains genuinely future work is **production approval**, which stays
+blocked until an upstream release carries the fix. Our fix for the corruption is
+merged upstream as usbip-win2 PR #182, alongside the maintainer's own root-cause
+fix — but no released build contains either, so every published release is still
+classed experimental and the gate still reports `Production approved: no`.
 
 Crash dumps from this ecosystem contain kernel memory. Read
 [`SECURITY.md`](SECURITY.md) before reporting a crash, and never attach a dump
@@ -120,5 +148,6 @@ Thrum is licensed under the **GNU General Public License, version 3 or later**
 (GPL-3.0-or-later). The complete license text is in [`COPYING`](COPYING).
 
 The corresponding source for any Thrum build is this repository at the release
-tag that produced it. Because there are no releases yet, the corresponding
-source is this repository at the commit you built.
+tag that produced it — for the current release, tag `v0.9.0-beta.1` (commit
+`8132946`). For a build you made yourself, it is this repository at the commit
+you built.

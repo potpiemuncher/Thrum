@@ -11,16 +11,24 @@ text in each vendored source tree, or the upstream project's own licence — not
 against secondary sources. The method and the evidence are recorded in
 docs/dev/third-party-audit.md.
 
-Two items remain without a clean licence grant. They are listed in
+Three items remain without a clean licence grant. They are listed in
 the UNRESOLVED section at the end of this file and are release-blocking. Do not
 publish a binary release while that section is non-empty without a deliberate,
 recorded decision about each item.
 
-As of 2026-08-03 both carry a decision taken for the 0.9.0-beta.1 release and
-written into their entries below: item 1 ships with a licence request
-outstanding, and item 2 ships with reasons stated. Recorded is not the same as
-resolved — every item stays listed until it is genuinely resolved, and a later
-release must re-examine each one rather than inherit these decisions by default.
+As of 2026-08-03 items 1 and 2 carry such a decision, taken for the
+0.9.0-beta.1 release and written into their entries below: item 1 ships with a
+licence request outstanding (the author has since answered - see the update in
+that entry), item 2 ships with reasons stated. The three Ms-PL components that
+beta 1 shipped under a replacement-scheduled decision (issues #71 and #72) have
+since been replaced by in-house code and no longer appear here. Item 3 was only
+discovered on 2026-08-11, after that release; it is not in the release archive,
+so it did not affect the shipped binary, but it has no decision yet and a future
+release must not inherit that silence.
+
+Recorded is not the same as resolved — every item stays listed until it is
+genuinely resolved, and a later release must re-examine each one rather than
+inherit these decisions by default.
 
 Two files in the tree carry their own notices and are authoritative for what
 they cover; this file does not restate them:
@@ -141,6 +149,16 @@ MIT — vendored web asset
         Xiph.Org Foundation.
         https://github.com/xiph/rnnoise
 
+    extras/Virtual Bus Driver.zip  ** SEE UNRESOLVED ITEM 3 **
+        Tracked in this repository and therefore redistributed with the source,
+        though NOT included in the release archive — the packaged application
+        ships only extras/install-viiper-backend.ps1 from that directory.
+        Contains the ScpToolkit virtual bus driver (ScpVBus.sys, .inf, signed
+        .cat, x86 and amd64), ScpDriver.exe, and Microsoft's DIFxAPI.dll for
+        both architectures. Inherited from upstream DS4Windows, where it
+        predates ViGEm; Thrum's virtual output is VIIPER, so nothing in the
+        current codebase installs or loads it.
+
 
 --------------------------------------------------------------------------------
 4. External components Thrum requires but does NOT redistribute
@@ -223,6 +241,21 @@ UNRESOLVED — release-blocking
    that replacement ships. Anyone redistributing this release should be aware
    the wrapper's terms are unresolved.
 
+   UPDATE (2026-08-07): the author answered, and the answer is better than the
+   ask. He stated he would license the class library under the **LGPL** rather
+   than MIT, and would then likely archive the repository. LGPL is
+   GPL-3.0-compatible in the direction needed — LGPL-3.0 §2 permits conveying
+   under GPL-3.0, and LGPL-2.1 §3 permits conversion — so whichever version he
+   picks, this item resolves once the licence commit lands. Nothing has landed
+   yet, so the item stays open and the paragraph above still governs this
+   release.
+
+   Two consequences to handle when it does land. The exact LGPL version must be
+   recorded here and in docs/dev/third-party-audit.md. And because the repo is
+   to be archived, Thrum should keep its own snapshot of the library source:
+   LGPL obliges *us* to provide source to our recipients, and depending on a
+   third party's archived repository for that is fragile.
+
 2. Two vendored items cannot be fully enumerated or licensed.
 
    a) DS4Windows/OneEuroFilter.cs carries no licence header. The 1€ filter
@@ -259,6 +292,31 @@ UNRESOLVED — release-blocking
    Both are inherited from upstream DS4Windows and neither is believed to be
    non-permissive. They remain listed here — a planned resolution is not a
    resolution — and this notice is the record that shipping them was deliberate.
+
+3. A bundled kernel-driver archive is undocumented and probably vestigial.
+
+   extras/Virtual Bus Driver.zip is tracked in this repository and so is
+   redistributed with the source. It contains the ScpToolkit virtual bus driver
+   (ScpVBus.sys with a signed catalogue, x86 and amd64), ScpDriver.exe, and
+   Microsoft's DIFxAPI.dll. It is inherited from upstream DS4Windows, where it
+   predates ViGEm.
+
+   Two things are unestablished: its licence terms — ScpToolkit's own licensing
+   is not recorded anywhere in this tree, and Microsoft's DIFxAPI carries
+   separate redistribution terms — and whether Thrum has any use for it at all.
+   Nothing in the current codebase installs or loads it; virtual output is
+   VIIPER, and the driver gate deliberately admits only usbip-win2 packages it
+   can positively identify.
+
+   It is **not** in the release archive, so the shipped binary does not
+   redistribute it; the exposure is limited to source distribution. Discovered
+   2026-08-11 by a documentation audit, which is late — a file whose purpose is
+   to enumerate redistributed third-party material had omitted a signed kernel
+   driver for the whole of its existence.
+
+   Cheapest resolution is almost certainly deletion, but that is a maintainer
+   call and needs someone to confirm nothing references it. Tracked as a Thrum
+   issue.
 
 
 ================================================================================

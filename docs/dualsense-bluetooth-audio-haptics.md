@@ -8,7 +8,7 @@ This branch keeps three DualSense feedback paths separate:
 | --- | --- | --- |
 | Rumble, adaptive triggers, lightbar, LEDs | DualSense HID output report `0x02` | normal DualSense HID output (`0x31` on Bluetooth) |
 | Advanced haptics | VIIPER virtual UAC channels 3/4, **or** any Windows render endpoint via Audio Haptics | Bluetooth HID `0x36`, packet `0x12`, 3 kHz signed stereo PCM; **or** the physical DualSense four-channel USB render endpoint, channels 3/4 |
-| Controller speaker audio | selected Windows render endpoint, including VIIPER's virtual `Wireless Controller` endpoint | Bluetooth HID `0x35`, packet `0x13`, 48 kHz stereo Opus |
+| Controller speaker audio | selected Windows render endpoint, including VIIPER's virtual `Wireless Controller` endpoint | Bluetooth HID **`0x36`**, packet `0x13` (speaker) or `0x16` (headphones) at offset 142, Opus encoded at 48 kHz but **delivered at 45 kHz** |
 | Controller microphone | physical DualSense Opus or DualShock 4 SBC microphone frames | VIIPER virtual DualSense/Edge 48 kHz stereo or DualShock 4 16 kHz mono UAC capture endpoint |
 
 The channels are intentionally not mixed. In particular, the advanced-haptics PCM stream is never converted to generic rumble or routed to the controller speaker.
@@ -31,10 +31,20 @@ this implementation. Carrying the first into a Thrum debugging session makes a
 transport-ownership problem look like a missing mutex between two `0x32` writers,
 when the real contention is over `0x36`. See `dev/bt-haptics-attenuation.md`.
 
+The same applies to the speaker lane: `0x35` is a *legacy* speaker report that
+Thrum accepts from callers and converts — `DualSenseDevice.cs` says so outright,
+"report 0x35 is never written to hardware". Its Opus payload is extracted and
+carried inside the unified `0x36`. Anything describing `0x35` as a transport is
+describing an input format, not something the pad ever receives.
+
 Related, and already known before it bit us: firmware rumble emulation and
 haptics streaming are mutually exclusive. Asserting the motor flags or the
 improved-rumble bit in `0x31` while streaming silences the stream, which is why
-`DualSenseDevice` has four separate `hapticsStreamActive` guards.
+`DualSenseDevice` has **three** `hapticsStreamActive` guard sites (at the `0x31`
+flag byte, the rumble motor bytes, and the improved-rumble bit in
+`outputReport[40]`) plus the declaration that feeds them. The count matters:
+the historical bug here was a *missing* guard, so someone told there are four
+will hunt for one that does not exist.
 
 **Advanced haptics no longer require a virtual controller.** Audio Haptics can
 capture any Windows render endpoint and send the derived PCM straight to a
@@ -63,6 +73,19 @@ endpoint automatically and converts microphone PCM to the virtual endpoint's
 native sample rate and channel layout.
 
 ## In-game setup
+
+> **This procedure cannot be completed on 0.9.0-beta.1 as shipped.** It pins
+> VIIPER v0.0.6, which refuses to create a virtual DualSense at all
+> (`400 Bad Request: unknown device type: dualsense`), so step 2 fails and every
+> step after it is unreachable. It works on **v0.0.5**. Nothing below is wrong
+> about the *procedure* — the backend is. See issues #70 and #79.
+>
+> Everything in this section that mentions a virtual DualSense audio endpoint —
+> including the troubleshooting recipe at the end of this file — inherits that
+> limitation. Do not conclude your setup is at fault.
+>
+> The Bluetooth Audio Haptics path (issue #58) is unaffected: it needs no
+> virtual controller and no driver, and it works on the shipped beta.
 
 1. Install a VIIPER build containing the DualSense UAC interface.
 2. Select **DualSense** in the Thrum profile.
@@ -108,7 +131,13 @@ out of date, not the code.
 The Bluetooth path added for issue #58 does not appear in a VIIPER capture at
 all — it never involves VIIPER. Diagnose it from Thrum's own Log tab instead,
 which reports stream start (`BT streaming started`), the resolved capture
-endpoint (`capturing audio from "..."`), and periodic health counters
-(`BT stream health: underruns=... drops=... stallSkips=... slowWrites=...`).
+endpoint (`capturing audio from "..."`), and a health line
+(`BT stream health: underruns=… drops=… stallSkips=… slowWrites=… maxWrite=…ms
+trim=…ppm prebuffer=…f`).
+
+That health line is **not periodic — it is emitted only when at least one
+counter is non-zero**. Its absence means the stream is healthy, not that it is
+not running. Do not grep for it as a liveness signal; use `BT streaming started`
+and `capturing audio from` for that.
 
 If the Windows `Wireless Controller` audio endpoint has an error state, remove stale VIIPER DualSense devices, restart VIIPER, then recreate the output. The endpoint descriptor changed after the initial experimental build, so Windows can retain an old failed device instance until the virtual device is recreated.

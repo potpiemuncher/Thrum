@@ -1,4 +1,4 @@
-﻿/*
+/*
 DS4Windows
 Copyright (C) 2023  Travis Nickles
 
@@ -1044,11 +1044,6 @@ Suspend support not enabled.", true);
             {
                 lastMsgLb.Visibility = Visibility.Visible;
             }
-        }
-
-        private void SupportPayPalBtn_Click(object sender, RoutedEventArgs e)
-        {
-            Util.StartProcessHelper("https://www.paypal.com/paypalme/hbashton");
         }
 
         private void MainWinVM_QuickProfileSettingChanged(object sender,

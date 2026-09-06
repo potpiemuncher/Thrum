@@ -26,10 +26,10 @@ public class ViiperInstallerPolicyTests
         "51620FA5F9F8BE5932BC9D786DEEE557CE06D5407A99CAB490DCFAC71F185FEA";
 
     private const string PinnedViiperArchiveDigest =
-        "6EC76B298AF402AC65BA21F00DFFC9D3DA36909BDD1C909AEE9047FE4F9B0D1B";
+        "66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46";
 
     private const string PinnedViiperPayloadDigest =
-        "90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A";
+        "2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A";
 
     private const string PinnedSigner = "Cloudyne Systems (Scheibling Consulting AB)";
 
@@ -62,18 +62,18 @@ public class ViiperInstallerPolicyTests
     public void TheViiperPinIsAnExactAssetAndNotAReleaseQuery()
     {
         ViiperPinnedDownload pin = ViiperInstallerPins.ViiperBackend;
-        Assert.AreEqual("v0.0.6", pin.ReleaseLabel);
+        Assert.AreEqual("v0.1.2", pin.ReleaseLabel);
         Assert.AreEqual("viiper-windows-amd64.zip", pin.FileName);
-        Assert.AreEqual(4735340L, pin.SizeInBytes);
+        Assert.AreEqual(4809388L, pin.SizeInBytes);
         Assert.AreEqual(PinnedViiperArchiveDigest, pin.Sha256);
         Assert.AreEqual(
-            "https://github.com/hbashton/VIIPER/releases/download/v0.0.6/" +
+            "https://github.com/hbashton/VIIPER/releases/download/v0.1.2/" +
                 "viiper-windows-amd64.zip",
             pin.Url);
 
         Assert.IsNotNull(pin.ExtractedPayload);
         Assert.AreEqual("viiper.exe", pin.ExtractedPayload.FileName);
-        Assert.AreEqual(11223552L, pin.ExtractedPayload.SizeInBytes);
+        Assert.AreEqual(11407872L, pin.ExtractedPayload.SizeInBytes);
         Assert.AreEqual(PinnedViiperPayloadDigest,
             pin.ExtractedPayload.Sha256);
 
@@ -90,7 +90,7 @@ public class ViiperInstallerPolicyTests
         Assert.AreEqual(
             ViiperInstallerPins.ViiperBackendExpectedEmbeddedVersionStamp,
             ViiperInstallerPins.ViiperBackend.ExpectedEmbeddedVersionStamp);
-        Assert.AreEqual("v0.0.6 (e85575d)",
+        Assert.AreEqual("v0.1.2 (f5d097b)",
             ViiperInstallerPins.ViiperBackend.ExpectedEmbeddedVersionStamp);
     }
 

@@ -4546,3 +4546,39 @@ has to prove non-zero haptics are felt, ordinary game rumble does not fight the
 PCM stream while active, unplug/playback failure is surfaced, and stopping or
 reconnecting restores ordinary rumble. No controller, audio-device, app or VM
 operation was performed in this code-only pass.
+
+## 2026-09-06 — VIIPER backend pin moved to v0.1.2 (supersedes #79)
+
+Upstream moved while beta 2 sat in local worktrees: hbashton/VIIPER shipped
+v0.0.7, v0.0.9, v0.1.0 and v0.1.2 (2026-08-27) after our v0.0.6 pin. The #79
+question (roll back to v0.0.5 or wait for 0.0.7) is moot: the DualSense failure
+was the client asking for `dualsenseext`, fixed by the V5-first negotiation
+(#70), and every release since v0.0.6 registers the same three V5 names.
+
+The pin is now v0.1.2 as two identities, both computed locally from the
+downloaded asset (archive digest cross-checked against GitHub's reported
+digest): `viiper-windows-amd64.zip` 4,809,388 B
+`66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46`, extracted
+`viiper.exe` 11,407,872 B
+`2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A`, stamped
+`v0.1.2 (f5d097b)`. The driver pin does not move: v0.1.2 still gates on the
+usbip-win2 0.9.7.7 attach ABI, and usbip-win2 still has no release past
+0.9.7.8 (the maintainer confirmed on 2026-09-05 that the signed release is
+blocked on the signer).
+
+Static compatibility review of the v0.0.6→v0.1.2 delta (343 commits) against
+`ViiperOutDevice`, recorded in `docs/viiper-backend-upgrade-path.md`: V5
+device names unchanged; framed contract unchanged and v0.1.2 now *requires*
+frame version 0x05, which the V5 path sends; two new server→client frame types
+(`0x84` realtime haptics, `0x85` mic interface state) that the reader drops
+harmlessly; localhost API still unauthenticated by default; `xbox360` takes no
+subtype on the create endpoint; `serve --update-notify none` still accepted.
+
+This entry sits on top of the beta-2 integration branch (all seven beta-2
+commits) merged with main; NOTICE.txt was reconciled by hand (Ms-PL item gone
+per #71/#72, item 4 from main renumbered to 3).
+
+Suite: **1062 passed / 0 failed** (CI filter), canonical x64 Release build
+0 errors / 17 known warnings. **Not yet done:** the VM plug validation of the
+new pin (one virtual device of every type) — the v0.0.6 pass from checkpoint
+`viiper-006-installer-validated-20260803` does not transfer.

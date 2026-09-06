@@ -104,7 +104,7 @@ which it is.
 substring test; no `--version` call and no `FileVersionInfo` read against `viiper.exe` exists
 anywhere. `PinnedVersion` and `ExpectedEmbeddedVersionStamp` are compile-time pin context. The
 formatter's "expected version" / "expected embedded stamp (diagnostic only)" / "running
-version: not reported by the backend" split is what keeps that honest. The v0.0.6 stamp is a
+version: not reported by the backend" split is what keeps that honest. The v0.1.2 stamp is a
 cross-check a human can compare with separately collected output; it is never read or used to
 validate the installed executable, whose archive and payload digests are the identities.
 

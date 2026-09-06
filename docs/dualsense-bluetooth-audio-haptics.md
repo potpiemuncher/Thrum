@@ -74,11 +74,11 @@ native sample rate and channel layout.
 
 ## In-game setup
 
-> **This procedure cannot be completed on 0.9.0-beta.1 as shipped.** It pins
-> VIIPER v0.0.6, which refuses to create a virtual DualSense at all
+> **This procedure cannot be completed on 0.9.0-beta.1 as shipped.** That build
+> asks its VIIPER v0.0.6 backend for a device name it no longer registers
 > (`400 Bad Request: unknown device type: dualsense`), so step 2 fails and every
-> step after it is unreachable. It works on **v0.0.5**. Nothing below is wrong
-> about the *procedure* — the backend is. See issues #70 and #79.
+> step after it is unreachable. Builds with the V5-first negotiation (#70) and
+> the v0.1.2 backend pin do not have this problem. See issues #70 and #79.
 >
 > Everything in this section that mentions a virtual DualSense audio endpoint —
 > including the troubleshooting recipe at the end of this file — inherits that

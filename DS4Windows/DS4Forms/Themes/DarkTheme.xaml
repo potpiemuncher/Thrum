@@ -24,6 +24,16 @@
     <SolidColorBrush x:Key="DangerColor" Color="#FFE2555F" />
     <!-- "Known, but not approved." Neither green nor red on purpose. -->
     <SolidColorBrush x:Key="WarningColor" Color="#FFE0A03A" />
+    <!-- Native PS5 mode card and setup sheet (design handoff 2026-09-06).
+         Values follow the current dark palette; the handoff's full dark
+         remap is a separate change and retunes these with the rest. -->
+    <SolidColorBrush x:Key="AccentTextColor" Color="#FF9DC3FF" />
+    <SolidColorBrush x:Key="SuccessBackgroundColor" Color="#FF10281A" />
+    <SolidColorBrush x:Key="WarningBackgroundColor" Color="#FF33270F" />
+    <SolidColorBrush x:Key="DangerBackgroundColor" Color="#FF35151A" />
+    <SolidColorBrush x:Key="ExperimentalColor" Color="#FFE0A03A" />
+    <SolidColorBrush x:Key="FocusRingColor" Color="#FF2C7DF7" />
+    <SolidColorBrush x:Key="ScrimColor" Color="#99070D15" />
 
     <system:String x:Key="KeyImageImg">key-solid_white.png</system:String>
     <system:String x:Key="CancelImg">cancel_white.png</system:String>

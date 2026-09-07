@@ -320,6 +320,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public bool IsDualSense => UiCapabilities.IsDualSense;
 
+        /// <summary>
+        /// A DualSense Edge by product id. Native PS5 mode presents an Edge
+        /// as a virtual Edge and every other DualSense as a virtual DualSense.
+        /// </summary>
+        public bool IsDualSenseEdge => UiCapabilities.IsDualSenseEdge;
+
         public bool SupportsAdaptiveTriggers =>
             UiCapabilities.SupportsAdaptiveTriggers;
 

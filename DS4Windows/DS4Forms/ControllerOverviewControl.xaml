@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:DS4WinWPF.DS4Forms.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="720" d:DesignWidth="940">
     <UserControl.Resources>
@@ -94,6 +95,106 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!--
+            Native PS5 mode card (design handoff, N1). Badge and border follow
+            the view model's Kind tokens so the six states share one template.
+        -->
+        <Style x:Key="OverviewKindBadgeStyle" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MutedForegroundColor}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="9,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding BadgeKind}" Value="Danger">
+                    <Setter Property="BorderBrush" Value="{DynamicResource DangerColor}" />
+                    <Setter Property="Background" Value="{DynamicResource DangerBackgroundColor}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding BadgeKind}" Value="Warning">
+                    <Setter Property="BorderBrush" Value="{DynamicResource WarningColor}" />
+                    <Setter Property="Background" Value="{DynamicResource WarningBackgroundColor}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding BadgeKind}" Value="Success">
+                    <Setter Property="BorderBrush" Value="{DynamicResource SuccessColor}" />
+                    <Setter Property="Background" Value="{DynamicResource SuccessBackgroundColor}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OverviewKindBadgeTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedForegroundColor}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding BadgeKind}" Value="Danger">
+                    <Setter Property="Foreground" Value="{DynamicResource DangerColor}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding BadgeKind}" Value="Warning">
+                    <Setter Property="Foreground" Value="{DynamicResource WarningColor}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding BadgeKind}" Value="Success">
+                    <Setter Property="Foreground" Value="{DynamicResource SuccessColor}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!--
+            The mode switch is a Button drawn as a 36x20 switch, not a
+            CheckBox: its position mirrors the profile (IsOn) and never flips
+            on its own. Space and Enter both invoke it; the window decides
+            whether that turns the mode on, opens setup, or asks before
+            turning it off.
+        -->
+        <Style x:Key="OverviewSwitchButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Background" Value="{DynamicResource BorderColor}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Track" Width="36" Height="20" CornerRadius="10"
+                                    Background="{TemplateBinding Background}">
+                                <Ellipse x:Name="Knob" Width="14" Height="14" Margin="3"
+                                         HorizontalAlignment="Left"
+                                         Fill="{DynamicResource ForegroundColor}" />
+                            </Border>
+                            <Border x:Name="FocusRing" CornerRadius="12" Margin="-3"
+                                    BorderBrush="{DynamicResource FocusRingColor}" BorderThickness="2"
+                                    Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsOn}" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentColor}" />
+                                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Track" Property="Opacity" Value="0.82" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="OverviewOutlineAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColor}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextColor}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="MinHeight" Value="32" />
         </Style>
 
         <Style x:Key="OverviewToggleStyle" TargetType="CheckBox">
@@ -190,6 +291,7 @@
                     </Style>
                 </Grid.Style>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -320,7 +422,108 @@
                     </Border>
                 </WrapPanel>
 
-                <Border Grid.Row="2" Style="{StaticResource OverviewCardStyle}" Margin="0,0,0,14">
+                <!--
+                    Native PS5 mode. Shown for a DualSense or DualSense Edge
+                    only; other pads keep the Emulated device combo below.
+                    Six states, one template: see NativePs5ModeViewModel.
+                -->
+                <Border x:Name="NativePs5Card" Grid.Row="2" Margin="0,0,0,14"
+                        AutomationProperties.Name="Native PS5 mode"
+                        Visibility="{Binding ShowNativePs5Mode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource OverviewCardStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NativePs5.CardBorderKind}" Value="Success">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource SuccessColor}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding NativePs5.CardBorderKind}" Value="Warning">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource WarningColor}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid DataContext="{Binding NativePs5}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Native PS5 mode" FontSize="17" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <Border Style="{StaticResource OverviewKindBadgeStyle}" Margin="10,0,0,0">
+                                <TextBlock Text="{Binding BadgeText}" Style="{StaticResource OverviewKindBadgeTextStyle}" />
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Grid.RowSpan="2" Orientation="Horizontal"
+                                    VerticalAlignment="Top" Margin="24,2,0,0">
+                            <TextBlock Text="{Binding SwitchLabel}" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       Foreground="{DynamicResource MutedForegroundColor}" />
+                            <Button x:Name="NativePs5SwitchButton"
+                                    Style="{StaticResource OverviewSwitchButtonStyle}"
+                                    AutomationProperties.Name="{Binding SwitchAccessibleName}"
+                                    ToolTip="{Binding SwitchToolTip}"
+                                    Click="NativePs5SwitchButton_Click" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,6">
+                                <Run Text="Games see " Foreground="{DynamicResource MutedForegroundColor}" />
+                                <Run Text="{Binding GamesSeeText, Mode=OneWay}" FontWeight="SemiBold" />
+                                <Run Text="{Binding GamesSeeSuffix, Mode=OneWay}" Foreground="{DynamicResource MutedForegroundColor}" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding PrimaryLine}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <TextBlock Text="{Binding SecondaryLine}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource MutedForegroundColor}"
+                                       Visibility="{Binding HasSecondaryLine, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                            <Border Background="{DynamicResource WarningBackgroundColor}"
+                                    BorderBrush="{DynamicResource WarningColor}" BorderThickness="1"
+                                    CornerRadius="4" Padding="10,8" Margin="0,0,0,6"
+                                    Visibility="{Binding ShowHidHideWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="14" Height="14" CornerRadius="7" Margin="0,2,8,0"
+                                            BorderBrush="{DynamicResource WarningColor}" BorderThickness="1"
+                                            VerticalAlignment="Top" />
+                                    <TextBlock Grid.Column="1" TextWrapping="Wrap">
+                                        <Run Text="{Binding HidHideWarningText, Mode=OneWay}" />
+                                        <Hyperlink x:Name="HidHideClientLink" Click="HidHideClientLink_Click"
+                                                   Foreground="{DynamicResource AccentTextColor}"
+                                                   AutomationProperties.Name="Open the HidHide client"
+                                                   ToolTip="Opens the HidHide configuration client, or its download page when HidHide is not installed.">Open the HidHide client</Hyperlink><Run Text=". " />
+                                        <Run Text="{x:Static vm:NativePs5ModeViewModel.HidHideWorksWithoutNote}" />
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Margin="0,0,0,6"
+                                        Visibility="{Binding ShowAudioEndpointsLine, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{x:Static vm:NativePs5ModeViewModel.AudioEndpointsUnverifiedLine}"
+                                           TextWrapping="Wrap" Foreground="{DynamicResource WarningColor}" />
+                                <TextBlock Text="{Binding AudioEndpointsRiskText}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource WarningColor}" />
+                            </StackPanel>
+
+                            <Button x:Name="NativePs5SetupButton" Content="{Binding SetupButtonText}"
+                                    HorizontalAlignment="Left" Margin="0,4,0,0"
+                                    Style="{StaticResource OverviewOutlineAccentButtonStyle}"
+                                    Visibility="{Binding ShowSetupButton, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    ToolTip="Opens setup at the step that is still missing."
+                                    Click="NativePs5SetupButton_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="3" Style="{StaticResource OverviewCardStyle}" Margin="0,0,0,14">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -360,7 +563,9 @@
                                     Value="{Binding HapticStrengthPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=220}" />
                         </Grid>
 
-                        <StackPanel Grid.Row="2" Margin="0,19,0,0">
+                        <!-- A DualSense gets the Native PS5 mode card instead of this combo. -->
+                        <StackPanel Grid.Row="2" Margin="0,19,0,0"
+                                    Visibility="{Binding ShowEmulatedDeviceChoice, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <TextBlock Text="Emulated device" FontWeight="SemiBold" />
                              <ComboBox ItemsSource="{Binding OutputControllerChoices}"
                                       DisplayMemberPath="Name" SelectedValuePath="Type"
@@ -465,7 +670,7 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="3" Style="{StaticResource OverviewCardStyle}">
+                <Border Grid.Row="4" Style="{StaticResource OverviewCardStyle}">
                     <StackPanel>
                         <StackPanel>
                             <TextBlock Text="Quick actions" FontSize="18" FontWeight="SemiBold" />

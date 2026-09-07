@@ -2841,6 +2841,12 @@ namespace DS4Windows
         public static ControlServiceDeviceOptions DeviceOptions => m_Config.deviceOptions;
 
         public static OutContType[] OutContType => m_Config.outputDevType;
+        /// <summary>
+        /// Per-profile: the output type in use before Native PS5 mode was
+        /// turned on, so turning it off restores what the user had. None when
+        /// nothing was recorded.
+        /// </summary>
+        public static OutContType[] PreviousOutputContType => m_Config.previousOutputDevType;
         public static bool[] OutputVirtualTriggerButton => m_Config.outputVirtualTriggerButtons;
         public static DS4TriggerOutputMode[] OutputDS4TriggerMode => m_Config.outputDS4TriggerMode;
         public static DS4TriggerOutputMode GetOutputDS4TriggerMode(int index)
@@ -4378,6 +4384,15 @@ namespace DS4Windows
 
         public AudioHapticsProfileSettings[] audioHapticsSettings = Enumerable.Range(0, Global.TEST_PROFILE_ITEM_COUNT)
             .Select(_ => new AudioHapticsProfileSettings()).ToArray();
+
+        // Native PS5 mode (design handoff N8): the output type this profile
+        // used before the switch set it to a virtual DualSense, restored when
+        // the switch is turned off. None means "not recorded"; the fallback is
+        // then ViiperX360.
+        public OutContType[] previousOutputDevType = new OutContType[Global.TEST_PROFILE_ITEM_COUNT]
+        { OutContType.None, OutContType.None, OutContType.None,
+          OutContType.None, OutContType.None, OutContType.None,
+          OutContType.None, OutContType.None, OutContType.None};
 
         public TriggerLabProfileSettings[] triggerLabSettings = Enumerable.Range(0, Global.TEST_PROFILE_ITEM_COUNT)
             .Select(_ => new TriggerLabProfileSettings()).ToArray();

@@ -1496,6 +1496,27 @@ namespace DS4WinWPF.DS4Control.DTOXml
             set => OutputContDevice = OutputSlotPersistDTO.ParseOutputDeviceType(value, BackingStore.DEFAULT_OUT_CONT_TYPE);
         }
 
+        /// <summary>
+        /// Native PS5 mode (N8): the type the profile used before the switch
+        /// set a virtual DualSense. Omitted from the XML while unrecorded, so
+        /// profiles written before the feature and profiles that never used
+        /// it stay byte-identical.
+        /// </summary>
+        [XmlIgnore]
+        public OutContType PreviousOutputContDevice
+        {
+            get; set;
+        } = OutContType.None;
+
+        [XmlElement("PreviousOutputContDevice")]
+        public string PreviousOutputContDeviceString
+        {
+            get => PreviousOutputContDevice == OutContType.None
+                ? null
+                : OutputSlotPersistDTO.FormatOutputDeviceType(PreviousOutputContDevice);
+            set => PreviousOutputContDevice = OutputSlotPersistDTO.ParseOutputDeviceType(value, OutContType.None);
+        }
+
         [XmlElement("AudioHaptics")]
         public AudioHapticsProfileSettings AudioHapticsSettings
         {
@@ -1931,6 +1952,7 @@ namespace DS4WinWPF.DS4Control.DTOXml
             };
 
             OutputContDevice = source.outputDevType[deviceIndex].Normalize();
+            PreviousOutputContDevice = source.previousOutputDevType[deviceIndex].Normalize();
             AudioHapticsSettings = source.audioHapticsSettings[deviceIndex].Clone();
             TriggerLabSettings = source.triggerLabSettings[deviceIndex].Clone();
             OutputDS4TriggerMode = source.outputDS4TriggerMode[deviceIndex];
@@ -2585,6 +2607,7 @@ namespace DS4WinWPF.DS4Control.DTOXml
             };
 
             destination.outputDevType[deviceIndex] = OutputContDevice.Normalize();
+            destination.previousOutputDevType[deviceIndex] = PreviousOutputContDevice.Normalize();
             destination.audioHapticsSettings[deviceIndex] = (AudioHapticsSettings ?? new AudioHapticsProfileSettings()).Clone();
             destination.triggerLabSettings[deviceIndex] = (TriggerLabSettings ?? new TriggerLabProfileSettings()).Clone();
             destination.outputDS4TriggerMode[deviceIndex] = OutputDS4TriggerMode;

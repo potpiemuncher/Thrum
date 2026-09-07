@@ -4677,3 +4677,72 @@ old message survives when no detail is supplied, and the suspension test asserts
 the second call on the same path returns false (no repeated log line).
 
 Suite: **1076 passed / 0 failed** (CI filter), canonical x64 Release build.
+
+## 2026-09-06 — Native PS5 mode: one switch on Overview, with a setup sheet
+
+Source: the Claude Design handoff "Thrum desktop UI redesign — Native PS5 mode"
+(2026-09-06). The handoff's HTML is a reference; this entry is the WPF
+implementation of its clickable prototype (`Thrum Native PS5 Prototype`).
+Summary of the contract in `docs/design/native-ps5-mode-handoff.md`.
+
+What "native PS5 mode" assembles, and where it already lived: VIIPER backend +
+usbip-win2 installed and running (Settings / wizard step 5), driver gate at
+`ValidatedExperimental`, the experimental-driver acknowledgement (Settings,
+OneWay checkbox), emulated device = DualSense / DualSense Edge on the profile,
+Hide DS4 Controller, and - separately, default off - the virtual audio
+endpoint consent with its every-time disclosure. Six switches on four screens,
+now one card.
+
+New, all in `DS4Forms`:
+
+- `NativePs5ModeViewModel` (N1): pure six-state projection - Off, Needs setup,
+  Needs consent, On, On · haptics via Bluetooth, Experimental unverified
+  (virtual-pad haptics over USB). Rule enforced by test: Bluetooth + Audio
+  Haptics + no virtual audio endpoint reads green. The switch mirrors the
+  profile; a profile naming a DualSense with the driver missing shows the
+  switch on beside a "Not installed" badge rather than lying either way.
+- `NativePs5SetupViewModel` (N2): four-step sheet state. Opens at the first
+  unsatisfied step; nothing pre-checked; every disabled primary carries a
+  reason; UAC-cancel text is `ViiperSetupManager.InstallerCancelledAtUacMessage`
+  verbatim; step 2 binds `ViiperExperimentalDisclosure.AcknowledgementBody`
+  unparaphrased; step 4 carries `AudioClassSummary` and the N4 default-device
+  takeover warning with the N5 button disabled ("Not available in this build").
+- `NativePs5SetupSheet` (slide-over, 560 px, scrim, Esc closes, focus returns
+  to the switch), `NativePs5TurnOffDialog` (Turn off / Keep on / Open Output
+  Slots; says a running virtual pad is not torn down).
+- Overview card: `ControllerOverviewControl.xaml`, shown for a DualSense or
+  Edge only; the Emulated device combo yields its slot. HidHide warning is
+  advice with a link, never a blocker.
+- `MainWindow`: hosts the sheet; turn-on = `SelectedOutputController` to the
+  virtual DualSense/Edge (the setter records the previous type, N8, and runs
+  the VIIPER prompts), flush the profile, Hide DS4 Controller on if off with
+  the same service restart the checkbox does. Turn-off restores the recorded
+  type (fallback `ViiperX360`). Consent writes go through the existing
+  `SettingsViewModel` setters; audio consent shows `BuildAudioClassBody`
+  every time, as on Settings.
+- Persistence (N8): `BackingStore.previousOutputDevType`,
+  `<PreviousOutputContDevice>` in the profile DTO, omitted while unrecorded so
+  untouched profiles stay byte-identical.
+- Seven brushes in both theme dictionaries (AccentText, Success/Warning/Danger
+  backgrounds, Experimental, FocusRing, Scrim). Values follow the current dark
+  palette; the handoff's full dark remap is a separate change.
+- `ViiperSetupManager.TryLaunchInstaller` (no dialogs, message returned) and
+  the `InstallerFinished` event, so the sheet reports install outcomes inline.
+
+Defect found and fixed on the first live run: #86 subscribed the Overview
+VIIPER prompts to `SelectedOutputControllerChanged`, which also fires on every
+selection refresh, so an unacknowledged user was asked twice per pad
+connection. The prompts now hang off `OutputControllerChosen`, raised only by
+the setter.
+
+Verified live on the dev PC in an isolated portable copy with a DualSense over
+Bluetooth (usbip-win2 0.9.7.7, VIIPER v0.1.2): card in states 3 and 1, sheet
+opening at step 2, acceptance saving immediately and moving the rail, step 3
+summary, Esc close with focus return, no prompts on connect after the fix.
+Turn-on was deliberately not exercised (it plugs a virtual pad through the
+kernel driver); that remains a hardware pass for the maintainer.
+
+Negative controls: green rule flipped, ScrimColor removed, UAC sentence
+reworded, consent box pre-checked - each failed exactly the guarding test.
+
+Suite: **1118 passed / 0 failed** (CI filter), from 1076. Build: 0 errors.

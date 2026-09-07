@@ -83,6 +83,8 @@ namespace DS4WinWPF.DS4Forms
         private readonly HashSet<int> overviewDirtyControllerIndices = new();
         private DispatcherTimer overviewProfileSaveTimer;
         private DispatcherTimer overviewStatusRefreshTimer;
+        private NativePs5SetupViewModel nativePs5SetupVM;
+        private int nativePs5RefreshRunning;
         private bool preserveSize = true;
         private Size oldSize;
         private bool contextclose;
@@ -111,7 +113,7 @@ namespace DS4WinWPF.DS4Forms
             DataContext = mainWinVM;
             mainWinVM.ProfileEditorNavigationIndexChanged += MainWinVM_ProfileEditorNavigationIndexChanged;
             mainWinVM.QuickProfileSettingChanged += MainWinVM_QuickProfileSettingChanged;
-            mainWinVM.SelectedOutputControllerChanged += MainWinVM_SelectedOutputControllerChanged;
+            mainWinVM.OutputControllerChosen += MainWinVM_OutputControllerChosen;
             mainWinVM.SelectedControllerChanged += MainWinVM_SelectedControllerChanged;
 
             overviewProfileSaveTimer = new DispatcherTimer
@@ -131,6 +133,11 @@ namespace DS4WinWPF.DS4Forms
             App root = Application.Current as App;
             settingsWrapVM = new SettingsViewModel();
             settingsTab.DataContext = settingsWrapVM;
+            nativePs5SetupVM = new NativePs5SetupViewModel(
+                settingsWrapVM.ViiperDriverStatus);
+            nativePs5Sheet.DataContext = nativePs5SetupVM;
+            mainWinVM.NativePs5.PropertyChanged += NativePs5_PropertyChanged;
+            ViiperSetupManager.InstallerFinished += ViiperSetupManager_InstallerFinished;
             RefreshViiperStatusText();
             logvm = new LogViewModel(App.rootHub);
             //logListView.ItemsSource = logvm.LogItems;
@@ -1055,7 +1062,7 @@ Suspend support not enabled.", true);
             overviewProfileSaveTimer.Start();
         }
 
-        private void MainWinVM_SelectedOutputControllerChanged(object sender, EventArgs e)
+        private void MainWinVM_OutputControllerChosen(object sender, EventArgs e)
         {
             // The Overview "Emulated device" combo writes the output type
             // directly. The profile editor's equivalent combo runs the VIIPER
@@ -1064,6 +1071,12 @@ Suspend support not enabled.", true);
             // could pick DualSense on Overview and only learn at connect time
             // that the gate refuses it. The setter fires from inside a binding
             // update, so defer the modal prompts to the next dispatcher pass.
+            //
+            // Subscribed to the setter's own event, not to
+            // SelectedOutputControllerChanged: that one also fires on every
+            // selection refresh, which re-asked an unacknowledged user twice
+            // per pad connection (seen on the first live run of the Native
+            // PS5 mode card, 2026-09-06).
             if (!ViiperSetupManager.IsViiperOutputType(mainWinVM.SelectedOutputController))
             {
                 return;
@@ -1102,6 +1115,11 @@ Suspend support not enabled.", true);
 
             audioHapticsControl.SetDevice(mainWinVM.SelectedController?.DevIndex ?? -1);
             triggerLabControl.SetDevice(mainWinVM.SelectedController?.DevIndex ?? -1);
+
+            if (mainWinVM.ShowNativePs5Mode)
+            {
+                RefreshNativePs5Prerequisites();
+            }
         }
 
         private void ProfileFeatureControl_SettingsChanged(object sender,
@@ -1518,6 +1536,7 @@ Suspend support not enabled.", true);
 
         private void MainDS4Window_Closed(object sender, EventArgs e)
         {
+            ViiperSetupManager.InstallerFinished -= ViiperSetupManager_InstallerFinished;
             CancelBoundedHotplugRecovery();
             overviewProfileSaveTimer.Stop();
             overviewStatusRefreshTimer.Stop();
@@ -2048,8 +2067,16 @@ Suspend support not enabled.", true);
         // Ex Mode Re-Enable
         private async void HideDS4ContCk_Click(object sender, RoutedEventArgs e)
         {
+            await RestartServiceForExclusiveModeAsync();
+        }
+
+        /// <summary>
+        /// Hide DS4 Controller takes effect on the next device open, so the
+        /// checkbox and Native PS5 mode's turn-on both restart the service.
+        /// </summary>
+        private async Task RestartServiceForExclusiveModeAsync()
+        {
             StartStopBtn.IsEnabled = false;
-            //bool checkStatus = hideDS4ContCk.IsChecked == true;
             hideDS4ContCk.IsEnabled = false;
             Task serviceTask = Task.Run(() =>
             {
@@ -2063,6 +2090,354 @@ Suspend support not enabled.", true);
 
             hideDS4ContCk.IsEnabled = true;
             StartStopBtn.IsEnabled = true;
+        }
+
+        // ------------------------------------------------------------------
+        // Native PS5 mode (design handoff 2026-09-06). The card on Overview
+        // and the setup sheet are both projections of existing settings; every
+        // write below goes through the handler that already owned it.
+        // ------------------------------------------------------------------
+
+        private bool NativePs5SheetOpen => nativePs5Sheet.Visibility == Visibility.Visible;
+
+        private void NativePs5_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (NativePs5SheetOpen)
+            {
+                RefreshNativePs5SheetInputs();
+            }
+        }
+
+        private void RefreshNativePs5SheetInputs()
+        {
+            if (nativePs5SetupVM != null && NativePs5SheetOpen)
+            {
+                nativePs5SetupVM.Apply(mainWinVM.BuildNativePs5SetupInputs());
+            }
+        }
+
+        /// <summary>
+        /// Reads the two facts the card cannot read on the UI thread: the
+        /// driver validation (cached after first use) and whether the backend
+        /// answers, starting it when the package is known. Coalesced: a second
+        /// request while one is in flight is dropped, and the next controller
+        /// or sheet event asks again.
+        /// </summary>
+        internal void RefreshNativePs5Prerequisites(bool recheckDriver = false)
+        {
+            if (Interlocked.CompareExchange(ref nativePs5RefreshRunning, 1, 0) != 0)
+            {
+                return;
+            }
+
+            ViiperDriverStatusViewModel driverStatus = settingsWrapVM?.ViiperDriverStatus;
+            Task.Run(() =>
+            {
+                ViiperDriverReadiness readiness = null;
+                bool backendReady = false;
+                try
+                {
+                    readiness = recheckDriver
+                        ? ViiperSetupManager.RefreshDriverReadiness()
+                        : ViiperSetupManager.DriverReadiness;
+                    bool knownPackage =
+                        readiness.State == ViiperDriverReadinessState.ValidatedExperimental ||
+                        readiness.State == ViiperDriverReadinessState.Approved;
+                    backendReady = ViiperSetupManager
+                        .GetStatus(tryStartServer: knownPackage).Ready;
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogToGui(
+                        "Native PS5 mode could not check its prerequisites: " +
+                        ex.Message, true);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref nativePs5RefreshRunning, 0);
+                }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (Dispatcher.HasShutdownStarted)
+                    {
+                        return;
+                    }
+
+                    if (readiness != null && driverStatus != null)
+                    {
+                        driverStatus.Apply(readiness);
+                    }
+
+                    mainWinVM.ApplyNativePs5Prerequisites(readiness, backendReady);
+                    RefreshNativePs5SheetInputs();
+                }));
+            });
+        }
+
+        private void ControllerOverview_NativePs5ToggleRequested(object sender, EventArgs e)
+        {
+            NativePs5ModeViewModel card = mainWinVM.NativePs5;
+            if (card.IsOn)
+            {
+                ConfirmAndTurnOffNativePs5Mode();
+                return;
+            }
+
+            // Every prerequisite is met: the switch is the whole gesture.
+            // Otherwise it walks the user to whichever step is missing.
+            if (card.State == NativePs5ModeState.Off)
+            {
+                TurnOnNativePs5Mode();
+                return;
+            }
+
+            OpenNativePs5Sheet();
+        }
+
+        private void ControllerOverview_NativePs5SetupRequested(object sender, EventArgs e) =>
+            OpenNativePs5Sheet();
+
+        private void ControllerOverview_HidHideClientRequested(object sender, EventArgs e)
+        {
+            string path = Util.GetHidHideClientPath();
+            if (!string.IsNullOrEmpty(path))
+            {
+                HidHideBtn_Click(sender, new RoutedEventArgs());
+                return;
+            }
+
+            Util.StartProcessHelper("https://github.com/nefarius/HidHide/releases");
+        }
+
+        private void OpenNativePs5Sheet()
+        {
+            nativePs5SetupVM.Open(mainWinVM.BuildNativePs5SetupInputs());
+            nativePs5Scrim.Visibility = Visibility.Visible;
+            nativePs5Sheet.Visibility = Visibility.Visible;
+            mainTabCon.IsEnabled = false;
+            shellFooterPanel.IsEnabled = false;
+
+            // 160 ms slide from the right edge, ease-out; the only motion
+            // the design allows.
+            TranslateTransform slide = new TranslateTransform(nativePs5Sheet.Width, 0);
+            nativePs5Sheet.RenderTransform = slide;
+            slide.BeginAnimation(TranslateTransform.XProperty,
+                new System.Windows.Media.Animation.DoubleAnimation(0,
+                    TimeSpan.FromMilliseconds(160))
+                {
+                    EasingFunction = new System.Windows.Media.Animation.CubicEase
+                    {
+                        EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut,
+                    },
+                });
+
+            nativePs5Sheet.FocusFirstControl();
+            RefreshNativePs5Prerequisites();
+        }
+
+        private void CloseNativePs5Sheet()
+        {
+            if (!NativePs5SheetOpen)
+            {
+                return;
+            }
+
+            nativePs5Sheet.Visibility = Visibility.Collapsed;
+            nativePs5Scrim.Visibility = Visibility.Collapsed;
+            mainTabCon.IsEnabled = true;
+            shellFooterPanel.IsEnabled = true;
+            mainWinVM.RefreshNativePs5();
+            controllerOverviewControl.FocusNativePs5Switch();
+        }
+
+        private void NativePs5Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
+            CloseNativePs5Sheet();
+
+        private void NativePs5Sheet_CloseRequested(object sender, EventArgs e) =>
+            CloseNativePs5Sheet();
+
+        private void NativePs5Sheet_InstallRequested(object sender, EventArgs e)
+        {
+            ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus();
+            bool launched = ViiperSetupManager.TryLaunchInstaller(status, this,
+                out string message, out _);
+            if (launched)
+            {
+                nativePs5SetupVM.SetInstalling(true);
+                nativePs5SetupVM.SetInstallMessage(message ??
+                    NativePs5SetupViewModel.ElevationPendingMessage);
+            }
+            else
+            {
+                nativePs5SetupVM.SetInstallMessage(message ??
+                    "VIIPER setup did not start.");
+            }
+        }
+
+        private void ViiperSetupManager_InstallerFinished(object sender,
+            ViiperInstallerFinishedEventArgs e)
+        {
+            nativePs5SetupVM.SetInstalling(false);
+            nativePs5SetupVM.SetInstallMessage(e.Message);
+            // The manager refreshed the readiness cache before raising this.
+            ViiperDriverReadiness readiness = ViiperSetupManager.DriverReadiness;
+            settingsWrapVM?.ViiperDriverStatus.Apply(readiness);
+            mainWinVM.ApplyNativePs5Prerequisites(readiness, e.Status?.Ready == true);
+            RefreshNativePs5SheetInputs();
+        }
+
+        private void NativePs5Sheet_RecheckRequested(object sender, EventArgs e)
+        {
+            nativePs5SetupVM.SetInstallMessage(string.Empty);
+            RefreshNativePs5Prerequisites(recheckDriver: true);
+        }
+
+        /// <summary>
+        /// Step 2: the checkbox is the acceptance. Ticking it records consent
+        /// through the same setter the Settings page uses and saves at once;
+        /// unticking withdraws it. No second dialog: the full body is on
+        /// screen above the box.
+        /// </summary>
+        private void NativePs5Sheet_AcknowledgementChanged(object sender,
+            NativePs5ConsentEventArgs e)
+        {
+            settingsWrapVM.ViiperExperimentalAcknowledged = e.Requested;
+            AppLogger.LogToGui(e.Requested
+                ? "Virtual controller output enabled; the experimental kernel driver notice was accepted (Native PS5 mode setup)."
+                : "Virtual controller output disabled (Native PS5 mode setup).", false);
+            slotManControl.RefreshGateBanner();
+            mainWinVM.RefreshNativePs5();
+            RefreshNativePs5SheetInputs();
+        }
+
+        /// <summary>
+        /// Step 4: the audio-class opt-in, with the disclosure on every
+        /// enablement exactly as the Settings checkbox shows it.
+        /// </summary>
+        private void NativePs5Sheet_AudioConsentChanged(object sender,
+            NativePs5ConsentEventArgs e)
+        {
+            if (e.Requested && !ConfirmAudioClassEnablement())
+            {
+                AppLogger.LogToGui(
+                    "Virtual audio endpoints stay off: the kernel-crash risk " +
+                    "notice was declined.", false);
+                RefreshNativePs5SheetInputs();
+                return;
+            }
+
+            settingsWrapVM.AllowExperimentalAudioEndpoints = e.Requested;
+            AppLogger.LogToGui(e.Requested
+                ? "Virtual audio endpoints enabled; the kernel-crash risk notice was accepted. Applies to the next controller connection."
+                : "Virtual audio endpoints disabled. Endpoints that are already running are left alone.",
+                false);
+            slotManControl.RefreshGateBanner();
+            mainWinVM.RefreshNativePs5();
+            RefreshNativePs5SheetInputs();
+        }
+
+        private void NativePs5Sheet_TurnOnRequested(object sender, EventArgs e) =>
+            TurnOnNativePs5Mode();
+
+        /// <summary>
+        /// The MERGE in the interaction map: emulated device to a virtual
+        /// DualSense (Edge for an Edge) through the Overview setter - which
+        /// records the previous type and runs the VIIPER prompts - then Hide
+        /// DS4 Controller on if it was off, with the service restart that
+        /// setting always needed.
+        /// </summary>
+        private void TurnOnNativePs5Mode()
+        {
+            CompositeDeviceModel controller = mainWinVM.SelectedController;
+            if (controller == null || !controller.IsDualSense)
+            {
+                return;
+            }
+
+            int deviceIndex = controller.DevIndex;
+            OutContType target = controller.IsDualSenseEdge
+                ? OutContType.ViiperDualSenseEdge
+                : OutContType.ViiperDualSense;
+            mainWinVM.SelectedOutputController = target;
+            FlushOverviewQuickSettings(deviceIndex);
+
+            bool hideTurnedOn = false;
+            if (!settingsWrapVM.HideDS4Controller)
+            {
+                hideDS4ContCk.IsChecked = true;
+                settingsWrapVM.HideDS4Controller = true;
+                Global.Save();
+                hideTurnedOn = true;
+            }
+
+            AppLogger.LogToGui($"Controller {deviceIndex + 1}: Native PS5 mode on. " +
+                $"Games see a virtual {target.ToDisplayName()} on the next connection." +
+                (hideTurnedOn ? " Hide DS4 Controller was turned on." : string.Empty),
+                false);
+
+            mainWinVM.RefreshRuntimeState(App.rootHub);
+            RefreshNativePs5SheetInputs();
+            RefreshNativePs5Prerequisites();
+
+            if (hideTurnedOn)
+            {
+                Util.LogAssistBackgroundTask(RestartServiceForExclusiveModeAsync());
+            }
+        }
+
+        private void ConfirmAndTurnOffNativePs5Mode()
+        {
+            CompositeDeviceModel controller = mainWinVM.SelectedController;
+            if (controller == null)
+            {
+                return;
+            }
+
+            int deviceIndex = controller.DevIndex;
+            OutContType previous = Global.PreviousOutputContType[deviceIndex].Normalize();
+            if (previous == OutContType.None ||
+                NativePs5ModeViewModel.IsNativeOutput(previous))
+            {
+                previous = OutContType.ViiperX360;
+            }
+
+            NativePs5TurnOffDialog dialog = new NativePs5TurnOffDialog(
+                previous.ToDisplayName() + " (virtual)")
+            {
+                Owner = this,
+            };
+            bool? result = dialog.ShowDialog();
+            if (dialog.OpenOutputSlotsRequested)
+            {
+                ShowOutputSlotsTab();
+                return;
+            }
+
+            if (result != true)
+            {
+                return;
+            }
+
+            mainWinVM.SelectedOutputController = previous;
+            FlushOverviewQuickSettings(deviceIndex);
+            AppLogger.LogToGui($"Controller {deviceIndex + 1}: Native PS5 mode off. " +
+                $"Games see a virtual {previous.ToDisplayName()} on the next connection; " +
+                "a virtual pad already running is not torn down.", false);
+            mainWinVM.RefreshRuntimeState(App.rootHub);
+        }
+
+        private void ShowOutputSlotsTab()
+        {
+            for (DependencyObject node = slotManControl; node != null;
+                node = LogicalTreeHelper.GetParent(node))
+            {
+                if (node is TabItem tab)
+                {
+                    mainTabCon.SelectedItem = tab;
+                    return;
+                }
+            }
         }
 
         private void UseOscServerCk_Click(object sender, RoutedEventArgs e)
@@ -2238,6 +2613,11 @@ Suspend support not enabled.", true);
                         backendStatus.Apply(backendReport);
                         backendStatus.IsBusy = false;
                     }
+
+                    // The same probe answers the Overview card's two
+                    // expensive questions; no second SetupAPI pass.
+                    mainWinVM.ApplyNativePs5Prerequisites(readiness, status.Ready);
+                    RefreshNativePs5SheetInputs();
 
                     ApplyViiperConsentText(readiness);
                 }));

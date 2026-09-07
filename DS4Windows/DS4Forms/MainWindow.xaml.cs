@@ -111,6 +111,7 @@ namespace DS4WinWPF.DS4Forms
             DataContext = mainWinVM;
             mainWinVM.ProfileEditorNavigationIndexChanged += MainWinVM_ProfileEditorNavigationIndexChanged;
             mainWinVM.QuickProfileSettingChanged += MainWinVM_QuickProfileSettingChanged;
+            mainWinVM.SelectedOutputControllerChanged += MainWinVM_SelectedOutputControllerChanged;
             mainWinVM.SelectedControllerChanged += MainWinVM_SelectedControllerChanged;
 
             overviewProfileSaveTimer = new DispatcherTimer
@@ -1052,6 +1053,32 @@ Suspend support not enabled.", true);
             overviewDirtyControllerIndices.Add(e.DeviceIndex);
             overviewProfileSaveTimer.Stop();
             overviewProfileSaveTimer.Start();
+        }
+
+        private void MainWinVM_SelectedOutputControllerChanged(object sender, EventArgs e)
+        {
+            // The Overview "Emulated device" combo writes the output type
+            // directly. The profile editor's equivalent combo runs the VIIPER
+            // prerequisite prompts (transport first, then the experimental-
+            // driver acknowledgement); without the same prompts here a user
+            // could pick DualSense on Overview and only learn at connect time
+            // that the gate refuses it. The setter fires from inside a binding
+            // update, so defer the modal prompts to the next dispatcher pass.
+            if (!ViiperSetupManager.IsViiperOutputType(mainWinVM.SelectedOutputController))
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (!IsLoaded || Dispatcher.HasShutdownStarted)
+                {
+                    return;
+                }
+
+                ViiperSetupManager.EnsureReadyWithPrompt(this);
+                ViiperSetupManager.EnsureExperimentalAcknowledgedWithPrompt(this);
+            }));
         }
 
         private void MainWinVM_SelectedControllerChanged(object sender, EventArgs e)
@@ -2690,12 +2717,6 @@ Suspend support not enabled.", true);
             var result = WindowPlacementHelper.GetPlacement(this);
             Global.FormLocationX = result.Left;
             Global.FormLocationY = result.Top;
-        }
-
-        private void NotifyIcon_TrayMiddleMouseDown(object sender, RoutedEventArgs e)
-        {
-            contextclose = true;
-            Close();
         }
 
         private void SwipeTouchCk_Click(object sender, RoutedEventArgs e)

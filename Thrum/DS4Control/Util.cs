@@ -328,7 +328,11 @@ namespace DS4Windows
         public static bool SystemAppsUsingDarkTheme()
         {
             bool result = false;
-            if (int.TryParse(Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", "0").ToString(), out int lightEnabled))
+            // GetValue returns null when the whole key is absent (the default
+            // only covers a missing value), and a null here took the app down
+            // in Application_Startup on 2026-09-07. Missing key: assume light.
+            object value = Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", "1");
+            if (value != null && int.TryParse(value.ToString(), out int lightEnabled))
             {
                 result = lightEnabled == 0;
             }

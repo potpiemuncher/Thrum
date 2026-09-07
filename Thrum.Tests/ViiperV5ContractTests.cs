@@ -18,6 +18,13 @@ namespace DS4WindowsTests
                 "dualsensecombinedaudioduplexv4");
             AssertBefore(source, "dualsenseedgecombinedaudioduplexv5",
                 "dualsenseedgecombinedaudioduplexv4");
+
+            // VIIPER v0.1.x only answers the V5 names. With virtual audio
+            // endpoints off - the default - the HID-only ladder has to lead
+            // with the gamepad-only V5 persona or no DualSense can be created.
+            AssertBefore(source, "dualsensegamepadv5", "dualsensecombinedext");
+            AssertBefore(source, "dualsenseedgegamepadv5",
+                "dualsenseedgecombinedext");
             StringAssert.Contains(source,
                 "private const byte ViiperStreamFrameVersionV5 = 0x05;");
             StringAssert.Contains(source,

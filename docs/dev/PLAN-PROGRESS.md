@@ -4767,3 +4767,41 @@ Canonical commands are now:
 dotnet build .\Thrum.sln -c Release -p:Platform=x64
 dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64
 ```
+
+## 2026-09-07 — Native PS5 mode follow-ups: service-stop crash, gamepad-only V5 persona, theme guard
+
+Defect origin: the maintainer's first turn-on. The mode switched on, Hide DS4
+Controller restarted the service, and the process died in a layout pass:
+`TargetException: Object does not match target type` from
+`ValueChangedEventManager.AddListener`. Reproduced in an isolated copy with the
+footer Stop button while Overview was showing; the pre-#89 build survives it.
+
+Mechanism (from a first-chance full dump, `clrstack -a` on the throwing
+frame): the failing binding was a `TextBlock` bound to `Name` - the Active
+Profile combo's display-member template - whose data item had turned from a
+`ProfileEntity` into WPF's empty-string selection-box placeholder. WPF treats
+the empty string as an empty collection, drills for a current item, finds
+none, keeps the previous `ProfileEntity.Name` PropertyDescriptor and hooks its
+`NameChanged` event on the `NullDataItem` sentinel by reflection. That path
+exists only because `ProfileEntity` exposed the Name/NameChanged pattern
+without `INotifyPropertyChanged`; #89 changed the Overview's layout at that
+moment so the old template element was re-targeted instead of rebuilt.
+
+Fix: `ProfileEntity` implements `INotifyPropertyChanged` (raised beside the
+existing `NameChanged`), so WPF binds through `PropertyInfo` and never takes
+the reflective path, anywhere a profile is listed. Guard:
+`ProfileEntityTests`. Verified live: Stop on Overview, Hide DS4 restart, and
+turn-on all survive.
+
+Second defect, same session: with virtual audio endpoints off the DualSense
+plug failed three times over with `unknown device type: dualsense`. VIIPER
+v0.1.x answers only the V5 names; Thrum's HID-only ladder tried
+`dualsensecombinedext` / `dualsenseext` / `dualsense`. The ladder now leads
+with `dualsensegamepadv5` (and `dualsenseedgegamepadv5`), V5 framing, no audio
+interface; a new `activeStreamFeedbackIsFramed` flag makes the feedback reader
+use frames for a persona that has no speaker, and speaker PCM frames are
+ignored unless the persona has one. Guard: `ViiperV5ContractTests`.
+
+Third: `Util.SystemAppsUsingDarkTheme` dereferenced a null registry read
+(`ChangeTheme` NullReferenceException in `Application_Startup`, once, same
+evening); guarded.

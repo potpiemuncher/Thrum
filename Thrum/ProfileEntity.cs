@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -25,7 +26,23 @@ using System.Threading.Tasks;
 
 namespace DS4WinWPF
 {
-    public class ProfileEntity
+    /// <summary>
+    /// A profile as listed in the UI.
+    ///
+    /// <para><b>Why this implements <see cref="INotifyPropertyChanged"/>.</b>
+    /// The Name/NameChanged pair alone makes WPF bind through a
+    /// <c>PropertyDescriptor</c> and hook <c>NameChanged</c> by reflection.
+    /// When a bound element's data item then turns into an empty string -
+    /// which is what a ComboBox hands its selection box the moment the
+    /// selection clears - WPF drills into the string as an empty collection,
+    /// keeps the old descriptor, and reflectively adds the handler to its
+    /// NullDataItem sentinel: <c>TargetException: Object does not match
+    /// target type</c>, and the process dies. Seen on the Overview Active
+    /// Profile combo when the service stopped (2026-09-07). With
+    /// <see cref="INotifyPropertyChanged"/> WPF uses a plain PropertyInfo and
+    /// never takes that path.</para>
+    /// </summary>
+    public class ProfileEntity : INotifyPropertyChanged
     {
         private string name;
         public string Name
@@ -36,10 +53,12 @@ namespace DS4WinWPF
                 if (name == value) return;
                 name = value;
                 NameChanged?.Invoke(this, EventArgs.Empty);
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
             }
         }
 
         public event EventHandler NameChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler ProfileSaved;
         public event EventHandler ProfileDeleted;
 

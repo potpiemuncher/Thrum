@@ -291,6 +291,13 @@ namespace DS4Windows
         private bool activeStreamSupportsMicrophone;
         private bool activeStreamSupportsDirectSpeaker;
         private bool activeStreamSupportsAtomicAudioHaptics;
+        /// <summary>
+        /// The server frames its feedback (output state) packets even though
+        /// the persona carries no speaker. True for the V5 gamepad-only
+        /// personas; the audio personas imply it through
+        /// <see cref="activeStreamSupportsDirectSpeaker"/>.
+        /// </summary>
+        private bool activeStreamFeedbackIsFramed;
         private bool activeStreamUsesAudioOnlyDescriptor;
         private byte activeStreamFrameVersion;
         private int microphoneVolume = 128;
@@ -820,6 +827,7 @@ namespace DS4Windows
             activeStreamSupportsMicrophone = false;
             activeStreamSupportsDirectSpeaker = false;
             activeStreamSupportsAtomicAudioHaptics = false;
+            activeStreamFeedbackIsFramed = false;
             activeStreamUsesAudioOnlyDescriptor = false;
             activeStreamFrameVersion = 0;
             Volatile.Write(ref virtualMicrophoneInterfaceActive, 0);
@@ -1144,6 +1152,29 @@ namespace DS4Windows
 
         private ViiperDeviceStream CreateDualSenseHidOnlyStream()
         {
+            // VIIPER v0.1.x registers a gamepad-only PadSense V5 persona and
+            // no longer answers the legacy names below, so without this rung
+            // a DualSense with virtual audio endpoints off - the default, and
+            // the safe configuration - could not be created at all (seen
+            // 2026-09-07: "unknown device type: dualsense" three times over).
+            // Same V5 framing as the audio persona, no audio interface.
+            try
+            {
+                ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
+                    "dualsensegamepadv5");
+                activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                activeStreamUsesFramedProtocol = true;
+                activeStreamFeedbackIsFramed = true;
+                activeStreamFrameVersion = ViiperStreamFrameVersionV5;
+                return stream;
+            }
+            catch (IOException ex)
+            {
+                AppLogger.LogToGui(
+                    $"VIIPER DualSense gamepad-only V5 persona unavailable, trying the legacy device types: {ex.Message}",
+                    false);
+            }
+
             try
             {
                 ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsensecombinedext");
@@ -1170,6 +1201,23 @@ namespace DS4Windows
 
         private ViiperDeviceStream CreateDualSenseEdgeHidOnlyStream()
         {
+            try
+            {
+                ViiperDeviceStream stream = client.CreateDeviceAndOpenStream(
+                    "dualsenseedgegamepadv5");
+                activeFeedbackLength = DualSenseCombinedExtendedFeedbackLength;
+                activeStreamUsesFramedProtocol = true;
+                activeStreamFeedbackIsFramed = true;
+                activeStreamFrameVersion = ViiperStreamFrameVersionV5;
+                return stream;
+            }
+            catch (IOException ex)
+            {
+                AppLogger.LogToGui(
+                    $"VIIPER DualSense Edge gamepad-only V5 persona unavailable, trying the legacy device types: {ex.Message}",
+                    false);
+            }
+
             try
             {
                 ViiperDeviceStream stream = client.CreateDeviceAndOpenStream("dualsenseedgecombinedext");
@@ -3105,7 +3153,8 @@ namespace DS4Windows
                 while (connected && readStreamGeneration ==
                     Volatile.Read(ref streamGeneration))
                 {
-                    if (activeStreamSupportsDirectSpeaker)
+                    if (activeStreamSupportsDirectSpeaker ||
+                        activeStreamFeedbackIsFramed)
                     {
                         int payloadLength = stream.ReadFrame(
                             activeStreamFrameVersion, out byte frameType,
@@ -3141,6 +3190,7 @@ namespace DS4Windows
                             }
                             else if (frameType ==
                                     ViiperStreamFrameSpeakerPcm &&
+                                activeStreamSupportsDirectSpeaker &&
                                 payloadLength > 0 && payloadLength %
                                     (sizeof(short) * 2) == 0)
                             {

@@ -10,11 +10,16 @@ is now VIIPER **v0.1.2** (2026-08-27). Status per output type:
 
 | Output type | On pinned v0.1.2 |
 | --- | --- |
-| `ViiperX360` | `xbox360` is registered; unchanged from v0.0.6, where it plugged and enumerated |
-| `ViiperDualSense` | `dualsensecombinedaudioduplexv5` / `dualsenseaudioonlyduplexv5` are registered with the same wire contract Thrum validated against v0.0.6 (see *PadSense V5 transport compatibility*) - **VM plug validation against v0.1.2 itself is still pending** |
-| `ViiperDualSenseEdge` | `dualsenseedgecombinedaudioduplexv5` registered, same caveat |
-| `ViiperSwitch2Pro` | `ns2pro` registered |
-| `ViiperDS4` | `dualshock4` registered, untested |
+| `ViiperX360` | **Plugged and unplugged on v0.1.2** as `xbox360`, `045e:028e` |
+| `ViiperDualSense` | **Plugged and unplugged on v0.1.2** as `dualsensecombinedaudioduplexv5`, `frameVersion=5`, first attempt with no fallback, `054c:0ce6` |
+| `ViiperDualSenseEdge` | **Plugged and unplugged on v0.1.2** as `dualsenseedgecombinedaudioduplexv5`, `frameVersion=5`, first attempt with no fallback, `054c:0df2` |
+| `ViiperSwitch2Pro` | **Plugged and unplugged on v0.1.2** as `ns2pro`, `057e:2069` |
+| `ViiperDS4` | **Plugged and unplugged on v0.1.2** as `dualshock4` with the audio duplex stream (`microphoneInput=true speakerOutput=true frameVersion=3`), `054c:05c4` |
+
+All five were measured on 2026-09-06 in `Win 11 25H2 Test ENV` from checkpoint
+`viiper-006-installer-validated-20260803`, with usbip-win2 0.9.7.7 and no
+physical controller. Evidence:
+`vm-validation-reports/viiper-012-plug-validation-20260906/REPORT.md`.
 
 The v0.0.6 story (the pin refused `dualsenseext`, so the DualSense could not be
 created - issues #70 and #79) was a *client-side* name mismatch, fixed by the
@@ -135,10 +140,15 @@ teardown; it does not claim physical input, motor feedback, or non-zero audio
 payload validation. Those three checks remain a maintainer hardware pass.
 ## How to validate a backend pin
 
-**The v0.1.2 pin has had the static checks above and the installer-path tests
-only. The plug validation below has not yet been run against v0.1.2** - the
-last VM plug pass was against v0.0.6 from checkpoint
-`viiper-006-installer-validated-20260803`. Run it before shipping the pin.
+**The v0.1.2 pin has had this plug validation.** It was run on 2026-09-06 from
+checkpoint `viiper-006-installer-validated-20260803`: all five output types
+plugged and unplugged cleanly, the installer path passed including its
+tampered-archive refusal, and backend stop-on-exit behaved in both directions.
+What it does *not* cover — physical input, motor feedback, audio payload
+correctness, and whether v0.1.2 ever emitted a `0x84` frame (its log never names
+a frame type) — is stated in
+`vm-validation-reports/viiper-012-plug-validation-20260906/REPORT.md`.
+Re-run this procedure for the next pin.
 
 The lesson from the v0.0.6 refresh, recorded so it is not repeated: that pin
 was validated by exercising the **installer path only** — digests, refusal on a

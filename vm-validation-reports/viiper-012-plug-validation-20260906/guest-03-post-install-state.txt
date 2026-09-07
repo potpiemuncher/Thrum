@@ -1,0 +1,68 @@
+?install.log  4856  7A5BC2767FA2C1AF76926EF05C6C27DD3FF0C7ADC2021F3B812A0CDECEE1C1BE
+install.log.pre012  13136  4E42174F012A747264B4133E692459619262B9AD7C6300304BFAFED95670BF0C
+licenses.txt  56215  2D24B4FD0BBF18F9E9BE0EFA89F7B6C5BC9B13953EF7D3DB381731D8AF38D0CC
+licenses.txt.previous  56215  C41AA696EAE1C03728E351AC3B00DC4C02084704A8455E3A34134CD5454AF5F3
+viiper.exe  11407872  2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A
+viiper.exe.previous  11223552  90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A
+--- version stamp (viiper.exe --version) ---
+Usage: VIIPER <command> [flags]
+
+Virtual Input over IP EmulatoR
+
+    Version: v0.1.2 (f5d097b)
+             2026-08-27T21:26:31Z
+    Source:  https://github.com/hbashton/VIIPER
+    License: GPLv3
+
+Flags:
+  -h, --help                      Show context-sensitive help.
+      --config=STRING             Path to configuration file (json|yaml|toml)
+                                  ($VIIPER_CONFIG)
+      --update-notify="stable"    Update notification level: none, stable,
+                                  prerelease ($VIIPER_UPDATE_NOTIFY)
+      --log.level="info"          Log level: trace, debug, info, warn, error
+                                  ($VIIPER_LOG_LEVEL)
+      --log.file=STRING           Log file path (default: none; logs only to
+                                  console) ($VIIPER_LOG_FILE)
+      --log.raw-file=STRING       Raw packet log file path (default: none)
+                                  ($VIIPER_LOG_RAW_FILE)
+
+Commands:
+  server [flags]
+    Start the VIIPER USB-IP server
+
+  proxy --upstream-addr=STRING [flags]
+    Start the VIIPER USB-IP proxy
+
+  config init <command> [flags]
+    Generate a configuration template
+
+  install [flags]
+    Add the current VIIPER executable to system startup and runs it (creates a
+    Systemd service on Linux)
+
+  uninstall [flags]
+    Remove any VIIPER system startup configuration / Systemd service
+
+Run "VIIPER <command> --help" for more information on a command.
+
+viiper.exe : VIIPER: error: unknown flag --version
+At C:\p2\tmp\postinst.ps1:5 char:1
++ & "$d\viiper.exe" --version 2>&1 | Out-String
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (VIIPER: error: unknown flag --version:String) [], Re 
+   moteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+--- backend process ---
+pid=10692 path=%LOCALAPPDATA%\VIIPER\viiper.exe cmd="%LOCALAPPDATA%\VIIPER\viiper.exe" --update-notify none server 
+--- autostart ---
+HKCU Run RunVIIPER: 
+Scheduled task RunVIIPER: 
+--- api ---
+api/version ERR: The operation has timed out.
+api/devicetypes ERR: The operation has timed out.
+
+
+

@@ -1,0 +1,21 @@
+?=== (a) Thrum exit with no consumers stops the backend it started ===
+viiper_before=0
+viiper_after_start=1
+census=bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x057e","pid":"0x2069","type":"ns2pro","deviceSpecific":{"battery_level":9,"battery_volts":3800,"charging":false,"external_power":true,"serial_number":"VIIPER-NS2PRO-00"}}]}
+window: 
+window: Thrum
+aux close failed:  Exception calling "GetCurrentPattern" with "1" argument(s): "Unsupported Pattern."
+closed main window
+
+thrum_exited=True
+viiper_after_exit=0
+--- Thrum log (backend lines) ---
+2026-09-06 17:01:53.0825|INFO|Output slot #1 has permanent type ViiperSwitch2Pro
+2026-09-06 17:01:58.8986|INFO|VIIPER virtual-controller backend ready
+2026-09-06 17:02:30.4685|INFO|Closing VIIPER virtual-controller connections
+2026-09-06 17:02:30.4983|INFO|VIIPER detached usbip port 1 (Thrum VIIPER device stopped).
+2026-09-06 17:02:30.5484|INFO|VIIPER backend stop (pid 9460 started 2026-09-06T17:01:55.1375159-07:00): we started it, it is hosting no buses or devices, and Windows shows no device attached through the usbip-win2 controller - console break accepted; backend exited on its own.
+
+
+

@@ -1,0 +1,71 @@
+?Thrum VIIPER driver validation (read-only diagnostic)
+==============================================================
+  generated (UTC)       : 2026-09-06 23:39:57Z
+  Thrum version         : 0.9.0.0
+  process architecture  : X64
+  elevated              : yes
+  operating system      : Microsoft Windows NT 10.0.26200.0
+  reference baseline    : usbip-win2 0.9.7.7 (ExperimentalBaseline)
+  signer policy         : MicrosoftHardwareCompatibilityPublisher
+  usbip.exe checked     : C:\Program Files\USBip\usbip.exe
+  report file           : %TEMP%\Thrum\viiper-driver-validation-20260906-233957Z.txt
+
+RESULT: PASS - package identity and trust match the observed baseline; this is not production approval.
+  matched release       : 0.9.7.7 (ExperimentalBaseline)
+  note                  : this release is experimental; known-risk baseline; this diagnostic does not change VIIPER readiness
+  observed mismatches   : 0
+
+-- UDE host controller (queried by hardware ID ROOT\USBIP_WIN2\UDE) ---
+  package found          observed: yes                                expected: yes                                [OK]
+  INF name               observed: usbip2_ude.inf                     expected: usbip2_ude.inf                     [OK]
+  provider               observed: USBIP-WIN2                         expected: USBIP-WIN2                         [OK]
+  DriverVer              observed: 21.14.27.907                       expected: 21.14.27.907                       [OK]
+  architecture           observed: X64                                expected: X64                                [OK]
+  device node present    observed: yes                                expected: yes                                [OK]
+  started, no problem    observed: yes                                expected: yes                                [OK]
+  driver store target    observed: resolved                           expected: resolved                           [OK]
+  service                observed: usbip2_ude                         [INFO]
+  catalog file           observed: usbip2_ude.cat                     [INFO]
+  signature trusted      observed: yes                                expected: yes                                [OK]
+  signature flags        observed: none                               [INFO]
+  trust diagnostic       observed: trusted                            [INFO]
+  publisher accepted     observed: yes                                expected: yes                                [OK]
+  signer common name     observed: Microsoft Windows Hardware Compatibility Publisher expected: Microsoft Windows Hardware Compatibility Publisher [OK]
+
+-- filter extension (located in the driver store FileRepository) ---
+  store search           observed: %SystemRoot%\System32\DriverStore\FileRepository\usbip2_filter.inf_* [INFO]
+  package found          observed: yes                                expected: yes                                [OK]
+  INF name               observed: usbip2_filter.inf                  expected: usbip2_filter.inf                  [OK]
+  provider               observed: USBIP-WIN2                         expected: USBIP-WIN2                         [OK]
+  DriverVer              observed: 21.14.27.661                       expected: 21.14.27.661                       [OK]
+  architecture           observed: X64                                expected: X64                                [OK]
+  driver store target    observed: resolved                           expected: resolved                           [OK]
+  catalog file           observed: usbip2_filter.cat                  [INFO]
+  device node            observed: not applicable (extension package; the host controller carries presence and health) [INFO]
+  signature trusted      observed: yes                                expected: yes                                [OK]
+  signature flags        observed: none                               [INFO]
+  trust diagnostic       observed: trusted                            [INFO]
+  publisher accepted     observed: yes                                expected: yes                                [OK]
+  signer common name     observed: Microsoft Windows Hardware Compatibility Publisher expected: Microsoft Windows Hardware Compatibility Publisher [OK]
+
+-- usbip.exe userspace client ------------------------------------
+  resolved path          observed: C:\Program Files\USBip\usbip.exe   [INFO]
+  file found             observed: yes                                expected: yes                                [OK]
+  file name              observed: usbip.exe                          expected: usbip.exe                          [OK]
+  ProductVersion         observed: 0.9.7.7                            expected: 0.9.7.7                            [OK]
+  signature trusted      observed: yes                                expected: yes                                [OK]
+  signature flags        observed: none                               [INFO]
+  trust diagnostic       observed: trusted                            [INFO]
+  signer common name     observed: Cloudyne Systems (Scheibling Consulting AB) [INFO]
+
+-- notes ------------------------------------------------------
+  This command is read-only. It does not release the controller, request
+  elevation, attach a device, start a USB/IP server, or change any setting.
+  Every [MISMATCH] is an observed identity/trust difference. A complete match
+  identifies a package baseline only; it never approves VIIPER use or recommends
+  installing or replacing a driver. Attach this report when auditing a package.
+  No device instance paths, serials, addresses, driver store paths, or user
+  paths are included.
+
+
+

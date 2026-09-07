@@ -4599,3 +4599,47 @@ findable. Negative control: `git grep -i "Virtual Bus\|ScpVBus\|DIFxAPI"` now
 returns only NOTICE's removal record and the two inherited mentions above.
 
 Suite: **1062 passed / 0 failed** (CI filter), canonical x64 Release build.
+
+## 2026-09-06 — VIIPER v0.1.2 pin: VM plug validation, all five output types
+
+The gap the previous entry named is closed. From checkpoint
+`viiper-006-installer-validated-20260803` in `Win 11 25H2 Test ENV`, on
+usbip-win2 0.9.7.7 with no physical controller, one virtual device of **every**
+output type was plugged and unplugged against v0.1.2: `ViiperX360` as `xbox360`
+(045e:028e), `ViiperDS4` as `dualshock4` with the audio duplex stream
+(`frameVersion=3`, 054c:05c4), `ViiperDualSense` as
+`dualsensecombinedaudioduplexv5` (054c:0ce6), `ViiperDualSenseEdge` as
+`dualsenseedgecombinedaudioduplexv5` (054c:0df2) and `ViiperSwitch2Pro` as
+`ns2pro` (057e:2069). Both DualSense personas took `frameVersion=5` on the first
+attempt with no fallback line, so the V5-first negotiation holds on the new
+backend. Measured per run, independently of Thrum, over VIIPER's own local API
+(a NUL-terminated TCP line protocol on 3242 — not HTTP, which is why an earlier
+`Invoke-WebRequest` probe timed out and proved nothing): the API device type,
+`usbip port`, the PnP tree, two censuses 30 s apart showing the stream alive,
+then a clean unplug with no bus, no import, no present PnP device and the
+backend and both usbip services still running. Also measured: the installer
+path installing v0.1.2 from a staged digest-verified archive (both digests, the
+`v0.1.2 (f5d097b)` stamp, `licenses.txt`, no autostart, `--update-notify none`,
+driver pair re-validated) and backend stop-on-exit in both directions — stopped
+when Thrum owned it and nothing else used it, left running when a foreign device
+was registered, each stated by the app in its own log.
+
+Negative controls, two. A copy of the archive with **one byte flipped** and its
+size left identical was refused by name — `expected 66A9BBD4…4A46, actual
+CF09E4BE…3969` — with the installed backend unchanged, so the refusal is the
+digest check firing and not a size heuristic. And the first `ViiperX360` attempt
+failed on its own: the guest had not acknowledged the experimental-driver
+disclosure, the gate refused before any device was created, and the run passed
+only after the two Settings switches were turned on. A plug measurement that had
+been incapable of failing would have reported PASS there.
+
+Not proven, and the report says so: physical input, motor feedback, audio
+payload correctness, multiple simultaneous pads, and whether v0.1.2 ever emitted
+a `0x84` frame — its log never names a frame type at any level, so the server
+log cannot answer that. What was shown instead is the property behind the
+question: 2.4 MB of real speaker PCM crossed the V5 stream with zero drops,
+zero write failures and zero ERROR/WARN lines, and Thrum neither errored nor
+disconnected. No Thrum defect was found; no application code changed.
+Evidence: `vm-validation-reports/viiper-012-plug-validation-20260906/REPORT.md`.
+
+Suite: **1062 passed / 0 failed** (CI filter).

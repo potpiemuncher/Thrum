@@ -1,0 +1,147 @@
+?srvlog_mark=3113
+=== OutputSlots.xml written ===
+<?xml version="1.0" encoding="utf-8"?>
+<OutputSlots app_version="0.9.0.0">
+  <Slot idx="0"><DeviceType>ViiperSwitch2Pro</DeviceType></Slot>
+</OutputSlots>
+
+=== PRE-START census ===
+bus/list -> {"buses":[]}
+=== PRE-START usbip port ===
+
+=== starting Thrum ===
+thrum_alive=True
+device_seen=True
+waited_s=5
+=== CENSUS 1 ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x057e","pid":"0x2069","type":"ns2pro","deviceSpecific":{"battery_level":9,"battery_volts":3800,"charging":false,"external_power":true,"serial_number":"VIIPER-NS2PRO-00"}}]}
+=== usbip port (census 1) ===
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Nintendo Co., Ltd : unknown product (057e:2069)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev 001/001
+
+=== PnP (census 1) ===
+OK | HIDClass | USB Input Device | USB\VID_057E&PID_2069&MI_00\3&2356D3FD&0&0000
+OK | USBDevice | Pro Controller | USB\VID_057E&PID_2069&MI_01\3&2356D3FD&0&0001
+OK | USB | USB Composite Device | USB\VID_057E&PID_2069\00
+=== CENSUS 2 (30 s later, dt=30s) ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x057e","pid":"0x2069","type":"ns2pro","deviceSpecific":{"battery_level":9,"battery_volts":3800,"charging":false,"external_power":true,"serial_number":"VIIPER-NS2PRO-00"}}]}
+=== Thrum log ===
+thrum_log_lines=17
+2026-09-06 17:00:12.1372|INFO|Thrum version 0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-06 17:00:12.1372|INFO|Thrum exe file: Thrum.exe
+2026-09-06 17:00:12.1372|INFO|Thrum Assembly Architecture: x64
+2026-09-06 17:00:12.1372|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-06 17:00:12.1372|INFO|OS Product Name: Windows 10 Pro
+2026-09-06 17:00:12.1372|INFO|OS Release ID: 2009
+2026-09-06 17:00:12.1372|INFO|System Architecture: x64
+2026-09-06 17:00:12.1372|INFO|Logger created
+2026-09-06 17:00:12.1824|INFO|LinkedProfiles.xml can't be found.
+2026-09-06 17:00:12.5776|INFO|Running as Admin
+2026-09-06 17:00:12.5776|INFO|Output slot #1 has permanent type ViiperSwitch2Pro
+2026-09-06 17:00:13.5903|INFO|Starting...
+2026-09-06 17:00:15.5918|INFO|Using output KB+M handler: SendInput
+2026-09-06 17:00:15.5918|INFO|VIIPER virtual-controller backend ready
+2026-09-06 17:00:15.5918|INFO|Searching for controllers...
+2026-09-06 17:00:15.5918|INFO|Using Shared Mode
+2026-09-06 17:00:15.6587|INFO|Plugging in virtual Switch 2 Pro Controller in output slot #1
+=== asking Thrum to exit (UIA WindowPattern.Close on the shell window) ===
+window: 
+window: Thrum
+aux close failed:  Exception calling "GetCurrentPattern" with "1" argument(s): "Unsupported Pattern."
+closed main window
+
+thrum_exited_cleanly=True
+=== POST-UNPLUG census ===
+bus/list -> {"buses":[]}
+=== POST-UNPLUG usbip port ===
+
+=== POST-UNPLUG PnP ===
+
+=== POST-UNPLUG backend + services ===
+viiper_process=1
+usbip2_ude=Running
+usbip2_filter=Running
+=== VIIPER server log for this run ===
+srvlog_new_lines=76
+--- frame/version/error/device lines (first 120) ---
+time=2026-09-06T17:00:11.908-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51629 path=bus/list
+time=2026-09-06T17:00:11.908-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51629 path=bus/list
+time=2026-09-06T17:00:12.490-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51631 path=bus/list
+time=2026-09-06T17:00:12.490-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51631 path=bus/list
+time=2026-09-06T17:00:12.547-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51633 path=bus/list
+time=2026-09-06T17:00:12.547-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51633 path=bus/list
+time=2026-09-06T17:00:15.594-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51636 path=bus/list
+time=2026-09-06T17:00:15.594-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51636 path=bus/list
+time=2026-09-06T17:00:15.623-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51638 path=bus/create
+time=2026-09-06T17:00:15.623-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51638 path=bus/create
+time=2026-09-06T17:00:15.629-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51639 path=bus/1/add
+time=2026-09-06T17:00:15.629-07:00 level=INFO msg="Auto-attaching localhost client via native IOCTL" remote=127.0.0.1:51639 busID=1 deviceID=1
+time=2026-09-06T17:00:15.629-07:00 level=DEBUG msg="Found usbip-win2 device" remote=127.0.0.1:51639 path=\\?\root#usb#0000#{b4030c06-dc5f-4fcc-87eb-e5515a0935c0}
+time=2026-09-06T17:00:15.629-07:00 level=DEBUG msg="Opened device handle" remote=127.0.0.1:51639
+time=2026-09-06T17:00:15.630-07:00 level=INFO msg="Import request" busid=1-1
+time=2026-09-06T17:00:15.631-07:00 level=INFO msg="Successfully attached device via IOCTL" remote=127.0.0.1:51639 busID=1 deviceID=1 usbPort=1
+time=2026-09-06T17:00:15.631-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51639 path=bus/1/add
+time=2026-09-06T17:00:15.655-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51641 path=bus/1/1
+time=2026-09-06T17:00:15.655-07:00 level=INFO msg="api stream begin" remote=127.0.0.1:51641 path=bus/1/1
+time=2026-09-06T17:00:16.930-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51643 path=bus/list
+time=2026-09-06T17:00:16.930-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51643 path=bus/list
+time=2026-09-06T17:00:16.931-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51644 path=bus/1/list
+time=2026-09-06T17:00:16.931-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51644 path=bus/1/list
+time=2026-09-06T17:00:16.931-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51645 path=bus/list
+time=2026-09-06T17:00:16.931-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51645 path=bus/list
+time=2026-09-06T17:00:16.933-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51646 path=bus/1/list
+time=2026-09-06T17:00:16.933-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51646 path=bus/1/list
+time=2026-09-06T17:00:47.073-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51654 path=bus/list
+time=2026-09-06T17:00:47.073-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51654 path=bus/list
+time=2026-09-06T17:00:47.073-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51655 path=bus/1/list
+time=2026-09-06T17:00:47.073-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51655 path=bus/1/list
+time=2026-09-06T17:00:50.136-07:00 level=INFO msg="api stream end" remote=127.0.0.1:51641 path=bus/1/1
+time=2026-09-06T17:00:50.157-07:00 level=INFO msg="Client disconnected" error="read URB header: EOF"
+time=2026-09-06T17:00:50.160-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51656 path=bus/1/remove
+time=2026-09-06T17:00:50.160-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51656 path=bus/1/remove
+time=2026-09-06T17:00:50.161-07:00 level=DEBUG msg="Started bus cleanup goroutine (RemoveDeviceByID)"
+time=2026-09-06T17:00:50.162-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51657 path=bus/remove
+time=2026-09-06T17:00:50.162-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51657 path=bus/remove
+time=2026-09-06T17:01:00.145-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51658 path=bus/list
+time=2026-09-06T17:01:00.145-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51658 path=bus/list
+--- distinct message texts (first 60) ---
+    21x msg="continuing unauthenticated connection" remote=N.N.N.N:N
+     8x msg="api handler success" remote=N.N.N.N:N path=bus/list
+     8x msg="api cmd" remote=N.N.N.N:N path=bus/list
+     5x msg="api handler success" remote=N.N.N.N:N path=ping
+     5x msg="api cmd" remote=N.N.N.N:N path=ping
+     3x msg="api handler success" remote=N.N.N.N:N path=bus/N/list
+     3x msg="api cmd" remote=N.N.N.N:N path=bus/N/list
+     1x msg="nsNpro disconnected, serial released" serial=VIIPER-NSNPRO-N
+     1x msg="api stream end" remote=N.N.N.N:N path=bus/N/N
+     1x msg="api stream begin" remote=N.N.N.N:N path=bus/N/N
+     1x msg="client disconnected" remote=N.N.N.N:N
+     1x msg="Started bus cleanup goroutine (RemoveDeviceByID)"
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/remove
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/remove
+     1x msg="Client disconnected" error="read URB header: EOF"
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/N/remove
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/N/remove
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/N/N
+     1x msg="Auto-attaching localhost client via native IOCTL" remote=N.N.N.N:N busID=N deviceID=N
+     1x msg="Found usbip-winN device" remote=N.N.N.N:N path=\\?\root#usb#N#{bNcN-dcNf-Nfcc-Neb-eNaNcN}
+     1x msg="Opened device handle" remote=N.N.N.N:N
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/create
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/create
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/N/add
+     1x msg="IOCTL completed" remote=N.N.N.N:N bytesReturned=N portOutput=N
+     1x msg="Successfully attached device via IOCTL" remote=N.N.N.N:N busID=N deviceID=N usbPort=N
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/N/add
+     1x msg="Client connected" remote=[::N]:N
+     1x msg=OP_REQ_IMPORT
+     1x msg="Import request" busid=N-N
+
+
+
+

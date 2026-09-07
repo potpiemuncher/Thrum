@@ -1,0 +1,58 @@
+?
+Thrum VIIPER virtual controller setup
+Installing or repairing VIIPER and usbip-win2.
+Verification helper: C:\p2\v012\app\Thrum.exe
+
+== Pinned packages ==
+Pinned usbip: USBip-0.9.7.7-x64.exe (0.9.7.7), SHA-256 51620FA5F9F8BE5932BC9D786DEEE557CE06D5407A99CAB490DCFAC71F185FEA, signed by "Cloudyne Systems (Scheibling Consulting AB)".
+Pinned viiper: viiper-windows-amd64.zip (v0.1.2), SHA-256 66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46, unsigned upstream.
+Backend start arguments: --update-notify none server (the update notifier is disabled on every path that starts the backend).
+
+== Checking usbip-win2 ==
+usbip-win2 pinned release: 0.9.7.7 (USBip-0.9.7.7-x64.exe).
+usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.7.7; tier ExperimentalBaseline.
+Decision: usbip-win2 0.9.7.7 is already installed and matches the pinned release exactly; the driver step is skipped.
+usbip-win2 0.9.7.7 is already installed and matches the pinned release exactly; the driver step is skipped.
+
+== Validating the installed driver packages ==
+Post-install validation: driver diagnostic exit code 0.
+Decision: The installed usbip-win2 package pair matches a release this build recognises, and its catalogs are trusted.
+Full driver report saved to %TEMP%\Thrum\viiper-driver-validation-20260906-233901Z.txt.
+The installed usbip-win2 package pair matches a release this build recognises, and its catalogs are trusted.
+
+== Installing VIIPER ==
+Pinned viiper release v0.1.2: viiper-windows-amd64.zip, expected SHA-256 66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46.
+Using a staged local file instead of downloading. It is verified against the same pin.
+Verifying viiper-windows-amd64.zip against pinned release v0.1.2.
+File name: expected viiper-windows-amd64.zip, actual viiper-windows-amd64.zip.
+Source: https://github.com/hbashton/VIIPER/releases/download/v0.1.2/viiper-windows-amd64.zip
+Size: expected 4809388 bytes, actual 4809388 bytes.
+SHA-256: expected 66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46, actual 66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46.
+Authenticode: not required for this component (upstream publishes it unsigned), so the pinned SHA-256 is the whole identity check.
+Decision: viiper-windows-amd64.zip matches the pinned SHA-256 for release v0.1.2.
+viiper-windows-amd64.zip matches the pinned SHA-256 for release v0.1.2.
+Verifying viiper.exe against pinned release v0.1.2.
+File name: expected viiper.exe, actual viiper.exe.
+Source: https://github.com/hbashton/VIIPER/releases/download/v0.1.2/viiper-windows-amd64.zip -> viiper.exe
+Size: expected 11407872 bytes, actual 11407872 bytes.
+SHA-256: expected 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A, actual 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A.
+Authenticode: not required for this component (upstream publishes it unsigned), so the pinned SHA-256 is the whole identity check.
+Decision: viiper.exe matches the pinned SHA-256 for release v0.1.2.
+viiper.exe matches the pinned SHA-256 for release v0.1.2.
+VIIPER and its licenses.txt were installed to %LOCALAPPDATA%\VIIPER
+
+== Startup behaviour ==
+VIIPER autostart: none found. Setup does not create any: Thrum starts the backend when a profile needs it and stops it on exit.
+Decision: VIIPER does not start at logon, and setup does not make it start at logon.
+VIIPER does not start at logon, and setup does not make it start at logon.
+
+== Verification ==
+Starting the backend for verification: viiper.exe --update-notify none server
+VIIPER API is ready.
+The previous backend was kept at %LOCALAPPDATA%\VIIPER\viiper.exe.previous for rollback.
+Setup complete. VIIPER is ready for Thrum.
+
+SETUP_EXIT=0
+
+
+

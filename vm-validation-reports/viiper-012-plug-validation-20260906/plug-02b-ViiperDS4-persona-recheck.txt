@@ -1,0 +1,35 @@
+?census=bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x05c4","type":"dualshock4","deviceSpecific":{"battery_status":26,"battery_voltage":4.2,"board":"JDM-055","build_time":"2021-09-17T11:34:00Z","microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":6400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":1920,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"1111020BF619A500","speakerInterfaceActive":false,"temperature_celsius":28}}]}
+--- FULL Thrum log ---
+2026-09-06 17:11:31.7612|INFO|Thrum version 0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-06 17:11:31.7633|INFO|Thrum exe file: Thrum.exe
+2026-09-06 17:11:31.7633|INFO|Thrum Assembly Architecture: x64
+2026-09-06 17:11:31.7633|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-06 17:11:31.7633|INFO|OS Product Name: Windows 10 Pro
+2026-09-06 17:11:31.7633|INFO|OS Release ID: 2009
+2026-09-06 17:11:31.7633|INFO|System Architecture: x64
+2026-09-06 17:11:31.7633|INFO|Logger created
+2026-09-06 17:11:31.8092|INFO|LinkedProfiles.xml can't be found.
+2026-09-06 17:11:32.2628|INFO|Running as Admin
+2026-09-06 17:11:32.2628|INFO|Output slot #1 has permanent type ViiperDS4
+2026-09-06 17:11:33.2788|INFO|Starting...
+2026-09-06 17:11:35.2801|INFO|Using output KB+M handler: SendInput
+2026-09-06 17:11:35.2801|INFO|VIIPER virtual-controller backend ready
+2026-09-06 17:11:35.2801|INFO|Searching for controllers...
+2026-09-06 17:11:35.2801|INFO|Using Shared Mode
+2026-09-06 17:11:35.3638|INFO|VIIPER DualShock4 virtual input presentation is capped at 200 Hz with latest-state coalescing.
+2026-09-06 17:11:35.3638|INFO|Plugging in virtual DualShock 4 Controller in output slot #1
+--- server log: device/api create lines ---
+time=2026-09-06T17:11:35.329-07:00 level=INFO msg="api cmd" remote=127.0.0.1:52599 path=bus/1/add
+time=2026-09-06T17:11:35.331-07:00 level=INFO msg="DS4 device instantiated" vid=1356 pid=1476 interfaces=6
+time=2026-09-06T17:11:35.335-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:52599 path=bus/1/add
+time=2026-09-06T17:11:35.359-07:00 level=INFO msg="DualShock 4 input stream configured" remote=127.0.0.1:52601 microphoneInput=true speakerOutput=true frameVersion=3
+window: 
+window: Thrum
+aux close failed:  Exception calling "GetCurrentPattern" with "1" argument(s): "Unsupported Pattern."
+closed main window
+
+post census=bus/list -> {"buses":[]}
+
+
+

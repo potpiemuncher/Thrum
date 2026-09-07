@@ -30,7 +30,7 @@ jobs:
         run: dotnet restore
 
       - name: Run tests (x64)
-        run: dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64 --verbosity normal
+        run: dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64 --verbosity normal
 
   build:
     runs-on: windows-2022
@@ -64,7 +64,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build ${{ matrix.platform }}
-        run: dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-${{ matrix.platform }} --self-contained true /p:platform=${{ matrix.platform }} -o .\bin\${{ matrix.platform }}\Release\output
+        run: dotnet publish .\Thrum\Thrum.csproj -c Release -r win-${{ matrix.platform }} --self-contained true /p:platform=${{ matrix.platform }} -o .\bin\${{ matrix.platform }}\Release\output
 
       - name: Package ${{ matrix.platform }}
         run: python .\utils\post-build.py .\bin\${{ matrix.platform }}\Release\output . ${{ env.VERSION }}

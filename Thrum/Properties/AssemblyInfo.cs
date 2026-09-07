@@ -2,7 +2,7 @@
 
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("DS4WindowsTests")]
+[assembly: InternalsVisibleTo("Thrum.Tests")]
 
 [assembly: ThemeInfo(
     ResourceDictionaryLocation.None, //where theme specific resource dictionaries are located

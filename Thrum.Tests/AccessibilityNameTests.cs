@@ -149,7 +149,7 @@ public class AccessibilityNameTests
         int inspected = 0;
 
         foreach (string file in Directory.GetFiles(
-            Path.Combine(FindRepositoryRoot(), "DS4Windows", "DS4Forms"),
+            Path.Combine(FindRepositoryRoot(), "Thrum", "DS4Forms"),
             "*.xaml", SearchOption.AllDirectories))
         {
             XDocument document = XDocument.Load(file, LoadOptions.SetLineInfo);
@@ -224,7 +224,7 @@ public class AccessibilityNameTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

@@ -330,9 +330,9 @@ ASALocalRun/
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
 
-!DS4Windows/libs/x64/
-!DS4Windows/libs/x86/
+!Thrum/libs/x64/
+!Thrum/libs/x86/
 
 # Build artifact: utils/post-build.py writes the packaged version here.
-# The tracked copy that matters is DS4Windows/newest.txt.
+# The tracked copy that matters is Thrum/newest.txt.
 /newest.txt

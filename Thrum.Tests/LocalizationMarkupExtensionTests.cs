@@ -127,7 +127,7 @@ namespace DS4WindowsTests
         public void EveryMigratedXamlKeyResolves()
         {
             string formsRoot = Path.Combine(RepositoryRoot(),
-                "DS4Windows", "DS4Forms");
+                "Thrum", "DS4Forms");
             string[] files = Directory.GetFiles(formsRoot, "*.xaml",
                     SearchOption.AllDirectories)
                 .Where(path => File.ReadAllText(path).Contains(
@@ -186,7 +186,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void ApplicationSourceHasNoLegacyLocalizationRuntimeReferences()
         {
-            string appRoot = Path.Combine(RepositoryRoot(), "DS4Windows");
+            string appRoot = Path.Combine(RepositoryRoot(), "Thrum");
             string[] legacyTokens =
             {
                 "WPFLocalizeExtension",
@@ -221,7 +221,7 @@ namespace DS4WindowsTests
         private static bool IsAuditedApplicationSource(string path)
         {
             string relative = Path.GetRelativePath(
-                Path.Combine(RepositoryRoot(), "DS4Windows"), path);
+                Path.Combine(RepositoryRoot(), "Thrum"), path);
             if (relative.Split(Path.DirectorySeparatorChar)
                 .Any(segment => segment.Equals("bin",
                                     StringComparison.OrdinalIgnoreCase) ||
@@ -288,7 +288,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(
-                    directory.FullName, "DS4WindowsWPF.sln")))
+                    directory.FullName, "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

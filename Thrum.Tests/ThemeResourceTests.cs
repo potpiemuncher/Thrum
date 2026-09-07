@@ -44,7 +44,7 @@ namespace DS4WindowsTests
             XNamespace xaml =
                 "http://schemas.microsoft.com/winfx/2006/xaml";
             XDocument dictionary = XDocument.Load(Path.Combine(
-                FindRepositoryRoot(), "DS4Windows", "DS4Forms", "Themes",
+                FindRepositoryRoot(), "Thrum", "DS4Forms", "Themes",
                 theme + ".xaml"));
             string[] definedKeys = dictionary.Descendants()
                 .Select(element => (string)element.Attribute(xaml + "Key"))
@@ -62,7 +62,7 @@ namespace DS4WindowsTests
         private static string[] ReadShellDynamicResourceKeys()
         {
             string themeDirectory = Path.Combine(FindRepositoryRoot(),
-                "DS4Windows", "DS4Forms", "Themes");
+                "Thrum", "DS4Forms", "Themes");
             string styles = string.Join("\n", new[]
             {
                 "BridgeShellStyles.xaml",
@@ -84,7 +84,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName,
-                    "DS4WindowsWPF.sln")))
+                    "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

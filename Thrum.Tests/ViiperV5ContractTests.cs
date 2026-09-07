@@ -10,7 +10,7 @@ namespace DS4WindowsTests
         public void OfficialV006PersonasAreTriedBeforeLegacyFallbacks()
         {
             string source = File.ReadAllText(Path.Combine(FindRepositoryRoot(),
-                "DS4Windows", "DS4Control", "Viiper", "ViiperOutDevice.cs"));
+                "Thrum", "DS4Control", "Viiper", "ViiperOutDevice.cs"));
 
             AssertBefore(source, "dualsenseaudioonlyduplexv5",
                 "dualsenseaudioonlyduplexv4");
@@ -41,7 +41,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName,
-                        "DS4WindowsWPF.sln")))
+                        "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

@@ -362,7 +362,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void DisposeStopsWriterBeforeFinalUsbZeroThenRetiresOutput()
         {
-            string source = File.ReadAllText(SourcePath("DS4Windows",
+            string source = File.ReadAllText(SourcePath("Thrum",
                 "DS4Control", "AudioHapticsService.cs"));
             int dispose = source.LastIndexOf("public void Dispose()",
                 StringComparison.Ordinal);
@@ -397,7 +397,7 @@ namespace DS4WindowsTests
             DirectoryInfo directory =
                 new DirectoryInfo(AppContext.BaseDirectory);
             while (directory != null && !File.Exists(Path.Combine(
-                directory.FullName, "DS4WindowsWPF.sln")))
+                directory.FullName, "Thrum.sln")))
             {
                 directory = directory.Parent;
             }

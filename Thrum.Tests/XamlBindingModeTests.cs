@@ -60,7 +60,7 @@ public class XamlBindingModeTests
     public void RangeBaseValueBindingsAreExplicitlyOneWayOrTargetAWritableProperty()
     {
         string formsDirectory = Path.Combine(FindRepositoryRoot(),
-            "DS4Windows", "DS4Forms");
+            "Thrum", "DS4Forms");
         Assembly app = typeof(DS4Windows.Global).Assembly;
 
         List<string> offenders = new List<string>();
@@ -147,7 +147,7 @@ public class XamlBindingModeTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

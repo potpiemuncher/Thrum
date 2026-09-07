@@ -4746,3 +4746,24 @@ Negative controls: green rule flipped, ScrimColor removed, UAC sentence
 reworded, consent box pre-checked - each failed exactly the guarding test.
 
 Suite: **1118 passed / 0 failed** (CI filter), from 1076. Build: 0 errors.
+
+## 2026-09-06 — Repository layout: DS4Windows folders renamed to Thrum
+
+`DS4Windows/` → `Thrum/`, `DS4WindowsTests/` → `Thrum.Tests/`,
+`DS4WindowsWPF.sln` → `Thrum.sln`, `DS4WinWPF.csproj` → `Thrum.csproj`,
+`DS4WindowsTests.csproj` → `Thrum.Tests.csproj` (test assembly is now
+`Thrum.Tests`; `InternalsVisibleTo` follows). Paths only: the `DS4Windows` /
+`DS4WinWPF` namespaces, the `<DS4Windows>` profile root element and the legacy
+`%APPDATA%\DS4Windows` import source are identity the code and users' files
+depend on and are unchanged. Updated: solution, project reference, CI and
+release workflows, `.gitignore` lib exceptions, README and CONTRIBUTING
+commands, the 16 tests that locate files from the solution, and the doc
+links under `docs/dev`. `docs/dev/identity-map.md` is left as the historical
+record it is.
+
+Canonical commands are now:
+
+```
+dotnet build .\Thrum.sln -c Release -p:Platform=x64
+dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64
+```

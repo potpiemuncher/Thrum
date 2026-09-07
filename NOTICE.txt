@@ -43,7 +43,7 @@ they cover; this file does not restate them:
 --------------------------------------------------------------------------------
 
 Licence identifiers are taken from each package's own metadata or bundled
-licence file. Versions are those referenced by DS4Windows/DS4WinWPF.csproj.
+licence file. Versions are those referenced by Thrum/Thrum.csproj.
 
 MIT
     bloomtom.HttpProgress 2.3.2 — HttpProgress.dll

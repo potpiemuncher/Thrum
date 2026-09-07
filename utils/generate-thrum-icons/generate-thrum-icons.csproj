@@ -2,14 +2,14 @@
 
   <!--
     Standalone generator for Thrum's placeholder icon set. Deliberately NOT part
-    of DS4WindowsWPF.sln: it is a build-time authoring tool, not a product
+    of Thrum.sln: it is a build-time authoring tool, not a product
     component, and adding it to the solution would put it on the CI critical
     path for no benefit.
 
     Run it from the repository root with:
         dotnet run  (dash dash) project utils/generate-thrum-icons
 
-    It rewrites DS4Windows/Resources/*.ico in place and is idempotent — running
+    It rewrites Thrum/Resources/*.ico in place and is idempotent — running
     it twice produces byte-identical files.
   -->
 

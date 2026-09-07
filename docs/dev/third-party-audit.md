@@ -11,7 +11,7 @@ The rule was: **the distributed artifact is the authority.** A licence claimed b
 badge, or a third-party aggregator is not evidence about the thing we ship.
 
 1. **What actually ships** was taken from a framework-dependent publish of
-   `DS4WinWPF.csproj` (the shape CI and `release.yml` produce), not from the csproj's
+   `Thrum.csproj` (the shape CI and `release.yml` produce), not from the csproj's
    `PackageReference` list — the two differ, because transitive dependencies ship too.
 2. **NuGet licences** were read from each package's own `.nuspec` in the local package cache:
    the SPDX `licenseExpression` where present, otherwise the bundled licence file, read in full.
@@ -189,7 +189,7 @@ dependency licence manifest can be produced, or delete it if the editor is no lo
 
 ## Guard tests
 
-`DS4WindowsTests/ThirdPartyNoticeTests.cs` (5 tests) checks that every `PackageReference` and
+`Thrum.Tests/ThirdPartyNoticeTests.cs` (5 tests) checks that every `PackageReference` and
 every DLL under `DS4Windows/libs` is named somewhere in `NOTICE.txt`, that the three
 authoritative notice files still exist and are still cross-referenced, that the removed toolkit
 does not return to the project or NOTICE, and that the UNRESOLVED section keeps saying it is

@@ -186,7 +186,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void DenseRailsUseBoundCardExpandersWithVisibleHelp()
         {
-            XDocument document = XDocument.Load(SourcePath("DS4Windows",
+            XDocument document = XDocument.Load(SourcePath("Thrum",
                 "DS4Forms", "ProfileEditor.xaml"));
             Dictionary<string, string> expectedBindings = new()
             {
@@ -218,7 +218,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void SearchUsesRuntimeLabelsAndThemeResourceHighlighting()
         {
-            XDocument document = XDocument.Load(SourcePath("DS4Windows",
+            XDocument document = XDocument.Load(SourcePath("Thrum",
                 "DS4Forms", "ProfileEditor.xaml"));
             XElement searchBox = document.Descendants(
                     Presentation + "TextBox")
@@ -229,13 +229,13 @@ namespace DS4WindowsTests
                 (string)searchBox.Attribute("TextChanged"));
 
             string searchController = File.ReadAllText(SourcePath(
-                "DS4Windows", "DS4Forms",
+                "Thrum", "DS4Forms",
                 "ProfileEditorSearchController.cs"));
             StringAssert.Contains(searchController,
                 "LogicalTreeHelper.GetChildren(current)");
             StringAssert.Contains(searchController, "TryGetSearchLabel");
 
-            string highlighter = File.ReadAllText(SourcePath("DS4Windows",
+            string highlighter = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ProfileEditorSearchHighlighter.cs"));
             StringAssert.Contains(highlighter,
                 "SetResourceReference(Border.BorderBrushProperty");
@@ -248,7 +248,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void DenseRailNumericSettingsAllHaveResetEntries()
         {
-            XDocument document = XDocument.Load(SourcePath("DS4Windows",
+            XDocument document = XDocument.Load(SourcePath("Thrum",
                 "DS4Forms", "ProfileEditor.xaml"));
             string[] sectionNames =
             {
@@ -289,7 +289,7 @@ namespace DS4WindowsTests
                 "Update this audited count when dense-rail numeric inputs " +
                 "change.");
 
-            string controller = File.ReadAllText(SourcePath("DS4Windows",
+            string controller = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ProfileEditorResetController.cs"));
             StringAssert.Contains(controller,
                 "LogicalTreeHelper.GetChildren(current)");
@@ -310,7 +310,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName,
-                    "DS4WindowsWPF.sln")))
+                    "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

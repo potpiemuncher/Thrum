@@ -60,7 +60,7 @@ public class XamlStaticResourceTests
     public void EveryLocallyDeclaredConverterReferenceHasADeclarationInItsFile()
     {
         string formsDirectory = Path.Combine(FindRepositoryRoot(),
-            "DS4Windows", "DS4Forms");
+            "Thrum", "DS4Forms");
         List<string> offenders = new List<string>();
         int referencingFiles = 0;
 
@@ -107,7 +107,7 @@ public class XamlStaticResourceTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

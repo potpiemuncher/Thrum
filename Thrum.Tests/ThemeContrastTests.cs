@@ -45,7 +45,7 @@ public class ThemeContrastTests
     [DataRow("DarkTheme")]
     public void DisabledTextRemainsLegibleAgainstCardBackgrounds(string theme)
     {
-        string path = Path.Combine(FindRepositoryRoot(), "DS4Windows",
+        string path = Path.Combine(FindRepositoryRoot(), "Thrum",
             "DS4Forms", "Themes", theme + ".xaml");
         string xaml = File.ReadAllText(path);
 
@@ -65,7 +65,7 @@ public class ThemeContrastTests
     [DataRow("DarkTheme")]
     public void MutedTextRemainsLegibleAgainstCardBackgrounds(string theme)
     {
-        string path = Path.Combine(FindRepositoryRoot(), "DS4Windows",
+        string path = Path.Combine(FindRepositoryRoot(), "Thrum",
             "DS4Forms", "Themes", theme + ".xaml");
         string xaml = File.ReadAllText(path);
 
@@ -123,7 +123,7 @@ public class ThemeContrastTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

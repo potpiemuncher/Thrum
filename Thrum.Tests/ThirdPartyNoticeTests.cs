@@ -55,7 +55,7 @@ public class ThirdPartyNoticeTests
             "could not locate the repository root above " + AppContext.BaseDirectory);
         notice = File.ReadAllText(Path.Combine(repoRoot, "NOTICE.txt"));
         appCsproj = File.ReadAllText(
-            Path.Combine(repoRoot, "DS4Windows", "DS4WinWPF.csproj"));
+            Path.Combine(repoRoot, "Thrum", "Thrum.csproj"));
     }
 
     [TestMethod]
@@ -95,8 +95,8 @@ public class ThirdPartyNoticeTests
     [TestMethod]
     public void EveryBundledBinaryIsNamedInTheNotice()
     {
-        string libs = Path.Combine(repoRoot, "DS4Windows", "libs");
-        Assert.IsTrue(Directory.Exists(libs), "DS4Windows/libs is missing.");
+        string libs = Path.Combine(repoRoot, "Thrum", "libs");
+        Assert.IsTrue(Directory.Exists(libs), "Thrum/libs is missing.");
 
         // Bundled binaries have no package metadata to fall back on, so an
         // unlisted one is the least discoverable kind of omission.
@@ -119,9 +119,9 @@ public class ThirdPartyNoticeTests
         // one is moved or renamed, the cross-reference has to move with it.
         foreach (string authoritative in new[]
         {
-            "DS4Windows/ThirdParty/SbcSharp/LICENSE.txt",
-            "DS4Windows/Resources/ControllerArtwork.NOTICE.txt",
-            "DS4Windows/Resources/ICONS.NOTICE.txt",
+            "Thrum/ThirdParty/SbcSharp/LICENSE.txt",
+            "Thrum/Resources/ControllerArtwork.NOTICE.txt",
+            "Thrum/Resources/ICONS.NOTICE.txt",
         })
         {
             Assert.IsTrue(File.Exists(Path.Combine(repoRoot,
@@ -161,7 +161,7 @@ public class ThirdPartyNoticeTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName, "NOTICE.txt")) &&
-                Directory.Exists(Path.Combine(directory.FullName, "DS4Windows")))
+                Directory.Exists(Path.Combine(directory.FullName, "Thrum")))
             {
                 return directory.FullName;
             }

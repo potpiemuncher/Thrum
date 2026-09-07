@@ -41,7 +41,7 @@ public class InHouseToolkitMigrationTests
     [TestMethod]
     public void EveryToolkitControlInstanceWasMigratedWithoutCountDrift()
     {
-        string forms = Path.Combine(FindRepositoryRoot(), "DS4Windows",
+        string forms = Path.Combine(FindRepositoryRoot(), "Thrum",
             "DS4Forms");
         string xaml = string.Join("\n", ViewFiles.Select(file =>
             File.ReadAllText(Path.Combine(forms, file))));
@@ -58,10 +58,10 @@ public class InHouseToolkitMigrationTests
     public void ShippingSourceHasNoToolkitNamespacePackageOrCopiedGlyphs()
     {
         string root = FindRepositoryRoot();
-        string project = File.ReadAllText(Path.Combine(root, "DS4Windows",
-            "DS4WinWPF.csproj"));
-        string source = ReadShippingSource(Path.Combine(root, "DS4Windows"));
-        string darkTheme = File.ReadAllText(Path.Combine(root, "DS4Windows",
+        string project = File.ReadAllText(Path.Combine(root, "Thrum",
+            "Thrum.csproj"));
+        string source = ReadShippingSource(Path.Combine(root, "Thrum"));
+        string darkTheme = File.ReadAllText(Path.Combine(root, "Thrum",
             "DS4Forms", "Themes", "DarkTheme.xaml"));
 
         Assert.IsFalse(project.Contains(
@@ -87,7 +87,7 @@ public class InHouseToolkitMigrationTests
     [TestMethod]
     public void ColorPickerImplementationDoesNotLeakToCallers()
     {
-        string forms = Path.Combine(FindRepositoryRoot(), "DS4Windows",
+        string forms = Path.Combine(FindRepositoryRoot(), "Thrum",
             "DS4Forms");
         string callers = string.Join("\n", Directory.GetFiles(forms, "*.cs",
             SearchOption.TopDirectoryOnly)
@@ -127,7 +127,7 @@ public class InHouseToolkitMigrationTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

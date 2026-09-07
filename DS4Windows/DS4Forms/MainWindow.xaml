@@ -18,7 +18,12 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <local:ImageLocationPaths x:Key="ImgLocPaths" />
     </Window.Resources>
-    <DockPanel>
+    <!--
+        The shell sits in a Grid so the Native PS5 mode setup sheet can slide
+        over it: scrim, then the sheet, both collapsed until opened.
+    -->
+    <Grid x:Name="mainShellRoot">
+    <DockPanel x:Name="mainShellPanel">
         <tb:TaskbarIcon x:Name="notifyIcon" IconSource="{Binding IconSource,Mode=OneWay}" ToolTipText="{Binding TooltipText,Mode=OneWay}" MenuActivation="RightClick" TrayRightMouseUp="NotifyIcon_TrayRightMouseUp" TrayMouseDoubleClick="NotifyIcon_TrayMouseDoubleClick">
             <!--<tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>
@@ -29,7 +34,7 @@
             </tb:TaskbarIcon.ContextMenu>-->
         </tb:TaskbarIcon>
 
-        <StackPanel DockPanel.Dock="Bottom" Height="38" VerticalAlignment="Bottom" Background="{DynamicResource SidebarBackgroundColor}">
+        <StackPanel x:Name="shellFooterPanel" DockPanel.Dock="Bottom" Height="38" VerticalAlignment="Bottom" Background="{DynamicResource SidebarBackgroundColor}">
             <DockPanel Height="38" Margin="10,0,10,0">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <Button x:Name="aboutBtn" BorderThickness="0" Background="{x:Null}" BorderBrush="{x:Null}" Foreground="#FF3881D8"
@@ -50,7 +55,10 @@
                                                  ControllerDetailsRequested="ControllerOverview_ControllerDetailsRequested"
                                                  IdentifyRequested="ControllerOverview_IdentifyRequested"
                                                  LightbarRequested="ControllerOverview_LightbarRequested"
-                                                 DisconnectRequested="ControllerOverview_DisconnectRequested" />
+                                                 DisconnectRequested="ControllerOverview_DisconnectRequested"
+                                                 NativePs5ToggleRequested="ControllerOverview_NativePs5ToggleRequested"
+                                                 NativePs5SetupRequested="ControllerOverview_NativePs5SetupRequested"
+                                                 HidHideClientRequested="ControllerOverview_HidHideClientRequested" />
             </TabItem>
 
             <TabItem x:Name="controllersTab" Header="{lex:Loc Controllers}" Tag="&#xE7FC;" ToolTip="Connected devices, active profiles, battery state, and lightbar controls." IsEnabled="{Binding FullTabsEnabled,Mode=OneWay}">
@@ -1139,4 +1147,16 @@
 
         </controls:ContentHostTabControl>
     </DockPanel>
+
+    <Border x:Name="nativePs5Scrim" Background="{DynamicResource ScrimColor}" Visibility="Collapsed"
+            MouseLeftButtonDown="NativePs5Scrim_MouseLeftButtonDown" />
+    <local:NativePs5SetupSheet x:Name="nativePs5Sheet" Visibility="Collapsed"
+                               HorizontalAlignment="Right" VerticalAlignment="Stretch"
+                               CloseRequested="NativePs5Sheet_CloseRequested"
+                               InstallRequested="NativePs5Sheet_InstallRequested"
+                               RecheckRequested="NativePs5Sheet_RecheckRequested"
+                               AcknowledgementChanged="NativePs5Sheet_AcknowledgementChanged"
+                               AudioConsentChanged="NativePs5Sheet_AudioConsentChanged"
+                               TurnOnRequested="NativePs5Sheet_TurnOnRequested" />
+    </Grid>
 </Window>

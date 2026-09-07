@@ -134,6 +134,17 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public event EventHandler SelectedControllerIsWirelessChanged;
         public event EventHandler SelectedOutputControllerChanged;
         public event EventHandler SelectedOutputControllerNameChanged;
+        public event EventHandler ShowNativePs5ModeChanged;
+        public event EventHandler ShowEmulatedDeviceChoiceChanged;
+
+        /// <summary>
+        /// Raised only when <see cref="SelectedOutputController"/> is written -
+        /// the Overview combo or Native PS5 mode - never by a refresh. The
+        /// VIIPER prompts hang off this one: <see cref="SelectedOutputControllerChanged"/>
+        /// also fires on every selection refresh, and a prompt on that event
+        /// re-asked an unacknowledged user each time a pad connected.
+        /// </summary>
+        public event EventHandler OutputControllerChosen;
         public event EventHandler HapticStrengthPercentChanged;
         public event EventHandler SpeakerOutputEnabledChanged;
         public event EventHandler HeadsetOnlyAudioChanged;
@@ -225,6 +236,110 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public bool SelectedControllerIsWireless => selectedController?.IsWireless == true;
 
+        /// <summary>
+        /// The Overview "Native PS5 mode" card (design handoff N1). One
+        /// instance for the window's life; <see cref="RefreshNativePs5"/>
+        /// republishes it when any of its inputs move.
+        /// </summary>
+        public NativePs5ModeViewModel NativePs5 { get; } = new();
+
+        /// <summary>
+        /// The card is shown only for a DualSense or DualSense Edge; every
+        /// other pad keeps the "Emulated device" combo in the same slot.
+        /// </summary>
+        public bool ShowNativePs5Mode => selectedController?.IsDualSense == true;
+
+        /// <summary>The inverse, for the combo's visibility binding.</summary>
+        public bool ShowEmulatedDeviceChoice => !ShowNativePs5Mode;
+
+        private ViiperDriverReadinessState? nativePs5DriverState;
+        private bool nativePs5BackendReady;
+
+        /// <summary>
+        /// The two facts the card cannot read cheaply on the UI thread: the
+        /// driver validation (a SetupAPI enumeration on first use) and whether
+        /// the backend answers (a socket probe). The window computes them on
+        /// a worker and hands them over here.
+        /// </summary>
+        public void ApplyNativePs5Prerequisites(ViiperDriverReadiness readiness,
+            bool backendReady)
+        {
+            nativePs5DriverState = readiness?.State;
+            nativePs5BackendReady = backendReady;
+            RefreshNativePs5();
+        }
+
+        public bool NativePs5DriverKnownPackage =>
+            nativePs5DriverState == ViiperDriverReadinessState.ValidatedExperimental ||
+            nativePs5DriverState == ViiperDriverReadinessState.Approved;
+
+        public bool NativePs5BackendReady => nativePs5BackendReady;
+
+        /// <summary>Recomputes the card from live state; no-op when nothing moved.</summary>
+        public bool RefreshNativePs5() => NativePs5.Apply(BuildNativePs5Inputs());
+
+        internal NativePs5ModeInputs BuildNativePs5Inputs()
+        {
+            if (!HasValidSelectedDevice || !selectedController.IsDualSense)
+            {
+                return NativePs5ModeInputs.None;
+            }
+
+            int deviceIndex = selectedController.DevIndex;
+            DS4Device device = selectedController.Device;
+            AudioHapticsProfileSettings haptics =
+                deviceIndex < Global.store.audioHapticsSettings.Length
+                    ? Global.store.audioHapticsSettings[deviceIndex]
+                    : null;
+
+            NativePs5HidHideStatus hidHide;
+            if (!Global.hidHideInstalled)
+            {
+                hidHide = NativePs5HidHideStatus.NotInstalled;
+            }
+            else if (device.CurrentExclusiveStatus == DS4Device.ExclusiveStatus.Shared)
+            {
+                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
+            }
+            else
+            {
+                hidHide = NativePs5HidHideStatus.Hiding;
+            }
+
+            return new NativePs5ModeInputs(
+                HasDualSense: true,
+                PhysicalIsEdge: selectedController.IsDualSenseEdge,
+                OutputType: Global.OutContType[deviceIndex].Normalize(),
+                DriverState: nativePs5DriverState,
+                BackendReady: nativePs5BackendReady,
+                ExperimentalAcknowledged: Global.ViiperExperimentalAcknowledged,
+                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints,
+                IsWireless: selectedController.IsWireless,
+                AudioHapticsEnabled: haptics?.Enabled == true,
+                AudioHapticsSource: haptics?.Source ?? AudioHapticsSourceKind.SystemAudio,
+                HidHide: hidHide);
+        }
+
+        /// <summary>The facts the setup sheet (N2) is computed from.</summary>
+        public NativePs5SetupInputs BuildNativePs5SetupInputs()
+        {
+            bool hasDualSense = HasValidSelectedDevice && selectedController.IsDualSense;
+            return new NativePs5SetupInputs(
+                DriverKnownPackage: NativePs5DriverKnownPackage,
+                BackendReady: nativePs5BackendReady,
+                Acknowledged: Global.ViiperExperimentalAcknowledged,
+                IsOn: hasDualSense &&
+                    NativePs5ModeViewModel.IsNativeOutput(
+                        Global.OutContType[selectedController.DevIndex]),
+                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints,
+                HasDualSense: hasDualSense,
+                IsWireless: SelectedControllerIsWireless,
+                NativeDeviceName: hasDualSense && selectedController.IsDualSenseEdge
+                    ? "DualSense Edge" : "DualSense",
+                ProfileName: CurrentProfileName,
+                TransportText: SelectedControllerConnection);
+        }
+
         public OutContType SelectedOutputController
         {
             get => HasValidSelectedDevice ?
@@ -240,12 +355,29 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 }
 
                 int deviceIndex = selectedController.DevIndex;
+                // Native PS5 mode (N8): remember what the profile used before a
+                // virtual DualSense so turning the mode off can restore it, and
+                // forget it once the type is set to anything else by hand.
+                OutContType previous = Global.OutContType[deviceIndex].Normalize();
+                if (NativePs5ModeViewModel.IsNativeOutput(value))
+                {
+                    if (!NativePs5ModeViewModel.IsNativeOutput(previous))
+                    {
+                        Global.PreviousOutputContType[deviceIndex] = previous;
+                    }
+                }
+                else
+                {
+                    Global.PreviousOutputContType[deviceIndex] = OutContType.None;
+                }
+
                 Global.OutContType[deviceIndex] = value;
                 Global.outDevTypeTemp[deviceIndex] = value;
                 SelectedOutputControllerChanged?.Invoke(this, EventArgs.Empty);
                 SelectedOutputControllerNameChanged?.Invoke(this, EventArgs.Empty);
                 RaiseMicrophoneCapabilityChanged();
                 RaiseQuickProfileSettingChanged(deviceIndex);
+                OutputControllerChosen?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -434,6 +566,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             MicrophoneInputEnabledChanged?.Invoke(this, EventArgs.Empty);
             SpeakerVolumePercentChanged?.Invoke(this, EventArgs.Empty);
             MicrophoneVolumePercentChanged?.Invoke(this, EventArgs.Empty);
+            ShowNativePs5ModeChanged?.Invoke(this, EventArgs.Empty);
+            ShowEmulatedDeviceChoiceChanged?.Invoke(this, EventArgs.Empty);
+            RefreshNativePs5();
         }
 
         public void RefreshRuntimeState(ControlService controlService)
@@ -545,6 +680,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 selectedControllerStartupStatus = snapshot.StartupStatus;
                 RaiseControllerStartupStatusChanged();
             }
+
+            // Transport, output type, consent and hiding can all move under
+            // the timer; the card compares inputs and republishes only on a
+            // real change.
+            RefreshNativePs5();
         }
 
         private void RaiseControllerStartupStatusChanged()

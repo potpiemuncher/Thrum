@@ -39,6 +39,27 @@ namespace DS4WinWPF.DS4Forms
         public event EventHandler IdentifyRequested;
         public event EventHandler LightbarRequested;
         public event EventHandler DisconnectRequested;
+        public event EventHandler NativePs5ToggleRequested;
+        public event EventHandler NativePs5SetupRequested;
+        public event EventHandler HidHideClientRequested;
+
+        /// <summary>Returns keyboard focus to the switch after the setup sheet closes.</summary>
+        public void FocusNativePs5Switch()
+        {
+            if (NativePs5SwitchButton.IsVisible)
+            {
+                NativePs5SwitchButton.Focus();
+            }
+        }
+
+        private void NativePs5SwitchButton_Click(object sender, RoutedEventArgs e) =>
+            NativePs5ToggleRequested?.Invoke(this, EventArgs.Empty);
+
+        private void NativePs5SetupButton_Click(object sender, RoutedEventArgs e) =>
+            NativePs5SetupRequested?.Invoke(this, EventArgs.Empty);
+
+        private void HidHideClientLink_Click(object sender, RoutedEventArgs e) =>
+            HidHideClientRequested?.Invoke(this, EventArgs.Empty);
 
         private void EditProfileBtn_Click(object sender, RoutedEventArgs e) =>
             EditProfileRequested?.Invoke(this, EventArgs.Empty);

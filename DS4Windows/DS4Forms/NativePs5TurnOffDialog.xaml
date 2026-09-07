@@ -1,0 +1,45 @@
+<Window x:Class="DS4WinWPF.DS4Forms.NativePs5TurnOffDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Turn off Native PS5 mode?"
+        Width="520" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Style="{DynamicResource WindowStyle}"
+        AutomationProperties.Name="Turn off Native PS5 mode">
+    <!--
+        Turn-off confirmation (design handoff: Native PS5 mode card, turn-off).
+        Says what the consent switches do not do: a virtual pad already
+        running is never torn down by this dialog; only the profile's
+        emulated device changes, on the next connection.
+    -->
+    <Border Background="{DynamicResource CardBackgroundColor}" Padding="20,18">
+        <StackPanel>
+            <TextBlock Text="Turn off Native PS5 mode?" FontSize="15" FontWeight="SemiBold"
+                       Foreground="{DynamicResource ForegroundColor}" Margin="0,0,0,10" />
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource ForegroundColor}" Margin="0,0,0,10">
+                <Run Text="Games will see " />
+                <Run x:Name="PreviousDeviceRun" FontWeight="SemiBold" />
+                <Run Text=" again (the type this profile used before). The change applies on the next connection of this controller." />
+            </TextBlock>
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource MutedForegroundColor}" Margin="0,0,0,14"
+                       Text="A virtual DualSense that is already running is not torn down by this switch or by the consent settings. To remove it now, use Unplug on Output Slots." />
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="TurnOffButton" Content="Turn off" IsDefault="True" MinHeight="32" Padding="14,6"
+                        Background="Transparent" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1"
+                        Foreground="{DynamicResource AccentTextColor}" FontWeight="SemiBold"
+                        Click="TurnOffButton_Click" />
+                <Button x:Name="KeepOnButton" Content="Keep on" IsCancel="True" MinHeight="32" Padding="14,6" Margin="8,0,0,0"
+                        Background="Transparent" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                        Foreground="{DynamicResource ForegroundColor}" />
+                <Button x:Name="OpenOutputSlotsButton" Content="Open Output Slots" MinHeight="32" Padding="6,6" Margin="16,0,0,0"
+                        Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentTextColor}"
+                        Style="{StaticResource NoBGHoverBtn}"
+                        ToolTip="Closes this dialog without changing the mode and opens Output Slots, where Unplug removes a running virtual pad."
+                        Click="OpenOutputSlotsButton_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

@@ -165,6 +165,22 @@ namespace DS4Windows
         }
     }
 
+    /// <summary>Outcome of one setup run, for <see cref="ViiperSetupManager.InstallerFinished"/>.</summary>
+    public sealed class ViiperInstallerFinishedEventArgs : EventArgs
+    {
+        public ViiperInstallerFinishedEventArgs(bool succeeded, string message,
+            ViiperPrerequisiteStatus status)
+        {
+            Succeeded = succeeded;
+            Message = message;
+            Status = status;
+        }
+
+        public bool Succeeded { get; }
+        public string Message { get; }
+        public ViiperPrerequisiteStatus Status { get; }
+    }
+
     public static class ViiperSetupManager
     {
         public const string ApiHost = "127.0.0.1";
@@ -334,21 +350,38 @@ namespace DS4Windows
 
         public static bool LaunchInstaller(ViiperPrerequisiteStatus status = null, Window owner = null)
         {
+            bool launched = TryLaunchInstaller(status, owner, out string message,
+                out MessageBoxImage image);
+            if (message != null)
+            {
+                ShowInstallerMessage(owner, message,
+                    !launched && image == MessageBoxImage.Information
+                        ? "VIIPER setup canceled"
+                        : "VIIPER setup",
+                    image);
+            }
+
+            return launched;
+        }
+
+        /// <summary>
+        /// <see cref="LaunchInstaller"/> without the dialogs: the message it
+        /// would have shown comes back for the caller to place, which is how
+        /// the Native PS5 setup sheet reports a declined elevation prompt
+        /// inline. <paramref name="message"/> is null when nothing needs
+        /// saying.
+        /// </summary>
+        public static bool TryLaunchInstaller(ViiperPrerequisiteStatus status,
+            Window owner, out string message, out MessageBoxImage image)
+        {
             status ??= GetStatus();
+            image = MessageBoxImage.Information;
             if (!status.SetupScriptFound)
             {
-                string message =
+                message =
                     ProductInfo.ProductName + " could not find the bundled VIIPER setup script.\n\n" +
                     "Opening the VIIPER and usbip-win2 release pages instead.";
-                if (owner != null)
-                {
-                    MessageBox.Show(owner, message, "VIIPER setup", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-                else
-                {
-                    MessageBox.Show(message, "VIIPER setup", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-
+                image = MessageBoxImage.Warning;
                 Util.StartProcessHelper(ViiperReleasesUrl);
                 Util.StartProcessHelper(UsbipWin2ReleasesUrl);
                 return false;
@@ -356,9 +389,8 @@ namespace DS4Windows
 
             if (Interlocked.CompareExchange(ref installerRunning, 1, 0) != 0)
             {
-                ShowInstallerMessage(owner,
-                    "VIIPER setup is already running. Finish the open setup window, then use Refresh to verify it.",
-                    "VIIPER setup", MessageBoxImage.Information);
+                message =
+                    "VIIPER setup is already running. Finish the open setup window, then use Refresh to verify it.";
                 return true;
             }
 
@@ -381,23 +413,20 @@ namespace DS4Windows
                 process.EnableRaisingEvents = true;
                 process.Exited += (_, _) => InstallerProcess_Exited(process,
                     owner);
+                message = null;
                 return true;
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
             {
                 Interlocked.Exchange(ref installerRunning, 0);
-                ShowInstallerMessage(owner,
-                    "VIIPER setup was canceled at the Windows administrator prompt. No changes were made.",
-                    "VIIPER setup canceled", MessageBoxImage.Information);
+                message = InstallerCancelledAtUacMessage;
                 return false;
             }
             catch (Exception ex)
             {
                 Interlocked.Exchange(ref installerRunning, 0);
-                string message = $"Could not launch VIIPER setup: {ex.Message}";
-                ShowInstallerMessage(owner, message, "VIIPER setup",
-                    MessageBoxImage.Error);
-
+                message = $"Could not launch VIIPER setup: {ex.Message}";
+                image = MessageBoxImage.Error;
                 return false;
             }
         }
@@ -438,6 +467,10 @@ namespace DS4Windows
                 AppLogger.LogToGui((report.Succeeded ? "SUCCESSFUL: " : string.Empty) +
                     report.Message.Replace("\n", " "), report.IsError, false);
 
+                InstallerFinished?.Invoke(null,
+                    new ViiperInstallerFinishedEventArgs(report.Succeeded,
+                        report.Message, refreshed));
+
                 if (report.RestartApplication && RequestRestart())
                 {
                     return;
@@ -453,6 +486,21 @@ namespace DS4Windows
         }
 
         /// <summary>Where the setup script records every decision it made.</summary>
+        /// <summary>
+        /// Shown verbatim, in the dialog and in the setup sheet, when the user
+        /// declines the elevation prompt (Win32 error 1223).
+        /// </summary>
+        public const string InstallerCancelledAtUacMessage =
+            "VIIPER setup was canceled at the Windows administrator prompt. No changes were made.";
+
+        /// <summary>
+        /// Raised on the dispatcher after a setup run launched by
+        /// <see cref="LaunchInstaller"/> exits and the readiness cache has
+        /// been refreshed. Carries the same report the log line and the
+        /// failure dialog use, so a view can show it inline.
+        /// </summary>
+        public static event EventHandler<ViiperInstallerFinishedEventArgs> InstallerFinished;
+
         public static string InstallLogPath => Path.Combine(
             Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData),

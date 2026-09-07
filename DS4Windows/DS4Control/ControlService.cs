@@ -2814,11 +2814,37 @@ namespace DS4Windows
                 dualSenseMicrophonePassthrough.Stop();
             }
 
-            audioHapticsService.Start(ind, device,
-                Global.store.audioHapticsSettings[ind],
-                playStationFeatureOutputType,
-                DualSenseAudioSpeakerEndpointId[ind],
-                playStationFeatureOutput?.DirectSpeakerUsbipPort ?? -1);
+            // Issue #87: a virtual DualSense/Edge with audio interfaces makes
+            // the game the haptics source (channels 3/4 relayed to the pad), so
+            // Audio Haptics is switched off for that profile rather than
+            // stacking a second source onto the same Bluetooth stream. The
+            // same gate the persona ladder asked decides whether the audio
+            // class is actually permitted.
+            bool nativeHapticsPath = !getDInputOnly(ind) &&
+                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
+                    Global.OutContType[ind],
+                    ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio,
+                        alreadyAttached: playStationFeatureOutput?
+                            .SupportsAtomicAudioHaptics == true).Allowed);
+            AudioHapticsProfileSettings audioHapticsSettings =
+                Global.store.audioHapticsSettings[ind];
+            if (nativeHapticsPath && audioHapticsSettings?.Enabled == true)
+            {
+                if (audioHapticsService.SuspendForNativeHaptics(ind))
+                {
+                    LogDebug($"Audio Haptics is off for controller {ind + 1}: " +
+                        "the game drives haptics through the virtual " +
+                        $"{Global.OutContType[ind].Normalize().ToDisplayName()}.");
+                }
+            }
+            else
+            {
+                audioHapticsService.Start(ind, device,
+                    audioHapticsSettings,
+                    playStationFeatureOutputType,
+                    DualSenseAudioSpeakerEndpointId[ind],
+                    playStationFeatureOutput?.DirectSpeakerUsbipPort ?? -1);
+            }
 
             if (!startUp)
             {
@@ -3401,27 +3427,23 @@ namespace DS4Windows
                 }
             }
 
-            bool audioHapticsRequired = physicalPresent &&
+            bool audioHapticsEnabled = physicalPresent &&
                 Global.store.audioHapticsSettings[index]?.Enabled == true;
+            bool nativeHapticsPath = virtualRequired &&
+                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
+                    desiredType, audioClassPermitted);
+            AudioHapticsRuntimeStatus audioHapticsStatus =
+                audioHapticsService.GetStatus(index);
             ControllerRuntimeLaneState audioHaptics =
-                ControllerRuntimeLaneState.NotRequired;
-            if (audioHapticsRequired)
-            {
-                AudioHapticsRuntimeStatus status =
-                    audioHapticsService.GetStatus(index);
-                audioHaptics = status.Active
-                    ? ControllerRuntimeLaneState.Ready
-                    : status.Message.IndexOf("starting",
-                        StringComparison.OrdinalIgnoreCase) >= 0
-                        ? ControllerRuntimeLaneState.Starting
-                        : ControllerRuntimeLaneState.Unavailable;
-            }
+                ControllerRuntimeStatusPolicy.EvaluateAudioHapticsLane(
+                    audioHapticsEnabled, nativeHapticsPath,
+                    audioHapticsStatus.Active, audioHapticsStatus.Message);
 
             return new ControllerRuntimeSignals(physicalPresent,
                 physicalSynced, physicalAlive, virtualRequired,
                 virtualConnected, virtualTypeMatches, advancedHaptics,
                 speaker, microphone, audioHaptics,
-                desiredType.ToDisplayName());
+                desiredType.ToDisplayName(), audioHapticsStatus.Message);
         }
 
         internal static bool ShouldUseGameBarControllerCompatibility(bool enabled,

@@ -4643,3 +4643,37 @@ disconnected. No Thrum defect was found; no application code changed.
 Evidence: `vm-validation-reports/viiper-012-plug-validation-20260906/REPORT.md`.
 
 Suite: **1062 passed / 0 failed** (CI filter).
+
+## 2026-09-06 — Issue #87: Audio Haptics yields to the native DualSense haptics path
+
+Defect origin: first native-mode session on the dev PC (usbip-win2 0.9.7.7,
+VIIPER v0.1.2, physical DualSense over Bluetooth). With Audio Haptics enabled
+and the profile switched from Xbox 360 to DualSense, the Overview card sat at
+"Needs attention — The enabled Audio Haptics capture could not be armed" while
+the virtual DualSense was up and healthy on usbip port 1.
+
+Mechanism: `CheckProfileOptions` re-runs on every profile reload and calls
+`AudioHapticsService.Start`, which reuses the existing runtime through
+`TryUpdateSettings` (hence no second "Audio Haptics started" log line). Once the
+audio-capable DualSense persona is plugged, the game owns the pad's haptics
+(virtual channels 3/4 relayed over Bluetooth) and the Audio Haptics capture
+reports inactive; the lane evaluator mapped every inactive status to
+`Unavailable` and the card printed the generic text.
+
+Fix: `ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics` names the
+condition (DualSense/Edge persona and audio class permitted by the same gate the
+persona ladder uses). On that path `CheckProfileOptions` calls
+`AudioHapticsService.SuspendForNativeHaptics` instead of `Start` — capture
+stopped, status "Audio Haptics is off: the game drives haptics through the
+virtual DualSense", one log line per entry — and the runtime signals report the
+lane as `NotRequired`, the same "switched off, not broken" rule the
+advanced-haptics lane already follows. Off that path the lane follows the
+service's real status, and the card now appends that status ("Waiting for a
+detected game", a capture error) to "could not be armed". The saved profile is
+not modified; leaving the native path or losing the pad clears the suspension.
+
+Negative control: `TheStatusCardKeepsTheGenericTextWithoutADetail` proves the
+old message survives when no detail is supplied, and the suspension test asserts
+the second call on the same path returns false (no repeated log line).
+
+Suite: **1076 passed / 0 failed** (CI filter), canonical x64 Release build.

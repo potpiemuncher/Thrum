@@ -33,7 +33,8 @@ namespace DS4Windows
             ControllerRuntimeLaneState speaker,
             ControllerRuntimeLaneState microphone,
             ControllerRuntimeLaneState audioHaptics,
-            string virtualControllerName)
+            string virtualControllerName,
+            string audioHapticsDetail = null)
         {
             PhysicalPresent = physicalPresent;
             PhysicalSynced = physicalSynced;
@@ -46,6 +47,7 @@ namespace DS4Windows
             Microphone = microphone;
             AudioHaptics = audioHaptics;
             VirtualControllerName = virtualControllerName ?? "virtual controller";
+            AudioHapticsDetail = audioHapticsDetail ?? string.Empty;
         }
 
         public bool PhysicalPresent { get; }
@@ -59,6 +61,14 @@ namespace DS4Windows
         public ControllerRuntimeLaneState Microphone { get; }
         public ControllerRuntimeLaneState AudioHaptics { get; }
         public string VirtualControllerName { get; }
+
+        /// <summary>
+        /// The Audio Haptics service's own status message. Shown on the
+        /// status card when the lane is <see cref="ControllerRuntimeLaneState.Unavailable"/>
+        /// so the card names the real reason ("Waiting for a detected game",
+        /// a capture error) instead of a generic "could not be armed".
+        /// </summary>
+        public string AudioHapticsDetail { get; }
     }
 
     public readonly struct ControllerStartupStatus : IEquatable<ControllerStartupStatus>
@@ -133,6 +143,54 @@ namespace DS4Windows
                 : ControllerRuntimeLaneState.Starting;
         }
 
+        /// <summary>
+        /// True when the profile's output persona makes the <em>game</em> the
+        /// haptics source: a virtual DualSense or DualSense Edge whose audio
+        /// interfaces are permitted. On that path the title drives the pad's
+        /// haptics through the virtual controller's channels 3/4 and Thrum
+        /// relays them to the physical pad, so Audio Haptics — the substitute
+        /// for games that cannot do this — would stack a second source onto
+        /// the same Bluetooth stream. Issue #87.
+        /// </summary>
+        public static bool NativeHapticsPathOwnsAudioHaptics(
+            OutContType desiredType, bool audioClassPermitted)
+        {
+            if (!audioClassPermitted)
+            {
+                return false;
+            }
+
+            OutContType normalized = desiredType.Normalize();
+            return normalized == OutContType.ViiperDualSense ||
+                normalized == OutContType.ViiperDualSenseEdge;
+        }
+
+        /// <summary>
+        /// Audio Haptics lane state. Not required when the profile has it off
+        /// or when the native haptics path owns the stream (switched off on
+        /// purpose, not broken — same rule as the advanced-haptics lane).
+        /// Otherwise it follows the service's own status.
+        /// </summary>
+        public static ControllerRuntimeLaneState EvaluateAudioHapticsLane(
+            bool enabled, bool nativeHapticsPath, bool active,
+            string statusMessage)
+        {
+            if (!enabled || nativeHapticsPath)
+            {
+                return ControllerRuntimeLaneState.NotRequired;
+            }
+
+            if (active)
+            {
+                return ControllerRuntimeLaneState.Ready;
+            }
+
+            return (statusMessage ?? string.Empty).IndexOf("starting",
+                    StringComparison.OrdinalIgnoreCase) >= 0
+                ? ControllerRuntimeLaneState.Starting
+                : ControllerRuntimeLaneState.Unavailable;
+        }
+
         public static ControllerStartupStatus Evaluate(
             ControllerRuntimeSignals signals)
         {
@@ -193,7 +251,8 @@ namespace DS4Windows
 
             laneStatus = EvaluateLane(signals.AudioHaptics,
                 ControllerStartupStage.StartingAudioHaptics,
-                "Starting Audio Haptics", "Audio Haptics capture");
+                "Starting Audio Haptics", "Audio Haptics capture",
+                signals.AudioHapticsDetail);
             if (laneStatus.Stage != ControllerStartupStage.Ready)
             {
                 return laneStatus;
@@ -208,7 +267,8 @@ namespace DS4Windows
 
         private static ControllerStartupStatus EvaluateLane(
             ControllerRuntimeLaneState state, ControllerStartupStage stage,
-            string startingTitle, string laneName)
+            string startingTitle, string laneName,
+            string unavailableDetail = null)
         {
             return state switch
             {
@@ -218,7 +278,9 @@ namespace DS4Windows
                 ControllerRuntimeLaneState.Unavailable =>
                     new ControllerStartupStatus(ControllerStartupStage.Attention,
                         "Needs attention",
-                        $"The enabled {laneName} could not be armed."),
+                        string.IsNullOrWhiteSpace(unavailableDetail)
+                            ? $"The enabled {laneName} could not be armed."
+                            : $"The enabled {laneName} could not be armed: {unavailableDetail.TrimEnd('.')}."),
                 _ => new ControllerStartupStatus(
                     ControllerStartupStage.Ready, "Ready", string.Empty),
             };

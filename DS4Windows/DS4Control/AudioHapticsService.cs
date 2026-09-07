@@ -34,7 +34,62 @@ namespace DS4Windows
         private readonly AudioHapticsRuntimeStatus[] slotStatuses =
             Enumerable.Range(0, ControllerCount)
                 .Select(_ => AudioHapticsRuntimeStatus.Inactive).ToArray();
+        private readonly bool[] suspendedForNativeHaptics =
+            new bool[ControllerCount];
         private bool disposed;
+
+        /// <summary>
+        /// Status shown while a profile has Audio Haptics enabled but the
+        /// virtual DualSense's own haptics path is live (issue #87).
+        /// </summary>
+        public const string NativeHapticsSuspendedMessage =
+            "Audio Haptics is off: the game drives haptics through the " +
+            "virtual DualSense.";
+
+        /// <summary>
+        /// Stops the slot's capture and records that Audio Haptics is
+        /// deliberately off because the native haptics path owns the
+        /// Bluetooth stream. Returns true the first time the slot enters
+        /// that state, so the caller can log it once rather than on every
+        /// profile reload.
+        /// </summary>
+        public bool SuspendForNativeHaptics(int slot)
+        {
+            if (slot < 0 || slot >= slots.Length)
+            {
+                return false;
+            }
+
+            bool entered;
+            lock (slotLocks[slot])
+            {
+                // Read before Stop: Stop clears the flag so a pad loss or a
+                // non-native profile re-arms the one-time log.
+                entered = !suspendedForNativeHaptics[slot];
+            }
+
+            Stop(slot);
+            lock (slotLocks[slot])
+            {
+                suspendedForNativeHaptics[slot] = true;
+                slotStatuses[slot] = new AudioHapticsRuntimeStatus(false,
+                    NativeHapticsSuspendedMessage);
+                return entered;
+            }
+        }
+
+        public bool IsSuspendedForNativeHaptics(int slot)
+        {
+            if (slot < 0 || slot >= slots.Length)
+            {
+                return false;
+            }
+
+            lock (slotLocks[slot])
+            {
+                return suspendedForNativeHaptics[slot];
+            }
+        }
 
         public void Start(int slot, DS4Device device,
             AudioHapticsProfileSettings settings, OutContType outputType,
@@ -66,6 +121,7 @@ namespace DS4Windows
                     return;
                 }
 
+                suspendedForNativeHaptics[slot] = false;
                 slotStatuses[slot] = AudioHapticsRuntimeStatus.Starting;
                 OutContType normalizedOutputType = outputType.Normalize();
                 SlotRuntime runtime = slots[slot];
@@ -114,6 +170,7 @@ namespace DS4Windows
                 slots[slot] = null;
                 runtime?.Dispose();
                 slotStatuses[slot] = AudioHapticsRuntimeStatus.Inactive;
+                suspendedForNativeHaptics[slot] = false;
             }
         }
 

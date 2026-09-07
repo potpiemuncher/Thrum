@@ -1,0 +1,23 @@
+Thrum build under test
+======================
+branch          : validation/viiper-012-plug (from origin/main)
+commit          : d14018cec13965e945eb80c1504dab927722807e ("Delete the vestigial ScpVBus driver archive from extras (#84)")
+publish         : dotnet publish DS4Windows/DS4WinWPF.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64
+app version     : 0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+Thrum.exe       : SHA-256 5BE0C1B3AB896329D8297AFB41B40C352B203BFA7977ABAA54D78DB861A8B214, 178176 bytes
+publish archive : SHA-256 F1E68B5F7399EC108B9EACF7E4BFC74F904DF037D338DD5603560ACA641AA0A0, 82165557 bytes, 527 files
+
+VIIPER backend staged (offline, verified against ViiperInstallerPins.cs)
+=======================================================================
+viiper-windows-amd64.zip : SHA-256 66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46, 4809388 bytes
+viiper.exe (extracted)   : SHA-256 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A, 11407872 bytes
+embedded stamp           : v0.1.2 (f5d097b), built 2026-08-27T21:26:31Z
+tampered copy (control)  : SHA-256 CF09E4BEAB57C16BFEA44ADB4E4CE0D9453D6B8605139E5051F8036982C73969, 4809388 bytes
+                           (one byte at offset 2000000 XOR 0x01; size deliberately unchanged)
+
+Guest
+=====
+VM              : Win 11 25H2 Test ENV (TESTENV), Windows 10.0.26200, Secure Boot on, no network
+from checkpoint : viiper-006-installer-validated-20260803
+driver          : usbip-win2 0.9.7.7 - UDE 21.14.27.907, filter 21.14.27.661 (unchanged throughout)
+suite           : 1062 passed / 0 failed (CI filter) on the branch head

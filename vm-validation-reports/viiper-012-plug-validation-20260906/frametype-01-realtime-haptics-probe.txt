@@ -1,0 +1,39 @@
+?server_log=C:\p2\v012\logs\viiper-0x84-170651.log
+census=bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x0ce6","type":"dualsensecombinedaudioduplexv5","deviceSpecific":{"battery_status":42,"battery_voltage":3.8,"board":"BDM-050","build_time":"2025-07-04T10:10:32Z","inputContinuousPending":false,"inputContinuousReplacements":0,"inputGeneration":2,"inputLatencyDistributions":{"Enabled":false,"FramesValidated":1,"InputFrames":1,"LastFrameSequence":0,"FrameReadToDecode":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"DecodeToPublication":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"ReceiveToSelected":{"Count":1,"P50":166522000,"P95":166522000,"P99":166522000,"P999":0,"Maximum":166522000},"ReceiveToPresented":{"Count":1,"P50":167324500,"P95":167324500,"P99":167324500,"P999":0,"Maximum":167324500}},"inputMaximumQueueAgeUS":167324,"inputMaximumSelectionAgeUS":166522,"inputPeakUpgrades":0,"inputQueueAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputSelectionAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputStatesReceived":1,"inputStatesSelected":30264,"inputTransitionDepth":0,"inputTransitionHighWater":0,"inputTransitionOverflows":0,"mac_address":"A5:FA:9C:CF:92:00","mediaReportBuildFailures":0,"mediaReportDrops":0,"microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneInterfaceEventOverflows":0,"microphoneInterfaceTransportOverflows":0,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":38400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":11520,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"E55701GTD1190A500","shell_color":"01","speakerBytesDropped":0,"speakerBytesEnqueued":0,"speakerBytesReceived":0,"speakerBytesWritten":0,"speakerInterfaceActive":false,"speakerMaxEnqueueGapUS":0,"speakerMaxWriteGapUS":0,"speakerPayloadsDropped":0,"speakerPayloadsEnqueued":0,"speakerPayloadsReceived":0,"speakerPayloadsWritten":0,"speakerQueueDepth":0,"speakerQueueHighWater":0,"speakerStreamActive":true,"speakerWriteFailures":0,"temperature_celsius":28}}]}
+--- audio endpoints present ---
+OK | USB Audio Device
+--- playing WAVs to the default endpoint ---
+played C:\Windows\Media\Windows Ding.wav
+played C:\Windows\Media\Alarm01.wav
+played C:\Windows\Media\Ring01.wav
+census_after_audio=bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x0ce6","type":"dualsensecombinedaudioduplexv5","deviceSpecific":{"battery_status":42,"battery_voltage":3.8,"board":"BDM-050","build_time":"2025-07-04T10:10:32Z","inputContinuousPending":false,"inputContinuousReplacements":0,"inputGeneration":2,"inputLatencyDistributions":{"Enabled":false,"FramesValidated":1,"InputFrames":1,"LastFrameSequence":0,"FrameReadToDecode":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"DecodeToPublication":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"ReceiveToSelected":{"Count":1,"P50":166522000,"P95":166522000,"P99":166522000,"P999":0,"Maximum":166522000},"ReceiveToPresented":{"Count":1,"P50":167324500,"P95":167324500,"P99":167324500,"P999":0,"Maximum":167324500}},"inputMaximumQueueAgeUS":167324,"inputMaximumSelectionAgeUS":166522,"inputPeakUpgrades":0,"inputQueueAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputSelectionAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputStatesReceived":1,"inputStatesSelected":47982,"inputTransitionDepth":0,"inputTransitionHighWater":0,"inputTransitionOverflows":0,"mac_address":"A5:FA:9C:CF:92:00","mediaReportBuildFailures":0,"mediaReportDrops":0,"microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneInterfaceEventOverflows":0,"microphoneInterfaceTransportOverflows":0,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":38400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":11520,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"E55701GTD1190A500","shell_color":"01","speakerBytesDropped":0,"speakerBytesEnqueued":2400000,"speakerBytesReceived":2400000,"speakerBytesWritten":2400000,"speakerInterfaceActive":false,"speakerMaxEnqueueGapUS":33593,"speakerMaxWriteGapUS":33593,"speakerPayloadsDropped":0,"speakerPayloadsEnqueued":1250,"speakerPayloadsReceived":1250,"speakerPayloadsWritten":1250,"speakerQueueDepth":0,"speakerQueueHighWater":1,"speakerStreamActive":true,"speakerWriteFailures":0,"temperature_celsius":28}}]}
+--- server log: 0x84 / haptics / speaker lines ---
+time=2026-09-06T17:07:01.856-07:00 level=INFO msg="DualSense V5 stream configured" remote=127.0.0.1:51734 microphoneInput=true speakerOutput=true microphoneInterfaceEvents=false physicalInputMetadata=false frameVersion=5
+time=2026-09-06T17:07:33.040-07:00 level=DEBUG msg="DualSense framed speaker stream" remote=127.0.0.1:51734 receivedPayloads=1 receivedBytes=1920 enqueuedPayloads=1 enqueuedBytes=1920 droppedPayloads=0 droppedBytes=0 writtenPayloads=1 writtenBytes=1920 writeFailures=0 queueDepth=0 queueHighWater=0 maxEnqueueGapUS=0 maxWriteGapUS=0 microphoneInterfaceOverflows=0
+time=2026-09-06T17:07:43.040-07:00 level=DEBUG msg="DualSense framed speaker stream" remote=127.0.0.1:51734 receivedPayloads=996 receivedBytes=1912320 enqueuedPayloads=996 enqueuedBytes=1912320 droppedPayloads=0 droppedBytes=0 writtenPayloads=996 writtenBytes=1912320 writeFailures=0 queueDepth=0 queueHighWater=1 maxEnqueueGapUS=33593 maxWriteGapUS=33593 microphoneInterfaceOverflows=0
+--- server log: errors/warnings ---
+
+--- Thrum log ---
+2026-09-06 17:06:58.2128|INFO|Thrum version 0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-06 17:06:58.2155|INFO|Thrum exe file: Thrum.exe
+2026-09-06 17:06:58.2155|INFO|Thrum Assembly Architecture: x64
+2026-09-06 17:06:58.2155|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-06 17:06:58.2155|INFO|OS Product Name: Windows 10 Pro
+2026-09-06 17:06:58.2155|INFO|OS Release ID: 2009
+2026-09-06 17:06:58.2155|INFO|System Architecture: x64
+2026-09-06 17:06:58.2155|INFO|Logger created
+2026-09-06 17:06:58.2646|INFO|LinkedProfiles.xml can't be found.
+2026-09-06 17:06:58.6923|INFO|Running as Admin
+2026-09-06 17:06:58.7022|INFO|Output slot #1 has permanent type ViiperDualSense
+2026-09-06 17:06:59.7097|INFO|Starting...
+2026-09-06 17:07:01.7114|INFO|Using output KB+M handler: SendInput
+2026-09-06 17:07:01.7147|INFO|VIIPER virtual-controller backend ready
+2026-09-06 17:07:01.7147|INFO|Searching for controllers...
+2026-09-06 17:07:01.7147|INFO|Using Shared Mode
+2026-09-06 17:07:01.8625|INFO|VIIPER DualSense virtual input presentation is capped at 250 Hz with latest-state coalescing.
+2026-09-06 17:07:01.8625|INFO|Plugging in virtual DualSense Controller in output slot #1
+
+
+

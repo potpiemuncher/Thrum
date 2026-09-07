@@ -1,0 +1,28 @@
+?=== teardown after real speaker traffic (the usbip-win2 audio path) ===
+window: 
+window: Thrum
+aux close failed:  Exception calling "GetCurrentPattern" with "1" argument(s): "Unsupported Pattern."
+closed main window
+
+thrum_running=0
+post census=bus/list -> {"buses":[]}
+post usbip=
+post pnp=
+viiper_process=1
+usbip2_ude=Running
+usbip2_filter=Running
+=== bugcheck / crash evidence ===
+minidumps=0
+memory_dmp=False
+bugcheck_events=0
+uptime_boot=09/06/2026 16:31:58
+=== full server-log frame-type search ===
+lines_total=2502
+matches_0x84=0
+matches_0x83=0
+matches_frametype=0
+=== errors/warnings in the whole run ===
+
+
+
+

@@ -1,0 +1,27 @@
+?=== (b) Thrum exit with a foreign device present leaves the backend running ===
+viiper_before=0
+viiper_after_start=1
+foreign_ready=True bus=2 dev=1
+census_with_foreign=bus/list -> {"buses":[1,2]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x057e","pid":"0x2069","type":"ns2pro","deviceSpecific":{"battery_level":9,"battery_volts":3800,"charging":false,"external_power":true,"serial_number":"VIIPER-NS2PRO-00"}}]}
+bus/2/list -> {"devices":[{"busId":2,"devId":"1","vid":"0x045e","pid":"0x028e","type":"xbox360","deviceSpecific":{"subType":1}}]}
+window: 
+window: Thrum
+aux close failed:  Exception calling "GetCurrentPattern" with "1" argument(s): "Unsupported Pattern."
+closed main window
+
+thrum_exited=True
+viiper_after_exit=1
+--- Thrum log (backend lines) ---
+2026-09-06 17:04:16.5231|INFO|Output slot #1 has permanent type ViiperSwitch2Pro
+2026-09-06 17:04:22.2854|INFO|VIIPER virtual-controller backend ready
+2026-09-06 17:05:15.9056|INFO|Closing VIIPER virtual-controller connections
+2026-09-06 17:05:15.9357|INFO|VIIPER detached usbip port 1 (Thrum VIIPER device stopped).
+2026-09-06 17:05:15.9691|INFO|1 local usbip import(s) present that Thrum does not manage (port 2): left untouched - they may belong to another application or to a backend from a previous session. If one is a leftover virtual pad, Settings > VIIPER Virtual Controller Support > Backend process can clear it.
+2026-09-06 17:05:15.9845|INFO|VIIPER backend left running: another consumer is using it - 1 virtual device(s) Thrum did not create are still registered (bus 2 device 1 (xbox360)).
+--- cleanup ---
+census_after_cleanup=bus/list -> {"buses":[2]}
+bus/2/list -> {"devices":[]}
+
+
+

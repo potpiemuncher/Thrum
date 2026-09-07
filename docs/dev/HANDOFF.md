@@ -31,9 +31,15 @@ PadSense V5 personas. Evidence: issue #70 and
 Two things have happened since. The V5-first negotiation (#70) creates the
 DualSense correctly and was VM-validated against v0.0.6. And the backend pin
 has moved to **VIIPER v0.1.2** (2026-09-06), which registers the same V5
-names; that made the v0.0.5 rollback in #79 moot. **The v0.1.2 pin has only
-been checked statically and by the installer-path tests — the plug validation
-in `docs/viiper-backend-upgrade-path.md` has not been run against it yet.**
+names; that made the v0.0.5 rollback in #79 moot. **The v0.1.2 pin has now had
+its plug validation** (2026-09-06): all five output types — `ViiperX360`,
+`ViiperDS4`, `ViiperDualSense`, `ViiperDualSenseEdge`, `ViiperSwitch2Pro` —
+plugged and unplugged cleanly in TESTENV, with the DualSense and Edge taking
+`dualsensecombinedaudioduplexv5` / `dualsenseedgecombinedaudioduplexv5` at
+`frameVersion=5` on the first attempt and no fallback. Evidence:
+`vm-validation-reports/viiper-012-plug-validation-20260906/REPORT.md`. It was a
+VM pass with no hardware, so physical input, motor feedback and audio payload
+correctness are still unproven.
 
 ## What is genuinely verified, and what only looks it
 
@@ -45,10 +51,16 @@ the pad's actuators over Bluetooth with no virtual controller and no driver**.
 Verified in the VM: first-run setup, the hardened installer including refusals,
 the driver gate's four states, diagnostics redaction 9/9.
 
+Verified in the VM against the v0.1.2 pin (2026-09-06): one virtual device of
+every output type plugged and unplugged, backend stop-on-exit in both
+directions, and the installer path including its tampered-archive refusal.
+
 **Not verified, and the release notes say so:** Audio Haptics over USB (#65),
-virtual DualSense against the current backend (#70/#79), any controller other
-than DualSense, multiple simultaneous controllers, long-duration stability,
-keyboard-only navigation (#51).
+any controller other than DualSense on real hardware, multiple simultaneous
+controllers, long-duration stability, keyboard-only navigation (#51). The
+virtual-DualSense question from #70/#79 is answered for creation and teardown;
+what stays unproven there is physical input, motor feedback and audio payload
+correctness, which need a pad in hand.
 
 ## Mistakes this project already made — do not repeat them
 

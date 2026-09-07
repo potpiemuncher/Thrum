@@ -1,0 +1,231 @@
+?srvlog_mark=1311
+=== OutputSlots.xml written ===
+<?xml version="1.0" encoding="utf-8"?>
+<OutputSlots app_version="0.9.0.0">
+  <Slot idx="0"><DeviceType>ViiperDualSense</DeviceType></Slot>
+</OutputSlots>
+
+=== PRE-START census ===
+bus/list -> {"buses":[]}
+=== PRE-START usbip port ===
+
+=== starting Thrum ===
+thrum_alive=True
+device_seen=True
+waited_s=5
+=== CENSUS 1 ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x0ce6","type":"dualsensecombinedaudioduplexv5","deviceSpecific":{"battery_status":42,"battery_voltage":3.8,"board":"BDM-050","build_time":"2025-07-04T10:10:32Z","inputContinuousPending":false,"inputContinuousReplacements":0,"inputGeneration":2,"inputLatencyDistributions":{"Enabled":false,"FramesValidated":1,"InputFrames":1,"LastFrameSequence":0,"FrameReadToDecode":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"DecodeToPublication":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"ReceiveToSelected":{"Count":1,"P50":188253500,"P95":188253500,"P99":188253500,"P999":0,"Maximum":188253500},"ReceiveToPresented":{"Count":1,"P50":189251900,"P95":189251900,"P99":189251900,"P999":0,"Maximum":189251900}},"inputMaximumQueueAgeUS":189251,"inputMaximumSelectionAgeUS":188253,"inputPeakUpgrades":0,"inputQueueAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputSelectionAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputStatesReceived":1,"inputStatesSelected":977,"inputTransitionDepth":0,"inputTransitionHighWater":0,"inputTransitionOverflows":0,"mac_address":"A5:FA:9C:CF:92:00","mediaReportBuildFailures":0,"mediaReportDrops":0,"microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneInterfaceEventOverflows":0,"microphoneInterfaceTransportOverflows":0,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":38400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":11520,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"E55701GTD1190A500","shell_color":"01","speakerBytesDropped":0,"speakerBytesEnqueued":0,"speakerBytesReceived":0,"speakerBytesWritten":0,"speakerInterfaceActive":false,"speakerMaxEnqueueGapUS":0,"speakerMaxWriteGapUS":0,"speakerPayloadsDropped":0,"speakerPayloadsEnqueued":0,"speakerPayloadsReceived":0,"speakerPayloadsWritten":0,"speakerQueueDepth":0,"speakerQueueHighWater":0,"speakerStreamActive":true,"speakerWriteFailures":0,"temperature_celsius":28}}]}
+=== usbip port (census 1) ===
+Imported USB devices
+====================
+Port 01: device in use at High Speed(480Mbps)
+         Sony Corp. : DualSense wireless controller (PS5) (054c:0ce6)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev 001/001
+
+=== PnP (census 1) ===
+OK | MEDIA | DualSense Wireless Controller | USB\VID_054C&PID_0CE6&MI_00\3&314D5FD0&0&0000
+OK | HIDClass | USB Input Device | USB\VID_054C&PID_0CE6&MI_03\3&314D5FD0&0&0003
+OK | USB | USB Composite Device | USB\VID_054C&PID_0CE6\2&22E30EF8&0&1
+=== CENSUS 2 (30 s later, dt=30s) ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x0ce6","type":"dualsensecombinedaudioduplexv5","deviceSpecific":{"battery_status":42,"battery_voltage":3.8,"board":"BDM-050","build_time":"2025-07-04T10:10:32Z","inputContinuousPending":false,"inputContinuousReplacements":0,"inputGeneration":2,"inputLatencyDistributions":{"Enabled":false,"FramesValidated":1,"InputFrames":1,"LastFrameSequence":0,"FrameReadToDecode":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"DecodeToPublication":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"ReceiveToSelected":{"Count":1,"P50":188253500,"P95":188253500,"P99":188253500,"P999":0,"Maximum":188253500},"ReceiveToPresented":{"Count":1,"P50":189251900,"P95":189251900,"P99":189251900,"P999":0,"Maximum":189251900}},"inputMaximumQueueAgeUS":189251,"inputMaximumSelectionAgeUS":188253,"inputPeakUpgrades":0,"inputQueueAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputSelectionAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputStatesReceived":1,"inputStatesSelected":31104,"inputTransitionDepth":0,"inputTransitionHighWater":0,"inputTransitionOverflows":0,"mac_address":"A5:FA:9C:CF:92:00","mediaReportBuildFailures":0,"mediaReportDrops":0,"microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneInterfaceEventOverflows":0,"microphoneInterfaceTransportOverflows":0,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":38400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":11520,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"E55701GTD1190A500","shell_color":"01","speakerBytesDropped":0,"speakerBytesEnqueued":0,"speakerBytesReceived":0,"speakerBytesWritten":0,"speakerInterfaceActive":false,"speakerMaxEnqueueGapUS":0,"speakerMaxWriteGapUS":0,"speakerPayloadsDropped":0,"speakerPayloadsEnqueued":0,"speakerPayloadsReceived":0,"speakerPayloadsWritten":0,"speakerQueueDepth":0,"speakerQueueHighWater":0,"speakerStreamActive":true,"speakerWriteFailures":0,"temperature_celsius":28}}]}
+=== Thrum log ===
+thrum_log_lines=18
+2026-09-06 16:57:37.9351|INFO|Thrum version 0.9.0-beta.1 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-06 16:57:37.9351|INFO|Thrum exe file: Thrum.exe
+2026-09-06 16:57:37.9351|INFO|Thrum Assembly Architecture: x64
+2026-09-06 16:57:37.9351|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-06 16:57:37.9351|INFO|OS Product Name: Windows 10 Pro
+2026-09-06 16:57:37.9351|INFO|OS Release ID: 2009
+2026-09-06 16:57:37.9351|INFO|System Architecture: x64
+2026-09-06 16:57:37.9351|INFO|Logger created
+2026-09-06 16:57:37.9814|INFO|LinkedProfiles.xml can't be found.
+2026-09-06 16:57:38.3877|INFO|Running as Admin
+2026-09-06 16:57:38.3877|INFO|Output slot #1 has permanent type ViiperDualSense
+2026-09-06 16:57:39.4010|INFO|Starting...
+2026-09-06 16:57:41.4021|INFO|Using output KB+M handler: SendInput
+2026-09-06 16:57:41.4021|INFO|VIIPER virtual-controller backend ready
+2026-09-06 16:57:41.4021|INFO|Searching for controllers...
+2026-09-06 16:57:41.4021|INFO|Using Shared Mode
+2026-09-06 16:57:41.4904|INFO|VIIPER DualSense virtual input presentation is capped at 250 Hz with latest-state coalescing.
+2026-09-06 16:57:41.4904|INFO|Plugging in virtual DualSense Controller in output slot #1
+=== asking Thrum to exit (UIA WindowPattern.Close on the shell window) ===
+window: 
+window: Thrum
+aux close failed:  Exception calling "GetCurrentPattern" with "1" argument(s): "Unsupported Pattern."
+closed main window
+
+thrum_exited_cleanly=True
+=== POST-UNPLUG census ===
+bus/list -> {"buses":[]}
+=== POST-UNPLUG usbip port ===
+
+=== POST-UNPLUG PnP ===
+
+=== POST-UNPLUG backend + services ===
+viiper_process=1
+usbip2_ude=Running
+usbip2_filter=Running
+=== VIIPER server log for this run ===
+srvlog_new_lines=901
+--- frame/version/error/device lines (first 120) ---
+time=2026-09-06T16:57:37.706-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51022 path=bus/list
+time=2026-09-06T16:57:37.706-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51022 path=bus/list
+time=2026-09-06T16:57:38.295-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51024 path=bus/list
+time=2026-09-06T16:57:38.295-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51024 path=bus/list
+time=2026-09-06T16:57:38.357-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51026 path=bus/list
+time=2026-09-06T16:57:38.357-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51026 path=bus/list
+time=2026-09-06T16:57:41.404-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51029 path=bus/list
+time=2026-09-06T16:57:41.404-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51029 path=bus/list
+time=2026-09-06T16:57:41.442-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51031 path=bus/create
+time=2026-09-06T16:57:41.442-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51031 path=bus/create
+time=2026-09-06T16:57:41.449-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51032 path=bus/1/add
+time=2026-09-06T16:57:41.449-07:00 level=INFO msg="DualSense device instantiated" edge=false vid=1356 pid=3302 interfaces=6
+time=2026-09-06T16:57:41.449-07:00 level=INFO msg="Auto-attaching localhost client via native IOCTL" remote=127.0.0.1:51032 busID=1 deviceID=1
+time=2026-09-06T16:57:41.449-07:00 level=DEBUG msg="Found usbip-win2 device" remote=127.0.0.1:51032 path=\\?\root#usb#0000#{b4030c06-dc5f-4fcc-87eb-e5515a0935c0}
+time=2026-09-06T16:57:41.449-07:00 level=DEBUG msg="Opened device handle" remote=127.0.0.1:51032
+time=2026-09-06T16:57:41.460-07:00 level=INFO msg="Import request" busid=1-1
+time=2026-09-06T16:57:41.460-07:00 level=INFO msg="Successfully attached device via IOCTL" remote=127.0.0.1:51032 busID=1 deviceID=1 usbPort=1
+time=2026-09-06T16:57:41.460-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51032 path=bus/1/add
+time=2026-09-06T16:57:41.485-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51034 path=bus/1/1
+time=2026-09-06T16:57:41.485-07:00 level=INFO msg="api stream begin" remote=127.0.0.1:51034 path=bus/1/1
+time=2026-09-06T16:57:41.485-07:00 level=INFO msg="DualSense V5 stream configured" remote=127.0.0.1:51034 microphoneInput=true speakerOutput=true microphoneInterfaceEvents=false physicalInputMetadata=false frameVersion=5
+time=2026-09-06T16:57:41.489-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51035 path=bus/1/list
+time=2026-09-06T16:57:41.489-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51035 path=bus/1/list
+time=2026-09-06T16:57:41.624-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51036 path=bus/1/list
+time=2026-09-06T16:57:41.624-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51036 path=bus/1/list
+time=2026-09-06T16:57:41.749-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51037 path=bus/1/list
+time=2026-09-06T16:57:41.750-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51037 path=bus/1/list
+time=2026-09-06T16:57:41.876-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51038 path=bus/1/list
+time=2026-09-06T16:57:41.876-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51038 path=bus/1/list
+time=2026-09-06T16:57:42.001-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51039 path=bus/1/list
+time=2026-09-06T16:57:42.001-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51039 path=bus/1/list
+time=2026-09-06T16:57:42.127-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51040 path=bus/1/list
+time=2026-09-06T16:57:42.128-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51040 path=bus/1/list
+time=2026-09-06T16:57:42.253-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51041 path=bus/1/list
+time=2026-09-06T16:57:42.253-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51041 path=bus/1/list
+time=2026-09-06T16:57:42.379-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51042 path=bus/1/list
+time=2026-09-06T16:57:42.379-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51042 path=bus/1/list
+time=2026-09-06T16:57:42.505-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51043 path=bus/1/list
+time=2026-09-06T16:57:42.506-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51043 path=bus/1/list
+time=2026-09-06T16:57:42.632-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51044 path=bus/1/list
+time=2026-09-06T16:57:42.632-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51044 path=bus/1/list
+time=2026-09-06T16:57:42.731-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51046 path=bus/list
+time=2026-09-06T16:57:42.731-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51046 path=bus/list
+time=2026-09-06T16:57:42.732-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51047 path=bus/1/list
+time=2026-09-06T16:57:42.732-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51047 path=bus/1/list
+time=2026-09-06T16:57:42.734-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51048 path=bus/list
+time=2026-09-06T16:57:42.734-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51048 path=bus/list
+time=2026-09-06T16:57:42.734-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51049 path=bus/1/list
+time=2026-09-06T16:57:42.734-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51049 path=bus/1/list
+time=2026-09-06T16:57:42.758-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51050 path=bus/1/list
+time=2026-09-06T16:57:42.758-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51050 path=bus/1/list
+time=2026-09-06T16:57:42.885-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51051 path=bus/1/list
+time=2026-09-06T16:57:42.885-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51051 path=bus/1/list
+time=2026-09-06T16:57:43.011-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51052 path=bus/1/list
+time=2026-09-06T16:57:43.011-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51052 path=bus/1/list
+time=2026-09-06T16:57:43.137-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51053 path=bus/1/list
+time=2026-09-06T16:57:43.137-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51053 path=bus/1/list
+time=2026-09-06T16:57:43.263-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51054 path=bus/1/list
+time=2026-09-06T16:57:43.263-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51054 path=bus/1/list
+time=2026-09-06T16:57:43.388-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51055 path=bus/1/list
+time=2026-09-06T16:57:43.388-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51055 path=bus/1/list
+time=2026-09-06T16:57:43.514-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51056 path=bus/1/list
+time=2026-09-06T16:57:43.514-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51056 path=bus/1/list
+time=2026-09-06T16:57:43.639-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51057 path=bus/1/list
+time=2026-09-06T16:57:43.640-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51057 path=bus/1/list
+time=2026-09-06T16:57:43.765-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51058 path=bus/1/list
+time=2026-09-06T16:57:43.765-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51058 path=bus/1/list
+time=2026-09-06T16:57:43.891-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51059 path=bus/1/list
+time=2026-09-06T16:57:43.891-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51059 path=bus/1/list
+time=2026-09-06T16:57:44.017-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51060 path=bus/1/list
+time=2026-09-06T16:57:44.017-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51060 path=bus/1/list
+time=2026-09-06T16:57:44.143-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51061 path=bus/1/list
+time=2026-09-06T16:57:44.143-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51061 path=bus/1/list
+time=2026-09-06T16:57:44.270-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51063 path=bus/1/list
+time=2026-09-06T16:57:44.270-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51063 path=bus/1/list
+time=2026-09-06T16:57:44.396-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51064 path=bus/1/list
+time=2026-09-06T16:57:44.396-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51064 path=bus/1/list
+time=2026-09-06T16:57:44.521-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51066 path=bus/1/list
+time=2026-09-06T16:57:44.521-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51066 path=bus/1/list
+time=2026-09-06T16:57:44.647-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51067 path=bus/1/list
+time=2026-09-06T16:57:44.648-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51067 path=bus/1/list
+time=2026-09-06T16:57:44.773-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51068 path=bus/1/list
+time=2026-09-06T16:57:44.773-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51068 path=bus/1/list
+time=2026-09-06T16:57:44.899-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51069 path=bus/1/list
+time=2026-09-06T16:57:44.899-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51069 path=bus/1/list
+time=2026-09-06T16:57:45.024-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51070 path=bus/1/list
+time=2026-09-06T16:57:45.024-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51070 path=bus/1/list
+time=2026-09-06T16:57:45.150-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51071 path=bus/1/list
+time=2026-09-06T16:57:45.150-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51071 path=bus/1/list
+time=2026-09-06T16:57:45.276-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51072 path=bus/1/list
+time=2026-09-06T16:57:45.276-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51072 path=bus/1/list
+time=2026-09-06T16:57:45.401-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51073 path=bus/1/list
+time=2026-09-06T16:57:45.401-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51073 path=bus/1/list
+time=2026-09-06T16:57:45.527-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51074 path=bus/1/list
+time=2026-09-06T16:57:45.527-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51074 path=bus/1/list
+time=2026-09-06T16:57:45.653-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51075 path=bus/1/list
+time=2026-09-06T16:57:45.653-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51075 path=bus/1/list
+time=2026-09-06T16:57:45.779-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51076 path=bus/1/list
+time=2026-09-06T16:57:45.779-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51076 path=bus/1/list
+time=2026-09-06T16:57:45.904-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51078 path=bus/1/list
+time=2026-09-06T16:57:45.904-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51078 path=bus/1/list
+time=2026-09-06T16:57:46.031-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51079 path=bus/1/list
+time=2026-09-06T16:57:46.031-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51079 path=bus/1/list
+time=2026-09-06T16:57:46.156-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51080 path=bus/1/list
+time=2026-09-06T16:57:46.157-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51080 path=bus/1/list
+time=2026-09-06T16:57:46.282-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51081 path=bus/1/list
+time=2026-09-06T16:57:46.283-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51081 path=bus/1/list
+time=2026-09-06T16:57:46.408-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51082 path=bus/1/list
+time=2026-09-06T16:57:46.408-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51082 path=bus/1/list
+time=2026-09-06T16:57:46.534-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51083 path=bus/1/list
+time=2026-09-06T16:57:46.534-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51083 path=bus/1/list
+time=2026-09-06T16:57:46.659-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51085 path=bus/1/list
+time=2026-09-06T16:57:46.660-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51085 path=bus/1/list
+time=2026-09-06T16:57:46.786-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51086 path=bus/1/list
+time=2026-09-06T16:57:46.786-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51086 path=bus/1/list
+time=2026-09-06T16:57:46.911-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51087 path=bus/1/list
+time=2026-09-06T16:57:46.911-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51087 path=bus/1/list
+time=2026-09-06T16:57:47.037-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51088 path=bus/1/list
+time=2026-09-06T16:57:47.037-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:51088 path=bus/1/list
+time=2026-09-06T16:57:47.162-07:00 level=INFO msg="api cmd" remote=127.0.0.1:51090 path=bus/1/list
+--- distinct message texts (first 60) ---
+   295x msg="continuing unauthenticated connection" remote=N.N.N.N:N
+   277x msg="api handler success" remote=N.N.N.N:N path=bus/N/list
+   277x msg="api cmd" remote=N.N.N.N:N path=bus/N/list
+     8x msg="api handler success" remote=N.N.N.N:N path=bus/list
+     8x msg="api cmd" remote=N.N.N.N:N path=bus/list
+     5x msg="api handler success" remote=N.N.N.N:N path=ping
+     5x msg="api cmd" remote=N.N.N.N:N path=ping
+     1x msg="DualSense disconnected, serial/mac released" serial=ENGTDNAN mac=AN:FA:NC:CF:N:N
+     1x msg="DualSense framed speaker stream stopped" remote=N.N.N.N:N receivedPayloads=N receivedBytes=N enqueuedPayloads=N enqueuedBytes=N droppedPayloads=N droppedBytes=N writtenPayloads=N writtenBytes=N writeFailures=N queueDepth=N queueHighWater=N maxEnqueueGapUS=N maxWriteGapUS=N microphoneInterfaceOverflows=N
+     1x msg="client disconnected" remote=N.N.N.N:N
+     1x msg="api stream begin" remote=N.N.N.N:N path=bus/N/N
+     1x msg="DualSense VN stream configured" remote=N.N.N.N:N microphoneInput=true speakerOutput=true microphoneInterfaceEvents=false physicalInputMetadata=false frameVersion=N
+     1x msg="Started bus cleanup goroutine (RemoveDeviceByID)"
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/remove
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/remove
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/N/remove
+     1x msg="api stream end" remote=N.N.N.N:N path=bus/N/N
+     1x msg="Client disconnected" error="read URB header: EOF"
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/N/remove
+     1x msg="Auto-attaching localhost client via native IOCTL" remote=N.N.N.N:N busID=N deviceID=N
+     1x msg="Found usbip-winN device" remote=N.N.N.N:N path=\\?\root#usb#N#{bNcN-dcNf-Nfcc-Neb-eNaNcN}
+     1x msg="Opened device handle" remote=N.N.N.N:N
+     1x msg="DualSense device instantiated" edge=false vid=N pid=N interfaces=N
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/create
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/create
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/N/add
+     1x msg="Successfully attached device via IOCTL" remote=N.N.N.N:N busID=N deviceID=N usbPort=N
+     1x msg="api handler success" remote=N.N.N.N:N path=bus/N/add
+     1x msg="api cmd" remote=N.N.N.N:N path=bus/N/N
+     1x msg="IOCTL completed" remote=N.N.N.N:N bytesReturned=N portOutput=N
+     1x msg="Client connected" remote=[::N]:N
+     1x msg=OP_REQ_IMPORT
+     1x msg="Import request" busid=N-N
+
+
+
+

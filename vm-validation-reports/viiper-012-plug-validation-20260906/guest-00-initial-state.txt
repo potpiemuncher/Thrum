@@ -1,0 +1,25 @@
+?app,out,stage,tmp,v006,a.cmd,export-kvp.ps1,phase-a-diag.ps1,phase-a-launch.ps1,phase-a-setup.ps1,phase-b1b2.ps1,phase-b3.ps1,phase-b4.ps1,remove-usbip.ps1,runner.ps1,Thrum-package.zip,uia.ps1,verify-posture.ps1
+LA=
+
+Name                  Length
+----                  ------
+install.log            13136
+licenses.txt           56215
+viiper.exe          11223552
+viiper.exe.previous 11255296
+
+
+
+usbip=
+
+Name           Status
+----           ------
+usbip2_filter Running
+usbip2_ude    Running
+
+
+
+viiperproc=
+
+
+

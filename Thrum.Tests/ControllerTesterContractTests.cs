@@ -8,9 +8,9 @@ namespace DS4WindowsTests
         [TestMethod]
         public void TesterUsesOneVisibilityBoundedSixtyHertzTimerAndOneMarshal()
         {
-            string source = File.ReadAllText(SourcePath("DS4Windows",
+            string source = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerTesterControl.xaml.cs"));
-            string xaml = File.ReadAllText(SourcePath("DS4Windows",
+            string xaml = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerTesterControl.xaml"));
 
             Assert.AreEqual(1,
@@ -23,7 +23,7 @@ namespace DS4WindowsTests
             StringAssert.Contains(xaml,
                 "Unloaded=\"ControllerTesterControl_Unloaded\"");
             StringAssert.Contains(source, "StopTimer();");
-            string window = File.ReadAllText(SourcePath("DS4Windows",
+            string window = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerTesterWindow.xaml"));
             StringAssert.Contains(window,
                 "StateChanged=\"ControllerTesterWindow_StateChanged\"");
@@ -32,7 +32,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void TesterUsesDynamicBrushesAndCapabilityGatesOutputActions()
         {
-            string xaml = File.ReadAllText(SourcePath("DS4Windows",
+            string xaml = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerTesterControl.xaml"));
 
             Assert.IsFalse(Regex.IsMatch(xaml,
@@ -54,11 +54,11 @@ namespace DS4WindowsTests
         [TestMethod]
         public void TesterReusesIdentifyPathAndHasBothCardEntryPoints()
         {
-            string tester = File.ReadAllText(SourcePath("DS4Windows",
+            string tester = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerTesterControl.xaml.cs"));
-            string overview = File.ReadAllText(SourcePath("DS4Windows",
+            string overview = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerOverviewControl.xaml"));
-            string mainWindow = File.ReadAllText(SourcePath("DS4Windows",
+            string mainWindow = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "MainWindow.xaml"));
 
             StringAssert.Contains(tester,
@@ -80,7 +80,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName,
-                    "DS4WindowsWPF.sln")))
+                    "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

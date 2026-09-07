@@ -29,10 +29,11 @@ from the DS4Windows lineage.
 
 The **user-facing identity is rebranded**: the assembly and executable are
 `Thrum`, settings live in `%APPDATA%\Thrum`, and the window titles and log
-banner say Thrum. What remains on the DS4Windows name is *internal* — the
-solution and project files (`DS4WindowsWPF.sln`, `DS4WindowsTests`), the
-`DS4Windows` namespaces, and the `DS4WinWPF` root namespace. That is why the
-build commands below still reference DS4Windows paths.
+banner say Thrum. The solution and project files are `Thrum.sln`,
+`Thrum/Thrum.csproj` and `Thrum.Tests/Thrum.Tests.csproj`. What remains on the
+DS4Windows name is *internal*: the `DS4Windows` namespaces, the `DS4WinWPF`
+root namespace, and the `<DS4Windows>` root element of the profile file
+format, which existing profiles depend on.
 
 Running alongside a real DS4Windows install works but is not a supported
 configuration: both will contend for the same physical controller.
@@ -53,7 +54,7 @@ hardware and — deliberately at equal length — what is not.
 To publish the same self-contained package from source:
 
 ```powershell
-dotnet publish .\DS4Windows\DS4WinWPF.csproj -c Release -r win-x64 --self-contained true
+dotnet publish .\Thrum\Thrum.csproj -c Release -r win-x64 --self-contained true
 ```
 
 ## User guide
@@ -100,7 +101,7 @@ mic, or advanced-haptics endpoints) does not exercise that path. The defect is
 filed upstream as usbip-win2 issue #181.
 
 Thrum's response is a **read-only driver diagnostic**, already present in this
-tree (`DS4Windows/DS4Control/Viiper/Validation/`, entry point
+tree (`Thrum/DS4Control/Viiper/Validation/`, entry point
 `-viiperdriverdiagnostic`). It inspects the installed driver package against a
 pinned manifest — exact package versions, INF driver versions, Authenticode
 subject — and reports what it finds. It performs no elevation, no device I/O,
@@ -135,13 +136,13 @@ platform**; VIIPER is x64-only.
 
 ```powershell
 dotnet restore
-dotnet build .\DS4WindowsWPF.sln -c Release -p:Platform=x64
+dotnet build .\Thrum.sln -c Release -p:Platform=x64
 ```
 
 Run the test suite:
 
 ```powershell
-dotnet test .\DS4WindowsTests\DS4WindowsTests.csproj -c Release -p:Platform=x64
+dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64
 ```
 
 ## License

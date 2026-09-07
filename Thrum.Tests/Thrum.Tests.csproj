@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DS4Windows\DS4WinWPF.csproj" />
+    <ProjectReference Include="..\Thrum\Thrum.csproj" />
   </ItemGroup>
 
 </Project>

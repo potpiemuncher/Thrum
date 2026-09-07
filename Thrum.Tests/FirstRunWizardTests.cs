@@ -470,7 +470,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void WizardHasKeyboardDefaultCancelAndAdvancedPortableControl()
         {
-            XDocument document = XDocument.Load(SourcePath("DS4Windows",
+            XDocument document = XDocument.Load(SourcePath("Thrum",
                 "DS4Forms", "FirstRunWizard.xaml"));
             XElement[] buttons = document.Descendants(
                 Presentation + "Button").ToArray();
@@ -494,7 +494,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void WizardBrushesAreDynamicAndDefinedByBothThemes()
         {
-            string xamlPath = SourcePath("DS4Windows", "DS4Forms",
+            string xamlPath = SourcePath("Thrum", "DS4Forms",
                 "FirstRunWizard.xaml");
             string xaml = File.ReadAllText(xamlPath);
             Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(xaml,
@@ -513,7 +513,7 @@ namespace DS4WindowsTests
             {
                 XNamespace x =
                     "http://schemas.microsoft.com/winfx/2006/xaml";
-                string[] keys = XDocument.Load(SourcePath("DS4Windows",
+                string[] keys = XDocument.Load(SourcePath("Thrum",
                         "DS4Forms", "Themes", theme + ".xaml"))
                     .Descendants()
                     .Select(element => (string)element.Attribute(x + "Key"))
@@ -530,9 +530,9 @@ namespace DS4WindowsTests
         [TestMethod]
         public void StartupUsesWizardAndReadOnlyBackendStatus()
         {
-            string app = File.ReadAllText(SourcePath("DS4Windows",
+            string app = File.ReadAllText(SourcePath("Thrum",
                 "App.xaml.cs"));
-            string effects = File.ReadAllText(SourcePath("DS4Windows",
+            string effects = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "FirstRunWizardEffects.cs"));
 
             StringAssert.Contains(app,
@@ -559,7 +559,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName,
-                    "DS4WindowsWPF.sln")))
+                    "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

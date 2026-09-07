@@ -33,7 +33,7 @@ namespace DS4Windows
     /// their <c>const</c>-ness, and so that the composed values (resource
     /// prefixes, IPC names, URLs) cannot drift apart from their parts.
     ///
-    /// Guard tests in <c>DS4WindowsTests/ProductIdentityTests.cs</c> assert the
+    /// Guard tests in <c>Thrum.Tests/ProductIdentityTests.cs</c> assert the
     /// couplings that a compiler cannot: notably that
     /// <see cref="ExeBaseName"/> equals the app assembly's real name, and that
     /// every pack URI built from these prefixes actually resolves.

@@ -60,7 +60,7 @@ public class NoDonationSolicitationTests
         List<string> hits = new();
         int filesScanned = 0;
 
-        string root = Path.Combine(FindRepositoryRoot(), "DS4Windows");
+        string root = Path.Combine(FindRepositoryRoot(), "Thrum");
         foreach (string file in Directory.GetFiles(root, "*.*",
             SearchOption.AllDirectories))
         {
@@ -126,7 +126,7 @@ public class NoDonationSolicitationTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

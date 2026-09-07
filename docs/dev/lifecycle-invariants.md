@@ -40,7 +40,7 @@ late success cannot be attributed to a live session.
 
 Thrum carries real generation machinery in `ViiperOutDevice`: `streamGeneration`,
 `feedbackDispatchGeneration`, `stateWriterGeneration`, `microphoneWorkerGeneration`
-([ViiperOutDevice.cs:283-288](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)). Dequeued
+([ViiperOutDevice.cs:283-288](../../Thrum/DS4Control/Viiper/ViiperOutDevice.cs)). Dequeued
 feedback items carry the generation they were queued under and are dropped if it has moved:
 
 ```csharp
@@ -51,15 +51,15 @@ if (!IsFeedbackDispatchGenerationActive(generation) ||
     continue;
 }
 ```
-— [ViiperOutDevice.cs:1623-1629](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)
+— [ViiperOutDevice.cs:1623-1629](../../Thrum/DS4Control/Viiper/ViiperOutDevice.cs)
 
 The check runs **inside a read lock** on `feedbackDispatchGenerationBarrier`, and teardown drains
 it by taking the write lock and immediately releasing
-([ViiperOutDevice.cs:1561-1576](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)). That is
+([ViiperOutDevice.cs:1561-1576](../../Thrum/DS4Control/Viiper/ViiperOutDevice.cs)). That is
 a genuine drain barrier: after `WaitForFeedbackDispatchCallbacks()` returns, no dispatch from the
 retired generation is in flight or can start. `Disconnect()` bumps every generation *first*, then
 drains, then disposes the stream — the correct order
-([ViiperOutDevice.cs:1126-1171](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)).
+([ViiperOutDevice.cs:1126-1171](../../Thrum/DS4Control/Viiper/ViiperOutDevice.cs)).
 
 > **Closed in 3.3.** The state writer now takes a read lease on its own
 > `stateWriteGenerationBarrier` around the generation check *and* the write, and
@@ -70,7 +70,7 @@ drains, then disposes the stream — the correct order
 > originally found is described below.
 
 **Gap.** The state-writer path has the generation check
-([ViiperOutDevice.cs:1904-1910](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)) but **no
+([ViiperOutDevice.cs:1904-1910](../../Thrum/DS4Control/Viiper/ViiperOutDevice.cs)) but **no
 drain barrier**. `Disconnect()` disposes the stream at line 1170 and only afterwards joins the
 writer thread, with a bounded `Join(500)`. A writer that passes `IsStateWriterCurrent` and is
 then descheduled can reach `WriteState` on a disposed stream, and a writer that does not exit
@@ -172,7 +172,7 @@ if (census == null || !census.Succeeded)
         "could not confirm the backend is idle (" + ... + ")");
 }
 ```
-— [ViiperBackendLifecycle.cs:380-385](../../DS4Windows/DS4Control/Viiper/ViiperBackendLifecycle.cs)
+— [ViiperBackendLifecycle.cs:380-385](../../Thrum/DS4Control/Viiper/ViiperBackendLifecycle.cs)
 
 "Cannot tell" is treated as "do not act" — the invariant's core requirement. It then refuses to
 stop if any foreign device, any of **our own** leftover devices, or even an empty bus remains
@@ -201,7 +201,7 @@ stop if any foreign device, any of **our own** leftover devices, or even an empt
 Windows PnP. If the two disagree (a devnode Windows still shows after VIIPER has forgotten it —
 precisely the phantom case the old fork's `present-only SetupAPI probe` was written for), Thrum
 believes VIIPER. Thrum does have SetupAPI machinery available
-([ViiperDriverInspectors.cs](../../DS4Windows/DS4Control/Viiper/Validation/ViiperDriverInspectors.cs)),
+([ViiperDriverInspectors.cs](../../Thrum/DS4Control/Viiper/Validation/ViiperDriverInspectors.cs)),
 but it is used for driver-package enumeration, not for exact-device presence.
 
 **Worth doing only if it can bite:** a PnP cross-check matters when a phantom can outlive the
@@ -266,7 +266,7 @@ complete must leave protections up and report incomplete cleanup instead.
 **Verdict: Present, via a different mechanism — but read the ordering carefully.**
 
 Thrum *does* kill: `ViiperBackendLifecycle` escalates from `CTRL_BREAK_EVENT` to
-`process.Kill(entireProcessTree: true)` ([ViiperBackendLifecycle.cs:547](../../DS4Windows/DS4Control/Viiper/ViiperBackendLifecycle.cs)),
+`process.Kill(entireProcessTree: true)` ([ViiperBackendLifecycle.cs:547](../../Thrum/DS4Control/Viiper/ViiperBackendLifecycle.cs)),
 which looks like a direct violation. It is not, because of what has to be true before that line
 is reachable: the stop **decision** (above, invariant c) refuses to stop at all unless the census
 succeeded *and* reported zero foreign devices, zero of our own devices, and zero buses. By the
@@ -349,7 +349,7 @@ could not prove absence.
 ```csharp
 ViiperUsbipPortManager.DetachStaleLocalViiperPorts();
 ```
-— [ViiperOutDevice.cs:4748](../../DS4Windows/DS4Control/Viiper/ViiperOutDevice.cs)
+— [ViiperOutDevice.cs:4748](../../Thrum/DS4Control/Viiper/ViiperOutDevice.cs)
 
 followed, after creation, by `DetachDuplicateLocalViiperPorts(...)` (line 4764). Creation failure
 rolls back properly — port unregistered, device removed, bus removed (lines 4767-4778).

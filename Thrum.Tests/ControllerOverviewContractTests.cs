@@ -13,7 +13,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void IdentifyControllerActionIsCapabilityGated()
         {
-            XDocument overview = XDocument.Load(SourcePath("DS4Windows",
+            XDocument overview = XDocument.Load(SourcePath("Thrum",
                 "DS4Forms", "ControllerOverviewControl.xaml"));
             XElement button = overview
                 .Descendants(Presentation + "Button")
@@ -33,7 +33,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void OverviewSurfacesAccessChargingAndProfileSwitching()
         {
-            string overview = File.ReadAllText(SourcePath("DS4Windows",
+            string overview = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ControllerOverviewControl.xaml"));
 
             StringAssert.Contains(overview,
@@ -49,7 +49,7 @@ namespace DS4WindowsTests
         [TestMethod]
         public void OverviewHapticStorageUsesCapabilityInsteadOfDeviceType()
         {
-            string viewModel = File.ReadAllText(SourcePath("DS4Windows",
+            string viewModel = File.ReadAllText(SourcePath("Thrum",
                 "DS4Forms", "ViewModels", "MainWindowsViewModel.cs"));
 
             StringAssert.Contains(viewModel,
@@ -71,7 +71,7 @@ namespace DS4WindowsTests
             while (directory != null)
             {
                 if (File.Exists(Path.Combine(directory.FullName,
-                    "DS4WindowsWPF.sln")))
+                    "Thrum.sln")))
                 {
                     return directory.FullName;
                 }

@@ -25,7 +25,7 @@ using System.Text.RegularExpressions;
 namespace DS4WindowsTests;
 
 /// <summary>
-/// Ensures every <c>dotnet publish</c> of <c>DS4WinWPF.csproj</c> in the
+/// Ensures every <c>dotnet publish</c> of <c>Thrum.csproj</c> in the
 /// GitHub Actions workflows ships a self-contained binary.
 ///
 /// <para>Thrum's CI and release workflows currently publish framework-dependent
@@ -52,7 +52,7 @@ public class ReleasePackagingTests
             return;
         }
 
-        // Collect (file, line, content) for every dotnet publish on DS4WinWPF.csproj.
+        // Collect (file, line, content) for every dotnet publish on Thrum.csproj.
         List<(string file, int line, string content)> publishes = new();
 
         foreach (string ymlFile in Directory.GetFiles(workflowsDir, "*.yml"))
@@ -66,7 +66,7 @@ public class ReleasePackagingTests
                 // build command would be a false positive the first time
                 // someone adds one.
                 if (Regex.IsMatch(lines[i], @"dotnet\s+publish") &&
-                    Regex.IsMatch(lines[i], @"DS4WinWPF\.csproj"))
+                    Regex.IsMatch(lines[i], @"Thrum\.csproj"))
                 {
                     publishes.Add((Path.GetFileName(ymlFile), i + 1, lines[i]));
                 }
@@ -88,7 +88,7 @@ public class ReleasePackagingTests
             if (!Regex.IsMatch(content, @"--self-contained\s+true"))
             {
                 failures.Add(file + " line " + line + ": " +
-                    "dotnet publish of DS4WinWPF.csproj is missing " +
+                    "dotnet publish of Thrum.csproj is missing " +
                     "--self-contained true. The artifact will not start on a " +
                     "machine without the .NET Desktop Runtime.");
             }
@@ -98,7 +98,7 @@ public class ReleasePackagingTests
                 !Regex.IsMatch(content, @"-r\s+win-\$\{\{\s*matrix\.platform\s*\}\}"))
             {
                 failures.Add(file + " line " + line + ": " +
-                    "dotnet publish of DS4WinWPF.csproj is missing a runtime " +
+                    "dotnet publish of Thrum.csproj is missing a runtime " +
                     "identifier (-r win-x64 or -r win-${{ matrix.platform }}). " +
                     "The artifact will not start on a machine without the .NET " +
                     "Desktop Runtime, which is exactly the state both validation " +
@@ -154,7 +154,7 @@ public class ReleasePackagingTests
         while (directory != null)
         {
             if (File.Exists(Path.Combine(directory.FullName,
-                "DS4WindowsWPF.sln")))
+                "Thrum.sln")))
             {
                 return directory.FullName;
             }

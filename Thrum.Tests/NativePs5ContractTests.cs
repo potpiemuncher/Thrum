@@ -199,7 +199,7 @@ public class NativePs5ContractTests
     {
         XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
         XDocument dictionary = XDocument.Load(Path.Combine(FindRepositoryRoot(),
-            "DS4Windows", "DS4Forms", "Themes", theme + ".xaml"));
+            "Thrum", "DS4Forms", "Themes", theme + ".xaml"));
         return dictionary.Descendants()
             .Select(element => (string)element.Attribute(xaml + "Key"))
             .Where(key => !string.IsNullOrEmpty(key))
@@ -207,14 +207,14 @@ public class NativePs5ContractTests
     }
 
     private static string Forms(string file) => Path.Combine(
-        FindRepositoryRoot(), "DS4Windows", "DS4Forms", file);
+        FindRepositoryRoot(), "Thrum", "DS4Forms", file);
 
     private static string FindRepositoryRoot()
     {
         DirectoryInfo directory = new(AppContext.BaseDirectory);
         while (directory != null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "DS4WindowsWPF.sln")))
+            if (File.Exists(Path.Combine(directory.FullName, "Thrum.sln")))
             {
                 return directory.FullName;
             }

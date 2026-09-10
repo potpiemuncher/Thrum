@@ -251,11 +251,13 @@ namespace DS4Windows
 
         internal const string AudioClassNotEnabledReason =
             "Virtual audio and microphone endpoints are turned off. They are " +
-            "off by default because the installed usbip-win2 driver has a " +
-            "confirmed kernel defect that can crash Windows when such an " +
-            "endpoint is torn down. Controller input, rumble and triggers work " +
-            "without them; the switch is in Settings, next to the driver " +
-            "status card.";
+            "off by default: before usbip-win2 " +
+            ViiperExperimentalDisclosure.FixedInReleaseLabel + " the driver " +
+            "had a confirmed kernel defect that can crash Windows when such an " +
+            "endpoint is torn down, and the fixed driver has not yet been " +
+            "exercised at length by this project. Controller input, rumble " +
+            "and triggers work without them; the switch is in Settings, next " +
+            "to the driver status card.";
     }
 
     /// <summary>

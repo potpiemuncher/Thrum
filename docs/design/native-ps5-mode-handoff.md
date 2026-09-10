@@ -24,7 +24,7 @@ the state; a CTA button appears in states 2 and 3.
 | 3 | Needs consent | driver known, `ViiperExperimentalAcknowledged` false | "Experimental - known package", warning | neutral |
 | 4 | On | output is virtual DualSense/Edge; not 5 or 6 | "On", success | success |
 | 5 | On, haptics via Bluetooth | 4 ∧ wireless ∧ Audio Haptics enabled with a system or endpoint source ∧ audio consent off | "On · haptics via Bluetooth", success | success |
-| 6 | On, haptics via virtual pad | 4 ∧ USB ∧ `AllowExperimentalAudioEndpoints` | "Experimental, unverified", warning, plus `AudioClassSummary` | warning |
+| 6 | On, haptics via virtual pad | 4 ∧ `AllowExperimentalAudioEndpoints` (Bluetooth or USB; the USB-only predicate was dropped 2026-09-09 once the audio persona was exercised over Bluetooth on usbip-win2 0.9.8.0) | "Experimental, unverified", warning, plus `AudioClassSummary` | warning |
 
 Rule that must hold: **Bluetooth + Audio Haptics + no virtual audio endpoint =
 state 5 = green.** A working default must never read as broken.
@@ -53,7 +53,7 @@ current = accent ring, step 4 dashed = optional). Rail rows are not focusable.
    (emulated device, Hide DS4 Controller on, games see a virtual DualSense on
    the next connection). After success: "On" badge, HidHide warning if
    applicable, and the optional step 4 link.
-4. **Haptics over the virtual pad** (optional, USB only) — the audio-endpoint
+4. **Haptics over the virtual pad** (optional; Bluetooth or USB since 2026-09-09) — the audio-endpoint
    consent with its every-time disclosure (`BuildAudioClassBody`),
    `AudioClassSummary` in warning colour, the default-audio-device takeover
    warning (N4) and a disabled "Restore my previous default device" (N5,

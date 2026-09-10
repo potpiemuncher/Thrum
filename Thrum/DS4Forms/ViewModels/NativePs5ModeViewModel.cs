@@ -51,9 +51,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         OnHapticsBluetooth = 5,
 
         /// <summary>
-        /// On over USB with virtual audio endpoints allowed. The only state
-        /// that reaches the audio-class kernel defect, and unverified on
-        /// hardware (issue #65).
+        /// On with virtual audio endpoints allowed, over Bluetooth or USB:
+        /// games drive the pad's own haptics and speaker through the virtual
+        /// pad. The only state that reaches the audio-class driver path;
+        /// exercised on hardware over Bluetooth on usbip-win2 0.9.8.0
+        /// (2026-09-09) but not yet at length, so still labelled unverified.
         /// </summary>
         OnHapticsVirtualPad = 6,
     }
@@ -162,7 +164,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 return NativePs5ModeState.Off;
             }
 
-            if (!i.IsWireless && i.AudioEndpointsAllowed)
+            if (i.AudioEndpointsAllowed)
             {
                 return NativePs5ModeState.OnHapticsVirtualPad;
             }
@@ -320,7 +322,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             {
                 if (State == NativePs5ModeState.OnHapticsVirtualPad)
                 {
-                    return " · USB · virtual audio and microphone endpoints on";
+                    return " · virtual audio and microphone endpoints on";
                 }
 
                 return IsOn && inputs.HidHide == NativePs5HidHideStatus.Hiding
@@ -379,16 +381,21 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                             "created.";
                     case NativePs5ModeState.On:
                         return "Haptics: game rumble through the virtual pad. " +
+                            "Game-authored haptics and speaker need step 4 of " +
+                            "setup. " +
                             (inputs.AudioHapticsEnabled
-                                ? "Audio Haptics on USB needs step 4 of setup."
+                                ? "Audio Haptics is on."
                                 : "Audio Haptics is off.");
                     case NativePs5ModeState.OnHapticsBluetooth:
                         return "Haptics stream straight to the pad over " +
                             "Bluetooth. This route needs no driver and no " +
                             "audio-endpoint consent.";
                     default:
-                        return "Haptics travel through the virtual pad's " +
-                            "audio endpoints.";
+                        return "Games drive the pad's own haptics and speaker " +
+                            "through the virtual pad's audio endpoints, " +
+                            (inputs.IsWireless
+                                ? "relayed over Bluetooth."
+                                : "over USB.");
                 }
             }
         }
@@ -423,8 +430,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             State == NativePs5ModeState.OnHapticsVirtualPad;
 
         public const string AudioEndpointsUnverifiedLine =
-            "Virtual audio endpoints are on. This path has not been verified " +
-            "on hardware (issue #65).";
+            "Virtual audio endpoints are on. This path was first exercised " +
+            "on hardware over Bluetooth on usbip-win2 0.9.8.0 (2026-09-09) " +
+            "and is not yet verified at length (issue #65).";
 
         public string AudioEndpointsRiskText =>
             ViiperExperimentalDisclosure.AudioClassSummary;

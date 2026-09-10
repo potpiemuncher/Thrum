@@ -235,6 +235,48 @@ namespace DS4WindowsTests
                 "torn down");
         }
 
+        /// <summary>
+        /// Rule 4 after usbip-win2 0.9.8.0 (2026-09-07) shipped the fixes: the
+        /// text names the fixed release as a fact about upstream, says "that
+        /// release" only for a manifest-matched package at or past it, and
+        /// keeps the endpoints opt-in either way. An unidentified package is
+        /// never assumed fixed, whatever its version string claims.
+        /// </summary>
+        [TestMethod]
+        public void TheAudioDisclosureKnowsWhichReleasesCarryTheFixes()
+        {
+            Assert.AreEqual("0.9.8.0",
+                ViiperExperimentalDisclosure.FixedInReleaseLabel);
+
+            Assert.IsTrue(ViiperExperimentalDisclosure.CarriesUpstreamFixes(
+                Readiness(ViiperDriverReadinessState.ValidatedExperimental, "0.9.8.0")));
+            Assert.IsTrue(ViiperExperimentalDisclosure.CarriesUpstreamFixes(
+                Readiness(ViiperDriverReadinessState.Approved, "0.9.9.0")));
+            Assert.IsFalse(ViiperExperimentalDisclosure.CarriesUpstreamFixes(
+                Readiness(ViiperDriverReadinessState.ValidatedExperimental, "0.9.7.8")));
+            Assert.IsFalse(ViiperExperimentalDisclosure.CarriesUpstreamFixes(
+                Readiness(ViiperDriverReadinessState.DetectedUnvalidated, "0.9.8.0")),
+                "An unidentified package is never assumed fixed.");
+            Assert.IsFalse(ViiperExperimentalDisclosure.CarriesUpstreamFixes(null));
+
+            string fixedBody = ViiperExperimentalDisclosure.BuildAudioClassBody(
+                Readiness(ViiperDriverReadinessState.ValidatedExperimental, "0.9.8.0"));
+            StringAssert.Contains(fixedBody, "carries the upstream fixes");
+            StringAssert.Contains(fixedBody, "installed package is that release");
+            StringAssert.Contains(fixedBody, "stay opt-in");
+            StringAssert.Contains(fixedBody, "Turn virtual audio endpoints on?");
+
+            string oldBody = ViiperExperimentalDisclosure.BuildAudioClassBody(
+                Readiness(ViiperDriverReadinessState.ValidatedExperimental, "0.9.7.8"));
+            StringAssert.Contains(oldBody, "installed package is not that release");
+            Assert.IsFalse(oldBody.Contains("is that release, and"));
+
+            StringAssert.Contains(ViiperExperimentalDisclosure.AudioClassSummary,
+                "0.9.8.0");
+            StringAssert.Contains(ViiperVirtualDeviceGate.AudioClassNotEnabledReason,
+                "0.9.8.0");
+        }
+
         private static IEnumerable<string> AllText()
         {
             yield return ViiperExperimentalDisclosure.AcknowledgementBody;
@@ -243,13 +285,17 @@ namespace DS4WindowsTests
             yield return ViiperExperimentalDisclosure.AudioClassSummary;
             yield return ViiperExperimentalDisclosure.AudioClassTitle;
             yield return ViiperExperimentalDisclosure.NotApprovalLine;
+            yield return ViiperVirtualDeviceGate.AudioClassNotEnabledReason;
 
             foreach (ViiperDriverReadinessState state in States)
             {
-                yield return ViiperExperimentalDisclosure.BuildAudioClassBody(
-                    Readiness(state, "0.9.7.8"));
-                yield return ViiperExperimentalDisclosure.DescribeInstalled(
-                    Readiness(state, "0.9.7.8"));
+                foreach (string release in new[] { "0.9.7.8", "0.9.8.0" })
+                {
+                    yield return ViiperExperimentalDisclosure.BuildAudioClassBody(
+                        Readiness(state, release));
+                    yield return ViiperExperimentalDisclosure.DescribeInstalled(
+                        Readiness(state, release));
+                }
             }
         }
 

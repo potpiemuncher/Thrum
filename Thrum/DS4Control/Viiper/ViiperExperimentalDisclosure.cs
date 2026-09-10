@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+using System;
 using System.Text;
 
 namespace DS4Windows
@@ -54,6 +55,33 @@ namespace DS4Windows
         /// </summary>
         public const string UpstreamIssueUrl =
             "https://github.com/vadimgrn/usbip-win2/issues/181";
+
+        /// <summary>
+        /// The first upstream release that carries the fixes for the defect
+        /// behind issue #181: the filter memory-corruption fix and the UDE
+        /// request-lifetime hardening (usbip-win2 0.9.8.0, 2026-09-07).
+        /// Naming it is a statement about upstream, not a recommendation;
+        /// the manifest still decides what is recognised.
+        /// </summary>
+        public const string FixedInReleaseLabel = "0.9.8.0";
+
+        /// <summary>
+        /// Whether the installed package is a recognised release at or past
+        /// <see cref="FixedInReleaseLabel"/>. Only a manifest-matched release
+        /// counts: an unidentified package is never assumed fixed.
+        /// </summary>
+        public static bool CarriesUpstreamFixes(ViiperDriverReadiness readiness)
+        {
+            if (readiness == null ||
+                (readiness.State != ViiperDriverReadinessState.ValidatedExperimental &&
+                 readiness.State != ViiperDriverReadinessState.Approved))
+            {
+                return false;
+            }
+
+            return Version.TryParse(readiness.ReleaseLabel, out Version installed) &&
+                installed >= Version.Parse(FixedInReleaseLabel);
+        }
 
         public const string AcknowledgementTitle =
             ProductInfo.ProductName + " - experimental virtual controller backend";
@@ -113,14 +141,15 @@ namespace DS4Windows
                 .Append("(controller speaker, headset jack and pad microphone) ")
                 .Append("through the usbip-win2 kernel driver.\n\n");
 
-            text.Append("The risk, plainly: usbip-win2 has a confirmed defect ")
-                .Append("in how it retires in-flight USB requests. When a ")
-                .Append("virtual audio endpoint is torn down - closing a game, ")
-                .Append("switching profiles, unplugging the pad, shutting down ")
-                .Append("- an audio transfer that completes at the same moment ")
-                .Append("can corrupt kernel memory and stop Windows with a blue ")
-                .Append("screen. It has been reproduced on this project's own ")
-                .Append("hardware.\n\n");
+            text.Append("The risk, plainly: usbip-win2 releases before ")
+                .Append(FixedInReleaseLabel)
+                .Append(" have a confirmed defect in how they retire in-flight ")
+                .Append("USB requests. When a virtual audio endpoint is torn ")
+                .Append("down - closing a game, switching profiles, unplugging ")
+                .Append("the pad, shutting down - an audio transfer that ")
+                .Append("completes at the same moment can corrupt kernel memory ")
+                .Append("and stop Windows with a blue screen. It has been ")
+                .Append("reproduced on this project's own hardware.\n\n");
 
             text.Append("This is a defect in usbip-win2, not in ")
                 .Append(ProductInfo.ProductName)
@@ -129,8 +158,23 @@ namespace DS4Windows
                 .Append(ProductInfo.ProductName)
                 .Append(" orders its own teardown as carefully as it can, but ")
                 .Append("the fault is inside the kernel driver and cannot be ")
-                .Append("fully prevented from outside it. No usbip-win2 release ")
-                .Append("is known to have fixed it.\n\n");
+                .Append("fully prevented from outside it. usbip-win2 ")
+                .Append(FixedInReleaseLabel)
+                .Append(" carries the upstream fixes for it. ");
+
+            if (CarriesUpstreamFixes(readiness))
+            {
+                text.Append("The installed package is that release, and ")
+                    .Append(ProductInfo.ProductName)
+                    .Append(" has not yet exercised the audio teardown on it ")
+                    .Append("at length, so these endpoints stay opt-in.\n\n");
+            }
+            else
+            {
+                text.Append("The installed package is not that release, so ")
+                    .Append("the defect described above applies to it as far ")
+                    .Append("as this project knows.\n\n");
+            }
 
             text.Append("Installed package: ").Append(DescribeInstalled(readiness))
                 .Append("\n").Append(NotApprovalLine).Append("\n\n");
@@ -181,10 +225,13 @@ namespace DS4Windows
         /// one written to the log when audio-class output is refused.
         /// </summary>
         public const string AudioClassSummary =
-            "Off by default. Virtual speaker and microphone endpoints reach a " +
-            "confirmed usbip-win2 kernel defect (upstream issue #181) that can " +
-            "stop Windows with a blue screen when an endpoint is torn down. " +
-            "Controller input, rumble and adaptive triggers do not need them.";
+            "Off by default. Virtual speaker and microphone endpoints use the " +
+            "driver path where usbip-win2 releases before " +
+            FixedInReleaseLabel + " have a confirmed kernel defect (upstream " +
+            "issue #181) that can stop Windows with a blue screen when an " +
+            "endpoint is torn down; " + FixedInReleaseLabel + " carries the " +
+            "upstream fixes and is still opt-in here. Controller input, rumble " +
+            "and adaptive triggers do not need them.";
 
         /// <summary>
         /// The short line next to the experimental-backend checkbox.

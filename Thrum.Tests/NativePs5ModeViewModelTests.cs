@@ -210,13 +210,36 @@ public class NativePs5ModeViewModelTests
         StringAssert.Contains(NativePs5ModeViewModel.AudioEndpointsUnverifiedLine,
             "#65");
         StringAssert.Contains(card.GamesSeeSuffix, "endpoints on");
+        StringAssert.Contains(card.PrimaryLine, "over USB");
     }
 
     [TestMethod]
-    public void AudioConsentOverBluetoothIsPlainOn_NotTheUnverifiedState()
+    public void State6_AlsoOverBluetooth_AndOutranksAudioHapticsThere()
     {
-        // State 6 is the USB route; the table names it that way on purpose.
-        Assert.AreEqual(NativePs5ModeState.On,
+        // 2026-09-09: the audio persona was exercised over Bluetooth on
+        // usbip-win2 0.9.8.0, so the USB-only predicate went. With the
+        // endpoints allowed, the game owns the pad's haptics on either link
+        // and Audio Haptics no longer decides the state.
+        NativePs5ModeViewModel card = Card(Inputs(
+            output: OutContType.ViiperDualSense, wireless: true,
+            audioAllowed: true, hapticsEnabled: true,
+            source: AudioHapticsSourceKind.SystemAudio));
+
+        Assert.AreEqual(NativePs5ModeState.OnHapticsVirtualPad, card.State);
+        Assert.AreEqual("Experimental, unverified", card.BadgeText);
+        Assert.IsTrue(card.ShowAudioEndpointsLine);
+        StringAssert.Contains(card.PrimaryLine, "relayed over Bluetooth");
+        Assert.IsFalse(card.GamesSeeSuffix.Contains("USB"),
+            "The suffix must not name a transport the state no longer requires.");
+    }
+
+    [TestMethod]
+    public void AudioConsentOverBluetoothWithoutAudioHapticsIsTheVirtualPadState()
+    {
+        // Until 2026-09-09 state 6 was the USB route only. The audio persona
+        // now relays game-authored haptics over Bluetooth too, so consent
+        // alone selects it on either link.
+        Assert.AreEqual(NativePs5ModeState.OnHapticsVirtualPad,
             NativePs5ModeViewModel.Evaluate(Inputs(
                 output: OutContType.ViiperDualSense, wireless: true,
                 audioAllowed: true)));

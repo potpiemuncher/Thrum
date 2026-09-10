@@ -336,9 +336,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public string Step4Badge => "Experimental, unverified";
 
         public string Step4Intro =>
-            "Leave this off unless your DualSense is on USB and you need " +
-            "Audio Haptics there. Over Bluetooth, haptics already work with " +
-            "Audio Haptics and need none of this.";
+            "Lets games drive the pad's own haptics and speaker through the " +
+            "virtual pad, over Bluetooth or USB, the way a pad plugged " +
+            "straight into a PS5 or PC is driven. Without it, games get " +
+            "adaptive triggers and rumble-style haptics only, and Audio " +
+            "Haptics can still add haptics from system audio over Bluetooth. " +
+            "This needs the virtual audio endpoints consent below.";
 
         public bool AudioEndpointsAllowed => inputs.AudioEndpointsAllowed;
 

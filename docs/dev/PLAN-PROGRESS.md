@@ -4872,3 +4872,53 @@ zero mismatches. The patched `viiper.exe` is in place and starts with
 "Auto-attach prerequisites satisfied". Still owed: the Native PS5 hardware
 pass on the new stack. Rollback is
 `revert.ps1` (original v0.1.2 payload kept) plus the 0.9.7.7 installer.
+
+## 2026-09-09 (late) — Native PS5 mode live on 0.9.8.0; audio persona over Bluetooth; disclosure and step 4 rewritten
+
+**Hardware run (dev PC, physical DualSense over Bluetooth, usbip-win2 0.9.8.0,
+patched VIIPER v0.1.2, Thrum main at #92).** Native PS5 mode turned on from
+the Overview card: virtual DualSense plugged on usbip port 1 through VIIPER's
+native attach IOCTL, card in state 4. The owner then enabled "Allow virtual
+audio and microphone endpoints" (log: "Virtual audio endpoints enabled; the
+kernel-crash risk notice was accepted"), stopped and started: the virtual pad
+came back as `dualsensecombinedaudioduplexv5` (VIIPER `bus/1/list`:
+`speakerStreamActive: true`), and Windows created "Speakers (3- DualSense
+Wireless Controller)" and "Headset Microphone (3- DualSense Wireless
+Controller)" endpoints. **First time the audio persona has run on a driver
+that carries the #181 fixes, and the first time it has run over Bluetooth on
+the dev PC.** Not yet exercised: the endpoint teardown at length, a game
+driving the haptic channels, and the default-output takeover (no guard lines
+in the log; owner to check the default playback device).
+
+**Answer recorded for "will this feel like a plugged-in pad?":** adaptive
+triggers are game-authored on every state (R2/L2 effect blocks parsed from the
+virtual pad's output report 0x02 and applied to the physical pad). With the
+gamepad-only persona (state 4) haptics are the game's rumble bytes only. With
+the audio persona (state 6) the game's haptic channels reach the pad as the
+Bluetooth 0x32 stream and the speaker channels as Opus on 0x39, i.e. the same
+feeds a USB-connected pad gets from the game, relayed over Bluetooth.
+
+**Text and state changes in this PR**, all driven by that run:
+
+- `ViiperExperimentalDisclosure` gains `FixedInReleaseLabel = "0.9.8.0"` and
+  `CarriesUpstreamFixes(readiness)` (true only for a manifest-matched release
+  at or past it). `BuildAudioClassBody` now says the defect belongs to releases
+  before 0.9.8.0, that 0.9.8.0 carries the upstream fixes, and then either
+  "the installed package is that release … stays opt-in" or "is not that
+  release, so the defect applies as far as this project knows". The forbidden
+  phrases (download, latest, newest, upgrade to, /releases) are still absent;
+  the disclosure tests now scan both 0.9.7.8 and 0.9.8.0 bodies.
+  `AudioClassSummary` and the gate's `AudioClassNotEnabledReason` carry the
+  same before/after wording (the gate text avoids the phrase "usbip-win2
+  releases", which its own test forbids).
+- Setup sheet step 4 no longer says "leave this off unless on USB"; it says
+  what the switch does (games drive the pad's own haptics and speaker through
+  the virtual pad, over Bluetooth or USB) and what you get without it.
+- Card state 6 (`OnHapticsVirtualPad`) is now `4 ∧ AllowExperimentalAudioEndpoints`
+  on either transport; the "· USB ·" suffix is gone, state 4's line points at
+  step 4 for game-authored haptics, and the unverified line records the
+  2026-09-09 first exercise. The old test asserting Bluetooth + consent = plain
+  On is replaced by its inverse; a new test covers state 6 over Bluetooth
+  outranking Audio Haptics. Design doc row 6 and step 4 updated to match.
+
+Suite: **1125 passed / 0 failed** (CI filter).

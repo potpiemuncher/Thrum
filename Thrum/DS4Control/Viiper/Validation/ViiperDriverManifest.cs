@@ -1,4 +1,4 @@
-/*
+﻿/*
 DS4Windows
 Copyright (C) 2026  DS4Windows contributors
 
@@ -325,10 +325,44 @@ namespace DS4Windows
                     ViiperDriverArchitecture.X86,
                 });
 
+            // usbip-win2 0.9.8.0 (released 2026-09-07, tag v.0.9.8.0 = 83bd1f78).
+            // Carries the filter memory-corruption fix 4139f44 and the UDE
+            // request-lifetime hardening from PR #182. Identity taken from the
+            // attestation-signed driver package published by the signer on
+            // vadimgrn/usbip-win2#13 (DriverVer 08/26/2026); both catalogs and
+            // both .sys files verified as signed by Microsoft Windows Hardware
+            // Compatibility Publisher. Installer x64 SHA-256
+            // 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39.
+            // Recognised so the gate can identify it; still experimental, not
+            // production-approved.
+            var releaseWithFixes = new ViiperDriverRelease(
+                releaseLabel: "0.9.8.0",
+                tier: ViiperDriverTier.ExperimentalBaseline,
+                driverSignerPolicy:
+                    ViiperDriverSignerPolicy.MicrosoftHardwareCompatibilityPublisher,
+                udeHostController: new ViiperDriverPackageSpec(
+                    infName: "usbip2_ude.inf",
+                    provider: "USBIP-WIN2",
+                    driverVersion: new Version(23, 56, 48, 757)),
+                filterExtension: new ViiperDriverPackageSpec(
+                    infName: "usbip2_filter.inf",
+                    provider: "USBIP-WIN2",
+                    driverVersion: new Version(23, 56, 30, 686)),
+                userspaceClient: new ViiperUsbipClientSpec(
+                    fileName: "usbip.exe",
+                    productVersion: new Version(0, 9, 8, 0),
+                    requireAuthenticode: true),
+                architectures: new[]
+                {
+                    // Only the x64 package has been inspected.
+                    ViiperDriverArchitecture.X64,
+                });
+
             return new ViiperDriverManifest(new[]
             {
                 hbashtonInstallerBaseline,
                 knownRiskBaseline,
+                releaseWithFixes,
             });
         }
     }

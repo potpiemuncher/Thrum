@@ -120,8 +120,11 @@ supports only GPU and NVMe assignment. Full working in
 
 ## Hard constraints
 
-- **Never test kernel-driver paths on the dev PC.** It runs usbip-win2 0.9.7.8,
-  the build with the confirmed corruption defect. Use TESTENV.
+- **Kernel-driver paths may be tested on the dev PC or in TESTENV** (owner's
+  decision, 2026-09-09). The dev PC moved off 0.9.7.8 to 0.9.7.7 in early
+  September and is moving to 0.9.8.0, the release that carries the filter fix
+  and PR #182. TESTENV remains the place for anything that needs a checkpoint
+  rollback.
 - **Never enable test signing, or weaken Secure Boot / VBS / HVCI**, anywhere.
 - **Never attach a crash dump to a public issue** — they contain kernel memory.
   See `SECURITY.md`.

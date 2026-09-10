@@ -18,9 +18,9 @@ public class ViiperDriverValidatorTests
     {
         ViiperDriverManifest manifest = ViiperDriverManifest.ObservedBaselines;
 
-        Assert.AreEqual(2, manifest.Releases.Count);
+        Assert.AreEqual(3, manifest.Releases.Count);
         CollectionAssert.AreEqual(
-            new[] { "0.9.7.7", "0.9.7.8" },
+            new[] { "0.9.7.7", "0.9.7.8", "0.9.8.0" },
             manifest.Releases.Select(release => release.ReleaseLabel).ToArray());
         foreach (ViiperDriverRelease release in manifest.Releases)
         {
@@ -31,6 +31,25 @@ public class ViiperDriverValidatorTests
                 ViiperDriverSignerPolicy.MicrosoftHardwareCompatibilityPublisher,
                 release.DriverSignerPolicy);
         }
+    }
+
+    [TestMethod]
+    public void Manifest_ReleaseWithFixes_UsesExactX64PackageVersions()
+    {
+        ViiperDriverRelease release = Release("0.9.8.0");
+
+        Assert.AreEqual(new Version(23, 56, 48, 757),
+            release.UdeHostController.DriverVersion);
+        Assert.AreEqual(new Version(23, 56, 30, 686),
+            release.FilterExtension.DriverVersion);
+        Assert.AreEqual(new Version(0, 9, 8, 0),
+            release.UserspaceClient.ProductVersion);
+        Assert.IsTrue(release.UserspaceClient.RequireAuthenticode);
+        CollectionAssert.AreEqual(
+            new[] { ViiperDriverArchitecture.X64 },
+            release.Architectures.ToArray());
+        Assert.IsFalse(release.IsRunAllowed,
+            "0.9.8.0 is recognised, not production approved.");
     }
 
     [TestMethod]

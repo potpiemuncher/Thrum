@@ -1,0 +1,192 @@
+From a80333ab764555cbe08d4ca3c4e658e729cfb5ad Mon Sep 17 00:00:00 2001
+From: potpiemuncher <patrick.wall90@gmail.com>
+Date: Wed, 9 Sep 2026 20:47:11 -0500
+Subject: [PATCH 1/2] Accept usbip-win2 0.9.8.0: version gate and
+ plugin_hardware ABI
+
+usbip-win2 0.9.8.0 (tag v.0.9.8.0) extends vhci::ioctl::plugin_hardware
+with char serial[16] and bool wsk_events, so the driver rejects the old
+1100-byte request (size != sizeof). Mirror the new layout (1116 bytes)
+and require 0.9.8.0 instead of 0.9.7.7. Local build for Thrum testing;
+not an upstream proposal as written.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ internal/cmd/usbip_prerequisite_windows.go      | 2 +-
+ internal/cmd/usbip_prerequisite_windows_test.go | 8 ++++----
+ internal/server/api/autoattach_windows.go       | 9 +++++++--
+ internal/server/api/autoattach_windows_test.go  | 4 ++--
+ 4 files changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/internal/cmd/usbip_prerequisite_windows.go b/internal/cmd/usbip_prerequisite_windows.go
+index a09f0d5..4ab6723 100644
+--- a/internal/cmd/usbip_prerequisite_windows.go
++++ b/internal/cmd/usbip_prerequisite_windows.go
+@@ -13,7 +13,7 @@ import (
+ )
+ 
+ const (
+-	requiredUSBIPVersion = "0.9.7.7"
++	requiredUSBIPVersion = "0.9.8.0"
+ 	usbipProbeTimeout    = 10 * time.Second
+ )
+ 
+diff --git a/internal/cmd/usbip_prerequisite_windows_test.go b/internal/cmd/usbip_prerequisite_windows_test.go
+index bfdd83a..432d829 100644
+--- a/internal/cmd/usbip_prerequisite_windows_test.go
++++ b/internal/cmd/usbip_prerequisite_windows_test.go
+@@ -19,7 +19,7 @@ func TestProbeUSBIPRuntimeAcceptsPinnedCompatibleRuntime(t *testing.T) {
+ 		calls = append(calls, call)
+ 		switch args[0] {
+ 		case "--version":
+-			return []byte("0.9.7.7\r\n"), nil
++			return []byte("0.9.8.0\r\n"), nil
+ 		case "port":
+ 			return []byte("Imported USB devices\r\n====================\r\n"), nil
+ 		default:
+@@ -49,7 +49,7 @@ func TestProbeUSBIPRuntimeRejectsEveryOtherVersionBeforeDriverProbe(t *testing.T
+ 	err := probeUSBIPRuntime(`C:\Program Files\USBip\usbip.exe`, run)
+ 
+ 	require.Error(t, err)
+-	assert.Contains(t, err.Error(), "requires usbip-win2 0.9.7.7")
++	assert.Contains(t, err.Error(), "requires usbip-win2 0.9.8.0")
+ 	assert.Contains(t, err.Error(), "found 0.9.7.8")
+ 	assert.False(t, portCalled)
+ }
+@@ -57,7 +57,7 @@ func TestProbeUSBIPRuntimeRejectsEveryOtherVersionBeforeDriverProbe(t *testing.T
+ func TestProbeUSBIPRuntimeRejectsSuccessfulABIErrorOutput(t *testing.T) {
+ 	run := func(_ context.Context, _ string, args ...string) ([]byte, error) {
+ 		if args[0] == "--version" {
+-			return []byte("0.9.7.7"), nil
++			return []byte("0.9.8.0"), nil
+ 		}
+ 		return []byte("error: ABI mismatch, unexpected size of the input structure"), nil
+ 	}
+@@ -71,7 +71,7 @@ func TestProbeUSBIPRuntimeRejectsSuccessfulABIErrorOutput(t *testing.T) {
+ func TestProbeUSBIPRuntimeIncludesPortFailureOutput(t *testing.T) {
+ 	run := func(_ context.Context, _ string, args ...string) ([]byte, error) {
+ 		if args[0] == "--version" {
+-			return []byte("0.9.7.7"), nil
++			return []byte("0.9.8.0"), nil
+ 		}
+ 		return []byte("driver query failed"), errors.New("exit status 1")
+ 	}
+diff --git a/internal/server/api/autoattach_windows.go b/internal/server/api/autoattach_windows.go
+index fd9ab5a..10565ff 100644
+--- a/internal/server/api/autoattach_windows.go
++++ b/internal/server/api/autoattach_windows.go
+@@ -57,12 +57,17 @@ const (
+ )
+ 
+ // PLUGIN_HARDWARE structure from usbip-win2
++// Layout matches usbip-win2 0.9.8.0 include/usbip/vhci.h:
++// struct plugin_hardware : base, imported_device_location { char serial[16]; bool wsk_events; }
++// The driver rejects the request unless Size == sizeof(plugin_hardware) (1116 bytes).
+ type attachIOCTL struct {
+ 	Size       uint32
+ 	PortOutput int32
+ 	BusID      [32]byte
+ 	Service    [niMaxServ]byte
+ 	Host       [niMaxHost]byte
++	Serial     [16]byte
++	WskEvents  bool
+ }
+ 
+ const (
+@@ -76,7 +81,7 @@ const (
+ func attachLocalhostClientImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) (AutoAttachResult, error) {
+ 	if useNativeIOCTL {
+ 		// Never hide a native ABI mismatch behind usbip.exe. A mismatch means
+-		// the pinned 0.9.7.7 userspace and loaded driver are not a valid pair and must
++		// the pinned 0.9.8.0 userspace and loaded driver are not a valid pair and must
+ 		// be repaired/rebooted before VIIPER creates devices.
+ 		return attachViaIOCTL(ctx, deviceExportMeta, usbipServerPort, logger)
+ 	}
+@@ -137,7 +142,7 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
+ 	port, bytesReturned, err := submitAttachIOCTL(handle,
+ 		unsafe.Pointer(&ioctlData), ioctlData.Size, &ioctlData.PortOutput)
+ 	if err != nil {
+-		return AutoAttachResult{}, fmt.Errorf("IOControl: usbip-win2 0.9.7.7 native attach failed (repair or reboot USBIP; no command fallback was attempted): %w", err)
++		return AutoAttachResult{}, fmt.Errorf("IOControl: usbip-win2 0.9.8.0 native attach failed (repair or reboot USBIP; no command fallback was attempted): %w", err)
+ 	}
+ 
+ 	logger.Debug("IOCTL completed", "bytesReturned", bytesReturned, "portOutput", port)
+diff --git a/internal/server/api/autoattach_windows_test.go b/internal/server/api/autoattach_windows_test.go
+index 4e4dae8..27aa6c7 100644
+--- a/internal/server/api/autoattach_windows_test.go
++++ b/internal/server/api/autoattach_windows_test.go
+@@ -10,8 +10,8 @@ import (
+ )
+ 
+ func TestUsbipAttachABISizes(t *testing.T) {
+-	require.Equal(t, uintptr(1100), unsafe.Sizeof(attachIOCTL{}),
+-		"usbip-win2 0.9.7.7 plugin_hardware ABI changed")
++	require.Equal(t, uintptr(1116), unsafe.Sizeof(attachIOCTL{}),
++		"usbip-win2 0.9.8.0 plugin_hardware ABI changed")
+ }
+ 
+ func TestNativeAutoAttachResultCarriesExactPort(t *testing.T) {
+-- 
+2.53.0.windows.2
+
+
+From c4ff272008d54325542262f621ebc917766b147e Mon Sep 17 00:00:00 2001
+From: potpiemuncher <patrick.wall90@gmail.com>
+Date: Wed, 9 Sep 2026 21:18:08 -0500
+Subject: [PATCH 2/2] Match MSVC base-subobject padding in plugin_hardware
+ (1120 bytes)
+
+MSVC pads the imported_device_location base to its full sizeof (1096),
+so serial starts at offset 1100 and sizeof(plugin_hardware) is 1120,
+not 1116. The 0.9.8.0 driver returned STATUS_BUFFER_TOO_SMALL for the
+shorter request; with explicit padding the attach succeeds and the
+device appears on usbip port 1.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ internal/server/api/autoattach_windows.go      | 7 ++++++-
+ internal/server/api/autoattach_windows_test.go | 2 +-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/internal/server/api/autoattach_windows.go b/internal/server/api/autoattach_windows.go
+index 10565ff..9788a00 100644
+--- a/internal/server/api/autoattach_windows.go
++++ b/internal/server/api/autoattach_windows.go
+@@ -59,15 +59,20 @@ const (
+ // PLUGIN_HARDWARE structure from usbip-win2
+ // Layout matches usbip-win2 0.9.8.0 include/usbip/vhci.h:
+ // struct plugin_hardware : base, imported_device_location { char serial[16]; bool wsk_events; }
+-// The driver rejects the request unless Size == sizeof(plugin_hardware) (1116 bytes).
++// MSVC pads each base subobject to its own sizeof: imported_device_location is
++// 1093 bytes of members padded to 1096, so serial starts at offset 1100 and the
++// whole struct is 1120 bytes. The driver requires the input length to be
++// exactly sizeof(plugin_hardware) and Size to equal it.
+ type attachIOCTL struct {
+ 	Size       uint32
+ 	PortOutput int32
+ 	BusID      [32]byte
+ 	Service    [niMaxServ]byte
+ 	Host       [niMaxHost]byte
++	_          [3]byte // tail padding of imported_device_location
+ 	Serial     [16]byte
+ 	WskEvents  bool
++	_          [3]byte // tail padding of plugin_hardware
+ }
+ 
+ const (
+diff --git a/internal/server/api/autoattach_windows_test.go b/internal/server/api/autoattach_windows_test.go
+index 27aa6c7..6efb835 100644
+--- a/internal/server/api/autoattach_windows_test.go
++++ b/internal/server/api/autoattach_windows_test.go
+@@ -10,7 +10,7 @@ import (
+ )
+ 
+ func TestUsbipAttachABISizes(t *testing.T) {
+-	require.Equal(t, uintptr(1116), unsafe.Sizeof(attachIOCTL{}),
++	require.Equal(t, uintptr(1120), unsafe.Sizeof(attachIOCTL{}),
+ 		"usbip-win2 0.9.8.0 plugin_hardware ABI changed")
+ }
+ 
+-- 
+2.53.0.windows.2
+

@@ -4805,3 +4805,70 @@ ignored unless the persona has one. Guard: `ViiperV5ContractTests`.
 Third: `Util.SystemAppsUsingDarkTheme` dereferenced a null registry read
 (`ChangeTheme` NullReferenceException in `Application_Startup`, once, same
 evening); guarded.
+
+## 2026-09-09 — usbip-win2 0.9.8.0 released; gates relaxed for a dev-PC native-mode run
+
+**Upstream event.** usbip-win2 **0.9.8.0** was published 2026-09-07 (tag
+`v.0.9.8.0` = `83bd1f78`, not a pre-release). Its notes carry the filter
+memory-corruption fix `4139f44` and every item of our PR #182 (DPC completion,
+response/cancellation ownership arbitration, KMDF-purge endpoint cancellation,
+OUT MDLs retained until WskSend completes), plus a new WSK event-callback receive
+path (`usbip attach --receive-mode=<zero-copy|low-latency>`). Verified here:
+the x64 installer (26,390,744 B, SHA-256
+`81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39`) carries a
+valid Authenticode signature from Cloudyne Systems (Scheibling Consulting AB,
+GlobalSign EV, Microsoft timestamp); the signer's attestation package for the
+same commit (vadimgrn/usbip-win2#13, 2026-09-06) has both catalogs and both
+`.sys` files signed by Microsoft Windows Hardware Compatibility Publisher,
+DriverVer `08/26/2026,23.56.48.757` (UDE) and `08/26/2026,23.56.30.686`
+(filter). The Inno Setup 7 installer could not be unpacked locally
+(innoextract 1.9 stops at loader revision 2), so installer-embedded driver
+identity is confirmed only by Windows accepting the install under Secure Boot.
+New upstream PR #188 (2026-09-09): a work-item self-wait in
+`ude/vhci_ioctl.cpp` blocks driver unload / host-controller restart after a
+successful attach on 0.9.8.0 — relevant to installer repair and upgrade paths.
+
+**Why the pin still cannot simply move.** VIIPER v0.1.2 (and the v0.1.3-rc4.5
+tag) refuses to start unless `usbip --version` prints exactly `0.9.7.7`
+(`internal/cmd/usbip_prerequisite_windows.go`, called from `StartServer`), and
+its native attach path sends a 1100-byte `plugin_hardware` request. 0.9.8.0's
+struct adds `char serial[16]` and `bool wsk_events` (1116 bytes) and the driver
+rejects `size != sizeof(*r)`. Two gates, not one.
+
+**Owner decision (Patrick, 2026-09-09): relax both gates; native mode on
+0.9.8.0 on the dev PC as soon as possible.** Done in this change:
+
+- `ViiperDriverManifest` gains a recognised `0.9.8.0` entry
+  (`ExperimentalBaseline`, x64 only) with the identities above, so the readiness
+  gate reports `ValidatedExperimental` rather than `DetectedUnvalidated` and the
+  installer policy leaves the release alone. The pinned download stays 0.9.7.7.
+- `docs/dev/patches/viiper-0.1.2-usbip-0.9.8.0.patch`: a 4-file patch on the
+  VIIPER `v0.1.2` tag (`f5d097b`) that requires 0.9.8.0 and mirrors the new
+  IOCTL layout, with the unit tests updated. Built locally with Go 1.27,
+  `CGO_ENABLED=0`, release tags and the upstream ldflags; `go test` for
+  `internal/cmd` and `internal/server/api` passes. Output `viiper.exe`
+  SHA-256 `145142637984007A92083F3F00D3D335C4D5CD30F696AA7AB69C522590A51D04`.
+  **Lesson (cost one failed attach):** the first cut mirrored the C++ members
+  flat (1116 bytes) and the driver answered `STATUS_BUFFER_TOO_SMALL`; MSVC
+  pads the `imported_device_location` base subobject to its own sizeof, so
+  `serial` sits at offset 1100 and the struct is 1120 bytes. The corrected
+  layout was proven on the dev PC: VIIPER's `bus/1/add xbox360` attached via
+  the native IOCTL on 0.9.8.0 and reported usbip port 1. It is a
+  local test build: unsigned by hbashton, not the pinned payload, and it is
+  swapped into `%LOCALAPPDATA%\VIIPER` by hand after the driver upgrade. Thrum
+  verifies the payload digest only at install time, so no Thrum code change is
+  needed for the swap; the Diagnostics page will show the stamp mismatch.
+- `HANDOFF.md`: the "never test kernel-driver paths on the dev PC" constraint is
+  replaced; the owner has cleared the dev PC and TESTENV both.
+
+Suite: **1123 passed / 0 failed** (CI filter).
+
+**Done later the same evening:** 0.9.8.0 installed on the dev PC by the owner
+from an elevated shell (installer exit 0; UDE `23.56.48.757` and filter
+`23.56.30.686` both loaded from the driver store and signed by Microsoft; no
+reboot was needed for the host controller to restart clean). Thrum's
+`-viiperdriverdiagnostic` reports PASS against the new `0.9.8.0` entry with
+zero mismatches. The patched `viiper.exe` is in place and starts with
+"Auto-attach prerequisites satisfied". Still owed: the Native PS5 hardware
+pass on the new stack. Rollback is
+`revert.ps1` (original v0.1.2 payload kept) plus the 0.9.7.7 installer.

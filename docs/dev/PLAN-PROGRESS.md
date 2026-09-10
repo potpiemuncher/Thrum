@@ -4847,8 +4847,13 @@ rejects `size != sizeof(*r)`. Two gates, not one.
   IOCTL layout, with the unit tests updated. Built locally with Go 1.27,
   `CGO_ENABLED=0`, release tags and the upstream ldflags; `go test` for
   `internal/cmd` and `internal/server/api` passes. Output `viiper.exe`
-  11,734,016 B, SHA-256
-  `CED59D268C715D0771771040652B0BA0B926BD5AEE0956A839F36DF260659777`. It is a
+  SHA-256 `145142637984007A92083F3F00D3D335C4D5CD30F696AA7AB69C522590A51D04`.
+  **Lesson (cost one failed attach):** the first cut mirrored the C++ members
+  flat (1116 bytes) and the driver answered `STATUS_BUFFER_TOO_SMALL`; MSVC
+  pads the `imported_device_location` base subobject to its own sizeof, so
+  `serial` sits at offset 1100 and the struct is 1120 bytes. The corrected
+  layout was proven on the dev PC: VIIPER's `bus/1/add xbox360` attached via
+  the native IOCTL on 0.9.8.0 and reported usbip port 1. It is a
   local test build: unsigned by hbashton, not the pinned payload, and it is
   swapped into `%LOCALAPPDATA%\VIIPER` by hand after the driver upgrade. Thrum
   verifies the payload digest only at install time, so no Thrum code change is
@@ -4858,8 +4863,12 @@ rejects `size != sizeof(*r)`. Two gates, not one.
 
 Suite: **1123 passed / 0 failed** (CI filter).
 
-**Not yet done when this entry was written:** the elevated 0.9.8.0 install on
-the dev PC (two `RunAs` attempts were cancelled before the UAC prompt showed;
-the owner runs `install-0980.ps1` from an elevated shell), the `viiper.exe`
-swap, and the Native PS5 hardware pass on the new stack. Rollback is
+**Done later the same evening:** 0.9.8.0 installed on the dev PC by the owner
+from an elevated shell (installer exit 0; UDE `23.56.48.757` and filter
+`23.56.30.686` both loaded from the driver store and signed by Microsoft; no
+reboot was needed for the host controller to restart clean). Thrum's
+`-viiperdriverdiagnostic` reports PASS against the new `0.9.8.0` entry with
+zero mismatches. The patched `viiper.exe` is in place and starts with
+"Auto-attach prerequisites satisfied". Still owed: the Native PS5 hardware
+pass on the new stack. Rollback is
 `revert.ps1` (original v0.1.2 payload kept) plus the 0.9.7.7 installer.

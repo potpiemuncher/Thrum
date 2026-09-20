@@ -240,90 +240,114 @@ namespace DS4Windows
     public static class ViiperInstallerPins
     {
         /// <summary>
-        /// usbip-win2 0.9.7.7 x64, the release this project inspected
-        /// byte-for-byte and validated on a clean Windows 11 checkpoint.
+        /// usbip-win2 0.9.8.0 x64 (released 2026-09-07), the first release that
+        /// carries the filter memory-corruption fix <c>4139f44</c> and the UDE
+        /// request-lifetime hardening this project contributed upstream
+        /// (usbip-win2 PR #182).
         ///
-        /// <para>Not the newest release, deliberately. 0.9.7.8 exists and is
-        /// the baseline the maintainer's own machine carries, but it is the
-        /// release the request-lifetime race was reproduced on, so it is
-        /// recognised by <see cref="ViiperDriverManifest"/> and never
-        /// installed by us.</para>
+        /// <para>The pin moved here from 0.9.7.7 on 2026-09-19. 0.9.7.8 is the
+        /// release the corruption was reproduced on and is never installed by
+        /// us; 0.9.7.7 predates that regression but lacks the hardening. The
+        /// development PC recorded no bugchecks in ten days of daily use on
+        /// 0.9.8.0 with virtual audio endpoints on, where the 0.9.7.x months
+        /// had several (not all of them triaged, so that is an observation,
+        /// not an attribution). Older recognised releases are upgraded
+        /// to this one by setup
+        /// (<see cref="ViiperUsbipInstallAction.UpgradeRecognisedToPinned"/>),
+        /// because the pinned backend speaks only this release's attach
+        /// ABI.</para>
         /// </summary>
         public static ViiperPinnedDownload UsbipWin2 { get; } =
             new ViiperPinnedDownload(
                 component: ViiperInstallerComponent.UsbipWin2,
-                releaseLabel: "0.9.7.7",
-                fileName: "USBip-0.9.7.7-x64.exe",
+                releaseLabel: "0.9.8.0",
+                fileName: "USBip-0.9.8.0-x64.exe",
                 url: "https://github.com/vadimgrn/usbip-win2/releases/download/" +
-                    "v.0.9.7.7/USBip-0.9.7.7-x64.exe",
+                    "v.0.9.8.0/USBip-0.9.8.0-x64.exe",
                 sha256:
-                    "51620FA5F9F8BE5932BC9D786DEEE557CE06D5407A99CAB490DCFAC71F185FEA",
-                sizeInBytes: 33226344L,
+                    "81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39",
+                sizeInBytes: 26390744L,
                 requireAuthenticode: true,
                 expectedSignerCommonName:
                     "Cloudyne Systems (Scheibling Consulting AB)",
                 digestProvenance:
-                    "SHA-256 of the release asset downloaded for the controlled " +
-                    "Windows 11 validation pass, recomputed from the retained " +
-                    "local copy before pinning.",
+                    "SHA-256 of the v.0.9.8.0 release asset downloaded on " +
+                    "2026-09-09, whose Authenticode signature was verified " +
+                    "before it was installed on the maintainer's machine; " +
+                    "recomputed from the retained local copy before pinning.",
                 notes:
-                    "Inno Setup 6.7.0 payload. Installs UDE DriverVer 21.14.27.907 " +
-                    "and filter DriverVer 21.14.27.661; the installed pair is " +
-                    "re-validated after setup rather than trusted from this pin.");
+                    "Inno Setup 7.0 payload. Installs UDE DriverVer 23.56.48.757 " +
+                    "and filter DriverVer 23.56.30.686, both attestation-signed " +
+                    "by Microsoft Windows Hardware Compatibility Publisher; the " +
+                    "installed pair is re-validated after setup rather than " +
+                    "trusted from this pin.");
 
         /// <summary>
-        /// VIIPER v0.1.2, the backend release whose framed audio/haptics
-        /// protocol this application negotiates against. Its published asset
-        /// is a zip, so the archive and its executable payload carry separate,
-        /// mandatory pins.
+        /// VIIPER v0.1.2 plus this project's usbip-win2 0.9.8.0 delta, built
+        /// and published by GitHub Actions on the project's own fork
+        /// (<c>potpiemuncher/VIIPER</c>, tag <c>thrum-v0.1.2-usbip0980.1</c>).
+        /// The framed audio/haptics protocol is upstream v0.1.2's, unchanged.
+        /// Its published asset is a zip, so the archive and its executable
+        /// payload carry separate, mandatory pins.
         ///
-        /// <para>Upstream does not sign this asset or the executable inside it;
-        /// they are published by a release workflow. The two digests are the
-        /// whole identity and
+        /// <para>Why a fork build: upstream v0.1.2 (and every later upstream
+        /// tag as of 2026-09-19) refuses to start unless <c>usbip --version</c>
+        /// prints exactly <c>0.9.7.7</c>, and its native attach sends that
+        /// release's 1100-byte <c>plugin_hardware</c>. The fork changes two
+        /// things and nothing else: the prerequisite accepts 0.9.8.0, and the
+        /// attach IOCTL uses 0.9.8.0's 1120-byte layout. The workflow mirrors
+        /// upstream's windows/amd64 build leg step for step. VIIPER is
+        /// GPL-3.0; the exact source is the tag and the source archive
+        /// attached to the same release.</para>
+        ///
+        /// <para>Neither upstream nor the fork signs this asset or the
+        /// executable inside it. The two digests are the whole identity and
         /// <see cref="ViiperPinnedDownload.RequireAuthenticode"/> is false
         /// rather than a check that would fail on every honest download. The
-        /// embedded <c>v0.1.2 (f5d097b)</c> stamp is correctly produced by the
-        /// repaired release workflow, but it remains a human-readable
-        /// diagnostic cross-check, never a validation input. The archive and
-        /// extracted-executable digests are the identities.</para>
+        /// embedded stamp remains a human-readable diagnostic cross-check,
+        /// never a validation input.</para>
         /// </summary>
         public static ViiperPinnedDownload ViiperBackend { get; } =
             new ViiperPinnedDownload(
                 component: ViiperInstallerComponent.ViiperBackend,
-                releaseLabel: "v0.1.2",
+                releaseLabel: "v0.1.2-usbip0980.1",
                 fileName: "viiper-windows-amd64.zip",
-                url: "https://github.com/hbashton/VIIPER/releases/download/" +
-                    "v0.1.2/viiper-windows-amd64.zip",
+                url: "https://github.com/potpiemuncher/VIIPER/releases/download/" +
+                    "thrum-v0.1.2-usbip0980.1/viiper-windows-amd64.zip",
                 sha256:
-                    "66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46",
-                sizeInBytes: 4809388L,
+                    "C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8",
+                sizeInBytes: 4809446L,
                 requireAuthenticode: false,
                 expectedSignerCommonName: null,
                 digestProvenance:
-                    "Computed locally from the downloaded hbashton/VIIPER v0.1.2 " +
-                    "zip and cross-checked against the digest GitHub reports " +
-                    "for that same release asset; the extracted executable was " +
-                    "hashed independently from that archive.",
+                    "Reported by the fork's build workflow in SHA256SUMS.txt " +
+                    "beside the asset, then recomputed locally from the " +
+                    "downloaded release asset; the extracted executable was " +
+                    "hashed independently from that archive and both values " +
+                    "matched the workflow's.",
                 notes:
-                    "Unsigned upstream. The embedded version stamp is diagnostic " +
-                    "context only and never a validation input. VIIPER 0.1.2 " +
-                    "itself gates startup on the safe usbip-win2 0.9.7.7 attach " +
-                    "ABI, which is why these two pins form a coherent pair.",
+                    "Unsigned. hbashton/VIIPER v0.1.2 (f5d097b) plus three " +
+                    "commits: accept usbip-win2 0.9.8.0, match its 1120-byte " +
+                    "plugin_hardware layout, and the build workflow. It " +
+                    "requires usbip-win2 0.9.8.0 exactly and refuses to start " +
+                    "on 0.9.7.x, which is why these two pins form a coherent " +
+                    "pair. Not an upstream release and not supported by the " +
+                    "VIIPER maintainers.",
                 extractedPayload: new ViiperPinnedPayload(
                     fileName: "viiper.exe",
                     sha256:
-                        "2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A",
+                        "877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145",
                     sizeInBytes: 11407872L),
                 expectedEmbeddedVersionStamp:
                     ViiperBackendExpectedEmbeddedVersionStamp);
 
         /// <summary>
-        /// The correctly stamped, human-readable version string in the pinned
-        /// VIIPER executable. Diagnostics expose it as an expected-stamp
-        /// cross-check only; validation continues to use the two digests.
+        /// The human-readable version string in the pinned VIIPER executable.
+        /// Diagnostics expose it as an expected-stamp cross-check only;
+        /// validation continues to use the two digests.
         /// </summary>
         public const string ViiperBackendExpectedEmbeddedVersionStamp =
-            "v0.1.2 (f5d097b)";
+            "v0.1.2-usbip0980.1 (f28cab3)";
 
         public static IReadOnlyList<ViiperPinnedDownload> All { get; } =
             new[] { UsbipWin2, ViiperBackend };

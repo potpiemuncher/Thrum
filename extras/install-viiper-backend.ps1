@@ -578,8 +578,17 @@ try {
     $usbipDecision = Invoke-InstallerPolicy $usbipPolicyArgs
     $action = $usbipDecision.Data['action']
 
+    # Both actions run the same verified, pinned installer. The second one runs it
+    # over a recognised older release: the pinned backend only speaks the pinned
+    # release's attach ABI, so an older driver left in place would leave virtual
+    # controllers unusable. The policy never returns it for a newer release.
+    $installsPinnedDriver = $action -in @("InstallPinned", "UpgradeRecognisedToPinned")
+
     switch ($action) {
-        "InstallPinned" {
+        { $_ -in @("InstallPinned", "UpgradeRecognisedToPinned") } {
+            if ($action -eq "UpgradeRecognisedToPinned") {
+                Write-SetupLog $usbipDecision.Data['summary'] Yellow
+            }
             $installerPath = Join-Path $script:TempDir $pins['usbip.filename']
             Get-VerifiedPinnedFile "usbip" $pins $installerPath $UsbipInstallerFile
 
@@ -624,7 +633,7 @@ try {
     }
     else {
         Write-SetupLog $validation.Data['summary'] Yellow
-        if (-not $script:Refused -and $action -eq "InstallPinned") {
+        if (-not $script:Refused -and $installsPinnedDriver) {
             # A pair that is not bound yet is the ordinary outcome of installing
             # a kernel driver, not evidence of a bad one.
             $script:RebootRecommended = $true

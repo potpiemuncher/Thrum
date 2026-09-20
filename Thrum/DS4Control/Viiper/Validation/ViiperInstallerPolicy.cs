@@ -41,11 +41,23 @@ namespace DS4Windows
         AlreadyPinned,
 
         /// <summary>
-        /// A different release the manifest knows is installed. Report what it
-        /// is and leave it completely alone — replacing a bound kernel package
-        /// with an older one is not a repair.
+        /// A different release the manifest knows is installed and it is not
+        /// older than the pin. Report what it is and leave it completely
+        /// alone — replacing a bound kernel package with an older one is not
+        /// a repair.
         /// </summary>
         LeaveRecognisedReleaseAlone,
+
+        /// <summary>
+        /// A release the manifest knows is installed and it is older than the
+        /// pin. The pinned backend speaks only the pinned release's attach
+        /// ABI and refuses to start on anything else, so leaving the older
+        /// driver in place would leave virtual controllers unusable. Fetch the
+        /// pinned installer, verify it, and run it over the recognised one.
+        /// Only ever an upgrade, and only ever from a release this build can
+        /// name.
+        /// </summary>
+        UpgradeRecognisedToPinned,
 
         /// <summary>
         /// Something is installed that cannot be matched to a manifest entry.
@@ -257,6 +269,24 @@ namespace DS4Windows
                             lines);
                     }
 
+                    if (IsOlderThanPin(matchedReleaseLabel, pin.ReleaseLabel))
+                    {
+                        lines.Add(
+                            "The installed release is recognised and is older " +
+                            "than the pinned one. The pinned backend only " +
+                            "speaks the pinned release's attach ABI and " +
+                            "refuses to start on any other, so the older " +
+                            "driver is upgraded rather than left in place.");
+                        return Decide(
+                            ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
+                            "usbip-win2 " + Present(matchedReleaseLabel) +
+                            " is installed. Setup will upgrade it to the " +
+                            "pinned release " + pin.ReleaseLabel +
+                            " after verifying the installer, because the " +
+                            "virtual controller backend requires that release.",
+                            lines);
+                    }
+
                     lines.Add(
                         "The installed release is recognised but is not the " +
                         "pinned one. Recognising a release is not approving " +
@@ -327,6 +357,24 @@ namespace DS4Windows
                     "usbip-win2 " + pin.ReleaseLabel + " is registered but not " +
                     "in service. Setup will reinstall the same pinned release " +
                     "after verifying it.",
+                    lines);
+            }
+
+            if (manifest.Releases.Any(release =>
+                    LabelsMatch(release.ReleaseLabel, reported)) &&
+                IsOlderThanPin(reported, pin.ReleaseLabel))
+            {
+                lines.Add(
+                    "An older recognised release is registered but its " +
+                    "packages are not bound. The pinned backend requires the " +
+                    "pinned release, so setup upgrades to it; nothing is " +
+                    "downgraded.");
+                return Decide(
+                    ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
+                    "usbip-win2 " + reported + " is registered on this machine " +
+                    "but not in service. Setup will upgrade it to the pinned " +
+                    "release " + pin.ReleaseLabel + " after verifying the " +
+                    "installer.",
                     lines);
             }
 
@@ -815,6 +863,25 @@ namespace DS4Windows
 
             return string.Equals(NormalizeLabel(left), NormalizeLabel(right),
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// True only when both labels parse as dotted versions and the
+        /// installed one is strictly lower. An unparseable label is never
+        /// "older": the upgrade path is for releases this build can name and
+        /// order, not a floor comparison by another name.
+        /// </summary>
+        private static bool IsOlderThanPin(string installedLabel, string pinLabel)
+        {
+            if (string.IsNullOrWhiteSpace(installedLabel) ||
+                string.IsNullOrWhiteSpace(pinLabel))
+            {
+                return false;
+            }
+
+            return Version.TryParse(NormalizeLabel(installedLabel), out Version installed) &&
+                Version.TryParse(NormalizeLabel(pinLabel), out Version pinned) &&
+                installed < pinned;
         }
 
         /// <summary>

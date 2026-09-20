@@ -333,8 +333,8 @@ namespace DS4Windows
             // both .sys files verified as signed by Microsoft Windows Hardware
             // Compatibility Publisher. Installer x64 SHA-256
             // 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39.
-            // Recognised so the gate can identify it; still experimental, not
-            // production-approved.
+            // The pinned release since 0.9.0-beta.2 (ViiperInstallerPins); still
+            // an experimental baseline, not production-approved.
             var releaseWithFixes = new ViiperDriverRelease(
                 releaseLabel: "0.9.8.0",
                 tier: ViiperDriverTier.ExperimentalBaseline,

@@ -15,16 +15,21 @@ release falls short of it in two known ways:
 
 - **Virtual DualSense output did not work in beta 1.** The shipped build asked
   its VIIPER v0.0.6 backend for a device name it no longer registered
-  (`unknown device type: dualsense`); Xbox 360 output worked. The V5-first
-  negotiation fixes that, and the backend pin has moved to VIIPER v0.1.2, but
-  the new pin has not yet had its VM plug validation — see issues #70 and #79
-  and `docs/viiper-backend-upgrade-path.md`.
-- **Audio haptics reach the pad over Bluetooth only.** On USB they still need a
-  virtual controller, which runs into the point above. See issue #65.
+  (`unknown device type: dualsense`); Xbox 360 output worked. Beta 2 fixes that
+  with the V5-first negotiation and moves the pinned pair to usbip-win2 0.9.8.0
+  and this project's build of VIIPER v0.1.2 for it — see
+  `docs/viiper-backend-upgrade-path.md` for why a fork build and what was
+  validated.
+- **The full "plugged-in" DualSense feel is opt-in.** Native PS5 mode gives
+  games a virtual DualSense with adaptive triggers and rumble out of the box.
+  Game-authored haptics and the pad's speaker additionally need the virtual
+  audio endpoints switch (setup step 4), which stays off by default. With it on
+  they are relayed to the pad over Bluetooth or USB. Bluetooth has had daily
+  use on real hardware; USB has not (issue #65).
 
 ## Status
 
-**Pre-release, version 0.9.0-beta.1.** This repository was seeded on 2026-07-25
+**Pre-release, version 0.9.0-beta.2.** This repository was seeded on 2026-07-25
 from the DS4Windows lineage.
 
 The **user-facing identity is rebranded**: the assembly and executable are
@@ -35,18 +40,21 @@ DS4Windows name is *internal*: the `DS4Windows` namespaces, the `DS4WinWPF`
 root namespace, and the `<DS4Windows>` root element of the profile file
 format, which existing profiles depend on.
 
-Running alongside a real DS4Windows install works but is not a supported
-configuration: both will contend for the same physical controller.
+Running alongside a real DS4Windows install is not a supported configuration:
+both will contend for the same physical controller, and hbashton's DS4Windows
+shares the VIIPER and usbip-win2 installs with Thrum while requiring a
+different usbip-win2 release, so after Thrum's setup its virtual controllers
+stop working.
 
-**The first release is out: `v0.9.0-beta.1`**, a pre-release. It is a
+**Releases are pre-releases**, currently `v0.9.0-beta.2`. Each is a
 self-contained win-x64 zip, so it does **not** need the .NET 8 Desktop Runtime
-installed. There is still **no installer**.
+installed. There is still **no installer**: unzip, run `Thrum.exe`, and let its
+setup install the two driver-side components.
 
 The build is **unsigned**, so Windows shows "Windows protected your PC". Verify
 what you downloaded against the SHA-256 published with the release rather than
-trusting or ignoring that warning. `NOTICE.txt` and `COPYING` are attached to
-the release as separate files because the archive does not yet contain them
-(issue #75).
+trusting or ignoring that warning. `NOTICE.txt` and `COPYING` ship inside the
+archive.
 
 Read the release notes before installing: they list what is verified on real
 hardware and — deliberately at equal length — what is not.

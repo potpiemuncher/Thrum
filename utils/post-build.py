@@ -8,6 +8,15 @@ import zipfile
 target_dir = Path(sys.argv[1])
 repo_dir = Path(sys.argv[2]).resolve()
 version = sys.argv[3]
+# Optional: the exact GitHub release tag this package is published under. Only
+# the release workflow passes it. It becomes the installed-release marker
+# (ProductInfo.InstalledReleaseFileName) beside the executable, which is how a
+# prerelease build knows it IS the newest prerelease: without the marker
+# ReleaseChannelPolicy.ShouldUpdate treats every prerelease build as predating
+# channel-aware updates and offers an "update" to the release already running.
+# The updater that used to write the marker was removed, so packaging does.
+release_tag = sys.argv[4].strip() if len(sys.argv) > 4 else ""
+release_marker_name = "Thrum.release"
 
 required_package_root_files = ("NOTICE.txt", "COPYING")
 
@@ -53,6 +62,17 @@ def verify_release_archive(archive_path):
                 "Managed-files manifest is missing required legal file(s): " +
                 ", ".join(missing_managed_files))
 
+        if release_tag:
+            marker_entry = archive_root + release_marker_name
+            if marker_entry not in archive_entries:
+                raise RuntimeError(
+                    f"Release archive is missing {marker_entry}")
+            packaged_tag = archive.read(marker_entry).decode("utf-8").strip()
+            if packaged_tag != release_tag:
+                raise RuntimeError(
+                    f"{marker_entry} says '{packaged_tag}', expected "
+                    f"'{release_tag}'")
+
 
 # move l18n assemblies to a separate directory
 lang_dir = target_dir / "Lang"
@@ -82,6 +102,11 @@ subprocess.run([sys.executable, str(lang_script), str(deps_json_path)], check=Tr
 # The archive is the conveyed product. Keep its top-level attribution and GPL
 # licence beside the executable, before the updater manifest records ownership.
 copy_required_package_root_files()
+
+# Before the manifest below, so the marker is recorded as a package file.
+if release_tag:
+    (target_dir / release_marker_name).write_text(
+        release_tag + "\n", encoding="utf-8")
 
 # Record every file owned by this package. DS4Updater uses this manifest on the
 # next update to remove package files that no longer ship, without touching

@@ -49,7 +49,10 @@ jobs:
     - name: Build X64
       run: dotnet publish .\Thrum\Thrum.csproj -c Release -r win-x64 --self-contained true /p:platform=x64 /p:AssemblyVersion=${{ env.BINARY_VERSION }} /p:FileVersion=${{ env.BINARY_VERSION }} /p:Version=${{ env.PACKAGE_VERSION }} /p:InformationalVersion=${{ env.VERSION }} -o .\bin\x64\Release\output
     - name: Post-Build script X64
-      run: python .\utils\post-build.py .\bin\x64\Release\output . ${{env.VERSION}}
+      # The fourth argument is the exact release tag. post-build.py writes it to
+      # Thrum.release beside the executable so the published build recognises
+      # itself as the newest prerelease instead of offering an "update" to it.
+      run: python .\utils\post-build.py .\bin\x64\Release\output . ${{env.VERSION}} ${{ github.event.release.tag_name }}
     - name: Name release asset
       shell: pwsh
       run: |

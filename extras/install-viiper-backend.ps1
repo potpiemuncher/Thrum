@@ -67,6 +67,7 @@ $script:RebootRecommended = $false
 $script:DriverValidated = $false
 $script:Refused = $false
 $script:RestartBeforeUpgrade = $false
+$script:ViiperLeftInPlace = $false
 $script:InstallDir = Join-Path $env:LOCALAPPDATA "VIIPER"
 $script:LogPath = Join-Path $script:InstallDir "install.log"
 $script:TempDir = Join-Path ([IO.Path]::GetTempPath()) (
@@ -484,6 +485,7 @@ function Install-ViiperAtomically([string]$candidatePath,
         Write-SetupLog (
             "The installed VIIPER already matches the verified payload; it and " +
             "any rollback copy were left as they are.") Green
+        $script:ViiperLeftInPlace = $true
         return
     }
 
@@ -804,8 +806,12 @@ try {
     $payload = Expand-AndVerifyViiperPayload $pins $archivePath $extractionDir
     Install-ViiperAtomically $payload.ExecutablePath $payload.LicensesPath `
         $viiperPath
-    Write-SetupLog (
-        "VIIPER and its licenses.txt were installed to $script:InstallDir") Green
+    if (-not $script:ViiperLeftInPlace) {
+        # Only when something was actually placed. On a re-run that found the
+        # verified payload already installed, saying "installed" would be false.
+        Write-SetupLog (
+            "VIIPER and its licenses.txt were installed to $script:InstallDir") Green
+    }
 
     Write-Step "Startup behaviour"
     # No autostart entry is created here, by either mechanism. Thrum starts the

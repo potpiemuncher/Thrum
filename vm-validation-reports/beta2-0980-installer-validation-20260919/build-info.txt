@@ -1,0 +1,38 @@
+Thrum build under test
+======================
+branch          : validation/beta2-0980 (from origin/beta2-repin)
+commit          : 1eec3b1616f4608594a147a4bfb21a97b26f264f
+publish         : dotnet publish Thrum/Thrum.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64
+app version     : 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+Thrum.exe       : SHA-256 616F4368E8000F76E2E0A087F46AB159268CC24E0E78B8831F29AC2273391B39, 178176 bytes
+Thrum.dll       : SHA-256 4682FC8A33E2653D2E260E0E16D4BE67F8876351A787E431C7C4145F589E47A4, 6428160 bytes
+setup script    : extras/install-viiper-backend.ps1, SHA-256 11042E5E045473258B013BB13D555401A6D774D74EB4A92E46B1F36A5137B94A
+                  (identical in the worktree and in the publish output)
+publish archive : SHA-256 5BDE25F32D836524877A24D63A3A9E2CB222CBEDD873CC8BDFA8FFD439E1BDB3, 88957614 bytes, 527 files
+no application code was changed for this pass; the suite was not re-run (1128 passing at 1eec3b1 is the parent's figure, not measured here)
+
+Staged assets (re-hashed on the host before staging AND inside the guest after staging; both scenarios)
+=====================================================================================================
+USBip-0.9.8.0-x64.exe             : SHA-256 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, 26390744 bytes
+                                    Authenticode Valid, signer CN "Cloudyne Systems (Scheibling Consulting AB)" (valid with the guest offline)
+viiper-windows-amd64.zip          : SHA-256 C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, 4809446 bytes
+viiper.exe (extracted, in guest)  : SHA-256 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145, 11407872 bytes
+embedded stamp                    : v0.1.2-usbip0980.1 (f28cab3), build time 2026-09-20T00:18:29Z
+tampered copy (control)           : SHA-256 DE3964A487E9489ED7E8A0857B58ACFE4AB4639C45021556941DB7129B4DABAF, 4809446 bytes
+                                    (one byte at offset 2000000, 0x0E -> 0x0F; size deliberately unchanged)
+
+Guest
+=====
+VM                 : Win 11 25H2 Test ENV, Windows 10.0.26200, Secure Boot on, VBS status 2, Memory Integrity running, test signing off
+scenario A from    : phase2-nousbip-baseline-20260730  (no usbip-win2, no VIIPER, no Thrum data)
+scenario B from    : viiper-012-validated-endstate-20260906  (usbip-win2 0.9.7.7, upstream VIIPER v0.1.2)
+network            : the VM's adapter was found CONNECTED to a virtual switch, and the guest had a default route.
+                     It was disconnected for both scenarios so the run matches the "no network" premise and nothing
+                     downloads behind the test. It was reconnected to the same switch at the end, with the VM off.
+                     A-baseline was checkpointed before the disconnect; the other three carry the disconnected adapter.
+cold boots         : both source checkpoints held a saved state. The VM would not resume Scenario A's (the service account
+                     is denied the attached ISO), so the saved state of the RESTORED VM was discarded and the guest cold-booted.
+                     The same was done for B. The checkpoints themselves are untouched.
+runner             : absent from the Scenario A checkpoint; staged with Copy-VMFile (runner.ps1, uia.ps1, an all-users
+                     Startup entry) and started through Win+R, UAC approved with Alt+Y.
+guest clock        : two hours behind the host clock. Every time in the evidence is guest time unless marked host.

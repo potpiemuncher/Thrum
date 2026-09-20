@@ -1,0 +1,47 @@
+=== crash record @ 2026-09-19T18:29:26  (listing only: no dump is opened, copied or analysed) ===
+boot_time=2026-09-19T18:27:21
+--- C:\Windows\Minidump
+minidumps=0
+--- C:\Windows\MEMORY.DMP
+absent
+--- CrashControl
+CrashDumpEnabled=7 AutoReboot=0
+--- bugcheck events (System log, WER-SystemErrorReporting 1001)
+--- Kernel-Power 41 / EventLog 6008 (unexpected shutdown markers)
+2026-09-19T18:27:18 | Microsoft-Windows-Kernel-Power 41 | The system has rebooted without cleanly shutting down first. This error could be caused if the system stopped responding, crashed, or lost power unexpectedly.
+2026-09-19T18:05:26 | Microsoft-Windows-Kernel-Power 41 | The system has rebooted without cleanly shutting down first. This error could be caused if the system stopped responding, crashed, or lost power unexpectedly.
+2026-09-19T18:05:34 | EventLog 6008 | The previous system shutdown at 4:32:03 PM on ‎9/‎6/‎2026 was unexpected.
+--- usbip-win2 as the interrupted upgrade left it
+usbip_pf=True
+usbip_exe_productversion=0.9.7.7
+usbip2_ude=Running
+usbip2_filter=Running
+Original Name:      usbip2_filter.inf ; Driver Version:     04/19/2026 21.14.27.661
+Original Name:      usbip2_ude.inf ; Driver Version:     04/19/2026 21.14.27.907
+devnode: OK | USBip 3.X Emulated Host Controller | present=True | problem=CM_PROB_NONE
+uninstall_entry=USBip version 0.9.7.7 | 0.9.7.7
+--- VIIPER as left
+  viiper.exe 11407872 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A
+  viiper.exe.previous 11223552 90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A
+--- what Thrum's policy says about this state (read-only verb)
+policy_exit=0
+exitcode=0
+action=UpgradeRecognisedToPinned
+summary=usbip-win2 0.9.7.7 is installed. Setup will upgrade it to the pinned release 0.9.8.0 after verifying the installer, because the virtual controller backend requires that release.
+readiness=ValidatedExperimental
+matchedrelease=0.9.7.7
+log=usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+log=usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.7.7; tier ExperimentalBaseline.
+log=The installed release is recognised and is older than the pinned one. The pinned backend only speaks the pinned release's attach ABI and refuses to start on any other, so the older driver is upgraded rather than left in place.
+log=Decision: usbip-win2 0.9.7.7 is installed. Setup will upgrade it to the pinned release 0.9.8.0 after verifying the installer, because the virtual controller backend requires that release.
+--- setup console as it stood when the guest went down
+Authenticode chain: expected trusted under normal Windows policy, actual trusted (trusted).
+Authenticode signer: expected "Cloudyne Systems (Scheibling Consulting AB)", actual "Cloudyne 
+Systems (Scheibling Consulting AB)".
+Decision: USBip-0.9.8.0-x64.exe matches the pinned SHA-256 and is signed by the pinned publisher.
+USBip-0.9.8.0-x64.exe matches the pinned SHA-256 and is signed by the pinned publisher.
+Windows may briefly restart USB hub devices.
+setup_done_marker=False
+
+
+

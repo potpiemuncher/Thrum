@@ -1,0 +1,84 @@
+=== guest state @ 2026-09-19T18:03:32 ===
+os_version=10.0.26200.0
+boot_time=2026-09-19T18:02:19
+secureboot=True
+testsigning=
+vbs_status=2
+svc_running=2
+--- network
+adapter status=Disconnected media=Disconnected
+ipv4_default_route=False
+--- usbip-win2
+usbip_pf=True
+usbip2_ude=Running
+usbip2_filter=Running
+driverstore_usbip_packages=2
+Published Name:     oem2.inf
+Original Name:      usbip2_filter.inf
+Provider Name:      USBIP-WIN2
+Class Name:         Extension
+Class GUID:         {e2f84ce7-8efa-411c-aa69-97454ca4cb57}
+Extension ID:       {c1e0d1fe-d564-596e-4526-71da1249702a}
+Driver Version:     08/26/2026 23.56.30.686
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Attributes:         Universal
+                    Attested
+WHCP Version:       Unknown
+
+Published Name:     oem3.inf
+Original Name:      usbip2_ude.inf
+Provider Name:      USBIP-WIN2
+Class Name:         USB
+Class GUID:         {36fc9e60-c465-11cf-8056-444553540000}
+Driver Version:     08/26/2026 23.56.48.757
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Attributes:         Universal
+                    Attested
+WHCP Version:       Unknown
+
+uninstall_entry=USBip 0.9.8.0 | 0.9.8.0
+usbip_exe_productversion=0.9.8.0
+--- VIIPER
+viiper_dir=True
+  install.log 19447 -
+  licenses.txt 56227 072360451E8C345553D44B89F7DB21E183F12DFA7C037A389F714868493F3A8C
+  licenses.txt.previous 56227 072360451E8C345553D44B89F7DB21E183F12DFA7C037A389F714868493F3A8C
+  viiper.exe 11407872 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145
+  viiper.exe.previous 11407872 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145
+viiper_processes=0
+thrum_processes=0
+autostart_run_value=False
+autostart_task=False
+--- Thrum data
+appdata_thrum=True
+  Logs 1
+  Macros 1
+  Profiles 1
+  Actions.xml 276
+  Auto Profiles.xml 55
+  OutputSlots.xml 204
+  Profiles.xml 3136
+--- crash check
+minidumps=0
+memory_dmp=False
+bugcheck_events=0
+--- C:\p2
+  b2
+  out
+  stage
+  tmp
+  a.cmd
+  phase-a-diag.ps1
+  phase-a-setup.ps1
+  phase-b1b2.ps1
+  phase-b3.ps1
+  phase-b4.ps1
+  r.cmd
+  remove-usbip.ps1
+  runner.ps1
+  Thrum-package.zip
+  uia.ps1
+  verify-posture.ps1
+
+
+

@@ -1,0 +1,9 @@
+now=2026-09-19T18:20:10
+powershell.exe pid=9932 ppid=8640 started=18:06:48 cmd="C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File C:\p2\runner.ps1 
+powershell.exe pid=5864 ppid=9932 started=18:09:07 cmd="C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File C:\p2\b2\out\B-setup1-inner.ps1 
+USBip-0.9.8.0-x64.exe pid=4056 ppid=5864 started=18:09:12 cmd="%LOCALAPPDATA%\Temp\Thrum-VIIPER-Setup-3e7fef225ebb43ed852186dda1cfc70e\USBip-0.9.8.0-x64.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART 
+USBip-0.9.8.0-x64.tmp pid=3648 ppid=4056 started=18:09:12 cmd="%LOCALAPPDATA%\Temp\is-F4G4VXXB17.tmp\USBip-0.9.8.0-x64.tmp" /SL5="$301F2,25122091,890880,%LOCALAPPDATA%\Temp\Thrum-VIIPER-Setup-3e7fef225ebb43ed852186dda1cfc70e\USBip-0.9.8.0-x64.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART 
+unins000.exe pid=7940 ppid=3648 started=18:09:13 cmd="C:\Program Files\USBip\unins000.exe" /SILENT /SUPPRESSMSGBOXES /NORESTART
+_unins.tmp pid=4632 ppid=7940 started=18:09:13 cmd="%LOCALAPPDATA%\Temp\is-PMCIGL5B3L-uninstall.tmp\_unins.tmp" /SECONDPHASE="C:\Program Files\USBip\unins000.exe" /FIRSTPHASEWND=$4023A /SILENT /SUPPRESSMSGBOXES /NORESTART
+
+

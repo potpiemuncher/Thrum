@@ -1,0 +1,78 @@
+=== setup start 2026-09-19T17:43:14 ===
+command: extras\install-viiper-backend.ps1 -NoPause -AppExecutable <app>\Thrum.exe -UsbipInstallerFile <stage>\USBip-0.9.8.0-x64.exe -ViiperBackendFile <stage>\viiper-windows-amd64.zip
+
+Thrum VIIPER virtual controller setup
+Installing or repairing VIIPER and usbip-win2.
+Verification helper: C:\p2\b2\app\Thrum.exe
+
+== Pinned packages ==
+Pinned usbip: USBip-0.9.8.0-x64.exe (0.9.8.0), SHA-256 
+81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, signed by "Cloudyne Systems 
+(Scheibling Consulting AB)".
+Pinned viiper: viiper-windows-amd64.zip (v0.1.2-usbip0980.1), SHA-256 
+C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, unsigned upstream.
+Backend start arguments: --update-notify none server (the update notifier is disabled on every 
+path that starts the backend).
+
+== Checking usbip-win2 ==
+usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.8.0; 
+tier ExperimentalBaseline.
+Decision: usbip-win2 0.9.8.0 is already installed and matches the pinned release exactly; the 
+driver step is skipped.
+usbip-win2 0.9.8.0 is already installed and matches the pinned release exactly; the driver step 
+is skipped.
+
+== Validating the installed driver packages ==
+Post-install validation: driver diagnostic exit code 0.
+Decision: The installed usbip-win2 package pair matches a release this build recognises, and its 
+catalogs are trusted.
+Full driver report saved to %TEMP%\Thrum\viiper-driver-validation-20260920-004317Z.txt.
+The installed usbip-win2 package pair matches a release this build recognises, and its catalogs 
+are trusted.
+
+== Installing VIIPER ==
+Pinned viiper release v0.1.2-usbip0980.1: viiper-windows-amd64.zip, expected SHA-256 
+C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8.
+Using a staged local file instead of downloading. It is verified against the same pin.
+Verifying viiper-windows-amd64.zip against pinned release v0.1.2-usbip0980.1.
+File name: expected viiper-windows-amd64.zip, actual viiper-windows-amd64.zip.
+Source: https://github.com/potpiemuncher/VIIPER/releases/download/thrum-v0.1.2-usbip0980.1/viiper-
+windows-amd64.zip
+Size: expected 4809446 bytes, actual 4809446 bytes.
+SHA-256: expected C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, actual 
+C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8.
+Authenticode: not required for this component (upstream publishes it unsigned), so the pinned 
+SHA-256 is the whole identity check.
+Decision: viiper-windows-amd64.zip matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+viiper-windows-amd64.zip matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+Verifying viiper.exe against pinned release v0.1.2-usbip0980.1.
+File name: expected viiper.exe, actual viiper.exe.
+Source: https://github.com/potpiemuncher/VIIPER/releases/download/thrum-v0.1.2-usbip0980.1/viiper-
+windows-amd64.zip -> viiper.exe
+Size: expected 11407872 bytes, actual 11407872 bytes.
+SHA-256: expected 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145, actual 
+877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145.
+Authenticode: not required for this component (upstream publishes it unsigned), so the pinned 
+SHA-256 is the whole identity check.
+Decision: viiper.exe matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+viiper.exe matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+VIIPER and its licenses.txt were installed to %LOCALAPPDATA%\VIIPER
+
+== Startup behaviour ==
+VIIPER autostart: none found. Setup does not create any: Thrum starts the backend when a profile 
+needs it and stops it on exit.
+Decision: VIIPER does not start at logon, and setup does not make it start at logon.
+VIIPER does not start at logon, and setup does not make it start at logon.
+
+== Verification ==
+Starting the backend for verification: viiper.exe --update-notify none server
+VIIPER API is ready.
+The previous backend was kept at %LOCALAPPDATA%\VIIPER\viiper.exe.previous for 
+rollback.
+Setup complete. VIIPER is ready for Thrum.
+SETUP_EXIT=0
+=== setup end 2026-09-19T17:43:23 ===
+
+
+

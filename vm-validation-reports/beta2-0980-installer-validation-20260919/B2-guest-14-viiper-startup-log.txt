@@ -1,0 +1,12 @@
+time=2026-09-19T19:00:41.212-07:00 level=INFO msg="Starting VIIPER USB-IP server" addr=:3241
+time=2026-09-19T19:00:41.216-07:00 level=INFO msg="Auto-attach is enabled, checking prerequisites..."
+time=2026-09-19T19:00:41.216-07:00 level=INFO msg="USBIP server listening" addr=[::]:3241
+time=2026-09-19T19:00:41.218-07:00 level=DEBUG msg="usbip-win2 driver found"
+time=2026-09-19T19:00:41.219-07:00 level=INFO msg="Auto-attach prerequisites satisfied"
+time=2026-09-19T19:00:41.219-07:00 level=INFO msg="API listening" addr=[::]:3242
+time=2026-09-19T19:00:41.597-07:00 level=DEBUG msg="continuing unauthenticated connection" remote=127.0.0.1:49681
+time=2026-09-19T19:00:41.599-07:00 level=INFO msg="api cmd" remote=127.0.0.1:49681 path=ping
+time=2026-09-19T19:00:41.599-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:49681 path=ping
+
+
+

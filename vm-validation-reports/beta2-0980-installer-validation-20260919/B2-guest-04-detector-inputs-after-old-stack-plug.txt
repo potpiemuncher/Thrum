@@ -1,0 +1,28 @@
+=== detector inputs @ 2026-09-19T18:49:37 ===
+LastBootUpTime=2026-09-19T18:46:37
+--- Kernel-Boot event 27 (newest first; Properties[0] = boot type, 0 = cold/full boot)
+  2026-09-19T18:46:35 boot_type=0
+  2026-09-19T18:46:09 boot_type=0
+  2026-09-06T16:31:55 boot_type=0
+  2026-07-30T19:43:03 boot_type=0
+  2026-07-30T18:37:18 boot_type=0
+  2026-07-30T18:17:37 boot_type=0
+  2026-07-25T14:46:16 boot_type=0
+  2026-07-25T13:59:20 boot_type=0
+session_start_as_the_script_computes_it=2026-09-19T18:46:35
+--- usbip port
+(no output: nothing imported)
+--- controller(s) with hardware id ROOT\USBIP_WIN2\UDE, and their children (root hubs)
+  controller ROOT\USB\0000 status=OK
+    child USB\ROOT_HUB30\1&2b53a856&1&0
+--- candidate USB\* device nodes (not root hubs, not &MI_ interfaces), present or not
+candidates=6
+  USB\VID_045E&PID_028E\<instance> | present=False | LastArrival=2026-09-06T17:04:51 | Parent=USB\ROOT_HUB30\1&2b53a856&1&0 | LastKnownParent=USB\ROOT_HUB30\1&2b53a856&1&0 | under_usbip_hub=True | arrived_after_session_start=False
+  USB\VID_054C&PID_0CE6\<instance> | present=False | LastArrival=2026-09-06T17:07:01 | Parent=USB\ROOT_HUB30\1&2b53a856&1&0 | LastKnownParent=USB\ROOT_HUB30\1&2b53a856&1&0 | under_usbip_hub=True | arrived_after_session_start=False
+  USB\VID_054C&PID_0DF2\<instance> | present=False | LastArrival=2026-09-06T16:59:12 | Parent=USB\ROOT_HUB30\1&2b53a856&1&0 | LastKnownParent=USB\ROOT_HUB30\1&2b53a856&1&0 | under_usbip_hub=True | arrived_after_session_start=False
+  USB\VID_045E&PID_028E&IG_00\<instance> | present=False | LastArrival=2026-09-06T17:04:51 | Parent=USB\VID_045E&PID_028E\296013F | LastKnownParent=USB\VID_045E&PID_028E\296013F | under_usbip_hub=False | arrived_after_session_start=False
+  USB\VID_054C&PID_05C4\<instance> | present=False | LastArrival=2026-09-19T18:48:18 | Parent=USB\ROOT_HUB30\1&2b53a856&1&0 | LastKnownParent=USB\ROOT_HUB30\1&2b53a856&1&0 | under_usbip_hub=True | arrived_after_session_start=True
+  USB\VID_057E&PID_2069\<instance> | present=False | LastArrival=2026-09-06T17:04:22 | Parent=USB\ROOT_HUB30\1&2b53a856&1&0 | LastKnownParent=USB\ROOT_HUB30\1&2b53a856&1&0 | under_usbip_hub=True | arrived_after_session_start=False
+
+
+

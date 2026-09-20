@@ -1,0 +1,36 @@
+Scenario B2 - re-run of the upgrade scenario against the fix on beta2-repin
+==========================================================================
+branch under test : validation/beta2-0980 = origin/beta2-repin @ 6388b8550761cf4b081c7beb10684a6d0044713f merged in (clean merge)
+merged head built : 35c69e80203d2bfd13d7503b124b0a720c0eaa4f
+publish           : dotnet publish Thrum/Thrum.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64
+Thrum.exe         : SHA-256 616F4368E8000F76E2E0A087F46AB159268CC24E0E78B8831F29AC2273391B39, 178176 bytes (apphost, unchanged)
+Thrum.dll         : SHA-256 9839A5B41A55B71072E73F2BFAFF0D98DC876E33BC3D2BBBA9D2C8E2BCE4157E, 6431744 bytes
+setup script      : extras/install-viiper-backend.ps1, SHA-256 608286A6C91EEB77E0F0B03D07615962B9EA2704C53528890213C56A558CDB97, 37343 bytes
+                    (identical in the worktree, in the publish output, and inside the guest)
+publish archive   : SHA-256 E22FC992D2E535BADBC4C0782FF77613917F79A01EECEDEF158F70305AA971A0, 88961261 bytes, 527 files
+suite             : not re-run here (1132 / 0 is the parent's figure for 6388b85); no application code was changed by this pass
+
+Staged assets (re-hashed on the host and again inside the guest: B2-guest-01)
+USBip-0.9.8.0-x64.exe    : SHA-256 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, 26390744 bytes
+viiper-windows-amd64.zip : SHA-256 C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, 4809446 bytes
+
+Guest
+from checkpoint : beta2-0980-B-baseline-20260919 (usbip-win2 0.9.7.7 + upstream VIIPER v0.1.2), cold boot, adapter disconnected throughout
+end checkpoint  : beta2-0980-B2-validated-20260919 (VM off; adapter reconnected to its switch afterwards, as found)
+guest clock     : two hours behind the host clock; all evidence times are guest time
+boots           : 18:46 cold boot of the baseline -> B2a; 18:57 normal restart -> B2b. No other boot, no forced power-off.
+
+Harness notes that affect how the evidence reads
+- "fingerprint" files are one script run before and after a step and compared by machine on the host, header line excluded.
+  The comparison was self-tested by mutating one line (2 differing lines reported) before its "identical" was trusted.
+- Setup consoles end with an "installer-chain process watcher" section: a second process sampling every 150 ms for the usbip-win2
+  installer, its Inno temp child, unins000/_unins, devnode, pnputil and drvinst. It reports nothing in the three refusal runs and
+  22 start/exit lines in the upgrade run, so its silence in the refusals is a measurement and not a blind spot.
+- detector-inputs files are an independent re-implementation of what Test-UsbipAttachedSinceBoot reads, run just before setup.
+  They predicted yes / no / (not consulted) and the script's own log line agreed each time.
+- B2-guest-12: my harness meant to start that backend with a debug log and did not (a quoting slip lost the variable names).
+  The "Auto-attach prerequisites satisfied" line therefore comes from the re-run (B2-guest-14, backend stopped first so the
+  re-run had to start one) and from every plug run's server log.
+- B2-plug-03 has two close files: the first close attempt met two stacked modal boxes and only one OK click landed.
+- The in-app message and the Thrum log print the install.log location as a full user-profile path; the sanitiser rewrote it
+  to %LOCALAPPDATA% in the text evidence, and the committed screenshot is cropped above that line.

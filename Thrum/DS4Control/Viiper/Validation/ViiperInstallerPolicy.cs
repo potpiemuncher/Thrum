@@ -55,15 +55,53 @@ namespace DS4Windows
         /// driver in place would leave virtual controllers unusable. Fetch the
         /// pinned installer, verify it, and run it over the recognised one.
         /// Only ever an upgrade, and only ever from a release this build can
-        /// name.
+        /// name. Only returned once setup has positively observed that no
+        /// virtual device was attached in this Windows session
+        /// (<see cref="ViiperUsbipAttachObservation.NotAttachedSinceBoot"/>).
         /// </summary>
         UpgradeRecognisedToPinned,
+
+        /// <summary>
+        /// The same upgrade is needed, but it is not safe to run now, or setup
+        /// has not yet established that it is. Measured in the VM on
+        /// 2026-09-19: once usbip-win2 0.9.7.7 has attached a device, its own
+        /// uninstaller (which the newer installer runs first) never returns
+        /// from removing the host controller, and a Windows restart while that
+        /// removal is pending ended in a 0x9F bugcheck. Change nothing — not
+        /// the driver and not the backend, so the working older pair stays
+        /// working — and ask for a Windows restart followed by Install /
+        /// Repair before any virtual controller is used.
+        /// </summary>
+        RestartBeforeUpgrade,
 
         /// <summary>
         /// Something is installed that cannot be matched to a manifest entry.
         /// Touch nothing and do not report success.
         /// </summary>
         RefuseUnrecognisedInstall,
+    }
+
+    /// <summary>
+    /// What setup observed about virtual devices in the current Windows
+    /// session. Only <see cref="NotAttachedSinceBoot"/> permits replacing a
+    /// bound driver; every other value, including the default, does not.
+    /// </summary>
+    public enum ViiperUsbipAttachObservation
+    {
+        /// <summary>Setup has not looked yet. Fail closed.</summary>
+        NotObserved,
+
+        /// <summary>
+        /// No import is present and no device under the usbip-win2 host
+        /// controller has arrived since the last full Windows boot.
+        /// </summary>
+        NotAttachedSinceBoot,
+
+        /// <summary>A device is imported now, or one arrived since boot.</summary>
+        AttachedSinceBoot,
+
+        /// <summary>Setup looked and could not tell. Fail closed.</summary>
+        CouldNotDetermine,
     }
 
     /// <summary>
@@ -216,6 +254,16 @@ namespace DS4Windows
         public const int ScriptExitRestartRequired = 3;
 
         /// <summary>
+        /// Setup changed nothing because an older usbip-win2 has to be upgraded
+        /// and that is only safe straight after a Windows restart
+        /// (<see cref="ViiperUsbipInstallAction.RestartBeforeUpgrade"/>).
+        /// Distinct from <see cref="ScriptExitRestartRequired"/>, whose advice
+        /// ("then use Refresh") would be wrong here: after this restart the
+        /// person has to run Install / Repair again.
+        /// </summary>
+        public const int ScriptExitRestartBeforeUpgrade = 4;
+
+        /// <summary>
         /// Decides what to do about the installed usbip-win2 driver.
         ///
         /// <para>The primary input is the gate's four-state answer, not a file
@@ -241,7 +289,9 @@ namespace DS4Windows
             DecideUsbipInstall(ViiperDriverReadinessState state,
                 string matchedReleaseLabel, ViiperDriverTier? matchedTier,
                 string reportedUninstallRelease, ViiperPinnedDownload pin,
-                ViiperDriverManifest manifest)
+                ViiperDriverManifest manifest,
+                ViiperUsbipAttachObservation attachObservation =
+                    ViiperUsbipAttachObservation.NotObserved)
         {
             if (pin == null) throw new ArgumentNullException(nameof(pin));
             manifest ??= ViiperDriverManifest.ObservedBaselines;
@@ -277,14 +327,10 @@ namespace DS4Windows
                             "speaks the pinned release's attach ABI and " +
                             "refuses to start on any other, so the older " +
                             "driver is upgraded rather than left in place.");
-                        return Decide(
-                            ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
+                        return DecideUpgrade(matchedReleaseLabel, pin,
+                            attachObservation, lines,
                             "usbip-win2 " + Present(matchedReleaseLabel) +
-                            " is installed. Setup will upgrade it to the " +
-                            "pinned release " + pin.ReleaseLabel +
-                            " after verifying the installer, because the " +
-                            "virtual controller backend requires that release.",
-                            lines);
+                            " is installed.");
                     }
 
                     lines.Add(
@@ -302,7 +348,7 @@ namespace DS4Windows
 
                 case ViiperDriverReadinessState.Missing:
                     return DecideWhenNothingIsBound(reportedUninstallRelease,
-                        pin, manifest, lines);
+                        pin, manifest, attachObservation, lines);
 
                 case ViiperDriverReadinessState.DetectedUnvalidated:
                     lines.Add(
@@ -333,6 +379,7 @@ namespace DS4Windows
         private static ViiperInstallerDecision<ViiperUsbipInstallAction>
             DecideWhenNothingIsBound(string reportedUninstallRelease,
                 ViiperPinnedDownload pin, ViiperDriverManifest manifest,
+                ViiperUsbipAttachObservation attachObservation,
                 List<string> lines)
         {
             string reported = (reportedUninstallRelease ?? string.Empty).Trim();
@@ -369,13 +416,9 @@ namespace DS4Windows
                     "packages are not bound. The pinned backend requires the " +
                     "pinned release, so setup upgrades to it; nothing is " +
                     "downgraded.");
-                return Decide(
-                    ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
-                    "usbip-win2 " + reported + " is registered on this machine " +
-                    "but not in service. Setup will upgrade it to the pinned " +
-                    "release " + pin.ReleaseLabel + " after verifying the " +
-                    "installer.",
-                    lines);
+                return DecideUpgrade(reported, pin, attachObservation, lines,
+                    "usbip-win2 " + reported + " is registered on this " +
+                    "machine but not in service.");
             }
 
             if (manifest.Releases.Any(release =>
@@ -727,6 +770,25 @@ namespace DS4Windows
                 };
             }
 
+            if (exitCode == ScriptExitRestartBeforeUpgrade)
+            {
+                return new ViiperInstallerExitReport
+                {
+                    Succeeded = false,
+                    RestartApplication = false,
+                    IsError = false,
+                    Message = "Setup changed nothing yet. This machine has an " +
+                        "older usbip-win2 driver that has to be upgraded before " +
+                        "virtual controllers can work with this build, and that " +
+                        "is only safe straight after a Windows restart: once " +
+                        "the older driver has attached a virtual device, " +
+                        "removing it can hang and crash Windows.\n\nRestart " +
+                        "Windows, then run Install / Repair again before using " +
+                        "a virtual controller. Until then the installed driver " +
+                        "and backend are untouched." + logSuffix,
+                };
+            }
+
             if (exitCode == ScriptExitSuccess)
             {
                 // Setup validated the driver, but the backend still is not
@@ -863,6 +925,83 @@ namespace DS4Windows
 
             return string.Equals(NormalizeLabel(left), NormalizeLabel(right),
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The upgrade, gated on what setup observed about this Windows
+        /// session. Fail closed: only a positive "nothing attached since boot"
+        /// lets a bound driver be replaced.
+        /// </summary>
+        private static ViiperInstallerDecision<ViiperUsbipInstallAction>
+            DecideUpgrade(string installedLabel, ViiperPinnedDownload pin,
+                ViiperUsbipAttachObservation attachObservation,
+                List<string> lines, string whatIsInstalled)
+        {
+            lines.Add("Virtual devices this Windows session: " +
+                DescribeObservation(attachObservation) + ".");
+
+            if (attachObservation ==
+                ViiperUsbipAttachObservation.NotAttachedSinceBoot)
+            {
+                return Decide(
+                    ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
+                    whatIsInstalled + " Setup will upgrade it to the pinned " +
+                    "release " + pin.ReleaseLabel + " after verifying the " +
+                    "installer, because the virtual controller backend " +
+                    "requires that release.",
+                    lines);
+            }
+
+            lines.Add(
+                "Once the older driver has attached a device, its uninstaller " +
+                "does not return from removing the host controller, and a " +
+                "Windows restart while that removal is pending has ended in " +
+                "a bugcheck. Setup therefore changes nothing in this state, " +
+                "neither the driver nor the backend, so the installed pair " +
+                "keeps working until the restart.");
+
+            string why;
+            switch (attachObservation)
+            {
+                case ViiperUsbipAttachObservation.AttachedSinceBoot:
+                    why = "A virtual device has been attached since Windows " +
+                        "started, and the older driver cannot be removed " +
+                        "safely in that state.";
+                    break;
+                case ViiperUsbipAttachObservation.CouldNotDetermine:
+                    why = "Setup could not establish whether a virtual device " +
+                        "has been attached since Windows started, and the " +
+                        "older driver cannot be removed safely if one has.";
+                    break;
+                default:
+                    why = "Setup has not yet checked whether a virtual device " +
+                        "has been attached since Windows started.";
+                    break;
+            }
+
+            return Decide(ViiperUsbipInstallAction.RestartBeforeUpgrade,
+                whatIsInstalled + " It has to be upgraded to " +
+                pin.ReleaseLabel + " before virtual controllers can work " +
+                "with this build. " + why + " Nothing was changed. Restart " +
+                "Windows, then run Install / Repair again before using a " +
+                "virtual controller.",
+                lines);
+        }
+
+        private static string DescribeObservation(
+            ViiperUsbipAttachObservation observation)
+        {
+            switch (observation)
+            {
+                case ViiperUsbipAttachObservation.NotAttachedSinceBoot:
+                    return "none attached since boot";
+                case ViiperUsbipAttachObservation.AttachedSinceBoot:
+                    return "at least one attached since boot";
+                case ViiperUsbipAttachObservation.CouldNotDetermine:
+                    return "could not be determined";
+                default:
+                    return "not observed yet";
+            }
         }
 
         /// <summary>

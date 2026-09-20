@@ -504,7 +504,8 @@ public class ViiperInstallerPolicyTests
         foreach (string older in new[] { "0.9.7.7", "0.9.7.8", "v.0.9.7.7" })
         {
             var decision = Decide(ViiperDriverReadinessState.ValidatedExperimental,
-                older, ViiperDriverTier.ExperimentalBaseline);
+                older, ViiperDriverTier.ExperimentalBaseline,
+                observation: ViiperUsbipAttachObservation.NotAttachedSinceBoot);
 
             Assert.AreEqual(ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
                 decision.Action, older);
@@ -513,7 +514,111 @@ public class ViiperInstallerPolicyTests
             Assert.IsTrue(decision.Lines.Any(line =>
                 line.Contains("attach ABI", StringComparison.Ordinal)),
                 "the audit trail has to say why a bound driver is replaced");
+            Assert.IsTrue(decision.Lines.Any(line =>
+                line.Contains("none attached since boot", StringComparison.Ordinal)),
+                "the audit trail has to record the observation that permitted it");
         }
+    }
+
+    [TestMethod]
+    public void TheUpgradeFailsClosedUnlessNothingWasAttachedThisSession()
+    {
+        // Measured in the VM on 2026-09-19: once 0.9.7.7 has attached a
+        // device, its uninstaller never returns from removing the host
+        // controller, and a restart while that removal was pending ended in a
+        // 0x9F bugcheck. So only a positive "nothing attached since boot" lets
+        // a bound driver be replaced. Not looking is not a "no".
+        foreach (ViiperUsbipAttachObservation observation in new[]
+        {
+            ViiperUsbipAttachObservation.NotObserved,
+            ViiperUsbipAttachObservation.AttachedSinceBoot,
+            ViiperUsbipAttachObservation.CouldNotDetermine,
+        })
+        {
+            foreach (string older in new[] { "0.9.7.7", "0.9.7.8" })
+            {
+                var bound = Decide(
+                    ViiperDriverReadinessState.ValidatedExperimental, older,
+                    ViiperDriverTier.ExperimentalBaseline,
+                    observation: observation);
+                var unbound = Decide(ViiperDriverReadinessState.Missing, null,
+                    null, registered: older, observation: observation);
+
+                foreach (var decision in new[] { bound, unbound })
+                {
+                    string label = observation + " / " + older;
+                    Assert.AreEqual(
+                        ViiperUsbipInstallAction.RestartBeforeUpgrade,
+                        decision.Action, label);
+                    StringAssert.Contains(decision.Summary, "Nothing was changed");
+                    StringAssert.Contains(decision.Summary, "Restart Windows");
+                    StringAssert.Contains(decision.Summary, "Install / Repair");
+                    StringAssert.Contains(decision.Summary, "0.9.8.0");
+                }
+            }
+        }
+    }
+
+    [TestMethod]
+    public void TheAttachObservationNeverChangesAnyOtherDecision()
+    {
+        // The observation gates exactly one thing. The pinned release, an
+        // empty machine, a newer release and an unrecognised one decide the
+        // same way whatever this Windows session has seen.
+        foreach (ViiperUsbipAttachObservation observation in
+            Enum.GetValues(typeof(ViiperUsbipAttachObservation))
+                .Cast<ViiperUsbipAttachObservation>())
+        {
+            Assert.AreEqual(ViiperUsbipInstallAction.AlreadyPinned,
+                Decide(ViiperDriverReadinessState.ValidatedExperimental,
+                    "0.9.8.0", ViiperDriverTier.ExperimentalBaseline,
+                    observation: observation).Action, observation.ToString());
+            Assert.AreEqual(ViiperUsbipInstallAction.InstallPinned,
+                Decide(ViiperDriverReadinessState.Missing, null, null,
+                    observation: observation).Action, observation.ToString());
+            Assert.AreEqual(ViiperUsbipInstallAction.LeaveRecognisedReleaseAlone,
+                Decide(ViiperDriverReadinessState.ValidatedExperimental,
+                    "0.9.9.0", ViiperDriverTier.ExperimentalBaseline,
+                    observation: observation).Action, observation.ToString());
+            Assert.AreEqual(ViiperUsbipInstallAction.RefuseUnrecognisedInstall,
+                Decide(ViiperDriverReadinessState.DetectedUnvalidated, null,
+                    null, observation: observation).Action,
+                observation.ToString());
+        }
+    }
+
+    [TestMethod]
+    public void TheScriptsObservationTokensParseAndEverythingElseIsNotObserved()
+    {
+        Assert.AreEqual(ViiperUsbipAttachObservation.NotAttachedSinceBoot,
+            ViiperInstallerPolicyCommand.ParseAttachObservation("no"));
+        Assert.AreEqual(ViiperUsbipAttachObservation.AttachedSinceBoot,
+            ViiperInstallerPolicyCommand.ParseAttachObservation(" YES "));
+        Assert.AreEqual(ViiperUsbipAttachObservation.CouldNotDetermine,
+            ViiperInstallerPolicyCommand.ParseAttachObservation("unknown"));
+        foreach (string other in new[] { null, "", "false", "0", "nope" })
+        {
+            Assert.AreEqual(ViiperUsbipAttachObservation.NotObserved,
+                ViiperInstallerPolicyCommand.ParseAttachObservation(other),
+                "only the three tokens the script sends are observations");
+        }
+    }
+
+    [TestMethod]
+    public void TheRestartBeforeUpgradeExitSaysNothingChangedAndWhatToDoNext()
+    {
+        var report = ViiperInstallerPolicy.DescribeInstallerExit(
+            ViiperInstallerPolicy.ScriptExitRestartBeforeUpgrade, ready: false,
+            logPath: null);
+
+        Assert.IsFalse(report.Succeeded);
+        Assert.IsFalse(report.IsError, "a deliberate stop is not a failure");
+        Assert.IsFalse(report.RestartApplication);
+        StringAssert.Contains(report.Message, "changed nothing");
+        StringAssert.Contains(report.Message, "Restart Windows");
+        StringAssert.Contains(report.Message, "Install / Repair");
+        Assert.IsFalse(report.Message.Contains("then use Refresh"),
+            "Refresh is the wrong advice here: setup has to be run again");
     }
 
     [TestMethod]
@@ -582,7 +687,8 @@ public class ViiperInstallerPolicyTests
         foreach (string older in new[] { "0.9.7.7", "0.9.7.8" })
         {
             var decision = Decide(ViiperDriverReadinessState.Missing, null, null,
-                registered: older);
+                registered: older,
+                observation: ViiperUsbipAttachObservation.NotAttachedSinceBoot);
 
             Assert.AreEqual(ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
                 decision.Action, older);
@@ -919,10 +1025,12 @@ public class ViiperInstallerPolicyTests
 
     private static ViiperInstallerDecision<ViiperUsbipInstallAction> Decide(
         ViiperDriverReadinessState state, string matchedRelease,
-        ViiperDriverTier? tier, string registered = null) =>
+        ViiperDriverTier? tier, string registered = null,
+        ViiperUsbipAttachObservation observation =
+            ViiperUsbipAttachObservation.NotObserved) =>
         ViiperInstallerPolicy.DecideUsbipInstall(state, matchedRelease, tier,
             registered, ViiperInstallerPins.UsbipWin2,
-            ViiperDriverManifest.ObservedBaselines);
+            ViiperDriverManifest.ObservedBaselines, observation);
 
     private static ViiperDownloadObservation GoodUsbipObservation() =>
         new ViiperDownloadObservation

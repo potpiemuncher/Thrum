@@ -35,15 +35,20 @@ file under `%TEMP%`. Readiness resolution performs exactly the same reads the
 diagnostic does — a SetupAPI enumeration and Windows trust-API verification —
 and it happens once per session unless something explicitly refreshes it.
 
-Two observed usbip-win2 identities are present so the SetupAPI and
+Three observed usbip-win2 identities are present so the SetupAPI and
 WinVerifyTrust paths can be exercised on disposable Windows 11 snapshots:
 
 - 0.9.7.7 records the exact UDE, filter, and client versions extracted offline
-  from the signed x64 installer currently targeted by hbashton's VIIPER
-  installer script. The x86 package has not been inspected and is not claimed.
-- 0.9.7.8 records the earlier local controlled-test dossier.
+  from the signed x64 installer targeted by hbashton's VIIPER installer
+  script. The x86 package has not been inspected and is not claimed. It was
+  Thrum's pin until 2026-09-19 and is now a recognised older release that
+  setup upgrades.
+- 0.9.7.8 records the earlier local controlled-test dossier. Never installed
+  by Thrum; also upgraded by setup when found.
+- 0.9.8.0 is the pinned release since 0.9.0-beta.2: the first one with the
+  filter corruption fix and the UDE request-lifetime hardening. x64 only.
 
-Matching either entry is not production approval. The entries are diagnostic
+Matching any entry is not production approval. The entries are diagnostic
 baselines only, and package identity/signing alone does not establish that a
 release is safe to run.
 

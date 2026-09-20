@@ -38,18 +38,70 @@ actions.
 
 ## Pinned backend release
 
-Thrum pins VIIPER v0.1.2 as two identities because upstream now publishes a
-zip rather than a bare executable:
+**Since 2026-09-19 (0.9.0-beta.2) the pinned pair is usbip-win2 0.9.8.0 and the
+project's own VIIPER fork build.** The two move together because they must:
 
-- `viiper-windows-amd64.zip`: 4,809,388 bytes, SHA-256
-  `66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46`
+- **usbip-win2 0.9.8.0** (2026-09-07) is the first release that carries the
+  filter memory-corruption fix `4139f44` and the UDE request-lifetime hardening
+  this project contributed (usbip-win2 PR #182). `USBip-0.9.8.0-x64.exe`,
+  26,390,744 bytes, SHA-256
+  `81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39`,
+  Authenticode-signed by the same publisher as earlier releases; it installs
+  UDE `23.56.48.757` and filter `23.56.30.686`, both attestation-signed by
+  Microsoft.
+- **Upstream VIIPER cannot run on it.** v0.1.2 and every later upstream tag up
+  to 2026-09-19 refuse to start unless `usbip --version` prints exactly
+  `0.9.7.7`, and their native attach sends that release's 1100-byte
+  `plugin_hardware` request. 0.9.8.0 adds `char serial[16]` and
+  `bool wsk_events`; because MSVC pads the inherited
+  `imported_device_location` base to its own size, the struct is **1120** bytes
+  with `serial` at offset 1100, and the driver rejects any other length.
+- **So Thrum pins a fork build:** `potpiemuncher/VIIPER`, tag
+  `thrum-v0.1.2-usbip0980.1` — upstream `v0.1.2` (`f5d097b`) plus three commits:
+  accept 0.9.8.0, match the 1120-byte layout, and a build workflow that mirrors
+  upstream's windows/amd64 leg step for step (the `thrum-` tag prefix keeps
+  upstream's own `v*.*.*` release workflow, which publishes client packages,
+  from firing). The framed audio/haptics protocol is untouched. VIIPER is
+  GPL-3.0; the exact source is the tag and the source archive on the same
+  release. The patch is also kept at
+  `docs/dev/patches/viiper-0.1.2-usbip-0.9.8.0.patch`.
+
+The two backend identities:
+
+- `viiper-windows-amd64.zip`: 4,809,446 bytes, SHA-256
+  `C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8`
 - the extracted `viiper.exe`: 11,407,872 bytes, SHA-256
-  `2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A`
+  `877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145`,
+  stamped `v0.1.2-usbip0980.1 (f28cab3)`
 
-Both digests were computed locally on 2026-09-06 from the downloaded release
-asset; the archive digest matches the digest GitHub reports for that asset, and
-the executable was hashed independently after extraction. The archive contains
-exactly `viiper.exe` and `licenses.txt`, as v0.0.6's did.
+Both digests are reported by the fork's workflow in `SHA256SUMS.txt` beside the
+asset and were recomputed locally from the downloaded release asset on
+2026-09-19; the executable was hashed independently after extraction. The
+archive contains exactly `viiper.exe` and `licenses.txt`, as upstream's does.
+Before pinning, the published binary was run on a physical machine with
+0.9.8.0: `xbox360` and `dualsensecombinedaudioduplexv5` both attached through
+the native IOCTL.
+
+**Consequences worth knowing before touching either pin again:**
+
+- This backend requires 0.9.8.0 *exactly*. Setup therefore upgrades a recognised
+  older driver (`UpgradeRecognisedToPinned`) instead of leaving it alone; a
+  newer or unorderable release is still left alone and an unrecognised one is
+  still refused.
+- A machine that also runs hbashton's DS4Windows shares `%LOCALAPPDATA%\VIIPER`
+  and the usbip-win2 install with it. After Thrum's setup, that DS4Windows'
+  own backend (which wants 0.9.7.7) will not start. Not a supported pairing.
+- When upstream VIIPER accepts 0.9.8.0, the pin should go back to an upstream
+  asset and the fork can be retired.
+- usbip-win2 0.9.8.0 has one known defect relevant to setup: after a successful
+  attach, a host-controller restart or driver unload can hang (usbip-win2
+  PR #188, fixed in `develop` on 2026-09-12, unreleased). Thrum's normal flow
+  never restarts the host controller; a driver uninstall or upgrade after use
+  is safest straight after a reboot.
+
+The previous pin, for the record (2026-09-06 to 2026-09-19): upstream VIIPER
+v0.1.2, `viiper-windows-amd64.zip` 4,809,388 bytes SHA-256 `66A9BBD4…14A46`,
+`viiper.exe` SHA-256 `2EB92FF3…8FB6A`, with usbip-win2 0.9.7.7.
 
 Setup downloads (or accepts a staged local copy of) the exact release archive,
 checks its size and digest before extraction, extracts into a temporary
@@ -58,24 +110,18 @@ directory, checks the executable's size and digest, and only then places it in
 `licenses.txt` is installed beside `viiper.exe`; it is upstream's third-party
 licence roll-up and is part of the installed backend material.
 
-The executable is stamped `v0.1.2 (f5d097b)`. That stamp is shown only as a human-readable diagnostic
-cross-check. It is never a validation input: the archive and payload digests
-are the identities, with no version floor and no fallback to a latest release.
+The version stamp is shown only as a human-readable diagnostic cross-check. It
+is never a validation input: the archive and payload digests are the
+identities, with no version floor and no fallback to a latest release.
 
-VIIPER 0.1.2, like 0.0.6, gates its own startup on the supported usbip-win2
-0.9.7.7 attach ABI (the binary carries only that version string and links to
-the `v.0.9.7.7` release page), which happens to agree with Thrum's driver pin.
-
-**That agreement is a coincidence, not the reason for the driver pin, and the
-distinction matters.** An earlier revision of this file said Thrum "therefore"
-keeps 0.9.7.7 because the backend requires it — which invites the conclusion that
-moving the backend pin frees the driver pin to move. It does not.
-The real reason is in `ViiperInstallerPins.cs`: 0.9.7.7 is pinned because
-**0.9.7.8 is the release the request-lifetime corruption was reproduced on**.
-The driver pin does not move when the backend pin moves. (Nor is there anywhere
-to move it to: usbip-win2 PR #182 and the maintainer's root-cause fix are merged
-to `master`, but no release carries them — the newest release is still
-`v.0.9.7.8`.)
+**Driver pin and backend pin are coupled by the attach ABI, and the driver pin
+is still chosen on its own merits.** 0.9.7.7 was pinned until 2026-09-19 because
+0.9.7.8 is the release the corruption was reproduced on and nothing newer
+existed; upstream VIIPER happening to require 0.9.7.7 was a coincidence, not the
+reason. The pin moved to 0.9.8.0 because that release carries the fixes and had
+ten days of daily use on a physical machine with virtual audio endpoints on and
+no bugcheck. The backend pin moved *because* the driver pin did: a backend that
+speaks the wrong `plugin_hardware` layout cannot attach at all.
 
 ## The v0.0.6 to v0.1.2 delta
 

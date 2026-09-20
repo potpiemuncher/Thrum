@@ -1,0 +1,61 @@
+[2026-09-19 17:40:49] 
+[2026-09-19 17:40:49] Thrum VIIPER virtual controller setup
+[2026-09-19 17:40:49] Installing or repairing VIIPER and usbip-win2.
+[2026-09-19 17:40:49] Verification helper: C:\p2\b2\app\Thrum.exe
+[2026-09-19 17:40:49] == Pinned packages ==
+[2026-09-19 17:40:50] Pinned usbip: USBip-0.9.8.0-x64.exe (0.9.8.0), SHA-256 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, signed by "Cloudyne Systems (Scheibling Consulting AB)".
+[2026-09-19 17:40:50] Pinned viiper: viiper-windows-amd64.zip (v0.1.2-usbip0980.1), SHA-256 C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, unsigned upstream.
+[2026-09-19 17:40:50] Backend start arguments: --update-notify none server (the update notifier is disabled on every path that starts the backend).
+[2026-09-19 17:40:50] == Checking usbip-win2 ==
+[2026-09-19 17:40:51] usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+[2026-09-19 17:40:51] usbip-win2 installed state: no packages bound; matched release (none); tier (none).
+[2026-09-19 17:40:51] usbip-win2 uninstall entry reports: (none).
+[2026-09-19 17:40:51] Decision: No usbip-win2 driver is installed. Setup will install the pinned release 0.9.8.0 after verifying it.
+[2026-09-19 17:40:51] Pinned usbip release 0.9.8.0: USBip-0.9.8.0-x64.exe, expected SHA-256 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39.
+[2026-09-19 17:40:51] Using a staged local file instead of downloading. It is verified against the same pin.
+[2026-09-19 17:40:52] Verifying USBip-0.9.8.0-x64.exe against pinned release 0.9.8.0.
+[2026-09-19 17:40:52] File name: expected USBip-0.9.8.0-x64.exe, actual USBip-0.9.8.0-x64.exe.
+[2026-09-19 17:40:52] Source: https://github.com/vadimgrn/usbip-win2/releases/download/v.0.9.8.0/USBip-0.9.8.0-x64.exe
+[2026-09-19 17:40:52] Size: expected 26390744 bytes, actual 26390744 bytes.
+[2026-09-19 17:40:52] SHA-256: expected 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, actual 81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39.
+[2026-09-19 17:40:52] Authenticode chain: expected trusted under normal Windows policy, actual trusted (trusted).
+[2026-09-19 17:40:52] Authenticode signer: expected "Cloudyne Systems (Scheibling Consulting AB)", actual "Cloudyne Systems (Scheibling Consulting AB)".
+[2026-09-19 17:40:52] Decision: USBip-0.9.8.0-x64.exe matches the pinned SHA-256 and is signed by the pinned publisher.
+[2026-09-19 17:40:52] USBip-0.9.8.0-x64.exe matches the pinned SHA-256 and is signed by the pinned publisher.
+[2026-09-19 17:40:52] Windows may briefly restart USB hub devices.
+[2026-09-19 17:41:05] == Validating the installed driver packages ==
+[2026-09-19 17:41:06] Post-install validation: driver diagnostic exit code 0.
+[2026-09-19 17:41:06] Decision: The installed usbip-win2 package pair matches a release this build recognises, and its catalogs are trusted.
+[2026-09-19 17:41:06] Full driver report saved to %TEMP%\Thrum\viiper-driver-validation-20260920-004105Z.txt.
+[2026-09-19 17:41:06] The installed usbip-win2 package pair matches a release this build recognises, and its catalogs are trusted.
+[2026-09-19 17:41:06] == Installing VIIPER ==
+[2026-09-19 17:41:06] Pinned viiper release v0.1.2-usbip0980.1: viiper-windows-amd64.zip, expected SHA-256 C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8.
+[2026-09-19 17:41:06] Using a staged local file instead of downloading. It is verified against the same pin.
+[2026-09-19 17:41:07] Verifying viiper-windows-amd64.zip against pinned release v0.1.2-usbip0980.1.
+[2026-09-19 17:41:07] File name: expected viiper-windows-amd64.zip, actual viiper-windows-amd64.zip.
+[2026-09-19 17:41:07] Source: https://github.com/potpiemuncher/VIIPER/releases/download/thrum-v0.1.2-usbip0980.1/viiper-windows-amd64.zip
+[2026-09-19 17:41:07] Size: expected 4809446 bytes, actual 4809446 bytes.
+[2026-09-19 17:41:07] SHA-256: expected C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, actual C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8.
+[2026-09-19 17:41:07] Authenticode: not required for this component (upstream publishes it unsigned), so the pinned SHA-256 is the whole identity check.
+[2026-09-19 17:41:07] Decision: viiper-windows-amd64.zip matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+[2026-09-19 17:41:07] viiper-windows-amd64.zip matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+[2026-09-19 17:41:08] Verifying viiper.exe against pinned release v0.1.2-usbip0980.1.
+[2026-09-19 17:41:08] File name: expected viiper.exe, actual viiper.exe.
+[2026-09-19 17:41:08] Source: https://github.com/potpiemuncher/VIIPER/releases/download/thrum-v0.1.2-usbip0980.1/viiper-windows-amd64.zip -> viiper.exe
+[2026-09-19 17:41:08] Size: expected 11407872 bytes, actual 11407872 bytes.
+[2026-09-19 17:41:08] SHA-256: expected 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145, actual 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145.
+[2026-09-19 17:41:08] Authenticode: not required for this component (upstream publishes it unsigned), so the pinned SHA-256 is the whole identity check.
+[2026-09-19 17:41:08] Decision: viiper.exe matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+[2026-09-19 17:41:08] viiper.exe matches the pinned SHA-256 for release v0.1.2-usbip0980.1.
+[2026-09-19 17:41:09] VIIPER and its licenses.txt were installed to %LOCALAPPDATA%\VIIPER
+[2026-09-19 17:41:09] == Startup behaviour ==
+[2026-09-19 17:41:10] VIIPER autostart: none found. Setup does not create any: Thrum starts the backend when a profile needs it and stops it on exit.
+[2026-09-19 17:41:10] Decision: VIIPER does not start at logon, and setup does not make it start at logon.
+[2026-09-19 17:41:10] VIIPER does not start at logon, and setup does not make it start at logon.
+[2026-09-19 17:41:10] == Verification ==
+[2026-09-19 17:41:11] Starting the backend for verification: viiper.exe --update-notify none server
+[2026-09-19 17:41:11] VIIPER API is ready.
+[2026-09-19 17:41:11] Setup complete. VIIPER is ready for Thrum.
+
+
+

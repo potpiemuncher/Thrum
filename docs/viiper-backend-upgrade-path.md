@@ -5,10 +5,22 @@ types — Xbox 360, DualShock 4, DualSense, DualSense Edge, Switch 2 Pro — whi
 VIIPER presents through usbip-win2 as complete USB devices, including the
 applicable Sony audio interfaces.
 
-**Which of those five actually work depends on the backend release.** The pin
-is now VIIPER **v0.1.2** (2026-08-27). Status per output type:
+**Which of those five actually work depends on the backend release.** The
+pinned pair is now usbip-win2 **0.9.8.0** with this project's build of VIIPER
+**v0.1.2** for it (see *Pinned backend release*). **All five output types were
+plugged and unplugged on that pair on 2026-09-19**, on a clean machine through
+Thrum's own installer, with the DualSense, Edge and DS4 audio personas as well,
+and again on a machine upgraded from 0.9.7.7. Evidence, including the upgrade
+hang that pass found and the fix it validated:
+`vm-validation-reports/beta2-0980-installer-validation-20260919/REPORT.md`.
+With virtual audio endpoints off the DualSense personas negotiate
+`dualsensegamepadv5` / `dualsenseedgegamepadv5`; with them on,
+`dualsensecombinedaudioduplexv5` / `dualsenseedgecombinedaudioduplexv5`.
 
-| Output type | On pinned v0.1.2 |
+The table below is the previous pin's record (upstream v0.1.2 on 0.9.7.7,
+2026-09-06), kept because the device names and IDs are unchanged:
+
+| Output type | On upstream v0.1.2 (previous pin) |
 | --- | --- |
 | `ViiperX360` | **Plugged and unplugged on v0.1.2** as `xbox360`, `045e:028e` |
 | `ViiperDualSense` | **Plugged and unplugged on v0.1.2** as `dualsensecombinedaudioduplexv5`, `frameVersion=5`, first attempt with no fallback, `054c:0ce6` |

@@ -1,0 +1,83 @@
+=== plug run: ViiperX360  audio_endpoints=False  tag=B2-plug-03-x360-held  @ 2026-09-19T18:56:26 ===
+close-only continuation of the run above; thrum_pid=10912
+=== modal message boxes owned by the shell window (dismissed with BM_CLICK on their OK button, as a user would) ===
+=== asking Thrum to exit (UIA WindowPattern.Close on the window named exactly 'Thrum') ===
+window: name='Thrum' class=Window
+close requested on shell window
+thrum_exited_gracefully=True
+thrum_exit_code=
+=== POST-UNPLUG ===
+thrum_processes=0
+viiper_processes=0  (0 expected: Thrum started this backend, so Thrum stops it)
+census: 
+bus/list -> API_UNREACHABLE (No connection could be made because the target machine actively refused it 127.0.0.1:3242Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it 127.0.0.1:3242")
+--- usbip port
+
+--- PnP (VID_045E&PID_028E), present only
+--- audio endpoints present after unplug
+--- services
+usbip2_ude=Running
+usbip2_filter=Running
+--- crash check
+minidumps=0 memory_dmp=False boot_time=2026-09-19T18:46:37
+=== Thrum log ===
+thrum_log_lines=54
+2026-09-19 18:51:35.1819|INFO|Thrum version 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-19 18:51:35.1819|INFO|Thrum exe file: Thrum.exe
+2026-09-19 18:51:35.1819|INFO|Thrum Assembly Architecture: x64
+2026-09-19 18:51:35.1819|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-19 18:51:35.1819|INFO|OS Product Name: Windows 10 Pro
+2026-09-19 18:51:35.1819|INFO|OS Release ID: 2009
+2026-09-19 18:51:35.1819|INFO|System Architecture: x64
+2026-09-19 18:51:35.1819|INFO|Logger created
+2026-09-19 18:51:35.2274|INFO|LinkedProfiles.xml can't be found.
+2026-09-19 18:51:35.6084|INFO|Running as Admin
+2026-09-19 18:51:35.6167|INFO|Output slot #1 has permanent type ViiperX360
+2026-09-19 18:51:39.3762|INFO|Starting...
+2026-09-19 18:51:41.3767|INFO|Using output KB+M handler: SendInput
+2026-09-19 18:51:41.3767|INFO|VIIPER virtual-controller backend ready
+2026-09-19 18:51:41.3796|INFO|Searching for controllers...
+2026-09-19 18:51:41.3796|INFO|Using Shared Mode
+2026-09-19 18:51:41.4582|INFO|Plugging in virtual Xbox 360 Controller in output slot #1
+2026-09-19 18:52:39.5215|INFO|Setup changed nothing yet. This machine has an older usbip-win2 driver that has to be upgraded before virtual controllers can work with this build, and that is only safe straight after a Windows restart: once the older driver has attached a virtual device, removing it can hang and crash Windows.  Restart Windows, then run Install / Repair again before using a virtual controller. Until then the installed driver and backend are untouched.  Every decision setup made was written to: %LOCALAPPDATA%\VIIPER\install.log
+2026-09-19 18:56:05.5092|WARN|System.AggregateException: One or more errors occurred. (One or more errors occurred. (No such host is known. (api.github.com:443)))
+ ---> System.AggregateException: One or more errors occurred. (No such host is known. (api.github.com:443))
+ ---> System.Net.Http.HttpRequestException: No such host is known. (api.github.com:443)
+ ---> System.Net.Sockets.SocketException (11001): No such host is known.
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.Net.Sockets.Socket.<ConnectAsync>g__WaitForConnectWithCancellation|285_0(AwaitableSocketAsyncEventArgs saea, ValueTask connectTask, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at DS4Windows.Changelog.CheckNewerReleaseExists(String& releaseTag, Boolean allowCached)
+   at DS4WinWPF.DS4Forms.MainWindow.<>c__DisplayClass42_0.<LateChecks>b__1(Task _)
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+   --- End of inner exception stack trace ---
+2026-09-19 18:56:27.4841|INFO|Request App Shutdown
+2026-09-19 18:56:27.4841|INFO|Stopping Virtual Output Controllers
+2026-09-19 18:56:27.4841|INFO|Closing VIIPER virtual-controller connections
+2026-09-19 18:56:27.4841|INFO|Stopping DS4 Input Controllers
+2026-09-19 18:56:27.4886|INFO|Stopped Thrum
+2026-09-19 18:56:27.5098|INFO|VIIPER detached usbip port 1 (Thrum VIIPER device stopped).
+2026-09-19 18:56:27.5336|INFO|Closing connection to output handler SendInput
+2026-09-19 18:56:27.5540|INFO|VIIPER backend stop (pid 9196 started 2026-09-19T18:51:37.6198778-07:00): we started it, it is hosting no buses or devices, and Windows shows no device attached through the usbip-win2 controller - console break accepted; backend exited on its own.
+=== VIIPER server log for this run (debug level) ===
+NO VIIPER LOG at C:\p2\b2\logs\B2-plug-03-x360-held-viiper.log
+
+
+

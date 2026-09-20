@@ -1,0 +1,38 @@
+=== negative control: the pinned fork backend on usbip-win2 0.9.7.7 (BEFORE the upgrade) @ 2026-09-19T18:07:45 ===
+installed usbip.exe ProductVersion = 0.9.7.7
+installed UDE DriverVersion        = 21.14.27.907
+backend under test: extracted from the staged, pinned zip into a scratch folder (nothing installed is touched)
+viiper.exe SHA-256 = 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145  size=11407872
+installed backend (upstream v0.1.2) SHA-256 = 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A
+viiper_processes_before=0
+--- run: viiper.exe --update-notify none server   (stdout+stderr captured, 20 s limit)
+exited_on_its_own=True
+exit_code=1
+--- stdout
+
+--- stderr
+2026-09-19T18:07:47.176407-07:00 ERROR Refusing to start VIIPER with an incompatible USB/IP runtime error=USB/IP prerequisite failed: VIIPER requires usbip-win2 0.9.8.0 at C:\Program Files\USBip\usbip.exe (found 0.9.7.7); run the DS4Windows VIIPER setup
+VIIPER: error: USB/IP prerequisite failed: VIIPER requires usbip-win2 0.9.8.0 at C:\Program Files\USBip\usbip.exe (found 0.9.7.7); run the DS4Windows VIIPER setup
+
+--- api reachable afterwards?
+api_port_open=False
+viiper_processes_after=0
+
+=== positive half of the control: the INSTALLED upstream v0.1.2 backend on the same 0.9.7.7 driver ===
+exited_within_8s=False   (False expected: this backend accepts 0.9.7.7 and keeps serving)
+api_port_open=True
+--- stdout
+2026-09-19T18:07:49.331443-07:00  INFO Starting VIIPER USB-IP server addr=:3241
+2026-09-19T18:07:49.338018-07:00  INFO USBIP server listening addr=[::]:3241
+2026-09-19T18:07:49.338018-07:00  INFO Auto-attach is enabled, checking prerequisites...
+2026-09-19T18:07:49.340688-07:00  INFO Auto-attach prerequisites satisfied
+2026-09-19T18:07:49.341229-07:00  INFO API listening addr=[::]:3242
+
+--- stderr
+2026-09-19T18:07:57.288754-07:00 ERROR api handshake check error=EOF
+2026-09-19T18:07:57.289743-07:00 ERROR api incomplete request (no null terminator)
+
+viiper_processes_end=0
+
+
+

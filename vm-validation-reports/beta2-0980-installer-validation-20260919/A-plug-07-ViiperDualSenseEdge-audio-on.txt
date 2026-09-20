@@ -1,0 +1,182 @@
+=== plug run: ViiperDualSenseEdge  audio_endpoints=True  tag=A-plug-07-ViiperDualSenseEdge-audio-on  @ 2026-09-19T17:59:18 ===
+=== PRE-RUN processes ===
+thrum_processes=0
+viiper_processes=0
+=== PRE-START usbip port ===
+
+=== PRE-START PnP (VID_054C&PID_0DF2) ===
+=== settings ===
+ViiperExperimentalAcknowledged=True
+AllowExperimentalAudioEndpoints=True
+=== OutputSlots.xml written ===
+<?xml version="1.0" encoding="utf-8"?>
+<OutputSlots app_version="0.9.0.0">
+  <Slot idx="0"><DeviceType>ViiperDualSenseEdge</DeviceType></Slot>
+</OutputSlots>
+=== starting Thrum (it must start the backend itself) ===
+thrum_alive=True
+device_seen=True
+waited_s=7
+=== CENSUS 1 @ 17:59:30 ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x0df2","type":"dualsenseedgecombinedaudioduplexv5","deviceSpecific":{"battery_status":42,"battery_voltage":3.8,"board":"HMB-010","build_time":"2025-07-04T10:10:32Z","inputContinuousPending":false,"inputContinuousReplacements":0,"inputGeneration":2,"inputLatencyDistributions":{"Enabled":false,"FramesValidated":1,"InputFrames":1,"LastFrameSequence":0,"FrameReadToDecode":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"DecodeToPublication":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"ReceiveToSelected":{"Count":1,"P50":170189900,"P95":170189900,"P99":170189900,"P999":0,"Maximum":170189900},"ReceiveToPresented":{"Count":1,"P50":170189900,"P95":170189900,"P99":170189900,"P999":0,"Maximum":170189900}},"inputMaximumQueueAgeUS":170189,"inputMaximumSelectionAgeUS":170189,"inputPeakUpgrades":0,"inputQueueAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputSelectionAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputStatesReceived":1,"inputStatesSelected":5146,"inputTransitionDepth":0,"inputTransitionHighWater":0,"inputTransitionOverflows":0,"mac_address":"<synthetic, redacted>","mediaReportBuildFailures":0,"mediaReportDrops":0,"microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneInterfaceEventOverflows":0,"microphoneInterfaceTransportOverflows":0,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":38400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":11520,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"<synthetic, redacted>","shell_color":"01","speakerBytesDropped":0,"speakerBytesEnqueued":0,"speakerBytesReceived":0,"speakerBytesWritten":0,"speakerInterfaceActive":false,"speakerMaxEnqueueGapUS":0,"speakerMaxWriteGapUS":0,"speakerPayloadsDropped":0,"speakerPayloadsEnqueued":0,"speakerPayloadsReceived":0,"speakerPayloadsWritten":0,"speakerQueueDepth":0,"speakerQueueHighWater":0,"speakerStreamActive":true,"speakerWriteFailures":0,"temperature_celsius":28}}]}
+=== usbip port (census 1) ===
+Imported USB devices
+====================
+Port 01: device in use at High Speed(480Mbps)
+         Sony Corp. : DualSense Edge wireless controller (PS5) (054c:0df2)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+=== PnP (census 1) ===
+OK | HIDClass | HID-compliant game controller | HID\VID_054C&PID_0DF2&MI_03\4&80DD1A1&0&0000
+OK | MEDIA | DualSense Edge Wireless Controller | USB\VID_054C&PID_0DF2&MI_00\3&1C1E91CF&0&0000
+OK | HIDClass | USB Input Device | USB\VID_054C&PID_0DF2&MI_03\3&1C1E91CF&0&0003
+OK | USB | USB Composite Device | USB\VID_054C&PID_0DF2\2&22E30EF8&0&1
+=== audio endpoints present (census 1; class AudioEndpoint, all devices) ===
+OK | Speakers (DualSense Edge Wireless Controller)
+OK | Headset Microphone (DualSense Edge Wireless Controller)
+=== backend process (census 1) ===
+pid=6624 parent_pid=10352 thrum_pid=10352 cmdline="%LOCALAPPDATA%\VIIPER\viiper.exe" --update-notify none server
+=== CENSUS 2 (dt=30s) ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x0df2","type":"dualsenseedgecombinedaudioduplexv5","deviceSpecific":{"battery_status":42,"battery_voltage":3.8,"board":"HMB-010","build_time":"2025-07-04T10:10:32Z","inputContinuousPending":false,"inputContinuousReplacements":0,"inputGeneration":2,"inputLatencyDistributions":{"Enabled":false,"FramesValidated":1,"InputFrames":1,"LastFrameSequence":0,"FrameReadToDecode":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"DecodeToPublication":{"Count":0,"P50":0,"P95":0,"P99":0,"P999":0,"Maximum":0},"ReceiveToSelected":{"Count":1,"P50":170189900,"P95":170189900,"P99":170189900,"P999":0,"Maximum":170189900},"ReceiveToPresented":{"Count":1,"P50":170189900,"P95":170189900,"P99":170189900,"P999":0,"Maximum":170189900}},"inputMaximumQueueAgeUS":170189,"inputMaximumSelectionAgeUS":170189,"inputPeakUpgrades":0,"inputQueueAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputSelectionAgeBuckets":[0,0,0,0,0,0,0,0,0,0,0,1],"inputStatesReceived":1,"inputStatesSelected":35443,"inputTransitionDepth":0,"inputTransitionHighWater":0,"inputTransitionOverflows":0,"mac_address":"<synthetic, redacted>","mediaReportBuildFailures":0,"mediaReportDrops":0,"microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneInterfaceEventOverflows":0,"microphoneInterfaceTransportOverflows":0,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":38400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":11520,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"<synthetic, redacted>","shell_color":"01","speakerBytesDropped":0,"speakerBytesEnqueued":0,"speakerBytesReceived":0,"speakerBytesWritten":0,"speakerInterfaceActive":false,"speakerMaxEnqueueGapUS":0,"speakerMaxWriteGapUS":0,"speakerPayloadsDropped":0,"speakerPayloadsEnqueued":0,"speakerPayloadsReceived":0,"speakerPayloadsWritten":0,"speakerQueueDepth":0,"speakerQueueHighWater":0,"speakerStreamActive":true,"speakerWriteFailures":0,"temperature_celsius":28}}]}
+=== usbip port (census 2) ===
+Imported USB devices
+====================
+Port 01: device in use at High Speed(480Mbps)
+         Sony Corp. : DualSense Edge wireless controller (PS5) (054c:0df2)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+thrum_alive=True
+=== modal message boxes owned by the shell window (dismissed with BM_CLICK on their OK button, as a user would) ===
+message box: title='Thrum' content=ControlType.Button:'OK' ControlType.Text:'Failed to retrieve latest version' ControlType.TitleBar:'Thrum' ControlType.MenuBar:'System Menu Bar' ControlType.MenuItem:'System' ControlType.Button:'Close'
+  -> OK clicked
+=== asking Thrum to exit (UIA WindowPattern.Close on the window named exactly 'Thrum') ===
+window: name='Thrum' class=Window
+close requested on shell window
+thrum_exited_gracefully=True
+thrum_exit_code=0
+=== POST-UNPLUG ===
+thrum_processes=0
+viiper_processes=0  (0 expected: Thrum started this backend, so Thrum stops it)
+census: 
+bus/list -> API_UNREACHABLE (No connection could be made because the target machine actively refused it 127.0.0.1:3242Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it 127.0.0.1:3242")
+--- usbip port
+
+--- PnP (VID_054C&PID_0DF2), present only
+--- audio endpoints present after unplug
+--- services
+usbip2_ude=Running
+usbip2_filter=Running
+--- crash check
+minidumps=0 memory_dmp=False boot_time=2026-09-19T17:34:37
+=== Thrum log ===
+thrum_log_lines=54
+2026-09-19 17:59:18.6163|INFO|Thrum version 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-19 17:59:18.6163|INFO|Thrum exe file: Thrum.exe
+2026-09-19 17:59:18.6163|INFO|Thrum Assembly Architecture: x64
+2026-09-19 17:59:18.6163|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-19 17:59:18.6163|INFO|OS Product Name: Windows 10 Pro
+2026-09-19 17:59:18.6163|INFO|OS Release ID: 2009
+2026-09-19 17:59:18.6163|INFO|System Architecture: x64
+2026-09-19 17:59:18.6163|INFO|Logger created
+2026-09-19 17:59:18.6804|INFO|LinkedProfiles.xml can't be found.
+2026-09-19 17:59:19.1947|INFO|Running as Admin
+2026-09-19 17:59:19.2068|INFO|Output slot #1 has permanent type ViiperDualSenseEdge
+2026-09-19 17:59:22.9697|INFO|Starting...
+2026-09-19 17:59:24.9702|INFO|Using output KB+M handler: SendInput
+2026-09-19 17:59:24.9702|INFO|VIIPER virtual-controller backend ready
+2026-09-19 17:59:24.9702|INFO|Searching for controllers...
+2026-09-19 17:59:24.9702|INFO|Using Shared Mode
+2026-09-19 17:59:25.0694|INFO|VIIPER DualSenseEdge virtual input presentation is capped at 250 Hz with latest-state coalescing.
+2026-09-19 17:59:25.0694|INFO|Plugging in virtual DualSense Edge Controller in output slot #1
+2026-09-19 18:00:01.0090|WARN|System.AggregateException: One or more errors occurred. (One or more errors occurred. (No such host is known. (api.github.com:443)))
+ ---> System.AggregateException: One or more errors occurred. (No such host is known. (api.github.com:443))
+ ---> System.Net.Http.HttpRequestException: No such host is known. (api.github.com:443)
+ ---> System.Net.Sockets.SocketException (11001): No such host is known.
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.Net.Sockets.Socket.<ConnectAsync>g__WaitForConnectWithCancellation|285_0(AwaitableSocketAsyncEventArgs saea, ValueTask connectTask, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at DS4Windows.Changelog.CheckNewerReleaseExists(String& releaseTag, Boolean allowCached)
+   at DS4WinWPF.DS4Forms.MainWindow.<>c__DisplayClass42_0.<LateChecks>b__1(Task _)
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+   --- End of inner exception stack trace ---
+2026-09-19 18:00:02.0579|INFO|Request App Shutdown
+2026-09-19 18:00:02.0579|INFO|Stopping Virtual Output Controllers
+2026-09-19 18:00:02.0579|INFO|Closing VIIPER virtual-controller connections
+2026-09-19 18:00:02.0579|INFO|Stopping DS4 Input Controllers
+2026-09-19 18:00:02.0637|INFO|Stopped Thrum
+2026-09-19 18:00:02.0919|INFO|VIIPER detached usbip port 1 (Thrum VIIPER device stopped).
+2026-09-19 18:00:02.1443|INFO|Closing connection to output handler SendInput
+2026-09-19 18:00:02.1680|INFO|VIIPER backend stop (pid 6624 started 2026-09-19T17:59:21.2115304-07:00): we started it, it is hosting no buses or devices, and Windows shows no device attached through the usbip-win2 controller - console break accepted; backend exited on its own.
+=== VIIPER server log for this run (debug level) ===
+srvlog_lines=960
+srvlog_error_lines=0
+srvlog_warn_lines=0
+srvlog_fallback_or_version_rejections=0
+--- ERROR/WARN lines
+--- all lines except the census polling (path=bus/list, path=bus/N/list, unauthenticated-connection notices); first 140
+time=2026-09-19T17:59:21.255-07:00 level=INFO msg="Starting VIIPER USB-IP server" addr=:3241
+time=2026-09-19T17:59:21.258-07:00 level=INFO msg="USBIP server listening" addr=[::]:3241
+time=2026-09-19T17:59:21.258-07:00 level=INFO msg="Auto-attach is enabled, checking prerequisites..."
+time=2026-09-19T17:59:21.262-07:00 level=DEBUG msg="usbip-win2 driver found"
+time=2026-09-19T17:59:21.262-07:00 level=INFO msg="Auto-attach prerequisites satisfied"
+time=2026-09-19T17:59:21.262-07:00 level=INFO msg="API listening" addr=[::]:3242
+time=2026-09-19T17:59:21.966-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64602 path=ping
+time=2026-09-19T17:59:21.966-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64602 path=ping
+time=2026-09-19T17:59:24.971-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64606 path=ping
+time=2026-09-19T17:59:24.971-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64606 path=ping
+time=2026-09-19T17:59:24.984-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64607 path=ping
+time=2026-09-19T17:59:24.984-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64607 path=ping
+time=2026-09-19T17:59:25.013-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64608 path=bus/create
+time=2026-09-19T17:59:25.013-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64608 path=bus/create
+time=2026-09-19T17:59:25.030-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64609 path=bus/1/add
+time=2026-09-19T17:59:25.031-07:00 level=INFO msg="DualSense device instantiated" edge=true vid=1356 pid=3570 interfaces=6
+time=2026-09-19T17:59:25.031-07:00 level=INFO msg="Auto-attaching localhost client via native IOCTL" remote=127.0.0.1:64609 busID=1 deviceID=1
+time=2026-09-19T17:59:25.031-07:00 level=DEBUG msg="Found usbip-win2 device" remote=127.0.0.1:64609 path=\\?\root#usb#0000#{b4030c06-dc5f-4fcc-87eb-e5515a0935c0}
+time=2026-09-19T17:59:25.031-07:00 level=DEBUG msg="Opened device handle" remote=127.0.0.1:64609
+time=2026-09-19T17:59:25.033-07:00 level=INFO msg="Client connected" remote=[::1]:64610
+time=2026-09-19T17:59:25.033-07:00 level=INFO msg=OP_REQ_IMPORT
+time=2026-09-19T17:59:25.033-07:00 level=INFO msg="Import request" busid=1-1
+time=2026-09-19T17:59:25.033-07:00 level=DEBUG msg="IOCTL completed" remote=127.0.0.1:64609 bytesReturned=8 portOutput=1
+time=2026-09-19T17:59:25.033-07:00 level=INFO msg="Successfully attached device via IOCTL" remote=127.0.0.1:64609 busID=1 deviceID=1 usbPort=1
+time=2026-09-19T17:59:25.033-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64609 path=bus/1/add
+time=2026-09-19T17:59:25.065-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64611 path=bus/1/1
+time=2026-09-19T17:59:25.065-07:00 level=INFO msg="api stream begin" remote=127.0.0.1:64611 path=bus/1/1
+time=2026-09-19T17:59:25.065-07:00 level=INFO msg="DualSense Edge V5 stream configured" remote=127.0.0.1:64611 microphoneInput=true speakerOutput=true microphoneInterfaceEvents=false physicalInputMetadata=false frameVersion=5
+time=2026-09-19T18:00:02.064-07:00 level=INFO msg="client disconnected" remote=127.0.0.1:64611
+time=2026-09-19T18:00:02.064-07:00 level=INFO msg="DualSense framed speaker stream stopped" remote=127.0.0.1:64611 receivedPayloads=0 receivedBytes=0 enqueuedPayloads=0 enqueuedBytes=0 droppedPayloads=0 droppedBytes=0 writtenPayloads=0 writtenBytes=0 writeFailures=0 queueDepth=0 queueHighWater=0 maxEnqueueGapUS=0 maxWriteGapUS=0 microphoneInterfaceOverflows=0
+time=2026-09-19T18:00:02.064-07:00 level=DEBUG msg="DualSense Edge disconnected, serial/mac released" serial=<synthetic, redacted> mac=<synthetic, redacted>
+time=2026-09-19T18:00:02.064-07:00 level=INFO msg="api stream end" remote=127.0.0.1:64611 path=bus/1/1
+time=2026-09-19T18:00:02.088-07:00 level=INFO msg="Client disconnected" error="read URB header: EOF"
+time=2026-09-19T18:00:02.098-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64911 path=bus/1/remove
+time=2026-09-19T18:00:02.098-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64911 path=bus/1/remove
+time=2026-09-19T18:00:02.099-07:00 level=DEBUG msg="Started bus cleanup goroutine (RemoveDeviceByID)"
+time=2026-09-19T18:00:02.106-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64912 path=bus/remove
+time=2026-09-19T18:00:02.106-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64912 path=bus/remove
+time=2026-09-19T18:00:02.161-07:00 level=INFO msg="API server stopped"
+time=2026-09-19T18:00:02.161-07:00 level=INFO msg="USBIP server stopped"
+
+
+

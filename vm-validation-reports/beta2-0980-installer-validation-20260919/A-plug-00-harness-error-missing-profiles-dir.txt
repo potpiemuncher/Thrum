@@ -1,0 +1,117 @@
+=== plug run: ViiperX360  audio_endpoints=False  tag=A-plug-01-x360  @ 2026-09-19T17:46:10 ===
+=== PRE-RUN processes ===
+thrum_processes=0
+viiper_processes=1
+pre-run census (must be empty before the idle backend is stopped so Thrum starts and owns its own):
+bus/list -> {"buses":[]}
+idle backend stopped; viiper_processes=0
+=== PRE-START usbip port ===
+
+=== PRE-START PnP (VID_045E&PID_028E) ===
+seeded an empty 'Auto Profiles.xml' (skips the first-run wizard; the harness is unattended)
+seeded a minimal Profiles.xml
+=== settings ===
+ViiperExperimentalAcknowledged=True
+AllowExperimentalAudioEndpoints=False
+=== OutputSlots.xml written ===
+<?xml version="1.0" encoding="utf-8"?>
+<OutputSlots app_version="0.9.0.0">
+  <Slot idx="0"><DeviceType>ViiperX360</DeviceType></Slot>
+</OutputSlots>
+=== starting Thrum (it must start the backend itself) ===
+thrum_alive=False
+device_seen=False
+waited_s=91
+=== CENSUS 1 @ 17:47:49 ===
+bus/list -> API_UNREACHABLE (No connection could be made because the target machine actively refused it 127.0.0.1:3242Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it 127.0.0.1:3242")
+=== usbip port (census 1) ===
+
+=== PnP (census 1) ===
+=== backend process (census 1) ===
+=== CENSUS 2 (dt=32s) ===
+bus/list -> API_UNREACHABLE (No connection could be made because the target machine actively refused it 127.0.0.1:3242Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it 127.0.0.1:3242")
+=== usbip port (census 2) ===
+
+thrum_alive=False
+=== asking Thrum to exit (UIA WindowPattern.Close on the window named exactly 'Thrum') ===
+SHELL WINDOW NOT FOUND
+thrum_exited_gracefully=True
+thrum_exit_code=-532462766
+=== POST-UNPLUG ===
+thrum_processes=0
+viiper_processes=0  (0 expected: Thrum started this backend, so Thrum stops it)
+census: 
+bus/list -> API_UNREACHABLE (No connection could be made because the target machine actively refused it 127.0.0.1:3242Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it 127.0.0.1:3242")
+--- usbip port
+
+--- PnP (VID_045E&PID_028E), present only
+--- services
+usbip2_ude=Running
+usbip2_filter=Running
+--- crash check
+minidumps=0 memory_dmp=False boot_time=2026-09-19T17:34:37
+=== Thrum log ===
+thrum_log_lines=58
+2026-09-19 17:46:13.8305|INFO|Thrum version 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-19 17:46:13.8305|INFO|Thrum exe file: Thrum.exe
+2026-09-19 17:46:13.8305|INFO|Thrum Assembly Architecture: x64
+2026-09-19 17:46:13.8305|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-19 17:46:13.8305|INFO|OS Product Name: Windows 10 Pro
+2026-09-19 17:46:13.8305|INFO|OS Release ID: 2009
+2026-09-19 17:46:13.8305|INFO|System Architecture: x64
+2026-09-19 17:46:13.8305|INFO|Logger created
+2026-09-19 17:46:13.9389|INFO|LinkedProfiles.xml can't be found.
+2026-09-19 17:46:14.3158|ERROR|Thread Crashed with message Could not find a part of the path '%APPDATA%\Thrum\Profiles'.
+2026-09-19 17:46:14.3158|ERROR|System.IO.DirectoryNotFoundException: Could not find a part of the path '%APPDATA%\Thrum\Profiles'.
+   at System.IO.Enumeration.FileSystemEnumerator`1.CreateDirectoryHandle(String path, Boolean ignoreNotFound)
+   at System.IO.Enumeration.FileSystemEnumerator`1.Init()
+   at System.IO.Enumeration.FileSystemEnumerable`1..ctor(String directory, FindTransform transform, EnumerationOptions options, Boolean isNormalized)
+   at System.IO.Enumeration.FileSystemEnumerableFactory.UserFiles(String directory, String expression, EnumerationOptions options)
+   at System.IO.Directory.InternalEnumeratePaths(String path, String searchPattern, SearchTarget searchTarget, EnumerationOptions options)
+   at System.IO.Directory.GetFiles(String path, String searchPattern, EnumerationOptions enumerationOptions)
+   at DS4WinWPF.ProfileList.Refresh()
+   at DS4WinWPF.DS4Forms.MainWindow..ctor(ArgumentParser parser)
+   at DS4WinWPF.App.Application_Startup(Object sender, StartupEventArgs e)
+   at System.Windows.Application.<.ctor>b__1_0(Object unused)
+   at System.Windows.Threading.ExceptionWrapper.InternalRealCall(Delegate callback, Object args, Int32 numArgs)
+   at System.Windows.Threading.ExceptionWrapper.TryCatchWhen(Object source, Delegate callback, Object args, Int32 numArgs, Delegate catchHandler)
+2026-09-19 17:46:14.3158|ERROR|Thread Crashed with message Could not find a part of the path '%APPDATA%\Thrum\Profiles'.
+2026-09-19 17:46:14.3158|ERROR|System.IO.DirectoryNotFoundException: Could not find a part of the path '%APPDATA%\Thrum\Profiles'.
+   at System.IO.Enumeration.FileSystemEnumerator`1.CreateDirectoryHandle(String path, Boolean ignoreNotFound)
+   at System.IO.Enumeration.FileSystemEnumerator`1.Init()
+   at System.IO.Enumeration.FileSystemEnumerable`1..ctor(String directory, FindTransform transform, EnumerationOptions options, Boolean isNormalized)
+   at System.IO.Enumeration.FileSystemEnumerableFactory.UserFiles(String directory, String expression, EnumerationOptions options)
+   at System.IO.Directory.InternalEnumeratePaths(String path, String searchPattern, SearchTarget searchTarget, EnumerationOptions options)
+   at System.IO.Directory.GetFiles(String path, String searchPattern, EnumerationOptions enumerationOptions)
+   at DS4WinWPF.ProfileList.Refresh()
+   at DS4WinWPF.DS4Forms.MainWindow..ctor(ArgumentParser parser)
+   at DS4WinWPF.App.Application_Startup(Object sender, StartupEventArgs e)
+   at System.Windows.Application.<.ctor>b__1_0(Object unused)
+   at System.Windows.Threading.ExceptionWrapper.InternalRealCall(Delegate callback, Object args, Int32 numArgs)
+   at System.Windows.Threading.ExceptionWrapper.TryCatchWhen(Object source, Delegate callback, Object args, Int32 numArgs, Delegate catchHandler)
+   at System.Windows.Threading.DispatcherOperation.InvokeImpl()
+   at MS.Internal.CulturePreservingExecutionContext.CallbackWrapper(Object obj)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at MS.Internal.CulturePreservingExecutionContext.Run(CulturePreservingExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Windows.Threading.DispatcherOperation.Invoke()
+   at System.Windows.Threading.Dispatcher.ProcessQueue()
+   at System.Windows.Threading.Dispatcher.WndProcHook(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
+   at MS.Win32.HwndWrapper.WndProc(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam, Boolean& handled)
+   at MS.Win32.HwndSubclass.DispatcherCallbackOperation(Object o)
+   at System.Windows.Threading.ExceptionWrapper.InternalRealCall(Delegate callback, Object args, Int32 numArgs)
+   at System.Windows.Threading.ExceptionWrapper.TryCatchWhen(Object source, Delegate callback, Object args, Int32 numArgs, Delegate catchHandler)
+   at System.Windows.Threading.Dispatcher.LegacyInvokeImpl(DispatcherPriority priority, TimeSpan timeout, Delegate method, Object args, Int32 numArgs)
+   at MS.Win32.HwndSubclass.SubclassWndProc(IntPtr hwnd, Int32 msg, IntPtr wParam, IntPtr lParam)
+   at MS.Win32.UnsafeNativeMethods.DispatchMessage(MSG& msg)
+   at System.Windows.Threading.Dispatcher.PushFrameImpl(DispatcherFrame frame)
+   at System.Windows.Application.RunDispatcher(Object ignore)
+   at System.Windows.Application.RunInternal(Window window)
+   at DS4WinWPF.App.Main()
+2026-09-19 17:46:14.3349|INFO|VIIPER backend left running: the backend was already running before Thrum started, so it is not ours to stop.
+=== VIIPER server log for this run (debug level) ===
+NO VIIPER LOG at C:\p2\b2\logs\A-plug-01-x360-viiper.log
+
+
+

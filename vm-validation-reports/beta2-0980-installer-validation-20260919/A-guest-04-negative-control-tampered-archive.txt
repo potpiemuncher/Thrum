@@ -1,0 +1,59 @@
+installed viiper.exe BEFORE = 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145
+=== setup start 2026-09-19T17:43:57 ===
+command: extras\install-viiper-backend.ps1 -NoPause -AppExecutable <app>\Thrum.exe -UsbipInstallerFile <stage>\USBip-0.9.8.0-x64.exe -ViiperBackendFile <stage>\viiper-windows-amd64.TAMPERED.zip
+
+Thrum VIIPER virtual controller setup
+Installing or repairing VIIPER and usbip-win2.
+Verification helper: C:\p2\b2\app\Thrum.exe
+
+== Pinned packages ==
+Pinned usbip: USBip-0.9.8.0-x64.exe (0.9.8.0), SHA-256 
+81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, signed by "Cloudyne Systems 
+(Scheibling Consulting AB)".
+Pinned viiper: viiper-windows-amd64.zip (v0.1.2-usbip0980.1), SHA-256 
+C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, unsigned upstream.
+Backend start arguments: --update-notify none server (the update notifier is disabled on every 
+path that starts the backend).
+
+== Checking usbip-win2 ==
+usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.8.0; 
+tier ExperimentalBaseline.
+Decision: usbip-win2 0.9.8.0 is already installed and matches the pinned release exactly; the 
+driver step is skipped.
+usbip-win2 0.9.8.0 is already installed and matches the pinned release exactly; the driver step 
+is skipped.
+
+== Validating the installed driver packages ==
+Post-install validation: driver diagnostic exit code 0.
+Decision: The installed usbip-win2 package pair matches a release this build recognises, and its 
+catalogs are trusted.
+Full driver report saved to %TEMP%\Thrum\viiper-driver-validation-20260920-004400Z.txt.
+The installed usbip-win2 package pair matches a release this build recognises, and its catalogs 
+are trusted.
+
+== Installing VIIPER ==
+Pinned viiper release v0.1.2-usbip0980.1: viiper-windows-amd64.zip, expected SHA-256 
+C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8.
+Using a staged local file instead of downloading. It is verified against the same pin.
+Verifying viiper-windows-amd64.zip against pinned release v0.1.2-usbip0980.1.
+File name: expected viiper-windows-amd64.zip, actual viiper-windows-amd64.zip.
+Source: https://github.com/potpiemuncher/VIIPER/releases/download/thrum-v0.1.2-usbip0980.1/viiper-
+windows-amd64.zip
+Size: expected 4809446 bytes, actual 4809446 bytes.
+SHA-256: expected C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, actual 
+DE3964A487E9489ED7E8A0857B58ACFE4AB4639C45021556941DB7129B4DABAF.
+Decision: Verification failed: viiper-windows-amd64.zip does not have the pinned SHA-256. The 
+file is discarded and nothing is run from it.
+
+Setup could not finish: Verification failed: viiper-windows-amd64.zip does not have the pinned 
+SHA-256. The file is discarded and nothing is run from it. The downloaded file was discarded and 
+nothing was run from it.
+Details were saved to %LOCALAPPDATA%\VIIPER\install.log
+SETUP_EXIT=1
+=== setup end 2026-09-19T17:44:02 ===
+
+
+
+installed viiper.exe AFTER = 877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145
+viiper_processes=1

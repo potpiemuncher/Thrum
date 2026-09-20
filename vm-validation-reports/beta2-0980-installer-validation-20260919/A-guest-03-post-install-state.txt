@@ -1,0 +1,102 @@
+=== post-install state @ 2026-09-19T17:42:05 ===
+--- %LOCALAPPDATA%\VIIPER
+  install.log                    6158  -
+  licenses.txt                  56227  072360451E8C345553D44B89F7DB21E183F12DFA7C037A389F714868493F3A8C
+  viiper.exe                 11407872  877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145
+--- viiper.exe --version
+Usage: VIIPER <command> [flags]
+viiper.exe : VIIPER: error: unknown flag --version
+At C:\p2\tmp\s963144fb.ps1:10 char:2
++ (& "$vd\viiper.exe" --version 2>&1 | Out-String).Trim()
++  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (VIIPER: error: unknown flag --version:String) [], Re 
+   moteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Virtual Input over IP EmulatoR
+
+    Version: v0.1.2-usbip0980.1 (f28cab3)
+             2026-09-20T00:18:29Z
+    Source:  https://github.com/hbashton/VIIPER
+    License: GPLv3
+
+Flags:
+  -h, --help                      Show context-sensitive help.
+      --config=STRING             Path to configuration file (json|yaml|toml)
+                                  ($VIIPER_CONFIG)
+      --update-notify="stable"    Update notification level: none, stable,
+                                  prerelease ($VIIPER_UPDATE_NOTIFY)
+      --log.level="info"          Log level: trace, debug, info, warn, error
+                                  ($VIIPER_LOG_LEVEL)
+      --log.file=STRING           Log file path (default: none; logs only to
+                                  console) ($VIIPER_LOG_FILE)
+      --log.raw-file=STRING       Raw packet log file path (default: none)
+                                  ($VIIPER_LOG_RAW_FILE)
+
+Commands:
+  server [flags]
+    Start the VIIPER USB-IP server
+
+  proxy --upstream-addr=STRING [flags]
+    Start the VIIPER USB-IP proxy
+
+  config init <command> [flags]
+    Generate a configuration template
+
+  install [flags]
+    Add the current VIIPER executable to system startup and runs it (creates a
+    Systemd service on Linux)
+
+  uninstall [flags]
+    Remove any VIIPER system startup configuration / Systemd service
+
+Run "VIIPER <command> --help" for more information on a command.
+--- running backend
+pid=6568 cmdline="%LOCALAPPDATA%\VIIPER\viiper.exe" --update-notify none server 
+--- autostart
+hkcu_run_values=OneDrive
+hklm_run_viiper=False
+scheduled_tasks_matching_viiper=0
+--- usbip-win2
+usbip_exe_productversion=0.9.8.0
+0.9.8.0
+usbip2_ude=Running
+usbip2_filter=Running
+uninstall_entry=USBip 0.9.8.0 | 0.9.8.0
+--- driver store (pnputil /enum-drivers, usbip entries)
+Published Name:     oem2.inf
+Original Name:      usbip2_filter.inf
+Provider Name:      USBIP-WIN2
+Class Name:         Extension
+Class GUID:         {e2f84ce7-8efa-411c-aa69-97454ca4cb57}
+Extension ID:       {c1e0d1fe-d564-596e-4526-71da1249702a}
+Driver Version:     08/26/2026 23.56.30.686
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Attributes:         Universal
+                    Attested
+WHCP Version:       Unknown
+
+Published Name:     oem3.inf
+Original Name:      usbip2_ude.inf
+Provider Name:      USBIP-WIN2
+Class Name:         USB
+Class GUID:         {36fc9e60-c465-11cf-8056-444553540000}
+Driver Version:     08/26/2026 23.56.48.757
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Attributes:         Universal
+                    Attested
+WHCP Version:       Unknown
+
+--- signed driver records (Win32_PnPSignedDriver)
+  USBip 3.X Emulated Host Controller | DriverVersion=23.56.48.757 | Signer=Microsoft Windows Hardware Compatibility Publisher | Inf=oem3.inf
+--- reboot pending markers
+pending_file_rename=True
+cbs_reboot_pending=False
+--- crash check
+minidumps=0
+memory_dmp=False
+boot_time=2026-09-19T17:34:37
+
+
+

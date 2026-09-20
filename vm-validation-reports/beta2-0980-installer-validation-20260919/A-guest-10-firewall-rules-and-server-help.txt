@@ -1,0 +1,54 @@
+rule: viiper.exe | dir=Inbound | action=Block | enabled=True | profile=Public
+rule: viiper.exe | dir=Inbound | action=Block | enabled=True | profile=Public
+---
+Usage: VIIPER server [flags]
+
+Start the VIIPER USB-IP server
+
+Flags:
+  -h, --help                      Show context-sensitive help.
+      --config=STRING             Path to configuration file (json|yaml|toml)
+                                  ($VIIPER_CONFIG)
+      --update-notify="stable"    Update notification level: none, stable,
+                                  prerelease ($VIIPER_UPDATE_NOTIFY)
+      --log.level="info"          Log level: trace, debug, info, warn, error
+                                  ($VIIPER_LOG_LEVEL)
+      --log.file=STRING           Log file path (default: none; logs only to
+                                  console) ($VIIPER_LOG_FILE)
+      --log.raw-file=STRING       Raw packet log file path (default: none)
+                                  ($VIIPER_LOG_RAW_FILE)
+
+      --usb.addr=":3241"          USB-IP server listen address
+                                  ($VIIPER_USB_ADDR)
+      --usb.bus-cleanup-timeout=DURATION
+                                  -
+      --usb.write-batch-flush-interval=0
+                                  Interval to flush write batches to clients;
+                                  default: disabled / immediate updates
+                                  ($VIIPER_USB_WRITE_BATCH_FLUSH_INTERVAL)
+      --usb.endpoint-diagnostics
+                                  Emit aggregate USB endpoint scheduling
+                                  diagnostics every five seconds
+                                  ($VIIPER_USB_ENDPOINT_DIAGNOSTICS)
+      --api.addr=":3242"          API server listen address ($VIIPER_API_ADDR)
+      --api.device-handler-connect-timeout=5s
+                                  Time before auto-cleanup occurs when
+                                  device handler has no active connection
+                                  ($VIIPER_API_DEVICE_HANDLER_TIMEOUT)
+      --api.auto-attach-local-client
+                                  Controls usbip-client on localhost to
+                                  auto-attach devices added to the virtual bus
+                                  ($VIIPER_API_AUTO_ATTACH_LOCAL_CLIENT)
+      --api.require-local-host-auth
+                                  Require authentication for
+                                  clients connecting from localhost
+                                  ($VIIPER_API_REQUIRE_LOCALHOST_AUTH)
+      --api.auto-attach-windows-native
+                                  Use native IOCTL instead of
+                                  usbip.exe for auto-attach
+                                  ($VIIPER_API_AUTO_ATTACH_WINDOWS_NATIVE)
+      --connection-timeout=30s    ConnectionTimeout operation timeout
+                                  ($VIIPER_CONNECTION_TIMEOUT)
+
+
+

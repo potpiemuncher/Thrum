@@ -1,0 +1,64 @@
+=== plug run: ViiperX360  audio_endpoints=False  tag=B2-plug-03-x360-held  @ 2026-09-19T18:53:37 ===
+close-only continuation of the run above; thrum_pid=10912
+=== modal message boxes owned by the shell window (dismissed with BM_CLICK on their OK button, as a user would) ===
+message box: title='VIIPER setup' content=ControlType.Button:'OK' ControlType.Image:'' ControlType.Text:'Setup changed nothing yet. This machine has an older usbip-win2 driver that has to be upgraded before virtual controllers can work with this build, and that is only safe straight after a Windows restart: once the older driver has attached a virtual device, removing it can hang and crash Windows.
+
+Restart Windows, then run Install / Repair again before using a virtual controller. Until then the installed driver and backend are untouched.
+
+Every decision setup made was written to:
+%LOCALAPPDATA%\VIIPER\install.log' ControlType.TitleBar:'VIIPER setup' ControlType.MenuBar:'System Menu Bar' ControlType.MenuItem:'System' ControlType.Button:'Close'
+  -> OK clicked
+message box: title='Thrum' content=ControlType.Button:'OK' ControlType.Text:'Failed to retrieve latest version' ControlType.TitleBar:'Thrum' ControlType.MenuBar:'System Menu Bar' ControlType.MenuItem:'System' ControlType.Button:'Close'
+  -> OK clicked
+=== asking Thrum to exit (UIA WindowPattern.Close on the window named exactly 'Thrum') ===
+window: name='Thrum' class=Window
+close requested on shell window
+thrum_exited_gracefully=False
+=== POST-UNPLUG ===
+thrum_processes=1
+viiper_processes=1  (0 expected: Thrum started this backend, so Thrum stops it)
+census: 
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x045e","pid":"0x028e","type":"xbox360","deviceSpecific":{"subType":1}}]}
+--- usbip port
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Microsoft Corp. : Xbox360 Controller (045e:028e)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev 001/001
+--- PnP (VID_045E&PID_028E), present only
+OK | HIDClass | HID-compliant game controller | HID\VID_045E&PID_028E&IG_00\4&21ECE120&0&0000
+OK | HIDClass | USB Input Device | USB\VID_045E&PID_028E&IG_00\3&2B9E9157&0&00
+OK | XnaComposite | Xbox 360 Controller for Windows | USB\VID_045E&PID_028E\296013F
+--- audio endpoints present after unplug
+--- services
+usbip2_ude=Running
+usbip2_filter=Running
+--- crash check
+minidumps=0 memory_dmp=False boot_time=2026-09-19T18:46:37
+=== Thrum log ===
+thrum_log_lines=18
+2026-09-19 18:51:35.1819|INFO|Thrum version 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-19 18:51:35.1819|INFO|Thrum exe file: Thrum.exe
+2026-09-19 18:51:35.1819|INFO|Thrum Assembly Architecture: x64
+2026-09-19 18:51:35.1819|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-19 18:51:35.1819|INFO|OS Product Name: Windows 10 Pro
+2026-09-19 18:51:35.1819|INFO|OS Release ID: 2009
+2026-09-19 18:51:35.1819|INFO|System Architecture: x64
+2026-09-19 18:51:35.1819|INFO|Logger created
+2026-09-19 18:51:35.2274|INFO|LinkedProfiles.xml can't be found.
+2026-09-19 18:51:35.6084|INFO|Running as Admin
+2026-09-19 18:51:35.6167|INFO|Output slot #1 has permanent type ViiperX360
+2026-09-19 18:51:39.3762|INFO|Starting...
+2026-09-19 18:51:41.3767|INFO|Using output KB+M handler: SendInput
+2026-09-19 18:51:41.3767|INFO|VIIPER virtual-controller backend ready
+2026-09-19 18:51:41.3796|INFO|Searching for controllers...
+2026-09-19 18:51:41.3796|INFO|Using Shared Mode
+2026-09-19 18:51:41.4582|INFO|Plugging in virtual Xbox 360 Controller in output slot #1
+2026-09-19 18:52:39.5215|INFO|Setup changed nothing yet. This machine has an older usbip-win2 driver that has to be upgraded before virtual controllers can work with this build, and that is only safe straight after a Windows restart: once the older driver has attached a virtual device, removing it can hang and crash Windows.  Restart Windows, then run Install / Repair again before using a virtual controller. Until then the installed driver and backend are untouched.  Every decision setup made was written to: %LOCALAPPDATA%\VIIPER\install.log
+=== VIIPER server log for this run (debug level) ===
+NO VIIPER LOG at C:\p2\b2\logs\B2-plug-03-x360-held-viiper.log
+
+
+

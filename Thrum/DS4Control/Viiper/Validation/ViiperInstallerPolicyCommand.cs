@@ -337,6 +337,28 @@ namespace DS4Windows
             };
         }
 
+        /// <summary>
+        /// The setup script's observation of virtual devices in this Windows
+        /// session: <c>no</c>, <c>yes</c> or <c>unknown</c>. Anything else,
+        /// including an absent option, is "not observed", which the policy
+        /// treats as not safe to replace a bound driver.
+        /// </summary>
+        internal static ViiperUsbipAttachObservation ParseAttachObservation(
+            string value)
+        {
+            switch ((value ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                case "no":
+                    return ViiperUsbipAttachObservation.NotAttachedSinceBoot;
+                case "yes":
+                    return ViiperUsbipAttachObservation.AttachedSinceBoot;
+                case "unknown":
+                    return ViiperUsbipAttachObservation.CouldNotDetermine;
+                default:
+                    return ViiperUsbipAttachObservation.NotObserved;
+            }
+        }
+
         private static int DecideUsbip(IReadOnlyList<string> args,
             List<string> output)
         {
@@ -350,7 +372,9 @@ namespace DS4Windows
                     readiness.State, readiness.ReleaseLabel, readiness.Tier,
                     ReadOption(args, "--uninstall-version"),
                     ViiperInstallerPins.UsbipWin2,
-                    ViiperDriverManifest.ObservedBaselines);
+                    ViiperDriverManifest.ObservedBaselines,
+                    ParseAttachObservation(
+                        ReadOption(args, "--attached-since-boot")));
 
             output.Add("action=" + decision.Action);
             output.Add("summary=" + Sanitize(decision.Summary));

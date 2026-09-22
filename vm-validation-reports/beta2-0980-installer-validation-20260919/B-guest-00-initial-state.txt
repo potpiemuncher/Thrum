@@ -1,0 +1,87 @@
+=== guest state @ 2026-09-19T18:07:01 ===
+os_version=10.0.26200.0
+boot_time=2026-09-19T18:05:56
+secureboot=True
+testsigning=
+vbs_status=2
+svc_running=2
+--- network
+adapter status=Disconnected media=Disconnected
+ipv4_default_route=False
+--- usbip-win2
+usbip_pf=True
+usbip2_ude=Running
+usbip2_filter=Running
+driverstore_usbip_packages=2
+Published Name:     oem2.inf
+Original Name:      usbip2_filter.inf
+Provider Name:      USBIP-WIN2
+Class Name:         Extension
+Class GUID:         {e2f84ce7-8efa-411c-aa69-97454ca4cb57}
+Extension ID:       {c1e0d1fe-d564-596e-4526-71da1249702a}
+Driver Version:     04/19/2026 21.14.27.661
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Attributes:         Universal
+                    Attested
+WHCP Version:       Unknown
+
+Published Name:     oem3.inf
+Original Name:      usbip2_ude.inf
+Provider Name:      USBIP-WIN2
+Class Name:         USB
+Class GUID:         {36fc9e60-c465-11cf-8056-444553540000}
+Driver Version:     04/19/2026 21.14.27.907
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Attributes:         Universal
+                    Attested
+WHCP Version:       Unknown
+
+uninstall_entry=USBip version 0.9.7.7 | 0.9.7.7
+usbip_exe_productversion=0.9.7.7
+--- VIIPER
+viiper_dir=True
+  install.log 8102 -
+  install.log.pre012 13136 4E42174F012A747264B4133E692459619262B9AD7C6300304BFAFED95670BF0C
+  licenses.txt 56215 2D24B4FD0BBF18F9E9BE0EFA89F7B6C5BC9B13953EF7D3DB381731D8AF38D0CC
+  licenses.txt.previous 56215 C41AA696EAE1C03728E351AC3B00DC4C02084704A8455E3A34134CD5454AF5F3
+  viiper.exe 11407872 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A
+  viiper.exe.previous 11223552 90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A
+viiper_processes=0
+thrum_processes=0
+autostart_run_value=False
+autostart_task=False
+--- Thrum data
+appdata_thrum=True
+  Logs 1
+  Profiles 1
+  Actions.xml 276
+  Auto Profiles.xml 120
+  OutputSlots.xml 210
+  Profiles.xml 3439
+--- crash check
+minidumps=0
+memory_dmp=False
+bugcheck_events=0
+--- C:\p2
+  app
+  out
+  stage
+  tmp
+  v006
+  v012
+  a.cmd
+  export-kvp.ps1
+  phase-a-diag.ps1
+  phase-a-launch.ps1
+  phase-a-setup.ps1
+  phase-b1b2.ps1
+  phase-b3.ps1
+  phase-b4.ps1
+  remove-usbip.ps1
+  runner.ps1
+  Thrum-package.zip
+  uia.ps1
+  verify-posture.ps1
+
+
+

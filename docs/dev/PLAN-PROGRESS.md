@@ -4835,7 +4835,7 @@ its native attach path sends a 1100-byte `plugin_hardware` request. 0.9.8.0's
 struct adds `char serial[16]` and `bool wsk_events` (1116 bytes) and the driver
 rejects `size != sizeof(*r)`. Two gates, not one.
 
-**Owner decision (Patrick, 2026-09-09): relax both gates; native mode on
+**Owner decision (2026-09-09): relax both gates; native mode on
 0.9.8.0 on the dev PC as soon as possible.** Done in this change:
 
 - `ViiperDriverManifest` gains a recognised `0.9.8.0` entry
@@ -4922,3 +4922,71 @@ feeds a USB-connected pad gets from the game, relayed over Bluetooth.
   outranking Audio Haptics. Design doc row 6 and step 4 updated to match.
 
 Suite: **1125 passed / 0 failed** (CI filter).
+
+## 2026-09-19 — 0.9.0-beta.2: pins move to usbip-win2 0.9.8.0 and the project's VIIPER fork build; VM-validated
+
+**Why now.** Ten days of daily use on the development PC on usbip-win2 0.9.8.0
+with the patched backend and virtual audio endpoints on: seven Thrum sessions,
+0 `ERROR` lines, no bugcheck. (The three "unexpected shutdown" events in that
+window are `BugcheckCode=0` / failed Fast Startup resume, a signature that
+machine has logged eleven times since June and that the owner attributes to
+power cuts; not this stack.) The owner asked for a build friends can test.
+Decisions recorded: ship unsigned; keep `FakerInputWrapper` as is although its
+author archived the repository without applying a licence.
+
+**What the installer now installs.** usbip-win2 0.9.8.0 and
+`potpiemuncher/VIIPER` `thrum-v0.1.2-usbip0980.1` — upstream v0.1.2 plus the
+0.9.8.0 version gate and the 1120-byte `plugin_hardware` layout, built by a
+workflow on the fork that mirrors upstream's windows/amd64 leg (tag prefix
+`thrum-` so upstream's `v*.*.*` release workflow never fires there). Upstream
+VIIPER still requires exactly 0.9.7.7 as of today, five release candidates
+after v0.1.2; that is the whole reason for a fork build. Digests were
+recomputed locally from the published asset and the published binary attached
+`xbox360` and `dualsensecombinedaudioduplexv5` on the development PC before it
+was pinned. Details and consequences: `docs/viiper-backend-upgrade-path.md`.
+
+**Policy change.** The pinned backend cannot run on 0.9.7.x, so a recognised
+*older* driver is no longer left alone: `UpgradeRecognisedToPinned`. Newer or
+unorderable releases are still left alone; unrecognised ones still refused.
+
+**What the VM pass found, and the fix.** Scenario A (clean machine) passed
+outright: install, validation, tamper refusal, all five output types, the three
+audio personas, clean unplugs. Scenario B (upgrade over 0.9.7.7) **failed**:
+with 0.9.7.7 having attached one pad since boot, its own uninstaller never
+returned from removing the host controller, and a restart during that hang
+ended in a 0x9F bugcheck. Non-destructive, but not shippable. Fix: the upgrade
+is only returned on a positive observation that nothing was attached this
+Windows session (`Test-UsbipAttachedSinceBoot`: an import present now, or a
+device node under the usbip-win2 root hub whose PnP last-arrival date is after
+the last full boot, Fast Startup accounted for); otherwise
+`RestartBeforeUpgrade` — change nothing, script exit 4 with its own wording,
+restart, Install / Repair again. Re-run in the VM: refusal with machine-compared
+"nothing changed" fingerprints and no installer process launched; then the
+upgrade straight after a restart in 13.4 s (the same `devnode remove` that
+blocked for 12+ minutes returned in 1.1 s), driver diagnostic 0 mismatches,
+three output types plugged on the upgraded stack. Also fixed from that pass: a
+re-run overwrote `viiper.exe.previous` with the current executable, and then
+claimed to have "installed" a backend it had left in place.
+
+**Negative controls.** One-byte-tampered archive refused by digest; the fork
+backend refuses to start on 0.9.7.7 with its "requires usbip-win2 0.9.8.0"
+message while the upstream backend runs there; a process watcher that stayed
+silent during the refusal logged 22 lines during the real upgrade; the detector
+said `yes` and `no` on the same machine and an independent re-implementation of
+its inputs predicted it each time.
+
+**Not proven.** Anything needing hardware (input, haptic feel, audio payload, a
+real game) beyond the owner's own Bluetooth DualSense; a Fast Startup session in
+the guest; an upgrade from 0.9.7.8; the first-run wizard path in Scenario A.
+Full list and seven open findings (firewall prompt on first backend start, stale
+Settings status after exit 4, audio endpoints on the audio-off virtual DS4,
+offline update-check modal, unredacted log path in the exit-4 message, root-hub
+instance change after upgrade, fork refusal wording) are in
+`vm-validation-reports/beta2-0980-installer-validation-20260919/REPORT.md`.
+
+**Not a defect after all.** "Native PS5 mode reverts to Xbox 360 after a
+restart" (flagged 2026-09-09): both reverts follow a logged "Native PS5 mode
+off", which is only written after the turn-off dialog is confirmed, and the five
+sessions since restarted straight into the virtual DualSense.
+
+Suite: **1132 passed / 0 failed** (CI filter).

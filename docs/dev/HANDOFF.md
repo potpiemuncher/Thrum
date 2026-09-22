@@ -135,23 +135,34 @@ supports only GPU and NVMe assignment. Full working in
 
 ## Upstream, and the one event that unblocks a chain
 
-usbip-win2 **PR #182 (ours) is merged into `master`**, alongside vadimgrn's
-`4139f44f6` root-cause fix for the corruption. **No release carries either.**
-When a release is cut from master, it triggers: add a candidate tier to
-`ViiperDriverManifest`, revisit the pin in `ViiperInstallerPins`, rewrite the
-audio-consent risk text that currently says no release is production-approved,
-re-run the VM installer path, and tick plan item 3.5. Until then nothing changes.
+**That event happened: usbip-win2 0.9.8.0 was released on 2026-09-07** with
+vadimgrn's `4139f44f6` corruption fix and our PR #182. The chain it unblocked is
+done as of 2026-09-19 (0.9.0-beta.2): the manifest recognises 0.9.8.0, the
+driver pin moved to it, the audio-consent text is release-aware, and the VM
+installer path was re-run on the new pins (see `PLAN-PROGRESS.md`, 2026-09-19).
 
-Also open: hbashton/VIIPER PRs #3 and #7 (both ours), and
-Ryochan7/FakerInputWrapper#1, where he has said he will apply **LGPL** (which
-resolves NOTICE item 1) and then archive — when it lands, snapshot the library
-source for our own LGPL source-provision obligation.
+**What it did not unblock is upstream VIIPER**, which as of 2026-09-19 still
+refuses to start on anything but 0.9.7.7 and still sends the 0.9.7.7 attach
+layout. Thrum therefore pins its own fork build of VIIPER v0.1.2
+(`potpiemuncher/VIIPER`, tag `thrum-v0.1.2-usbip0980.1`); the why, the digests
+and the consequences are in `docs/viiper-backend-upgrade-path.md`. **Watch
+upstream VIIPER for a 0.9.8.0-capable release** — that is the event that lets
+the pin go back to an upstream asset and retires the fork. Also watch for a
+usbip-win2 release past 0.9.8.0: it will carry the PR #188 unload-hang fix and
+will very likely change nothing in the attach ABI, but check `vhci.h` before
+assuming so.
+
+Also open: hbashton/VIIPER PRs #3 and #7 (both ours). Ryochan7 **archived
+FakerInputWrapper without applying a licence**, so NOTICE's unresolved item 1
+can no longer resolve upstream; the owner's decision (2026-09-19) is to keep
+shipping it as is for private testing. Revisit before any public, non-beta
+release — removing the dependency is the likely fix, since SendInput is the
+keyboard/mouse handler in use.
 
 ## Waiting on the maintainer, not on engineering
 
-- The VIIPER pin rollback decision (#79).
-- Whether to report the DualSense regression upstream.
-- Buying a code-signing certificate. Certum's **Open Source Code Signing in the
+- Buying a code-signing certificate (the owner has deferred this; beta 2 ships
+  unsigned like beta 1). Certum's **Open Source Code Signing in the
   Cloud**, EUR 49/yr, looks like the route; see ADR-0005 including its
   amendment. Tooling is built and proven with a throwaway certificate; only the
   success path is unproven because that needs a real one.

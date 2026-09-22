@@ -1,0 +1,135 @@
+=== plug run: ViiperX360  audio_endpoints=False  tag=A-plug-01-x360  @ 2026-09-19T17:48:45 ===
+=== PRE-RUN processes ===
+thrum_processes=0
+viiper_processes=0
+=== PRE-START usbip port ===
+
+=== PRE-START PnP (VID_045E&PID_028E) ===
+=== settings ===
+ViiperExperimentalAcknowledged=True
+AllowExperimentalAudioEndpoints=False
+=== OutputSlots.xml written ===
+<?xml version="1.0" encoding="utf-8"?>
+<OutputSlots app_version="0.9.0.0">
+  <Slot idx="0"><DeviceType>ViiperX360</DeviceType></Slot>
+</OutputSlots>
+=== starting Thrum (it must start the backend itself) ===
+thrum_alive=True
+device_seen=True
+waited_s=7
+=== CENSUS 1 @ 17:48:57 ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x045e","pid":"0x028e","type":"xbox360","deviceSpecific":{"subType":1}}]}
+=== usbip port (census 1) ===
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Microsoft Corp. : Xbox360 Controller (045e:028e)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+=== PnP (census 1) ===
+OK | HIDClass | HID-compliant game controller | HID\VID_045E&PID_028E&IG_00\4&21ECE120&0&0000
+OK | HIDClass | USB Input Device | USB\VID_045E&PID_028E&IG_00\3&2B9E9157&0&00
+OK | XnaComposite | Xbox 360 Controller for Windows | USB\VID_045E&PID_028E\296013F
+=== backend process (census 1) ===
+pid=10660 parent_pid=3012 thrum_pid=3012 cmdline="%LOCALAPPDATA%\VIIPER\viiper.exe" --update-notify none server
+=== CENSUS 2 (dt=30s) ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x045e","pid":"0x028e","type":"xbox360","deviceSpecific":{"subType":1}}]}
+=== usbip port (census 2) ===
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Microsoft Corp. : Xbox360 Controller (045e:028e)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+thrum_alive=True
+=== asking Thrum to exit (UIA WindowPattern.Close on the window named exactly 'Thrum') ===
+window: name='Thrum' class=Window
+close requested on shell window
+thrum_exited_gracefully=False
+=== POST-UNPLUG ===
+thrum_processes=1
+viiper_processes=1  (0 expected: Thrum started this backend, so Thrum stops it)
+census: 
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x045e","pid":"0x028e","type":"xbox360","deviceSpecific":{"subType":1}}]}
+--- usbip port
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Microsoft Corp. : Xbox360 Controller (045e:028e)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+--- PnP (VID_045E&PID_028E), present only
+OK | HIDClass | HID-compliant game controller | HID\VID_045E&PID_028E&IG_00\4&21ECE120&0&0000
+OK | HIDClass | USB Input Device | USB\VID_045E&PID_028E&IG_00\3&2B9E9157&0&00
+OK | XnaComposite | Xbox 360 Controller for Windows | USB\VID_045E&PID_028E\296013F
+--- services
+usbip2_ude=Running
+usbip2_filter=Running
+--- crash check
+minidumps=0 memory_dmp=False boot_time=2026-09-19T17:34:37
+=== Thrum log ===
+thrum_log_lines=17
+2026-09-19 17:48:45.8983|INFO|Thrum version 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-19 17:48:45.8983|INFO|Thrum exe file: Thrum.exe
+2026-09-19 17:48:45.8983|INFO|Thrum Assembly Architecture: x64
+2026-09-19 17:48:45.8983|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-19 17:48:45.8983|INFO|OS Product Name: Windows 10 Pro
+2026-09-19 17:48:45.8983|INFO|OS Release ID: 2009
+2026-09-19 17:48:45.8983|INFO|System Architecture: x64
+2026-09-19 17:48:45.8983|INFO|Logger created
+2026-09-19 17:48:45.9579|INFO|LinkedProfiles.xml can't be found.
+2026-09-19 17:48:46.5585|INFO|Running as Admin
+2026-09-19 17:48:46.5696|INFO|Output slot #1 has permanent type ViiperX360
+2026-09-19 17:48:50.3363|INFO|Starting...
+2026-09-19 17:48:52.3367|INFO|Using output KB+M handler: SendInput
+2026-09-19 17:48:52.3367|INFO|VIIPER virtual-controller backend ready
+2026-09-19 17:48:52.3367|INFO|Searching for controllers...
+2026-09-19 17:48:52.3367|INFO|Using Shared Mode
+2026-09-19 17:48:52.5446|INFO|Plugging in virtual Xbox 360 Controller in output slot #1
+=== VIIPER server log for this run (debug level) ===
+srvlog_lines=70
+srvlog_error_lines=0
+srvlog_warn_lines=0
+srvlog_fallback_or_version_rejections=0
+--- ERROR/WARN lines
+--- all lines except the census polling (path=bus/list, path=bus/N/list, unauthenticated-connection notices); first 140
+time=2026-09-19T17:48:48.623-07:00 level=INFO msg="Starting VIIPER USB-IP server" addr=:3241
+time=2026-09-19T17:48:48.626-07:00 level=INFO msg="USBIP server listening" addr=[::]:3241
+time=2026-09-19T17:48:48.626-07:00 level=INFO msg="Auto-attach is enabled, checking prerequisites..."
+time=2026-09-19T17:48:48.631-07:00 level=DEBUG msg="usbip-win2 driver found"
+time=2026-09-19T17:48:48.631-07:00 level=INFO msg="Auto-attach prerequisites satisfied"
+time=2026-09-19T17:48:48.631-07:00 level=INFO msg="API listening" addr=[::]:3242
+time=2026-09-19T17:48:49.331-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64118 path=ping
+time=2026-09-19T17:48:49.331-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64118 path=ping
+time=2026-09-19T17:48:52.338-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64122 path=ping
+time=2026-09-19T17:48:52.338-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64122 path=ping
+time=2026-09-19T17:48:52.452-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64123 path=ping
+time=2026-09-19T17:48:52.452-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64123 path=ping
+time=2026-09-19T17:48:52.481-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64124 path=bus/create
+time=2026-09-19T17:48:52.481-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64124 path=bus/create
+time=2026-09-19T17:48:52.500-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64125 path=bus/1/add
+time=2026-09-19T17:48:52.500-07:00 level=INFO msg="Auto-attaching localhost client via native IOCTL" remote=127.0.0.1:64125 busID=1 deviceID=1
+time=2026-09-19T17:48:52.501-07:00 level=DEBUG msg="Found usbip-win2 device" remote=127.0.0.1:64125 path=\\?\root#usb#0000#{b4030c06-dc5f-4fcc-87eb-e5515a0935c0}
+time=2026-09-19T17:48:52.501-07:00 level=DEBUG msg="Opened device handle" remote=127.0.0.1:64125
+time=2026-09-19T17:48:52.508-07:00 level=INFO msg="Client connected" remote=[::1]:64126
+time=2026-09-19T17:48:52.508-07:00 level=INFO msg=OP_REQ_IMPORT
+time=2026-09-19T17:48:52.509-07:00 level=INFO msg="Import request" busid=1-1
+time=2026-09-19T17:48:52.509-07:00 level=DEBUG msg="IOCTL completed" remote=127.0.0.1:64125 bytesReturned=8 portOutput=1
+time=2026-09-19T17:48:52.509-07:00 level=INFO msg="Successfully attached device via IOCTL" remote=127.0.0.1:64125 busID=1 deviceID=1 usbPort=1
+time=2026-09-19T17:48:52.509-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:64125 path=bus/1/add
+time=2026-09-19T17:48:52.540-07:00 level=INFO msg="api cmd" remote=127.0.0.1:64127 path=bus/1/1
+time=2026-09-19T17:48:52.540-07:00 level=INFO msg="api stream begin" remote=127.0.0.1:64127 path=bus/1/1
+time=2026-09-19T17:48:52.775-07:00 level=DEBUG msg="EP0 control unhandled" bmRequestType=193 bRequest=1 wValue=0 wIndex=0 wLength=8
+time=2026-09-19T17:48:52.779-07:00 level=DEBUG msg="EP0 control unhandled" bmRequestType=192 bRequest=1 wValue=0 wIndex=0 wLength=4
+
+
+

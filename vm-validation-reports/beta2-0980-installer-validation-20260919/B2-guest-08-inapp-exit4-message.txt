@@ -1,0 +1,44 @@
+=== message boxes belonging to Thrum @ 2026-09-19T18:53:26 ===
+top-level window: name='Thrum' class=Window
+  message box title='VIIPER setup'
+  text: Setup changed nothing yet. This machine has an older usbip-win2 driver that has to be upgraded before virtual controllers can work with this build, and that is only safe straight after a Windows restart: once the older driver has attached a virtual device, removing it can hang and crash Windows.
+
+Restart Windows, then run Install / Repair again before using a virtual controller. Until then the installed driver and backend are untouched.
+
+Every decision setup made was written to:
+%LOCALAPPDATA%\VIIPER\install.log
+  message box title='Thrum'
+  text: Failed to retrieve latest version
+--- Thrum log lines about setup
+2026-09-19 18:52:39.5215|INFO|Setup changed nothing yet. This machine has an older usbip-win2 driver that has to be upgraded before virtual controllers can work with this build, and that is only safe straight after a Windows restart: once the older driver has attached a virtual device, removing it can hang and crash Windows.  Restart Windows, then run Install / Repair again before using a virtual controller. Until then the installed driver and backend are untouched.  Every decision setup made was written to: %LOCALAPPDATA%\VIIPER\install.log
+--- install.log tail (written by the in-app run: no staged-file parameters, elevated by the app)
+[2026-09-19 18:52:38] Once the older driver has attached a device, its uninstaller does not return from removing the host controller, and a Windows restart while that removal is pending has ended in a bugcheck. Setup therefore changes nothing in this state, neither the driver nor the backend, so the installed pair keeps working until the restart.
+[2026-09-19 18:52:38] Decision: usbip-win2 0.9.7.7 is installed. It has to be upgraded to 0.9.8.0 before virtual controllers can work with this build. Setup has not yet checked whether a virtual device has been attached since Windows started. Nothing was changed. Restart Windows, then run Install / Repair again before using a virtual controller.
+[2026-09-19 18:52:38] An older usbip-win2 is installed. Checking whether a virtual device has been attached since Windows started...
+[2026-09-19 18:52:38] Virtual device attached since Windows started: yes
+[2026-09-19 18:52:39] usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+[2026-09-19 18:52:39] usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.7.7; tier ExperimentalBaseline.
+[2026-09-19 18:52:39] The installed release is recognised and is older than the pinned one. The pinned backend only speaks the pinned release's attach ABI and refuses to start on any other, so the older driver is upgraded rather than left in place.
+[2026-09-19 18:52:39] Virtual devices this Windows session: at least one attached since boot.
+[2026-09-19 18:52:39] Once the older driver has attached a device, its uninstaller does not return from removing the host controller, and a Windows restart while that removal is pending has ended in a bugcheck. Setup therefore changes nothing in this state, neither the driver nor the backend, so the installed pair keeps working until the restart.
+[2026-09-19 18:52:39] Decision: usbip-win2 0.9.7.7 is installed. It has to be upgraded to 0.9.8.0 before virtual controllers can work with this build. A virtual device has been attached since Windows started, and the older driver cannot be removed safely in that state. Nothing was changed. Restart Windows, then run Install / Repair again before using a virtual controller.
+[2026-09-19 18:52:39] usbip-win2 0.9.7.7 is installed. It has to be upgraded to 0.9.8.0 before virtual controllers can work with this build. A virtual device has been attached since Windows started, and the older driver cannot be removed safely in that state. Nothing was changed. Restart Windows, then run Install / Repair again before using a virtual controller.
+[2026-09-19 18:52:39] Setup stopped before changing anything. Restart Windows, then run Install / Repair again before using a virtual controller.
+--- still plugged?
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Microsoft Corp. : Xbox360 Controller (045e:028e)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev 001/001
+
+
+
+
+=== Settings status text while the backend is running and a pad is plugged ===
+before Refresh: Text	VIIPER server not running. VIIPER helper: installed; usbip-win2: installed; server: not running.	enabled=True	id=viiperStatusText
+INVOKED: Refresh
+after Refresh: Text	VIIPER ready. VIIPER helper: installed; usbip-win2: installed; server: running.	enabled=True	id=viiperStatusText Text	VIIPER ready. VIIPER helper: installed; usbip-win2: installed; server: running.	enabled=True	id=viiperStatusText
+viiper_processes=1
+
+

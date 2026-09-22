@@ -1,0 +1,182 @@
+=== plug run: ViiperDS4  audio_endpoints=False  tag=B2-plug-06-ViiperDS4-audio-off-upgraded  @ 2026-09-19T19:03:02 ===
+=== PRE-RUN processes ===
+thrum_processes=0
+viiper_processes=0
+=== PRE-START usbip port ===
+
+=== PRE-START PnP (VID_054C&PID_05C4) ===
+=== settings ===
+ViiperExperimentalAcknowledged=True
+AllowExperimentalAudioEndpoints=False
+=== OutputSlots.xml written ===
+<?xml version="1.0" encoding="utf-8"?>
+<OutputSlots app_version="0.9.0.0">
+  <Slot idx="0"><DeviceType>ViiperDS4</DeviceType></Slot>
+</OutputSlots>
+=== starting Thrum (it must start the backend itself) ===
+thrum_alive=True
+device_seen=True
+waited_s=7
+=== CENSUS 1 @ 19:03:14 ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x05c4","type":"dualshock4","deviceSpecific":{"battery_status":26,"battery_voltage":4.2,"board":"JDM-055","build_time":"2021-09-17T11:34:00Z","microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":6400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":1920,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"<synthetic, redacted>","speakerInterfaceActive":false,"temperature_celsius":28}}]}
+=== usbip port (census 1) ===
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Sony Corp. : DualShock 4 [CUH-ZCT1x] (054c:05c4)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+=== PnP (census 1) ===
+OK | HIDClass | HID-compliant game controller | HID\VID_054C&PID_05C4&MI_03\4&14A58DB&0&0000
+OK | MEDIA | Wireless Controller | USB\VID_054C&PID_05C4&MI_00\3&13875DA9&0&0000
+OK | HIDClass | USB Input Device | USB\VID_054C&PID_05C4&MI_03\3&13875DA9&0&0003
+OK | USB | USB Composite Device | USB\VID_054C&PID_05C4\2&74AF096&0&1
+=== audio endpoints present (census 1; class AudioEndpoint, all devices) ===
+OK | Headset Microphone (Wireless Controller)
+OK | Headset Earphone (Wireless Controller)
+=== backend process (census 1) ===
+pid=10200 parent_pid=10024 thrum_pid=10024 cmdline="%LOCALAPPDATA%\VIIPER\viiper.exe" --update-notify none server
+=== CENSUS 2 (dt=30s) ===
+bus/list -> {"buses":[1]}
+bus/1/list -> {"devices":[{"busId":1,"devId":"1","vid":"0x054c","pid":"0x05c4","type":"dualshock4","deviceSpecific":{"battery_status":26,"battery_voltage":4.2,"board":"JDM-055","build_time":"2021-09-17T11:34:00Z","microphoneDroppedBytes":0,"microphoneFilteredQueueBytes":0,"microphoneHighWaterBytes":0,"microphoneInterfaceActive":false,"microphoneLongPackets":0,"microphoneLowWaterBytes":-1,"microphoneOverflowEvents":0,"microphonePacketsRead":0,"microphoneQueueFastGaps":0,"microphoneQueueFrames":0,"microphoneQueueLateGaps":0,"microphoneQueueMaxGapUS":0,"microphoneQueueMaximumBytes":6400,"microphoneQueueMinGapUS":0,"microphoneQueuePrimed":false,"microphoneQueueTargetBytes":1920,"microphoneReadFastGaps":0,"microphoneReadLateGaps":0,"microphoneReadMaxGapUS":0,"microphoneReadMinGapUS":0,"microphoneReprimes":0,"microphoneServoRatePPM":0,"microphoneShortPackets":0,"microphoneUnderruns":0,"microphoneZeroPackets":0,"queuedMicrophoneBytes":0,"serial_number":"<synthetic, redacted>","speakerInterfaceActive":false,"temperature_celsius":28}}]}
+=== usbip port (census 2) ===
+Imported USB devices
+====================
+Port 01: device in use at Full Speed(12Mbps)
+         Sony Corp. : DualShock 4 [CUH-ZCT1x] (054c:05c4)
+           -> usbip://localhost:3241/1-1
+           -> remote bus/dev: 001/001
+           -> serial: 
+           -> mode: zero-copy
+thrum_alive=True
+=== modal message boxes owned by the shell window (dismissed with BM_CLICK on their OK button, as a user would) ===
+message box: title='Thrum' content=ControlType.Button:'OK' ControlType.Text:'Failed to retrieve latest version' ControlType.TitleBar:'Thrum' ControlType.MenuBar:'System Menu Bar' ControlType.MenuItem:'System' ControlType.Button:'Close'
+  -> OK clicked
+=== asking Thrum to exit (UIA WindowPattern.Close on the window named exactly 'Thrum') ===
+window: name='Thrum' class=Window
+close requested on shell window
+thrum_exited_gracefully=True
+thrum_exit_code=0
+=== POST-UNPLUG ===
+thrum_processes=0
+viiper_processes=0  (0 expected: Thrum started this backend, so Thrum stops it)
+census: 
+bus/list -> API_UNREACHABLE (No connection could be made because the target machine actively refused it 127.0.0.1:3242Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it 127.0.0.1:3242")
+--- usbip port
+
+--- PnP (VID_054C&PID_05C4), present only
+--- audio endpoints present after unplug
+--- services
+usbip2_ude=Running
+usbip2_filter=Running
+--- crash check
+minidumps=0 memory_dmp=False boot_time=2026-09-19T18:57:12
+=== Thrum log ===
+thrum_log_lines=55
+2026-09-19 19:03:02.6229|INFO|Thrum version 0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)
+2026-09-19 19:03:02.6229|INFO|Thrum exe file: Thrum.exe
+2026-09-19 19:03:02.6229|INFO|Thrum Assembly Architecture: x64
+2026-09-19 19:03:02.6229|INFO|OS Version: Microsoft Windows NT 10.0.26200.0
+2026-09-19 19:03:02.6229|INFO|OS Product Name: Windows 10 Pro
+2026-09-19 19:03:02.6229|INFO|OS Release ID: 2009
+2026-09-19 19:03:02.6229|INFO|System Architecture: x64
+2026-09-19 19:03:02.6229|INFO|Logger created
+2026-09-19 19:03:02.6684|INFO|LinkedProfiles.xml can't be found.
+2026-09-19 19:03:03.0429|INFO|Running as Admin
+2026-09-19 19:03:03.0429|INFO|Output slot #1 has permanent type ViiperDS4
+2026-09-19 19:03:06.8121|INFO|Starting...
+2026-09-19 19:03:08.8133|INFO|Using output KB+M handler: SendInput
+2026-09-19 19:03:08.8133|INFO|VIIPER virtual-controller backend ready
+2026-09-19 19:03:08.8133|INFO|Searching for controllers...
+2026-09-19 19:03:08.8133|INFO|Using Shared Mode
+2026-09-19 19:03:08.8250|INFO|Virtual DualShock 4 output is starting without its audio and microphone interfaces. Virtual audio and microphone endpoints are turned off. They are off by default: before usbip-win2 0.9.8.0 the driver had a confirmed kernel defect that can crash Windows when such an endpoint is torn down, and the fixed driver has not yet been exercised at length by this project. Controller input, rumble and triggers work without them; the switch is in Settings, next to the driver status card.
+2026-09-19 19:03:08.8908|INFO|VIIPER DualShock4 virtual input presentation is capped at 200 Hz with latest-state coalescing.
+2026-09-19 19:03:08.8908|INFO|Plugging in virtual DualShock 4 Controller in output slot #1
+2026-09-19 19:03:45.0176|WARN|System.AggregateException: One or more errors occurred. (One or more errors occurred. (No such host is known. (api.github.com:443)))
+ ---> System.AggregateException: One or more errors occurred. (No such host is known. (api.github.com:443))
+ ---> System.Net.Http.HttpRequestException: No such host is known. (api.github.com:443)
+ ---> System.Net.Sockets.SocketException (11001): No such host is known.
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+   at System.Net.Sockets.Socket.<ConnectAsync>g__WaitForConnectWithCancellation|285_0(AwaitableSocketAsyncEventArgs saea, ValueTask connectTask, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnectionPool.ConnectToTcpHostAsync(String host, Int32 port, HttpRequestMessage initialRequest, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.ConnectAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.CreateHttp11ConnectionAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.AddHttp11ConnectionAsync(QueueItem queueItem)
+   at System.Threading.Tasks.TaskCompletionSourceWithCancellation`1.WaitWithCancellationAsync(CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at DS4Windows.Changelog.CheckNewerReleaseExists(String& releaseTag, Boolean allowCached)
+   at DS4WinWPF.DS4Forms.MainWindow.<>c__DisplayClass42_0.<LateChecks>b__1(Task _)
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+   --- End of inner exception stack trace ---
+2026-09-19 19:03:46.0521|INFO|Request App Shutdown
+2026-09-19 19:03:46.0538|INFO|Stopping Virtual Output Controllers
+2026-09-19 19:03:46.0538|INFO|Closing VIIPER virtual-controller connections
+2026-09-19 19:03:46.0538|INFO|Stopping DS4 Input Controllers
+2026-09-19 19:03:46.0538|INFO|Stopped Thrum
+2026-09-19 19:03:46.0756|INFO|VIIPER detached usbip port 1 (Thrum VIIPER device stopped).
+2026-09-19 19:03:46.1162|INFO|Closing connection to output handler SendInput
+2026-09-19 19:03:46.1360|INFO|VIIPER backend stop (pid 10200 started 2026-09-19T19:03:05.0550927-07:00): we started it, it is hosting no buses or devices, and Windows shows no device attached through the usbip-win2 controller - console break accepted; backend exited on its own.
+=== VIIPER server log for this run (debug level) ===
+srvlog_lines=80
+srvlog_error_lines=0
+srvlog_warn_lines=0
+srvlog_fallback_or_version_rejections=0
+--- ERROR/WARN lines
+--- all lines except the census polling (path=bus/list, path=bus/N/list, unauthenticated-connection notices); first 140
+time=2026-09-19T19:03:05.090-07:00 level=INFO msg="Starting VIIPER USB-IP server" addr=:3241
+time=2026-09-19T19:03:05.092-07:00 level=INFO msg="USBIP server listening" addr=[::]:3241
+time=2026-09-19T19:03:05.092-07:00 level=INFO msg="Auto-attach is enabled, checking prerequisites..."
+time=2026-09-19T19:03:05.095-07:00 level=DEBUG msg="usbip-win2 driver found"
+time=2026-09-19T19:03:05.096-07:00 level=INFO msg="Auto-attach prerequisites satisfied"
+time=2026-09-19T19:03:05.096-07:00 level=INFO msg="API listening" addr=[::]:3242
+time=2026-09-19T19:03:05.808-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50041 path=ping
+time=2026-09-19T19:03:05.809-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50041 path=ping
+time=2026-09-19T19:03:08.814-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50045 path=ping
+time=2026-09-19T19:03:08.814-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50045 path=ping
+time=2026-09-19T19:03:08.826-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50046 path=ping
+time=2026-09-19T19:03:08.826-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50046 path=ping
+time=2026-09-19T19:03:08.848-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50047 path=bus/create
+time=2026-09-19T19:03:08.848-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50047 path=bus/create
+time=2026-09-19T19:03:08.862-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50048 path=bus/1/add
+time=2026-09-19T19:03:08.862-07:00 level=INFO msg="DS4 device instantiated" vid=1356 pid=1476 interfaces=6
+time=2026-09-19T19:03:08.863-07:00 level=INFO msg="Auto-attaching localhost client via native IOCTL" remote=127.0.0.1:50048 busID=1 deviceID=1
+time=2026-09-19T19:03:08.863-07:00 level=DEBUG msg="Found usbip-win2 device" remote=127.0.0.1:50048 path=\\?\root#usb#0000#{b4030c06-dc5f-4fcc-87eb-e5515a0935c0}
+time=2026-09-19T19:03:08.863-07:00 level=DEBUG msg="Opened device handle" remote=127.0.0.1:50048
+time=2026-09-19T19:03:08.864-07:00 level=INFO msg="Client connected" remote=[::1]:50049
+time=2026-09-19T19:03:08.864-07:00 level=INFO msg=OP_REQ_IMPORT
+time=2026-09-19T19:03:08.864-07:00 level=INFO msg="Import request" busid=1-1
+time=2026-09-19T19:03:08.864-07:00 level=DEBUG msg="IOCTL completed" remote=127.0.0.1:50048 bytesReturned=8 portOutput=1
+time=2026-09-19T19:03:08.864-07:00 level=INFO msg="Successfully attached device via IOCTL" remote=127.0.0.1:50048 busID=1 deviceID=1 usbPort=1
+time=2026-09-19T19:03:08.865-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50048 path=bus/1/add
+time=2026-09-19T19:03:08.887-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50050 path=bus/1/1
+time=2026-09-19T19:03:08.887-07:00 level=INFO msg="api stream begin" remote=127.0.0.1:50050 path=bus/1/1
+time=2026-09-19T19:03:08.887-07:00 level=INFO msg="DualShock 4 input stream configured" remote=127.0.0.1:50050 microphoneInput=false speakerOutput=false frameVersion=0
+time=2026-09-19T19:03:46.055-07:00 level=INFO msg="client disconnected" remote=127.0.0.1:50050
+time=2026-09-19T19:03:46.055-07:00 level=DEBUG msg="DS4 disconnected, serial released" serial=1111020BF619A500
+time=2026-09-19T19:03:46.055-07:00 level=INFO msg="api stream end" remote=127.0.0.1:50050 path=bus/1/1
+time=2026-09-19T19:03:46.073-07:00 level=INFO msg="Client disconnected" error="read URB header: EOF"
+time=2026-09-19T19:03:46.081-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50057 path=bus/1/remove
+time=2026-09-19T19:03:46.083-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50057 path=bus/1/remove
+time=2026-09-19T19:03:46.083-07:00 level=DEBUG msg="Started bus cleanup goroutine (RemoveDeviceByID)"
+time=2026-09-19T19:03:46.085-07:00 level=INFO msg="api cmd" remote=127.0.0.1:50058 path=bus/remove
+time=2026-09-19T19:03:46.085-07:00 level=DEBUG msg="api handler success" remote=127.0.0.1:50058 path=bus/remove
+time=2026-09-19T19:03:46.131-07:00 level=INFO msg="API server stopped"
+time=2026-09-19T19:03:46.131-07:00 level=INFO msg="USBIP server stopped"
+
+
+

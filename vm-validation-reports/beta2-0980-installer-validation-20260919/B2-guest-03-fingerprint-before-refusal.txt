@@ -1,0 +1,19 @@
+=== fingerprint [before setup (B2a)] @ 2026-09-19T18:49:34 boot=2026-09-19T18:46:37 ===
+usbip_exe=0.9.7.7 sha256=FC1660E3759D8AF4CEDE48DBE194285A5A1DE85CE6E3216724499AFD32BE92E8
+driverstore: Published Name: oem2.inf ; Original Name: usbip2_filter.inf ; Driver Version: 04/19/2026 21.14.27.661 ; Signer Name: Microsoft Windows Hardware Compatibility Publisher
+driverstore: Published Name: oem3.inf ; Original Name: usbip2_ude.inf ; Driver Version: 04/19/2026 21.14.27.907 ; Signer Name: Microsoft Windows Hardware Compatibility Publisher
+bound: USBip 3.X Emulated Host Controller DriverVersion=21.14.27.907 inf=oem3.inf
+usbip2_ude=Running
+usbip2_filter=Running
+uninstall_entry=USBip version 0.9.7.7 | 0.9.7.7
+viiper_dir: licenses.txt                  56215 2D24B4FD0BBF18F9E9BE0EFA89F7B6C5BC9B13953EF7D3DB381731D8AF38D0CC mtime=2026-08-27T21:26:40
+viiper_dir: licenses.txt.previous         56215 C41AA696EAE1C03728E351AC3B00DC4C02084704A8455E3A34134CD5454AF5F3 mtime=2026-07-31T01:53:02
+viiper_dir: viiper.exe                 11407872 2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A mtime=2026-08-27T21:26:38
+viiper_dir: viiper.exe.previous        11223552 90254E1352BFF7607DBEE0819F0750032F76C52CD9BF54150D21267224BA8F7A mtime=2026-07-31T01:52:40
+viiper_processes=0
+setupapi_dev_log_bytes=1726306
+setupapi_last_section=>>>  [Device Install (Hardware initiated) - USB\VID_045E&PID_028E\296013F]
+minidumps=0 memory_dmp=False
+
+
+

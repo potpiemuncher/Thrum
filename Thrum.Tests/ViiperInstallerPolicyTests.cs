@@ -23,13 +23,13 @@ namespace DS4WindowsTests;
 public class ViiperInstallerPolicyTests
 {
     private const string PinnedUsbipDigest =
-        "51620FA5F9F8BE5932BC9D786DEEE557CE06D5407A99CAB490DCFAC71F185FEA";
+        "81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39";
 
     private const string PinnedViiperArchiveDigest =
-        "66A9BBD4535C9914752E59E1426DAB8F318F6A441367A7EAB6563E6674A14A46";
+        "C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8";
 
     private const string PinnedViiperPayloadDigest =
-        "2EB92FF3E82ABE292E531B6D35B10341396BF2A83FFDE6532FAEC8374B48FB6A";
+        "877050102C2D415561893ED9393955E4D6FEA50647AFE53FA69387EFFD4EB145";
 
     private const string PinnedSigner = "Cloudyne Systems (Scheibling Consulting AB)";
 
@@ -49,8 +49,10 @@ public class ViiperInstallerPolicyTests
     public void TheUsbipPinCarriesTheInspectedIdentity()
     {
         ViiperPinnedDownload pin = ViiperInstallerPins.UsbipWin2;
-        Assert.AreEqual("0.9.7.7", pin.ReleaseLabel);
-        Assert.AreEqual("USBip-0.9.7.7-x64.exe", pin.FileName);
+        Assert.AreEqual("0.9.8.0", pin.ReleaseLabel);
+        Assert.AreEqual("USBip-0.9.8.0-x64.exe", pin.FileName);
+        Assert.AreEqual(26390744L, pin.SizeInBytes);
+        StringAssert.EndsWith(pin.Url, "/v.0.9.8.0/USBip-0.9.8.0-x64.exe");
         Assert.AreEqual(PinnedUsbipDigest, pin.Sha256);
         Assert.IsTrue(pin.RequireAuthenticode);
         Assert.AreEqual(PinnedSigner, pin.ExpectedSignerCommonName);
@@ -62,13 +64,15 @@ public class ViiperInstallerPolicyTests
     public void TheViiperPinIsAnExactAssetAndNotAReleaseQuery()
     {
         ViiperPinnedDownload pin = ViiperInstallerPins.ViiperBackend;
-        Assert.AreEqual("v0.1.2", pin.ReleaseLabel);
+        Assert.AreEqual("v0.1.2-usbip0980.1", pin.ReleaseLabel);
         Assert.AreEqual("viiper-windows-amd64.zip", pin.FileName);
-        Assert.AreEqual(4809388L, pin.SizeInBytes);
+        Assert.AreEqual(4809446L, pin.SizeInBytes);
         Assert.AreEqual(PinnedViiperArchiveDigest, pin.Sha256);
+        // The project's own fork build: upstream v0.1.2 plus the usbip-win2
+        // 0.9.8.0 delta. An exact tagged asset, never a "latest" query.
         Assert.AreEqual(
-            "https://github.com/hbashton/VIIPER/releases/download/v0.1.2/" +
-                "viiper-windows-amd64.zip",
+            "https://github.com/potpiemuncher/VIIPER/releases/download/" +
+                "thrum-v0.1.2-usbip0980.1/viiper-windows-amd64.zip",
             pin.Url);
 
         Assert.IsNotNull(pin.ExtractedPayload);
@@ -90,7 +94,7 @@ public class ViiperInstallerPolicyTests
         Assert.AreEqual(
             ViiperInstallerPins.ViiperBackendExpectedEmbeddedVersionStamp,
             ViiperInstallerPins.ViiperBackend.ExpectedEmbeddedVersionStamp);
-        Assert.AreEqual("v0.1.2 (f5d097b)",
+        Assert.AreEqual("v0.1.2-usbip0980.1 (f28cab3)",
             ViiperInstallerPins.ViiperBackend.ExpectedEmbeddedVersionStamp);
     }
 
@@ -146,8 +150,8 @@ public class ViiperInstallerPolicyTests
             ViiperInstallerPins.UsbipWin2, GoodUsbipObservation());
 
         Assert.AreEqual(ViiperDownloadVerdict.Approved, decision.Action);
-        AssertLogged(decision, "File name: expected USBip-0.9.7.7-x64.exe, " +
-            "actual USBip-0.9.7.7-x64.exe.");
+        AssertLogged(decision, "File name: expected USBip-0.9.8.0-x64.exe, " +
+            "actual USBip-0.9.8.0-x64.exe.");
         AssertLogged(decision, "SHA-256: expected " + PinnedUsbipDigest +
             ", actual " + PinnedUsbipDigest + ".");
         AssertLogged(decision, "Authenticode signer: expected \"" +
@@ -158,22 +162,22 @@ public class ViiperInstallerPolicyTests
     public void ARefusalNamesTheFileItInspectedNotThePinnedArtefact()
     {
         // The Phase 2 VM pass verified a corrupted staged copy named
-        // USBip-0.9.7.7-x64.CORRUPT.exe and the refusal read "Verification
-        // failed: USBip-0.9.7.7-x64.exe does not have the pinned SHA-256" —
+        // USBip-0.9.8.0-x64.CORRUPT.exe and the refusal read "Verification
+        // failed: USBip-0.9.8.0-x64.exe does not have the pinned SHA-256" —
         // an accusation against the official artefact it never looked at.
         var decision = ViiperInstallerPolicy.DecideDownloadVerification(
             ViiperInstallerPins.UsbipWin2,
             With(GoodUsbipObservation(), sha256: new string('A', 64),
-                fileName: "USBip-0.9.7.7-x64.CORRUPT.exe"));
+                fileName: "USBip-0.9.8.0-x64.CORRUPT.exe"));
 
         Assert.AreEqual(ViiperDownloadVerdict.DigestMismatch, decision.Action);
         StringAssert.Contains(decision.Summary,
-            "USBip-0.9.7.7-x64.CORRUPT.exe");
-        Assert.IsFalse(decision.Summary.Contains("USBip-0.9.7.7-x64.exe"),
+            "USBip-0.9.8.0-x64.CORRUPT.exe");
+        Assert.IsFalse(decision.Summary.Contains("USBip-0.9.8.0-x64.exe"),
             "the summary must not name the pinned artefact as the file that " +
             "failed: " + decision.Summary);
-        AssertLogged(decision, "File name: expected USBip-0.9.7.7-x64.exe, " +
-            "actual USBip-0.9.7.7-x64.CORRUPT.exe.");
+        AssertLogged(decision, "File name: expected USBip-0.9.8.0-x64.exe, " +
+            "actual USBip-0.9.8.0-x64.CORRUPT.exe.");
     }
 
     [TestMethod]
@@ -185,10 +189,10 @@ public class ViiperInstallerPolicyTests
         var decision = ViiperInstallerPolicy.DecideDownloadVerification(
             ViiperInstallerPins.UsbipWin2,
             With(GoodUsbipObservation(), sha256: new string('A', 64),
-                fileName: @"C:\p2\stage\USBip-0.9.7.7-x64.CORRUPT.exe"));
+                fileName: @"C:\p2\stage\USBip-0.9.8.0-x64.CORRUPT.exe"));
 
         StringAssert.Contains(decision.Summary,
-            "USBip-0.9.7.7-x64.CORRUPT.exe");
+            "USBip-0.9.8.0-x64.CORRUPT.exe");
         Assert.IsFalse(decision.Summary.Contains(@"C:\"), decision.Summary);
         Assert.IsFalse(decision.Lines.Any(line => line.Contains(@"C:\")),
             string.Join(Environment.NewLine, decision.Lines));
@@ -205,10 +209,10 @@ public class ViiperInstallerPolicyTests
 
             Assert.AreEqual(ViiperDownloadVerdict.Unavailable, decision.Action);
             StringAssert.Contains(decision.Summary, "the downloaded file");
-            Assert.IsFalse(decision.Summary.Contains("USBip-0.9.7.7-x64.exe"),
+            Assert.IsFalse(decision.Summary.Contains("USBip-0.9.8.0-x64.exe"),
                 decision.Summary);
             AssertLogged(decision, "File name: expected " +
-                "USBip-0.9.7.7-x64.exe, actual (not recorded).");
+                "USBip-0.9.8.0-x64.exe, actual (not recorded).");
         }
     }
 
@@ -220,13 +224,13 @@ public class ViiperInstallerPolicyTests
         // setup script copies into install.log. The account name must not
         // survive that trip, whatever the producer recorded.
         const string leaky = @"Access to the path " +
-            @"'C:\Users\leakedaccountname\stage\USBip-0.9.7.7-x64.exe' is denied.";
+            @"'C:\Users\leakedaccountname\stage\USBip-0.9.8.0-x64.exe' is denied.";
 
         foreach (ViiperDownloadObservation observation in new[]
         {
             new ViiperDownloadObservation
             {
-                FileName = "USBip-0.9.7.7-x64.exe",
+                FileName = "USBip-0.9.8.0-x64.exe",
                 Exists = false,
                 ObservationError = leaky,
             },
@@ -485,25 +489,165 @@ public class ViiperInstallerPolicyTests
     public void ThePinnedReleaseAlreadyInstalledIsLeftAloneAsAlreadyPinned()
     {
         var decision = Decide(ViiperDriverReadinessState.ValidatedExperimental,
-            "0.9.7.7", ViiperDriverTier.ExperimentalBaseline);
+            "0.9.8.0", ViiperDriverTier.ExperimentalBaseline);
 
         Assert.AreEqual(ViiperUsbipInstallAction.AlreadyPinned, decision.Action);
     }
 
     [TestMethod]
+    public void ARecognisedOlderReleaseIsUpgradedToThePin()
+    {
+        // The pinned backend speaks only the pinned release's attach ABI and
+        // refuses to start on anything else, so a recognised older driver left
+        // in place would leave virtual controllers unusable. Both 0.9.7.x
+        // baselines are recognised and both are older than the 0.9.8.0 pin.
+        foreach (string older in new[] { "0.9.7.7", "0.9.7.8", "v.0.9.7.7" })
+        {
+            var decision = Decide(ViiperDriverReadinessState.ValidatedExperimental,
+                older, ViiperDriverTier.ExperimentalBaseline,
+                observation: ViiperUsbipAttachObservation.NotAttachedSinceBoot);
+
+            Assert.AreEqual(ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
+                decision.Action, older);
+            StringAssert.Contains(decision.Summary, "upgrade");
+            StringAssert.Contains(decision.Summary, "0.9.8.0");
+            Assert.IsTrue(decision.Lines.Any(line =>
+                line.Contains("attach ABI", StringComparison.Ordinal)),
+                "the audit trail has to say why a bound driver is replaced");
+            Assert.IsTrue(decision.Lines.Any(line =>
+                line.Contains("none attached since boot", StringComparison.Ordinal)),
+                "the audit trail has to record the observation that permitted it");
+        }
+    }
+
+    [TestMethod]
+    public void TheUpgradeFailsClosedUnlessNothingWasAttachedThisSession()
+    {
+        // Measured in the VM on 2026-09-19: once 0.9.7.7 has attached a
+        // device, its uninstaller never returns from removing the host
+        // controller, and a restart while that removal was pending ended in a
+        // 0x9F bugcheck. So only a positive "nothing attached since boot" lets
+        // a bound driver be replaced. Not looking is not a "no".
+        foreach (ViiperUsbipAttachObservation observation in new[]
+        {
+            ViiperUsbipAttachObservation.NotObserved,
+            ViiperUsbipAttachObservation.AttachedSinceBoot,
+            ViiperUsbipAttachObservation.CouldNotDetermine,
+        })
+        {
+            foreach (string older in new[] { "0.9.7.7", "0.9.7.8" })
+            {
+                var bound = Decide(
+                    ViiperDriverReadinessState.ValidatedExperimental, older,
+                    ViiperDriverTier.ExperimentalBaseline,
+                    observation: observation);
+                var unbound = Decide(ViiperDriverReadinessState.Missing, null,
+                    null, registered: older, observation: observation);
+
+                foreach (var decision in new[] { bound, unbound })
+                {
+                    string label = observation + " / " + older;
+                    Assert.AreEqual(
+                        ViiperUsbipInstallAction.RestartBeforeUpgrade,
+                        decision.Action, label);
+                    StringAssert.Contains(decision.Summary, "Nothing was changed");
+                    StringAssert.Contains(decision.Summary, "Restart Windows");
+                    StringAssert.Contains(decision.Summary, "Install / Repair");
+                    StringAssert.Contains(decision.Summary, "0.9.8.0");
+                }
+            }
+        }
+    }
+
+    [TestMethod]
+    public void TheAttachObservationNeverChangesAnyOtherDecision()
+    {
+        // The observation gates exactly one thing. The pinned release, an
+        // empty machine, a newer release and an unrecognised one decide the
+        // same way whatever this Windows session has seen.
+        foreach (ViiperUsbipAttachObservation observation in
+            Enum.GetValues(typeof(ViiperUsbipAttachObservation))
+                .Cast<ViiperUsbipAttachObservation>())
+        {
+            Assert.AreEqual(ViiperUsbipInstallAction.AlreadyPinned,
+                Decide(ViiperDriverReadinessState.ValidatedExperimental,
+                    "0.9.8.0", ViiperDriverTier.ExperimentalBaseline,
+                    observation: observation).Action, observation.ToString());
+            Assert.AreEqual(ViiperUsbipInstallAction.InstallPinned,
+                Decide(ViiperDriverReadinessState.Missing, null, null,
+                    observation: observation).Action, observation.ToString());
+            Assert.AreEqual(ViiperUsbipInstallAction.LeaveRecognisedReleaseAlone,
+                Decide(ViiperDriverReadinessState.ValidatedExperimental,
+                    "0.9.9.0", ViiperDriverTier.ExperimentalBaseline,
+                    observation: observation).Action, observation.ToString());
+            Assert.AreEqual(ViiperUsbipInstallAction.RefuseUnrecognisedInstall,
+                Decide(ViiperDriverReadinessState.DetectedUnvalidated, null,
+                    null, observation: observation).Action,
+                observation.ToString());
+        }
+    }
+
+    [TestMethod]
+    public void TheScriptsObservationTokensParseAndEverythingElseIsNotObserved()
+    {
+        Assert.AreEqual(ViiperUsbipAttachObservation.NotAttachedSinceBoot,
+            ViiperInstallerPolicyCommand.ParseAttachObservation("no"));
+        Assert.AreEqual(ViiperUsbipAttachObservation.AttachedSinceBoot,
+            ViiperInstallerPolicyCommand.ParseAttachObservation(" YES "));
+        Assert.AreEqual(ViiperUsbipAttachObservation.CouldNotDetermine,
+            ViiperInstallerPolicyCommand.ParseAttachObservation("unknown"));
+        foreach (string other in new[] { null, "", "false", "0", "nope" })
+        {
+            Assert.AreEqual(ViiperUsbipAttachObservation.NotObserved,
+                ViiperInstallerPolicyCommand.ParseAttachObservation(other),
+                "only the three tokens the script sends are observations");
+        }
+    }
+
+    [TestMethod]
+    public void TheRestartBeforeUpgradeExitSaysNothingChangedAndWhatToDoNext()
+    {
+        var report = ViiperInstallerPolicy.DescribeInstallerExit(
+            ViiperInstallerPolicy.ScriptExitRestartBeforeUpgrade, ready: false,
+            logPath: null);
+
+        Assert.IsFalse(report.Succeeded);
+        Assert.IsFalse(report.IsError, "a deliberate stop is not a failure");
+        Assert.IsFalse(report.RestartApplication);
+        StringAssert.Contains(report.Message, "changed nothing");
+        StringAssert.Contains(report.Message, "Restart Windows");
+        StringAssert.Contains(report.Message, "Install / Repair");
+        Assert.IsFalse(report.Message.Contains("then use Refresh"),
+            "Refresh is the wrong advice here: setup has to be run again");
+    }
+
+    [TestMethod]
     public void ARecognisedNewerReleaseIsReportedAndNeverDowngraded()
     {
-        // The maintainer's own machine: 0.9.7.8, which the manifest knows and
-        // which is newer than the release setup would install. Reinstalling
-        // 0.9.7.7 over it would be a kernel-driver downgrade decided by a
-        // script rather than by the person who installed it.
+        // A release the gate matched that is newer than the one setup would
+        // install. Reinstalling the pin over it would be a kernel-driver
+        // downgrade decided by a script rather than by the person who
+        // installed it. The label is fabricated: no real manifest entry is
+        // newer than the pin today, and the rule must not depend on that.
         var decision = Decide(ViiperDriverReadinessState.ValidatedExperimental,
-            "0.9.7.8", ViiperDriverTier.ExperimentalBaseline);
+            "0.9.9.0", ViiperDriverTier.ExperimentalBaseline);
 
         Assert.AreEqual(ViiperUsbipInstallAction.LeaveRecognisedReleaseAlone,
             decision.Action);
-        StringAssert.Contains(decision.Summary, "0.9.7.8");
+        StringAssert.Contains(decision.Summary, "0.9.9.0");
         StringAssert.Contains(decision.Summary, "experimental baseline");
+    }
+
+    [TestMethod]
+    public void AnUnorderableLabelIsNeverTreatedAsOlder()
+    {
+        // The upgrade path is for releases this build can name and order. A
+        // label that does not parse as a version is left alone, not upgraded.
+        var decision = Decide(ViiperDriverReadinessState.ValidatedExperimental,
+            "nightly", ViiperDriverTier.ExperimentalBaseline);
+
+        Assert.AreEqual(ViiperUsbipInstallAction.LeaveRecognisedReleaseAlone,
+            decision.Action);
     }
 
     [TestMethod]
@@ -523,7 +667,7 @@ public class ViiperInstallerPolicyTests
         var decision = Decide(ViiperDriverReadinessState.Missing, null, null);
 
         Assert.AreEqual(ViiperUsbipInstallAction.InstallPinned, decision.Action);
-        StringAssert.Contains(decision.Summary, "0.9.7.7");
+        StringAssert.Contains(decision.Summary, "0.9.8.0");
     }
 
     [TestMethod]
@@ -532,16 +676,55 @@ public class ViiperInstallerPolicyTests
         // Reboot pending, or a half-finished install. Re-running the same
         // pinned release is the repair, and it is not a downgrade.
         var decision = Decide(ViiperDriverReadinessState.Missing, null, null,
-            registered: "0.9.7.7");
+            registered: "0.9.8.0");
 
         Assert.AreEqual(ViiperUsbipInstallAction.InstallPinned, decision.Action);
     }
 
     [TestMethod]
-    public void ADifferentRecognisedReleaseRegisteredButNotBoundIsLeftAlone()
+    public void AnOlderRecognisedReleaseRegisteredButNotBoundIsUpgraded()
     {
-        var decision = Decide(ViiperDriverReadinessState.Missing, null, null,
-            registered: "0.9.7.8");
+        foreach (string older in new[] { "0.9.7.7", "0.9.7.8" })
+        {
+            var decision = Decide(ViiperDriverReadinessState.Missing, null, null,
+                registered: older,
+                observation: ViiperUsbipAttachObservation.NotAttachedSinceBoot);
+
+            Assert.AreEqual(ViiperUsbipInstallAction.UpgradeRecognisedToPinned,
+                decision.Action, older);
+            StringAssert.Contains(decision.Summary, older);
+            StringAssert.Contains(decision.Summary, "0.9.8.0");
+        }
+    }
+
+    [TestMethod]
+    public void ANewerRecognisedReleaseRegisteredButNotBoundIsLeftAlone()
+    {
+        // Fabricated manifest: the real one lists nothing newer than the pin.
+        ViiperDriverManifest withNewer = ViiperDriverManifest.FromReleases(
+            ViiperDriverManifest.ObservedBaselines.Releases.Concat(new[]
+            {
+                new ViiperDriverRelease(
+                    releaseLabel: "0.9.9.0",
+                    tier: ViiperDriverTier.ExperimentalBaseline,
+                    driverSignerPolicy:
+                        ViiperDriverSignerPolicy.MicrosoftHardwareCompatibilityPublisher,
+                    udeHostController: new ViiperDriverPackageSpec(
+                        infName: "usbip2_ude.inf", provider: "USBIP-WIN2",
+                        driverVersion: new Version(99, 0, 0, 1)),
+                    filterExtension: new ViiperDriverPackageSpec(
+                        infName: "usbip2_filter.inf", provider: "USBIP-WIN2",
+                        driverVersion: new Version(99, 0, 0, 2)),
+                    userspaceClient: new ViiperUsbipClientSpec(
+                        fileName: "usbip.exe",
+                        productVersion: new Version(0, 9, 9, 0),
+                        requireAuthenticode: true),
+                    architectures: new[] { ViiperDriverArchitecture.X64 }),
+            }));
+
+        var decision = ViiperInstallerPolicy.DecideUsbipInstall(
+            ViiperDriverReadinessState.Missing, null, null, "0.9.9.0",
+            ViiperInstallerPins.UsbipWin2, withNewer);
 
         Assert.AreEqual(ViiperUsbipInstallAction.LeaveRecognisedReleaseAlone,
             decision.Action);
@@ -576,7 +759,7 @@ public class ViiperInstallerPolicyTests
     [TestMethod]
     public void AReleaseLabelMatchesRegardlessOfALeadingV()
     {
-        foreach (string spelling in new[] { "v0.9.7.7", "v.0.9.7.7", " 0.9.7.7 " })
+        foreach (string spelling in new[] { "v0.9.8.0", "v.0.9.8.0", " 0.9.8.0 " })
         {
             var decision = Decide(ViiperDriverReadinessState.Missing, null, null,
                 registered: spelling);
@@ -588,7 +771,7 @@ public class ViiperInstallerPolicyTests
     [TestMethod]
     public void AnApprovedTierMatchIsHandledLikeAnyOtherManifestMatch()
     {
-        var decision = Decide(ViiperDriverReadinessState.Approved, "0.9.7.7",
+        var decision = Decide(ViiperDriverReadinessState.Approved, "0.9.8.0",
             ViiperDriverTier.Production);
 
         Assert.AreEqual(ViiperUsbipInstallAction.AlreadyPinned, decision.Action);
@@ -614,7 +797,7 @@ public class ViiperInstallerPolicyTests
             var decision = Decide(state, "0.9.7.8",
                 ViiperDriverTier.ExperimentalBaseline);
             Assert.IsTrue(decision.Lines.Any(line =>
-                line.StartsWith("usbip-win2 pinned release: 0.9.7.7",
+                line.StartsWith("usbip-win2 pinned release: 0.9.8.0",
                     StringComparison.Ordinal)), state.ToString());
             Assert.IsTrue(decision.Lines.Any(line =>
                 line.StartsWith("usbip-win2 installed state: ",
@@ -842,15 +1025,17 @@ public class ViiperInstallerPolicyTests
 
     private static ViiperInstallerDecision<ViiperUsbipInstallAction> Decide(
         ViiperDriverReadinessState state, string matchedRelease,
-        ViiperDriverTier? tier, string registered = null) =>
+        ViiperDriverTier? tier, string registered = null,
+        ViiperUsbipAttachObservation observation =
+            ViiperUsbipAttachObservation.NotObserved) =>
         ViiperInstallerPolicy.DecideUsbipInstall(state, matchedRelease, tier,
             registered, ViiperInstallerPins.UsbipWin2,
-            ViiperDriverManifest.ObservedBaselines);
+            ViiperDriverManifest.ObservedBaselines, observation);
 
     private static ViiperDownloadObservation GoodUsbipObservation() =>
         new ViiperDownloadObservation
         {
-            FileName = "USBip-0.9.7.7-x64.exe",
+            FileName = "USBip-0.9.8.0-x64.exe",
             Exists = true,
             SizeInBytes = ViiperInstallerPins.UsbipWin2.SizeInBytes,
             Sha256 = PinnedUsbipDigest,

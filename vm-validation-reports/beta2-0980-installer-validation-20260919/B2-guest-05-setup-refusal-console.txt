@@ -1,0 +1,65 @@
+=== setup start 2026-09-19T18:49:50 ===
+command: extras\install-viiper-backend.ps1 -NoPause -AppExecutable <app>\Thrum.exe -UsbipInstallerFile <stage>\USBip-0.9.8.0-x64.exe -ViiperBackendFile <stage>\viiper-windows-amd64.zip
+
+Thrum VIIPER virtual controller setup
+Installing or repairing VIIPER and usbip-win2.
+Verification helper: C:\p2\b2\app\Thrum.exe
+
+== Pinned packages ==
+Pinned usbip: USBip-0.9.8.0-x64.exe (0.9.8.0), SHA-256 
+81F426741F7EE2ED991FEBE24A22DACA8400B6AE2F171054E3FB404897E15D39, signed by "Cloudyne Systems 
+(Scheibling Consulting AB)".
+Pinned viiper: viiper-windows-amd64.zip (v0.1.2-usbip0980.1), SHA-256 
+C2EFAF1E5AE5EE93EFB5838C1B49272049D3615E0C7F12E96670A5CA05EB97A8, unsigned upstream.
+Backend start arguments: --update-notify none server (the update notifier is disabled on every 
+path that starts the backend).
+
+== Checking usbip-win2 ==
+usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.7.7; 
+tier ExperimentalBaseline.
+The installed release is recognised and is older than the pinned one. The pinned backend only 
+speaks the pinned release's attach ABI and refuses to start on any other, so the older driver is 
+upgraded rather than left in place.
+Virtual devices this Windows session: not observed yet.
+Once the older driver has attached a device, its uninstaller does not return from removing the 
+host controller, and a Windows restart while that removal is pending has ended in a bugcheck. 
+Setup therefore changes nothing in this state, neither the driver nor the backend, so the 
+installed pair keeps working until the restart.
+Decision: usbip-win2 0.9.7.7 is installed. It has to be upgraded to 0.9.8.0 before virtual 
+controllers can work with this build. Setup has not yet checked whether a virtual device has been 
+attached since Windows started. Nothing was changed. Restart Windows, then run Install / Repair 
+again before using a virtual controller.
+An older usbip-win2 is installed. Checking whether a virtual device has been attached since 
+Windows started...
+Virtual device attached since Windows started: yes
+usbip-win2 pinned release: 0.9.8.0 (USBip-0.9.8.0-x64.exe).
+usbip-win2 installed state: matches a recognised experimental baseline; matched release 0.9.7.7; 
+tier ExperimentalBaseline.
+The installed release is recognised and is older than the pinned one. The pinned backend only 
+speaks the pinned release's attach ABI and refuses to start on any other, so the older driver is 
+upgraded rather than left in place.
+Virtual devices this Windows session: at least one attached since boot.
+Once the older driver has attached a device, its uninstaller does not return from removing the 
+host controller, and a Windows restart while that removal is pending has ended in a bugcheck. 
+Setup therefore changes nothing in this state, neither the driver nor the backend, so the 
+installed pair keeps working until the restart.
+Decision: usbip-win2 0.9.7.7 is installed. It has to be upgraded to 0.9.8.0 before virtual 
+controllers can work with this build. A virtual device has been attached since Windows started, 
+and the older driver cannot be removed safely in that state. Nothing was changed. Restart 
+Windows, then run Install / Repair again before using a virtual controller.
+usbip-win2 0.9.7.7 is installed. It has to be upgraded to 0.9.8.0 before virtual controllers can 
+work with this build. A virtual device has been attached since Windows started, and the older 
+driver cannot be removed safely in that state. Nothing was changed. Restart Windows, then run 
+Install / Repair again before using a virtual controller.
+Setup stopped before changing anything. Restart Windows, then run Install / Repair again before 
+using a virtual controller.
+SETUP_EXIT=4
+=== setup end 2026-09-19T18:49:55 ===
+
+=== installer-chain process watcher ===
+watch start 18:49:49.651
+watch end 18:49:55.329 distinct_installer_chain_processes_seen_still_running=0
+
+
+

@@ -66,6 +66,8 @@ $script:ExitCode = 0
 $script:RebootRecommended = $false
 $script:DriverValidated = $false
 $script:Refused = $false
+$script:RestartBeforeUpgrade = $false
+$script:ViiperLeftInPlace = $false
 $script:InstallDir = Join-Path $env:LOCALAPPDATA "VIIPER"
 $script:LogPath = Join-Path $script:InstallDir "install.log"
 $script:TempDir = Join-Path ([IO.Path]::GetTempPath()) (
@@ -163,6 +165,109 @@ function Get-UsbipRegisteredRelease {
     }
 
     return ""
+}
+
+<#
+    Has usbip-win2 attached a virtual device in this Windows session?
+
+    Returns "yes", "no" or "unknown". It matters for exactly one decision:
+    replacing a bound, older usbip-win2. Measured in the VM on 2026-09-19: once
+    0.9.7.7 has attached a device, its own uninstaller (which the newer
+    installer runs first) never returns from removing the host controller, and
+    a Windows restart while that removal is pending ended in a 0x9F bugcheck.
+    The installer policy therefore only upgrades on a positive "no".
+
+    "This Windows session" means since the last FULL boot. With Fast Startup a
+    shutdown hibernates the kernel, so driver state survives it; the start of
+    the session is taken as the older of LastBootUpTime and the most recent
+    Kernel-Boot event 27 whose boot type is 0 (cold boot).
+
+    Evidence used, cheapest first: a port imported right now, then the PnP
+    last-arrival date of every device node whose parent, or last known parent
+    for one that is gone, is a root hub of the usbip-win2 host controller.
+#>
+function Test-UsbipAttachedSinceBoot {
+    try {
+        $usbip = Join-Path $env:ProgramFiles "USBip\usbip.exe"
+        if (Test-Path -LiteralPath $usbip) {
+            $ports = & $usbip port 2>$null
+            if ($ports | Where-Object { $_ -match '^\s*Port\s+\d+' }) {
+                return "yes"
+            }
+        }
+
+        $sessionStart = (Get-CimInstance Win32_OperatingSystem `
+            -ErrorAction Stop).LastBootUpTime
+        try {
+            $coldBoot = Get-WinEvent -FilterHashtable @{
+                    LogName = 'System'
+                    ProviderName = 'Microsoft-Windows-Kernel-Boot'
+                    Id = 27
+                } -MaxEvents 60 -ErrorAction Stop |
+                Where-Object {
+                    $_.Properties.Count -gt 0 -and
+                    [int]$_.Properties[0].Value -eq 0
+                } |
+                Select-Object -First 1
+            if ($coldBoot -and $coldBoot.TimeCreated -lt $sessionStart) {
+                $sessionStart = $coldBoot.TimeCreated
+            }
+        }
+        catch {
+            # The event log is a refinement. Without it LastBootUpTime stands.
+        }
+
+        $allDevices = @(Get-PnpDevice -ErrorAction Stop)
+        $controllers = @($allDevices | Where-Object {
+            $_.HardwareID -contains 'ROOT\USBIP_WIN2\UDE'
+        })
+        if ($controllers.Count -eq 0) {
+            # No host controller device node: the driver cannot have attached
+            # anything.
+            return "no"
+        }
+
+        $hubs = @()
+        foreach ($controller in $controllers) {
+            $children = Get-PnpDeviceProperty -InstanceId $controller.InstanceId `
+                -KeyName DEVPKEY_Device_Children -ErrorAction SilentlyContinue
+            if ($children -and $children.Data) { $hubs += @($children.Data) }
+        }
+        if ($hubs.Count -eq 0) {
+            # A started controller always has a root hub. Without one there is
+            # nothing to compare parents against, so say so rather than guess.
+            $started = @($controllers | Where-Object { $_.Status -eq 'OK' })
+            if ($started.Count -eq 0) { return "no" }
+            return "unknown"
+        }
+
+        $candidates = @($allDevices | Where-Object {
+            $_.InstanceId -like 'USB\*' -and
+            $_.InstanceId -notlike 'USB\ROOT_HUB*' -and
+            $_.InstanceId -notlike '*&MI_*'
+        })
+        foreach ($device in $candidates) {
+            $arrival = (Get-PnpDeviceProperty -InstanceId $device.InstanceId `
+                -KeyName DEVPKEY_Device_LastArrivalDate `
+                -ErrorAction SilentlyContinue).Data
+            if (-not $arrival -or $arrival -le $sessionStart) { continue }
+
+            $parents = @((Get-PnpDeviceProperty -InstanceId $device.InstanceId `
+                -KeyName DEVPKEY_Device_Parent, DEVPKEY_Device_LastKnownParent `
+                -ErrorAction SilentlyContinue).Data)
+            if ($parents | Where-Object { $hubs -contains $_ }) {
+                return "yes"
+            }
+        }
+
+        return "no"
+    }
+    catch {
+        Write-SetupLog (
+            "Could not establish whether a virtual device has been attached " +
+            "since Windows started: $($_.Exception.Message)") Yellow
+        return "unknown"
+    }
 }
 
 function Resolve-AppExecutable([string]$explicitPath) {
@@ -366,6 +471,24 @@ function Install-ViiperAtomically([string]$candidatePath,
     $backupLicensesPath = "$licensesPath.previous"
     $hadViiper = Test-Path -LiteralPath $viiperPath
     $hadLicenses = Test-Path -LiteralPath $licensesPath
+
+    # A repair that finds the verified payload already in place must not replace
+    # it with itself: File.Replace would write the current executable over
+    # viiper.exe.previous and destroy the one rollback copy there is. Found by
+    # the 2026-09-19 VM pass, where a second Install / Repair left both files
+    # with the same digest.
+    if ($hadViiper -and $hadLicenses -and
+        ((Get-FileHash -LiteralPath $viiperPath -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash) -and
+        ((Get-FileHash -LiteralPath $licensesPath -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $candidateLicensesPath -Algorithm SHA256).Hash)) {
+        Write-SetupLog (
+            "The installed VIIPER already matches the verified payload; it and " +
+            "any rollback copy were left as they are.") Green
+        $script:ViiperLeftInPlace = $true
+        return
+    }
+
     Copy-Item -LiteralPath $candidatePath -Destination $newPath -Force
     Copy-Item -LiteralPath $candidateLicensesPath `
         -Destination $newLicensesPath -Force
@@ -578,8 +701,31 @@ try {
     $usbipDecision = Invoke-InstallerPolicy $usbipPolicyArgs
     $action = $usbipDecision.Data['action']
 
+    if ($action -eq "RestartBeforeUpgrade") {
+        # An older recognised driver needs upgrading, and the policy fails closed
+        # until it is told what this Windows session has seen. Look once, then ask
+        # again with the observation. Only a positive "no" permits the upgrade.
+        Write-SetupLog (
+            "An older usbip-win2 is installed. Checking whether a virtual device " +
+            "has been attached since Windows started...")
+        $attachedSinceBoot = Test-UsbipAttachedSinceBoot
+        Write-SetupLog "Virtual device attached since Windows started: $attachedSinceBoot"
+        $usbipDecision = Invoke-InstallerPolicy (
+            $usbipPolicyArgs + @("--attached-since-boot", $attachedSinceBoot))
+        $action = $usbipDecision.Data['action']
+    }
+
+    # Both actions run the same verified, pinned installer. The second one runs it
+    # over a recognised older release: the pinned backend only speaks the pinned
+    # release's attach ABI, so an older driver left in place would leave virtual
+    # controllers unusable. The policy never returns it for a newer release.
+    $installsPinnedDriver = $action -in @("InstallPinned", "UpgradeRecognisedToPinned")
+
     switch ($action) {
-        "InstallPinned" {
+        { $_ -in @("InstallPinned", "UpgradeRecognisedToPinned") } {
+            if ($action -eq "UpgradeRecognisedToPinned") {
+                Write-SetupLog $usbipDecision.Data['summary'] Yellow
+            }
             $installerPath = Join-Path $script:TempDir $pins['usbip.filename']
             Get-VerifiedPinnedFile "usbip" $pins $installerPath $UsbipInstallerFile
 
@@ -603,6 +749,13 @@ try {
         "LeaveRecognisedReleaseAlone" {
             Write-SetupLog $usbipDecision.Data['summary'] Yellow
         }
+        "RestartBeforeUpgrade" {
+            # Nothing is touched: not the driver, and not the backend either,
+            # because the pinned backend cannot run on the older driver and the
+            # installed pair still works until the restart.
+            $script:RestartBeforeUpgrade = $true
+            Write-SetupLog $usbipDecision.Data['summary'] Yellow
+        }
         "RefuseUnrecognisedInstall" {
             $script:Refused = $true
             Write-SetupLog $usbipDecision.Data['summary'] Red
@@ -616,6 +769,17 @@ try {
         }
     }
 
+    if ($script:RestartBeforeUpgrade) {
+        # 4 = ViiperInstallerPolicy.ScriptExitRestartBeforeUpgrade. Not 3: the
+        # application words 3 as "installed, restart, then Refresh", and here
+        # nothing was installed and Install / Repair has to be run again.
+        $script:ExitCode = 4
+        Write-SetupLog (
+            "Setup stopped before changing anything. Restart Windows, then run " +
+            "Install / Repair again before using a virtual controller.") Yellow
+    }
+    else {
+
     Write-Step "Validating the installed driver packages"
     $validation = Invoke-InstallerPolicy @("validate-installed")
     if ($validation.ExitCode -eq 0) {
@@ -624,7 +788,7 @@ try {
     }
     else {
         Write-SetupLog $validation.Data['summary'] Yellow
-        if (-not $script:Refused -and $action -eq "InstallPinned") {
+        if (-not $script:Refused -and $installsPinnedDriver) {
             # A pair that is not bound yet is the ordinary outcome of installing
             # a kernel driver, not evidence of a bad one.
             $script:RebootRecommended = $true
@@ -642,8 +806,12 @@ try {
     $payload = Expand-AndVerifyViiperPayload $pins $archivePath $extractionDir
     Install-ViiperAtomically $payload.ExecutablePath $payload.LicensesPath `
         $viiperPath
-    Write-SetupLog (
-        "VIIPER and its licenses.txt were installed to $script:InstallDir") Green
+    if (-not $script:ViiperLeftInPlace) {
+        # Only when something was actually placed. On a re-run that found the
+        # verified payload already installed, saying "installed" would be false.
+        Write-SetupLog (
+            "VIIPER and its licenses.txt were installed to $script:InstallDir") Green
+    }
 
     Write-Step "Startup behaviour"
     # No autostart entry is created here, by either mechanism. Thrum starts the
@@ -708,6 +876,8 @@ try {
             "Setup finished, but the installed driver packages could not be " +
             "validated. Virtual controllers stay blocked until they are.") Red
     }
+
+    } # end: not RestartBeforeUpgrade
 }
 catch {
     $script:ExitCode = 1

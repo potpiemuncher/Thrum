@@ -162,6 +162,15 @@ any of them is contained in this repository or in a Thrum release package.
         and runs it as a separate process, communicating over a local socket.
         It is not linked into Thrum and no part of it is redistributed here.
 
+        Since 0.9.0-beta.2 the pinned binary is this project's own build of
+        VIIPER v0.1.2 with a small source change (it accepts usbip-win2 0.9.8.0
+        and uses that release's attach request layout), published at
+        https://github.com/potpiemuncher/VIIPER/releases/tag/thrum-v0.1.2-usbip0980.1
+        The complete corresponding source is that tag and the source archive
+        attached to the same release, offered under GPL-3.0 exactly as
+        upstream offers its own. It is not an upstream release and is not
+        supported by the VIIPER maintainers.
+
     usbip-win2 — BSD-2-Clause — https://github.com/vadimgrn/usbip-win2
         Kernel USB/IP driver. Installed by the user from the upstream signed
         installer, which Thrum verifies by digest and Authenticode before

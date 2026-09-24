@@ -135,6 +135,23 @@ namespace DS4Windows
             }
 
             DisposeInBackground(slot, playback);
+            RestorePowerPolicyIfIdle();
+        }
+
+        private void RestorePowerPolicyIfIdle()
+        {
+            lock (syncRoot)
+            {
+                for (int index = 0; index < slots.Length; index++)
+                {
+                    if (slots[index] != null || pendingStarts[index] != null)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            DualShock4BluetoothPowerPolicy.RestoreIfChanged();
         }
 
         public void ResetForServiceStop()
@@ -159,6 +176,8 @@ namespace DS4Windows
                     previous[slot]?.Dispose();
                 }
             }
+
+            DualShock4BluetoothPowerPolicy.RestoreIfChanged();
         }
 
         public void Dispose()
@@ -183,6 +202,8 @@ namespace DS4Windows
                     previous[slot]?.Dispose();
                 }
             }
+
+            DualShock4BluetoothPowerPolicy.RestoreIfChanged();
         }
 
         private void StartWorker(int slot, DS4Device device, byte speakerVolume,

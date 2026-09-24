@@ -490,16 +490,30 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             PopulateStaticItems();
         }
 
+        // Raised for every input report of the primary controller (hundreds a
+        // second). Only a change of icon is posted to the UI thread; it used
+        // to queue a dispatcher operation per report.
         private void UpdateTrayBattery(object sender, byte percentage)
         {
-            if (Application.Current?.Dispatcher != null &&
-                !Application.Current.Dispatcher.CheckAccess())
+            string icon = BatteryIconFor(percentage);
+            if (string.Equals(Volatile.Read(ref iconSource), icon, StringComparison.Ordinal))
             {
-                Application.Current.Dispatcher.BeginInvoke((Action)(() => UpdateTrayBattery(sender, percentage)));
                 return;
             }
 
-            IconSource = percentage switch
+            if (Application.Current?.Dispatcher != null &&
+                !Application.Current.Dispatcher.CheckAccess())
+            {
+                Application.Current.Dispatcher.BeginInvoke((Action)(() => IconSource = icon));
+                return;
+            }
+
+            IconSource = icon;
+        }
+
+        private static string BatteryIconFor(byte percentage)
+        {
+            return percentage switch
             {
                 < 10 => $"{Global.RESOURCES_PREFIX}/0.ico",
                 >= 10 and < 20 => $"{Global.RESOURCES_PREFIX}/10.ico",

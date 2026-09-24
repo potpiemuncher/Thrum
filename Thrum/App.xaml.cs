@@ -171,6 +171,7 @@ namespace DS4WinWPF
 
             // Allow sleep time durations less than 16 ms
             DS4Windows.Util.timeBeginPeriod(1);
+            DS4Windows.Util.KeepTimerResolutionWhenHidden();
 
             // Create the Event handle
             try

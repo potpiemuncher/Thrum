@@ -162,6 +162,51 @@ namespace DS4Windows
         [DllImport("winmm.dll")]
         internal static extern uint timeEndPeriod(uint period);
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PROCESS_POWER_THROTTLING_STATE
+        {
+            public uint Version;
+            public uint ControlMask;
+            public uint StateMask;
+        }
+
+        private const int ProcessPowerThrottling = 4;
+        private const uint PROCESS_POWER_THROTTLING_CURRENT_VERSION = 1;
+        private const uint PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION = 0x4;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessInformation(IntPtr hProcess,
+            int processInformationClass, ref PROCESS_POWER_THROTTLING_STATE processInformation,
+            uint processInformationSize);
+
+        /// <summary>
+        /// Windows 11 stops honouring timeBeginPeriod for a process whose
+        /// windows are all hidden, which is Thrum's normal state in the tray,
+        /// so 1 ms sleeps in paced loops (the DualShock 4 speaker lanes) became
+        /// ~15.6 ms. This keeps the resolution the app already requests.
+        /// Returns false on Windows versions without the setting; nothing
+        /// else changes there.
+        /// </summary>
+        internal static bool KeepTimerResolutionWhenHidden()
+        {
+            PROCESS_POWER_THROTTLING_STATE state = new PROCESS_POWER_THROTTLING_STATE
+            {
+                Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+                ControlMask = PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION,
+                StateMask = 0,
+            };
+
+            try
+            {
+                return SetProcessInformation(new IntPtr(-1), ProcessPowerThrottling,
+                    ref state, (uint)Marshal.SizeOf<PROCESS_POWER_THROTTLING_STATE>());
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+        }
+
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern bool EnumDisplayDevicesW(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
 

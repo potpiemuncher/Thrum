@@ -16,6 +16,7 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -256,6 +257,45 @@ namespace DS4Windows
                 Stop(slot);
             }
         }
+
+        private const uint CreateWaitableTimerHighResolution = 0x00000002;
+        private const uint TimerAccess = 0x00000002 | 0x00100000;
+
+        private static IntPtr CreateHighResolutionTimer()
+        {
+            try
+            {
+                IntPtr timer = CreateWaitableTimerExW(IntPtr.Zero, null,
+                    CreateWaitableTimerHighResolution, TimerAccess);
+                return timer != IntPtr.Zero ? timer :
+                    CreateWaitableTimerExW(IntPtr.Zero, null, 0, TimerAccess);
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return IntPtr.Zero;
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true,
+            CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateWaitableTimerExW(
+            IntPtr timerAttributes, string timerName, uint flags,
+            uint desiredAccess);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWaitableTimer(IntPtr timer,
+            ref long dueTime, int period, IntPtr completionRoutine,
+            IntPtr completionArgument,
+            [MarshalAs(UnmanagedType.Bool)] bool resume);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern uint WaitForSingleObject(IntPtr handle,
+            uint milliseconds);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr handle);
 
         internal sealed class SlotRuntime : IDisposable
         {
@@ -1071,6 +1111,7 @@ namespace DS4Windows
 
             private void WriterLoop()
             {
+                IntPtr waitTimer = CreateHighResolutionTimer();
                 Stopwatch clock = Stopwatch.StartNew();
                 long nextPacketTicks = clock.ElapsedTicks;
                 long packetIntervalTicks = Stopwatch.Frequency *
@@ -1083,7 +1124,7 @@ namespace DS4Windows
                 {
                     EnsureCapture();
                     EnsureBluetoothTransport();
-                    WaitUntil(clock, nextPacketTicks);
+                    WaitUntil(clock, nextPacketTicks, waitTimer);
                     nextPacketTicks += packetIntervalTicks;
                     if (clock.ElapsedTicks - nextPacketTicks >
                         packetIntervalTicks * 3)
@@ -1193,6 +1234,11 @@ namespace DS4Windows
                             Stopwatch.Frequency *
                                 TelemetryIntervalMilliseconds / 1000;
                     }
+                }
+
+                if (waitTimer != IntPtr.Zero)
+                {
+                    CloseHandle(waitTimer);
                 }
             }
 
@@ -1601,7 +1647,13 @@ namespace DS4Windows
             private static float Lerp(float left, float right,
                 float amount) => left + (right - left) * amount;
 
-            private static void WaitUntil(Stopwatch clock, long targetTicks)
+            // Sleeps on a high-resolution waitable timer until about 0.5 ms
+            // before the deadline, then spins briefly, as the Bluetooth audio
+            // pacer does. The old wait yielded in a loop for the last 1.5 ms
+            // of every 10.667 ms packet, which kept about 12-14% of a core
+            // busy per controller for as long as Audio Haptics was on.
+            private static void WaitUntil(Stopwatch clock, long targetTicks,
+                IntPtr timer)
             {
                 while (true)
                 {
@@ -1612,6 +1664,25 @@ namespace DS4Windows
                     }
                     double remainingMs = remaining * 1000.0 /
                         Stopwatch.Frequency;
+                    if (remainingMs <= 0.75)
+                    {
+                        Thread.SpinWait(80);
+                        continue;
+                    }
+
+                    if (timer != IntPtr.Zero)
+                    {
+                        long relativeHundredNanoseconds = -Math.Max(1,
+                            (long)((remainingMs - 0.5) * 10000.0));
+                        if (SetWaitableTimer(timer,
+                            ref relativeHundredNanoseconds, 0, IntPtr.Zero,
+                            IntPtr.Zero, false))
+                        {
+                            WaitForSingleObject(timer, 20);
+                            continue;
+                        }
+                    }
+
                     if (remainingMs > 1.5)
                     {
                         Thread.Sleep(1);

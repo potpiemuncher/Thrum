@@ -27,6 +27,101 @@ release falls short of it in two known ways:
   they are relayed to the pad over Bluetooth or USB. Bluetooth has had daily
   use on real hardware; USB has not (issue #65).
 
+## Using Thrum
+
+### What you need
+
+- **Windows 10 version 2004 or later, or Windows 11, 64-bit.** Thrum is
+  x64-only.
+- A supported controller, connected by USB or Bluetooth.
+- Administrator rights **only during setup**, to approve the driver installers.
+  Thrum itself runs as a normal user.
+- Do not run DS4Windows at the same time. Both apps claim the same controller.
+
+### Install
+
+1. Download `Thrum_<version>_x64.zip` from the
+   [Releases](https://github.com/potpiemuncher/Thrum/releases) page.
+2. Check it against the SHA-256 on the release page. In PowerShell:
+   `Get-FileHash .\Thrum_<version>_x64.zip`
+3. Extract it to a folder you own, for example
+   `%LOCALAPPDATA%\Programs\Thrum`. There is no installer.
+4. Run `Thrum.exe`. The build is not code-signed yet, so Windows may show
+   "Windows protected your PC". Choose **More info > Run anyway** only after
+   the hash matches.
+5. The first-run wizard walks you through the rest: where settings are kept,
+   which controller types to support, and the optional virtual-controller
+   backend. The [User Guide](USERGUIDE.md#first-run-setup) explains each step.
+
+Virtual controllers (the Xbox 360, DualShock 4 or DualSense that games see) use
+an experimental kernel driver. Before Thrum creates one, turn on **Settings >
+VIIPER Virtual Controller Support > Use virtual controllers (experimental
+kernel driver)** after reading its notice. Reading your physical controller does
+not need any of this.
+
+### What setup may install
+
+| Component | Needed for | Where it comes from |
+| --- | --- | --- |
+| usbip-win2 (kernel driver) | Virtual controllers | Its signed upstream installer, checked by Thrum before it runs |
+| VIIPER backend | Virtual controllers | A pinned release, downloaded to `%LOCALAPPDATA%\VIIPER` |
+| HidHide (optional) | Hiding the physical controller from games | Its own installer |
+| FakerInput (optional) | Keyboard and mouse output that works in more apps | Its own installer |
+| DsHidMini | DualShock 3 only | Its own installer |
+| VB-CABLE (optional) | The USB/legacy microphone route only | [vb-audio.com](https://vb-audio.com/Cable/); Thrum does not include it |
+| Microsoft Visual C++ Redistributable (optional) | FakerInput output and microphone noise suppression | [Microsoft](https://aka.ms/vs/17/release/vc_redist.x64.exe); most PCs already have it |
+
+Nothing else is needed. The release zip includes the .NET runtime.
+
+### Updating
+
+Thrum checks for a new release once a day and, if there is one, offers to open
+the release page. It never downloads or installs anything by itself.
+
+To update: exit Thrum (tray icon > **Exit**), then extract the new zip **over
+the same folder**. Settings in `%APPDATA%\Thrum` are kept. If you chose
+portable data during setup, your settings are in that folder, so extract over
+it rather than into a new folder.
+
+### Uninstalling
+
+1. If you turned on **Settings > Run at startup**, turn it off.
+2. Exit Thrum and delete its folder.
+3. To remove your settings and profiles too, delete `%APPDATA%\Thrum` (or the
+   portable data next to `Thrum.exe`).
+4. Remove the drivers you no longer want from **Settings > Apps** in Windows:
+   usbip-win2, HidHide, FakerInput. Delete `%LOCALAPPDATA%\VIIPER` to remove
+   the backend.
+
+### Privacy
+
+Thrum does not send your audio, microphone, controller input or settings
+anywhere. Audio Haptics, speaker and microphone passthrough are processed on
+your PC and go only to your controller or to the virtual controller on your PC.
+
+The only thing Thrum fetches from the internet is the list of releases from
+GitHub, once a day, to tell you about updates. The network features you can
+turn on yourself (OSC, the DSU motion server, OpenRGB) send controller state,
+never audio.
+
+One exception to be aware of in the current backend: the VIIPER process
+listens for local virtual-USB connections on all network interfaces, and the
+first time it starts Windows Firewall asks whether to allow it. **Choose
+Cancel (don't allow).** Thrum works the same, because it only uses the
+connection on your own PC, and blocking it keeps other computers on your
+network from reaching the virtual controller.
+
+### Getting help
+
+- The [User Guide](USERGUIDE.md) covers every page and has a troubleshooting
+  section.
+- Logs are in `%APPDATA%\Thrum\Logs` (or `Logs` next to `Thrum.exe` in
+  portable mode). **Settings > Advanced settings > Utils > Open data folder**
+  opens the right place.
+- When reporting a problem, include the log, your controller model, USB or
+  Bluetooth, and the steps. Read [SECURITY.md](SECURITY.md) first if Windows
+  crashed.
+
 ## Status
 
 **Pre-release, version 0.9.0-beta.2.** This repository was seeded on 2026-07-25

@@ -33,9 +33,9 @@ inherit these decisions by default.
 Two files in the tree carry their own notices and are authoritative for what
 they cover; this file does not restate them:
 
-    DS4Windows/ThirdParty/SbcSharp/LICENSE.txt and NOTICE.md
-    DS4Windows/Resources/ControllerArtwork.NOTICE.txt
-    DS4Windows/Resources/ICONS.NOTICE.txt
+    Thrum/ThirdParty/SbcSharp/LICENSE.txt and NOTICE.md
+    Thrum/Resources/ControllerArtwork.NOTICE.txt
+    Thrum/Resources/ICONS.NOTICE.txt
 
 
 --------------------------------------------------------------------------------
@@ -101,23 +101,23 @@ Published by Microsoft, MIT
 --------------------------------------------------------------------------------
 
 Apache-2.0
-    SbcSharp — DS4Windows/ThirdParty/SbcSharp/
+    SbcSharp — Thrum/ThirdParty/SbcSharp/
         Derived from https://github.com/Ylianst/SbcSharp at commit
         8fd1417b142bb1be69b119c23ccfac360ee15ef4. That directory carries its own
         LICENSE.txt and NOTICE.md, which are authoritative.
-    Crc32 — DS4Windows/DS4Library/Crc32.cs
+    Crc32 — Thrum/DS4Library/Crc32.cs
         Implementation credited to Damien Guard, packaged by dariogriffo.
         The file header states the Apache-2.0 grant.
         https://github.com/dariogriffo/Crc32
 
 Public domain (dedication by the upstream author)
-    vJoyInterfaceCS — DS4Windows/VJoyFeeder/vJoyFeeder.cs
+    vJoyInterfaceCS — Thrum/VJoyFeeder/vJoyFeeder.cs
         C# interface to Shaul Eizikovich's vJoy driver. The file header records
         the author's public-domain statement and links to it.
         https://github.com/shauleiz/vJoy/tree/master/apps/common/vJoyInterfaceCS
 
 MIT — vendored web asset
-    Bezier curve editor — DS4Windows/BezierCurveEditor/index.html and build.js
+    Bezier curve editor — Thrum/BezierCurveEditor/index.html and build.js
         build.js is a pre-built webpack bundle of
         https://github.com/gre/bezier-easing-editor (MIT), and embeds that
         project's npm dependencies, including React (MIT). The bundle is
@@ -125,7 +125,7 @@ MIT — vendored web asset
         of embedded packages cannot be enumerated from the artifact; one
         embedded package declares ISC. See UNRESOLVED item 2 for the
         consequence. The C# port of the easing maths in
-        DS4Windows/BezierCurveEditor/BezierCurve.cs carries its own MIT grant in
+        Thrum/BezierCurveEditor/BezierCurve.cs carries its own MIT grant in
         its header and credits https://github.com/gre/bezier-easing.
 
 
@@ -133,15 +133,15 @@ MIT — vendored web asset
 3. Pre-built binaries bundled in this repository
 --------------------------------------------------------------------------------
 
-    DS4Windows/libs/{x64,x86}/SharpOSC/SharpOSC.dll — MIT
+    Thrum/libs/{x64,x86}/SharpOSC/SharpOSC.dll — MIT
         Copyright (c) 2012 Valdemar Örn Erlingsson. Verified against the
         upstream License.txt, which is the MIT text.
         https://github.com/ValdemarOrn/SharpOSC
 
-    DS4Windows/libs/{x64,x86}/FakerInputWrapper/FakerInputDll.dll — MIT
+    Thrum/libs/{x64,x86}/FakerInputWrapper/FakerInputDll.dll — MIT
         Native library from https://github.com/Ryochan7/FakerInput
 
-    DS4Windows/libs/{x64,x86}/FakerInputWrapper/FakerInputWrapper.dll
+    Thrum/libs/{x64,x86}/FakerInputWrapper/FakerInputWrapper.dll
         ** NO LICENCE — SEE UNRESOLVED ITEM 1 **
 
     rnnoise.dll (via the YellowDogMan.RRNoise.NET package) — BSD-3-Clause
@@ -180,12 +180,28 @@ any of them is contained in this repository or in a Thrum release package.
         Optional device-hiding filter driver, installed by the user from its own
         official installer. Not redistributed.
 
+    FakerInput — MIT — https://github.com/Ryochan7/FakerInput
+        Optional keyboard and mouse output driver, installed by the user from
+        its own installer. Only its user-mode FakerInputDll.dll ships with
+        Thrum (section 3). Not redistributed.
+
+    Microsoft Visual C++ Redistributable (VCRUNTIME140.dll) — Microsoft
+        licence terms. FakerInputDll.dll and rnnoise.dll load it; Thrum does not
+        ship it. Without it FakerInput output falls back to SendInput and
+        microphone noise suppression is off. Most PCs already have it; the
+        installer is at https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+    VB-CABLE — VB-Audio donationware — https://vb-audio.com/Cable/
+        Optional virtual audio device, only needed for the USB/legacy
+        microphone route. Installed by the user; its licence does not allow
+        redistribution and Thrum does not include it.
+
 
 --------------------------------------------------------------------------------
 5. Artwork and icons
 --------------------------------------------------------------------------------
 
-    Controller artwork — see DS4Windows/Resources/ControllerArtwork.NOTICE.txt,
+    Controller artwork — see Thrum/Resources/ControllerArtwork.NOTICE.txt,
         which is authoritative. It includes the Switch 2 Pro Controller artwork
         adapted from "Nintendo Switch 2 Pro Controller.jpg" by Kyu3a,
         CC BY-SA 4.0:
@@ -193,7 +209,7 @@ any of them is contained in this repository or in a Thrum release package.
         https://creativecommons.org/licenses/by-sa/4.0/
 
     Application and tray icons — original Thrum work, GPL-3.0-or-later. See
-        DS4Windows/Resources/ICONS.NOTICE.txt.
+        Thrum/Resources/ICONS.NOTICE.txt.
 
 
 --------------------------------------------------------------------------------
@@ -257,7 +273,7 @@ UNRESOLVED — release-blocking
 
 2. Two vendored items cannot be fully enumerated or licensed.
 
-   a) DS4Windows/OneEuroFilter.cs carries no licence header. The 1€ filter
+   a) Thrum/OneEuroFilter.cs carries no licence header. The 1€ filter
       authors' own page lists the C# implementation under "other implementations
       not verified yet" with no licence stated, while their Python, C++, Java,
       JavaScript, TypeScript and Arduino versions are BSD or MIT
@@ -266,7 +282,7 @@ UNRESOLVED — release-blocking
       unknown. 105 lines. Cheapest resolution is to reimplement from the paper
       or port from a BSD-licensed reference version.
 
-   b) DS4Windows/BezierCurveEditor/build.js is a 431 KB minified webpack bundle.
+   b) Thrum/BezierCurveEditor/build.js is a 431 KB minified webpack bundle.
       The top-level project is MIT, but the bundle embeds npm dependencies whose
       individual notices are not recoverable from the minified artifact. If the
       editor is still wanted, rebuild it from source so a dependency licence

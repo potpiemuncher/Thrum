@@ -280,11 +280,19 @@ namespace DS4WinWPF.DS4Forms
                             DisplayUpdaterWindow(releaseTag);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        Dispatcher.Invoke(() => MessageBox.Show(Strings.FailedToRetrieveLatestVersion, ProductInfo.ProductName));
-                        // bubble the exception up to allow to see what's wrong in the log
-                        throw;
+                        // Nobody asked for this check, so its failure is a log
+                        // line, not a dialog. The modal that used to open here
+                        // ("Failed to retrieve latest version") blocked the
+                        // window from closing on every offline start (#97).
+                        // The manual Check for updates button keeps its dialog:
+                        // there the person is waiting for an answer.
+                        AppLogger.LogToGui(
+                            "Update check could not reach the release feed: " +
+                            ex.GetBaseException().Message +
+                            ". Treating this build as up to date until the next check.",
+                            false);
                     }
 
                     Global.LastChecked = DateTime.Now;

@@ -29,6 +29,8 @@
     # Right after a restart, to capture the cold start as launch 1:
     .\measure-runtime.ps1 -ExePath 'C:\Tools\Thrum\Thrum.exe' -ColdStart -SkipSoak
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
+    Justification = 'Interactive console script: its status text is for the person running it, not pipeline output.')]
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -60,7 +62,7 @@ function Get-ThrumProcess {
         Where-Object { $_.Path -and ($_.Path -ieq $ExePath) }
 }
 
-function Stop-Thrum {
+function Close-ThrumApp {
     param([int]$TimeoutSeconds = 30)
     $running = @(Get-ThrumProcess)
     if ($running.Count -eq 0) { return 'not running' }
@@ -76,10 +78,10 @@ function Stop-Thrum {
     return 'killed after timeout'
 }
 
-function Start-ThrumTimed {
+function Invoke-TimedThrumLaunch([int]$timeoutSeconds) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $proc = Start-Process -FilePath $ExePath -PassThru
-    $deadline = (Get-Date).AddSeconds($WindowTimeoutSeconds)
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
     $windowMs = $null
     while ((Get-Date) -lt $deadline) {
         $proc.Refresh()
@@ -87,8 +89,8 @@ function Start-ThrumTimed {
         if ($proc.MainWindowHandle -ne [IntPtr]::Zero) { $windowMs = $sw.Elapsed.TotalMilliseconds; break }
         Start-Sleep -Milliseconds 15
     }
-    if ($null -eq $windowMs) { throw "No main window within $WindowTimeoutSeconds s." }
-    [void]$proc.WaitForInputIdle($WindowTimeoutSeconds * 1000)
+    if ($null -eq $windowMs) { throw "No main window within $timeoutSeconds s." }
+    [void]$proc.WaitForInputIdle($timeoutSeconds * 1000)
     $idleMs = $sw.Elapsed.TotalMilliseconds
     [pscustomobject]@{ Process = $proc; WindowMs = [math]::Round($windowMs); InputIdleMs = [math]::Round($idleMs) }
 }
@@ -116,16 +118,16 @@ $summary = [ordered]@{
 
 if (@(Get-ThrumProcess).Count -gt 0) {
     Write-Host 'Thrum is already running; closing it first.'
-    [void](Stop-Thrum)
+    [void](Close-ThrumApp)
 }
 
 if (-not $SkipStartup) {
     $rows = @()
     for ($i = 1; $i -le $Launches; $i++) {
         $kind = if ($i -eq 1 -and $ColdStart) { 'cold' } else { 'warm' }
-        $r = Start-ThrumTimed
+        $r = Invoke-TimedThrumLaunch -timeoutSeconds $WindowTimeoutSeconds
         Start-Sleep -Seconds 3
-        $exit = Stop-Thrum
+        $exit = Close-ThrumApp
         $rows += [pscustomobject]@{ Launch = $i; Kind = $kind; WindowMs = $r.WindowMs; InputIdleMs = $r.InputIdleMs; Exit = $exit }
         Write-Host ("Launch {0} ({1}): window {2} ms, input-idle {3} ms, exit {4}" -f $i, $kind, $r.WindowMs, $r.InputIdleMs, $exit)
         Start-Sleep -Seconds 2
@@ -143,7 +145,7 @@ if (-not $SkipStartup) {
 }
 
 if (-not $SkipSoak) {
-    $r = Start-ThrumTimed
+    $r = Invoke-TimedThrumLaunch -timeoutSeconds $WindowTimeoutSeconds
     $proc = $r.Process
     Write-Host "Soak: settling for $SettleSeconds s, then sampling every $IntervalSeconds s for $Minutes min."
     Start-Sleep -Seconds $SettleSeconds
@@ -182,7 +184,7 @@ if (-not $SkipSoak) {
     $summary.ThreadsPerHour = [math]::Round((Get-Slope $x ([double[]]@($samples | ForEach-Object Threads))) * 60, 1)
     $summary.GdiPerHour = [math]::Round((Get-Slope $x ([double[]]@($samples | ForEach-Object GdiObjects))) * 60, 1)
     $summary.UserPerHour = [math]::Round((Get-Slope $x ([double[]]@($samples | ForEach-Object UserObjects))) * 60, 1)
-    $summary.SoakExit = Stop-Thrum
+    $summary.SoakExit = Close-ThrumApp
     # A flat process shows slopes near zero. Small positive memory slopes
     # early in a run are normal (caches warming); handles, threads and GDI/USER
     # objects should not climb at all while nothing changes.

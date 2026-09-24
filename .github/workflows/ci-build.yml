@@ -16,6 +16,24 @@ permissions:
   contents: read
 
 jobs:
+  lint-scripts:
+    # The setup script runs elevated on users' machines; the release and
+    # measurement scripts are part of the release procedure. Warnings here
+    # fail the build like compiler warnings do.
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint PowerShell scripts (PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force
+          $results = @(Get-ChildItem -Path extras, utils -Recurse -Filter *.ps1 |
+            ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error })
+          $results | Format-Table ScriptName, Line, RuleName, Message -AutoSize -Wrap | Out-String -Width 220 | Write-Host
+          if ($results.Count -gt 0) { throw "PSScriptAnalyzer reported $($results.Count) warning(s)." }
+
   test:
     runs-on: windows-2022
     steps:

@@ -56,6 +56,17 @@ Baseline: `main` @ `29ce29f` (0.9.0-beta.2).
 - `DualSenseHapticsStreamer`: the 30-second "BT stream health" telemetry is gated on verbose logging, like Audio Haptics' own telemetry.
 - Profile editor: opening it no longer runs the VIIPER readiness probe on the UI thread (and could no longer show the experimental-driver notice) — only a user's change of output type does.
 
+### PowerShell scripts (linter: PSScriptAnalyzer 1.25.0, Warning and Error)
+
+Baseline: 42 warnings across `extras/install-viiper-backend.ps1`, `extras/sign-release.ps1` and `utils/measure-runtime.ps1`; now 0.
+
+- `install-viiper-backend.ps1`: each of the six empty `catch { }` blocks now writes a `Write-Verbose` line saying why the error is ignored — behaviour unchanged (verbose output is off), but the reason is on record. Private helpers renamed to singular nouns (`Get-RunningViiperProcess`, `Stop-ViiperProcess`; only called inside the script). Seven em dashes in comments replaced with ASCII so the file has no non-ASCII bytes (Windows PowerShell 5.1, which runs setup, reads a BOM-less file as ANSI).
+- `sign-release.ps1` / `measure-runtime.ps1`: values used inside functions are passed as parameters instead of read from script scope (the analyzer flagged them as unused); the measurement helpers use non-state-changing verbs.
+- Suppressions, each justified in the script: `PSAvoidUsingWriteHost` in all three (interactive console scripts: the text is for the person running them, not pipeline output); `PSUseShouldProcessForStateChangingFunctions` for two private helpers of the setup script (it runs as one elevated unit and offers no `-WhatIf`).
+- Left as is: four Information-level `PSAvoidUsingPositionalParameters` notes in the setup script (not warnings; changing call style in the VM-validated installer buys nothing).
+- `ci-build.yml`: new `lint-scripts` job fails the build on any PSScriptAnalyzer warning.
+- `sign-release.ps1`: signs `Thrum.resources.dll` (the satellites are Thrum's own; the comment called them Microsoft's) and `*.ps1` (the setup script runs elevated) by default, and a new `-IncludeUnsignedThirdParty` switch signs bundled third-party binaries that carry no signature. Syntax-checked; the signing path itself still needs a real certificate to run.
+
 ## Phase 6 — Other (found early)
 
 - `docs/dev/HANDOFF.md`: replaced a local `C:\Users\<account>\...` path with a neutral description — CONTRIBUTING.md forbids account names and local paths in committed content.

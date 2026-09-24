@@ -36,3 +36,6 @@ Baseline: `main` @ `29ce29f` (0.9.0-beta.2).
 - `docs/dev/patches/viiper-0.1.2-usbip-0.9.8.0.patch`: `From:` headers now use the project's GitHub no-reply address instead of a personal email address — same rule. (Both remain in git history; see `RELEASE-READINESS.md`.)
 - `ThrumDiagnostics*Tests.cs`: the sample user name in the redaction tests is now `somebody`, as in the other redaction tests, instead of a real first name. Test meaning unchanged.
 
+## Phase 3 — Performance
+
+- `utils/measure-runtime.ps1` (new): times cold and warm starts and runs an idle or active soak (CPU, private memory, handles, threads, GDI/USER objects) with growth rates, closing Thrum through its own `-command shutdown` — runtime numbers cannot be measured in the review's Linux container, so this gives the owner a repeatable way to measure them on Windows. It needs no admin rights and changes nothing on the machine.

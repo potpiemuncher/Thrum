@@ -1576,6 +1576,8 @@ Suspend support not enabled.", true);
                 WindowPlacementHelper.ApplyPlacement(this, startMinimized);
             }
 
+            WindowFit.ClampToWorkArea(this);
+
             HwndSource source = PresentationSource.FromVisual(this) as HwndSource;
             HookWindowMessages(source);
             source.AddHook(WndProc);

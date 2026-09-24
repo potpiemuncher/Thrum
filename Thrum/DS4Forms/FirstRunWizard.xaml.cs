@@ -13,6 +13,7 @@ namespace DS4WinWPF.DS4Forms
             FirstRunWizardEffects effects)
         {
             InitializeComponent();
+            SourceInitialized += (_, _) => WindowFit.ClampToWorkArea(this);
             this.viewModel = viewModel;
             DataContext = viewModel;
             effects.Owner = this;

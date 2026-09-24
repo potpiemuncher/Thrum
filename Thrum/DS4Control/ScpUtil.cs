@@ -4816,12 +4816,9 @@ namespace DS4Windows
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(path, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(path, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + path, false);
                 saved = false;
@@ -8532,20 +8529,10 @@ namespace DS4Windows
             bool loaded = true;
             if (File.Exists(m_Profile))
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
-                using StreamReader sr = new StreamReader(m_Profile);
-                try
-                {
-                    AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
-                    dto.MapTo(this);
-
-                    PostProcessLoad();
-                }
-                catch (InvalidOperationException)
-                {
-                    AppLogger.LogToGui("Failed to load Profiles.xml.", false);
-                    loaded = false;
-                }
+                loaded = TryLoadAppSettings(m_Profile) ||
+                    SettingsFileRecovery.Recover(m_Profile,
+                        ProductInfo.ProductName + "'s settings file (Profiles.xml)",
+                        TryLoadAppSettings);
             }
             else
             {
@@ -8570,6 +8557,24 @@ namespace DS4Windows
             }
 
             return loaded;
+        }
+
+        private bool TryLoadAppSettings(string path)
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
+            try
+            {
+                using StreamReader sr = new StreamReader(path);
+                AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
+                dto.MapTo(this);
+
+                PostProcessLoad();
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         public bool LoadOld()
@@ -8916,12 +8921,9 @@ namespace DS4Windows
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(m_Profile, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(m_Profile, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_Profile, false);
                 saved = false;

@@ -366,6 +366,22 @@ namespace DS4WinWPF
             StartupDiag(logger, "MainWindow.Show end");
             window.IsInitialShow = false;
             DS4Windows.ViiperSetupManager.AllowRestartAfterSetup();
+            string settingsNotice = DS4Windows.SettingsFileRecovery.TakePendingNotice();
+            if (settingsNotice != null)
+            {
+                if (window.IsVisible)
+                {
+                    MessageBox.Show(window, settingsNotice,
+                        DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                else
+                {
+                    MessageBox.Show(settingsNotice,
+                        DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
 
             // Set up hooks for IPC command calls
             HwndSource source = PresentationSource.FromVisual(window) as HwndSource;
@@ -548,6 +564,7 @@ namespace DS4WinWPF
                     Dispatcher.Invoke(() =>
                     {
                         rootHub?.PrepareAbort();
+                        ShowCrashNotice();
                         CleanShutdown();
                     });
                 }
@@ -562,8 +579,38 @@ namespace DS4WinWPF
                     logger.Error(exp.ToString());
 
                     rootHub?.PrepareAbort();
+                    ShowCrashNotice();
                     CleanShutdown();
                 }
+            }
+        }
+
+        private static int crashNoticeShown;
+
+        // A crash used to close the app with no message at all, so users had
+        // nothing to report. Shown once, after the error is in the log.
+        private static void ShowCrashNotice()
+        {
+            if (Interlocked.Exchange(ref crashNoticeShown, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                LogManager.Flush(TimeSpan.FromSeconds(2));
+                string logFolder = System.IO.Path.Combine(
+                    DS4Windows.Global.appdatapath, "Logs");
+                MessageBox.Show(
+                    $"{DS4Windows.ProductInfo.ProductName} ran into a problem it could not recover from and has to close.\n\n" +
+                    $"The details were saved to the log file in:\n{logFolder}\n\n" +
+                    "If you report the problem, please attach that file.",
+                    DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            catch (Exception)
+            {
+                // Nothing more can be done while the process is going down.
             }
         }
 

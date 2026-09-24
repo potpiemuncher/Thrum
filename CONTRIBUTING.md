@@ -10,9 +10,9 @@ Thrum still tracks upstream. Please do not open drive-by renaming pull requests.
 ## Prerequisites
 
 - **Windows.** The application is WPF on
-  `net8.0-windows10.0.19041.0`; it does not build or run on Linux or macOS.
-- **.NET 8 SDK.** Get it from
-  <https://dotnet.microsoft.com/download/dotnet/8.0>.
+  `net10.0-windows10.0.19041.0`; it does not build or run on Linux or macOS.
+- **.NET 10 SDK.** Get it from
+  <https://dotnet.microsoft.com/download/dotnet/10.0>.
 - **Python 3.10+**, only if you need the packaging step (`utils/post-build.py`).
 - Visual Studio 2022 or Rider are convenient but not required; the command
   line below is the source of truth.

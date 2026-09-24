@@ -143,7 +143,7 @@ different usbip-win2 release, so after Thrum's setup its virtual controllers
 stop working.
 
 **Releases are pre-releases**, currently `v0.9.0-beta.2`. Each is a
-self-contained win-x64 zip, so it does **not** need the .NET 8 Desktop Runtime
+self-contained win-x64 zip, so it does **not** need the .NET Desktop Runtime
 installed. There is still **no installer**: unzip, run `Thrum.exe`, and let its
 setup install the two driver-side components.
 
@@ -234,7 +234,7 @@ to a public issue.
 ## Building
 
 Requirements: Windows, the
-[.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), and Python
+[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), and Python
 3.10+ only if you also want the packaging step. **x64 is the canonical
 platform**; VIIPER is x64-only.
 

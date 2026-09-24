@@ -89,9 +89,8 @@ BSD-3-Clause
 
 Published by Microsoft, MIT
     System.Management 7.0.2 — System.Management.dll
-    System.Memory 4.5.5 — licence at https://github.com/dotnet/corefx/blob/master/LICENSE.TXT
     Microsoft.Windows.SDK.NET.dll — Windows SDK projections shipped with the
-        net8.0-windows target framework.
+        net10.0-windows target framework.
     Microsoft.Windows.CsWin32 0.3.106 — build-time source generator only
         (PrivateAssets=all); no assembly is redistributed.
 

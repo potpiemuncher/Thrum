@@ -3576,15 +3576,24 @@ namespace DS4Windows.InputDevices
                 return;
             }
 
+            // Take the actions out under the lock, then run them without it.
+            // An action can unplug the virtual pad, and
+            // ViiperOutDevice.Disconnect waits for VIIPER's feedback callbacks
+            // to finish; a callback forwarding a game's output report calls
+            // queueEvent, which needs this lock. Running actions under the lock
+            // deadlocked the input thread and the feedback thread when a
+            // profile switch changed the output type mid-game.
+            Action[] actions;
             lock (eventQueueLock)
             {
-                for (int index = 0, count = eventQueue.Count;
-                    index < count; index++)
-                {
-                    eventQueue.Dequeue().Invoke();
-                }
-
+                actions = eventQueue.ToArray();
+                eventQueue.Clear();
                 hasInputEvts = false;
+            }
+
+            foreach (Action action in actions)
+            {
+                action.Invoke();
             }
         }
 

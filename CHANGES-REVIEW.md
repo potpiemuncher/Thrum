@@ -67,6 +67,30 @@ Baseline: 42 warnings across `extras/install-viiper-backend.ps1`, `extras/sign-r
 - `ci-build.yml`: new `lint-scripts` job fails the build on any PSScriptAnalyzer warning.
 - `sign-release.ps1`: signs `Thrum.resources.dll` (the satellites are Thrum's own; the comment called them Microsoft's) and `*.ps1` (the setup script runs elevated) by default, and a new `-IncludeUnsignedThirdParty` switch signs bundled third-party binaries that carry no signature. Syntax-checked; the signing path itself still needs a real certificate to run.
 
+## Phase 2 — Code review fixes
+
+Findings come from a full read of the codebase (every file, by 33 reviewers)
+followed by independent skeptic verification of every Medium-or-worse
+finding. Severity is the verified severity.
+
+### Crashes, hangs and deadlocks
+
+- `ScpUtil.DebouncingMsHasChanged` (Critical): null-safe invoke — saving a profile with a changed debounce value before any controller had connected crashed the app (no subscribers yet).
+- `AudioHapticsService` (High): wired USB Audio Haptics output is retired from the thread pool when NAudio reports it stopped. NAudio raises `PlaybackStopped` on its own playback thread and `WasapiOut.Dispose` joins that thread, so the old in-handler dispose made the thread join itself and hang forever while holding the output lock. Confirmed against NAudio 2.2.1's source.
+- `DualSenseAudioPassthrough` (High): the replaced capture is disposed after the lock is released — `StopCapture` runs under `syncRoot` and NAudio's `Dispose` joins the capture thread, which could be waiting for `syncRoot` in `Capture_DataAvailable`: a restart or profile change deadlocked. The handler also ignores a buffer from a capture that has just been replaced.
+- `ProcessLoopbackWaveCapture` (High): exceptions on its monitor and capture threads after `Dispose` (which joins with a 1.2 s limit, then disposes what they use) are dropped instead of escaping — the `when (not disposed)` filters let them end the whole process.
+- `DualSenseDevice.DrainQueuedInputEvents` (High): queued actions run after `eventQueueLock` is released. A profile switch that unplugged the virtual pad waited for VIIPER's feedback callbacks, which call `queueEvent` and need that lock: the input and feedback threads deadlocked mid-game.
+- `ControlService` OSC (High): the server callback is wrapped so an unreadable packet (an OSC bundle, a short address, a missing argument, an out-of-range controller number — anything on the network can send one) is dropped and reported once, instead of crashing the app on SharpOSC's thread; `packet as OscMessage` replaces a hard cast. A port already in use or a bad sender address now logs a plain error instead of aborting the controller service start (which left Start/Stop disabled); turning the OSC server off after Stop no longer throws; OSC sends check that the sender actually started.
+
+### Leaks
+
+- `ProfileDTO.SharedSerializer` (High): one cached serializer for profile files. `new XmlSerializer(type, overrides)` generates an assembly .NET never unloads, and one was built per profile load and save, so every profile switch leaked. Tested (instance reuse, and a source guard against building one per call).
+- `DS4Device.SetupDebouncer` (Medium): the debounce-changed subscription holds the device weakly, replaces the device's previous one, and removes itself once the device is gone — every connection used to add a closure to a static event that kept each disconnected controller alive for the session.
+
+### Audio output format (wired USB)
+
+- `AudioHapticsService` (High) and `DualSenseAudioPassthrough` (High): samples are encoded against the standard form of the endpoint's `WAVE_FORMAT_EXTENSIBLE` mix format. Its `Encoding` reads Extensible, not IeeeFloat, so USB Audio Haptics wrote int32 PCM into a float32 stream (near-silent, full-scale spikes, NaN) and USB speaker passthrough matched no branch at all and wrote silence. The provider and `WasapiOut` keep the extensible format and its channel mask. The speaker writer also stops allocating a byte array per sample on the audio path. Tested.
+
 ## Phase 6 — Other (found early)
 
 - `docs/dev/HANDOFF.md`: replaced a local `C:\Users\<account>\...` path with a neutral description — CONTRIBUTING.md forbids account names and local paths in committed content.

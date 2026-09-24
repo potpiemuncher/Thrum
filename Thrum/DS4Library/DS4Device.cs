@@ -1963,12 +1963,39 @@ namespace DS4Windows
             debouncer.AddDebouncer(nameof(DS4State.DpadDown));
             debouncer.AddDebouncer(nameof(DS4State.DpadLeft));
             debouncer.AddDebouncer(nameof(DS4State.DpadRight));
-            Global.DebouncingMsChanged += (_, _) =>
+            // The event is static and outlives this device. Each connection
+            // used to add a closure over the device that was never removed, so
+            // every disconnected controller stayed reachable for the rest of
+            // the session. Now the handler holds the device weakly, replaces
+            // this device's previous subscription, and removes itself once the
+            // device has been collected.
+            if (debouncingMsChangedHandler != null)
             {
-                debouncer.SetDuration(TimeSpan.FromMilliseconds(Global.DebouncingMs[deviceSlotNumber]));
+                Global.DebouncingMsChanged -= debouncingMsChangedHandler;
+            }
+
+            WeakReference<Debouncer> weakDebouncer = new WeakReference<Debouncer>(debouncer);
+            WeakReference<DS4Device> weakDevice = new WeakReference<DS4Device>(this);
+            EventHandler handler = null;
+            handler = (_, _) =>
+            {
+                if (weakDebouncer.TryGetTarget(out Debouncer liveDebouncer) &&
+                    weakDevice.TryGetTarget(out DS4Device liveDevice))
+                {
+                    liveDebouncer.SetDuration(TimeSpan.FromMilliseconds(
+                        Global.DebouncingMs[liveDevice.deviceSlotNumber]));
+                }
+                else
+                {
+                    Global.DebouncingMsChanged -= handler;
+                }
             };
+            debouncingMsChangedHandler = handler;
+            Global.DebouncingMsChanged += handler;
             return debouncer;
         }
+
+        private EventHandler debouncingMsChangedHandler;
 
         private unsafe void PrepareOutputReportInner(ref bool change,
             ref bool haptime,

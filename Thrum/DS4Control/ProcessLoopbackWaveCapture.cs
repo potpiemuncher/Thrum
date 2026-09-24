@@ -331,11 +331,18 @@ namespace DS4Windows
                     if (stopped.WaitOne(DetectionIntervalMilliseconds)) break;
                 }
             }
-            catch (Exception exception) when (
-                Volatile.Read(ref disposed) == 0)
+            catch (Exception exception)
             {
-                RecordingStopped?.Invoke(this,
-                    new StoppedEventArgs(exception));
+                // Dispose waits only 1.2 s for this thread and then disposes
+                // what it uses, so a slow detection pass can fail afterwards.
+                // The old "when (not disposed)" filter let that exception
+                // escape the thread and end the whole process; after Dispose
+                // it is expected teardown and is dropped.
+                if (Volatile.Read(ref disposed) == 0)
+                {
+                    RecordingStopped?.Invoke(this,
+                        new StoppedEventArgs(exception));
+                }
             }
         }
 
@@ -535,10 +542,15 @@ namespace DS4Windows
                         if (signaled == 1) DrainCapture();
                     }
                 }
-                catch (Exception exception) when (
-                    Volatile.Read(ref disposed) == 0)
+                catch (Exception exception)
                 {
-                    stoppedWith = exception;
+                    // Same rule as the monitor loop: an exception after
+                    // Dispose (bounded join, then the client and handles are
+                    // disposed) must not escape the thread and end the app.
+                    if (Volatile.Read(ref disposed) == 0)
+                    {
+                        stoppedWith = exception;
+                    }
                 }
                 finally
                 {

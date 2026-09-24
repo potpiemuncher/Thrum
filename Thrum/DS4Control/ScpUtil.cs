@@ -2037,7 +2037,10 @@ namespace DS4Windows
 
         public static void DebouncingMsHasChanged()
         {
-            DebouncingMsChanged.Invoke(typeof(Global), EventArgs.Empty);
+            // No subscribers until a controller has connected this session;
+            // the unconditional Invoke crashed a profile save with a changed
+            // debounce value before any pad was plugged in.
+            DebouncingMsChanged?.Invoke(typeof(Global), EventArgs.Empty);
         }
 
         public static event EventHandler DebouncingMsChanged;
@@ -4779,8 +4782,7 @@ namespace DS4Windows
             string path = Path.Combine(Global.appdatapath, "Profiles",
                 $"{proName}{Global.XML_EXTENSION}");
             string testStr = string.Empty;
-            XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
-                ProfileDTO.GetAttributeOverrides());
+            XmlSerializer serializer = ProfileDTO.SharedSerializer;
             using (Utf8StringWriter strWriter = new Utf8StringWriter())
             {
                 using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
@@ -5745,8 +5747,7 @@ namespace DS4Windows
                     dcs.Reset();
 
                 //XmlReader xmlReader = XmlReader.Create()
-                XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
-                    ProfileDTO.GetAttributeOverrides());
+                XmlSerializer serializer = ProfileDTO.SharedSerializer;
                 using StringReader sr = new StringReader(profileXml);
                 try
                 {

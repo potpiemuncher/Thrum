@@ -303,7 +303,7 @@ namespace DS4Windows
         {
             oscCallback = delegate (OscPacket packet)
             {
-                var messageReceived = (OscMessage)packet;
+                var messageReceived = packet as OscMessage;
 
                 // If typecase fails, exit
                 if (messageReceived == null)
@@ -357,7 +357,7 @@ namespace DS4Windows
 
                 if (command[3] == "battery")
                 {
-                    if (!isUsingOSCSender())
+                    if (!isUsingOSCSender() || oscSender == null)
                     {
                         AppLogger.LogToGui("Battery level requested, but the OSC Sender isn't active. Turn it on in Settings.", false);
                     }
@@ -1330,11 +1330,28 @@ namespace DS4Windows
         {
             if (state)
             {
-                oscListener = new UDPListener(Global.getOSCServerPortNum(), callback: oscCallback);
+                // The callback runs on SharpOSC's listener thread, so an
+                // exception there ended the whole app: an OSC bundle failed the
+                // cast, and a short address, a missing argument or an
+                // out-of-range controller number indexed past an array -
+                // anything on the network can send those. An unreadable packet
+                // is now dropped and reported once per session. A port that is
+                // already taken no longer aborts the controller service start.
+                try
+                {
+                    oscListener = new UDPListener(Global.getOSCServerPortNum(),
+                        callback: GuardedOscCallback);
+                }
+                catch (Exception e)
+                {
+                    oscListener = null;
+                    AppLogger.LogToGui($"The OSC server could not start on port {Global.getOSCServerPortNum()}: {e.Message}", true);
+                    return;
+                }
 
                 AppLogger.LogToGui("OSC LISTENER STARTED AT PORT: " + Global.getOSCServerPortNum(), false);
             }
-            else
+            else if (oscListener != null)
             {
                 oscListener.Close();
                 oscListener = null;
@@ -1342,12 +1359,41 @@ namespace DS4Windows
             }
         }
 
+        private int oscUnreadablePacketLogged;
+
+        private void GuardedOscCallback(OscPacket packet)
+        {
+            try
+            {
+                oscCallback(packet);
+            }
+            catch (Exception e)
+            {
+                if (Interlocked.Exchange(ref oscUnreadablePacketLogged, 1) == 0)
+                {
+                    AppLogger.LogToGui("Ignored an OSC message that could not be read: " + e.Message, false);
+                }
+            }
+        }
+
         public void ChangeOSCSenderStatus(bool state)
         {
             if (state)
             {
+                // A bad address or port used to throw out of ControlService.Start
+                // and leave the Start/Stop button disabled.
+                try
+                {
+                    oscSender = new UDPSender(Global.getOSCSenderAddress(), Global.getOSCSenderPortNum());
+                }
+                catch (Exception e)
+                {
+                    oscSender = null;
+                    AppLogger.LogToGui($"The OSC sender could not start for {Global.getOSCSenderAddress()} port {Global.getOSCSenderPortNum()}: {e.Message}", true);
+                    return;
+                }
+
                 AppLogger.LogToGui("OSC SENDER STARTED AT IP: " + Global.getOSCSenderAddress() + " PORT: " + Global.getOSCSenderPortNum(), false);
-                oscSender = new UDPSender(Global.getOSCSenderAddress(), Global.getOSCSenderPortNum());
             }
             else
             {
@@ -2264,7 +2310,7 @@ namespace DS4Windows
             StartupDiag($"CheckControllerNumDeviceSettings end index={index}");
 
             slotManager.AddController(device, index);
-            if (isUsingOSCSender())
+            if (isUsingOSCSender() && oscSender != null)
             {
                 oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/plug", 1));
             }
@@ -3313,7 +3359,7 @@ namespace DS4Windows
                     //eventDispatcher.Invoke(() =>
                     //{
                     slotManager.RemoveController(device, ind);
-                    if (isUsingOSCSender())
+                    if (isUsingOSCSender() && oscSender != null)
                     {
                         oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + ind + "/plug", 0));
                     }
@@ -4150,7 +4196,7 @@ namespace DS4Windows
                     DS4State tempMapState = MappedState[ind];
                     DS4State oscMapState = oscState[ind];
 
-                    if (isUsingOSCSender())
+                    if (isUsingOSCSender() && oscSender != null)
                     {
                         OSCPreMappingStep(ind, cState, tempMapState, oscMapState);
                     }

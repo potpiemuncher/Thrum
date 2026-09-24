@@ -17,6 +17,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DS4Windows
 {
@@ -307,6 +308,13 @@ namespace DS4Windows
             private MMDevice usbOutputEndpoint;
             private WasapiOut usbOutput;
             private BufferedWaveProvider usbProvider;
+            // The format samples are encoded in. The endpoint's mix format is
+            // WAVE_FORMAT_EXTENSIBLE, whose Encoding is Extensible rather than
+            // IeeeFloat, so encoding against it wrote int32 PCM into a
+            // float32 stream (inaudible or full-scale spikes and NaN). The
+            // provider and WasapiOut keep the extensible format and its
+            // channel mask; only the encoding uses the standard form.
+            private WaveFormat usbSampleFormat;
             private IDisposable usbAudioHapticsOwnershipLease;
             private byte[] usbScratch = Array.Empty<byte>();
             private int captureFramePosition;
@@ -1320,6 +1328,7 @@ namespace DS4Windows
                     Volatile.Write(ref usbOutputFailureMessage, null);
                     usbOutputEndpoint = endpoint;
                     WaveFormat format = endpoint.AudioClient.MixFormat;
+                    usbSampleFormat = format.AsStandardWaveFormat();
                     usbProvider = new BufferedWaveProvider(format)
                     {
                         BufferDuration = TimeSpan.FromMilliseconds(250),
@@ -1361,11 +1370,19 @@ namespace DS4Windows
                 }
 
                 string reason = eventArgs?.Exception?.Message;
-                FailUsbHapticsOutput(output, expectedProvider: null,
-                    string.IsNullOrWhiteSpace(reason)
-                        ? "Wired USB haptics output stopped."
-                        : $"Wired USB haptics output stopped: {reason}",
-                    stopPlayback: false);
+                string message = string.IsNullOrWhiteSpace(reason)
+                    ? "Wired USB haptics output stopped."
+                    : $"Wired USB haptics output stopped: {reason}";
+
+                // With no SynchronizationContext, NAudio raises PlaybackStopped
+                // on its own playback thread, and after a device error it
+                // leaves the state at Playing, so WasapiOut.Dispose -> Stop
+                // joins that same thread. Retiring the output from here made
+                // the thread join itself and hang forever while holding
+                // usbOutputLifecycleLock. Retire it from the thread pool: by
+                // then this handler has returned and the join completes.
+                Task.Run(() => FailUsbHapticsOutput(output,
+                    expectedProvider: null, message, stopPlayback: false));
             }
 
             private void FailUsbHapticsOutput(WasapiOut expectedOutput,
@@ -1405,6 +1422,7 @@ namespace DS4Windows
                 usbOutput = null;
                 usbOutputEndpoint = null;
                 usbProvider = null;
+                usbSampleFormat = null;
                 usbAudioHapticsOwnershipLease = null;
                 Volatile.Write(ref usbTransportReady, 0);
 
@@ -1455,6 +1473,7 @@ namespace DS4Windows
             private void WriteUsbFrameLocked(byte[] frame)
             {
                 BufferedWaveProvider provider;
+                WaveFormat sampleFormat;
                 lock (usbOutputLifecycleLock)
                 {
                     if (Volatile.Read(ref usbTransportReady) == 0)
@@ -1462,9 +1481,10 @@ namespace DS4Windows
                         return;
                     }
                     provider = usbProvider;
+                    sampleFormat = usbSampleFormat;
                 }
                 WaveFormat format = provider?.WaveFormat;
-                if (format == null)
+                if (format == null || sampleFormat == null)
                 {
                     return;
                 }
@@ -1500,9 +1520,9 @@ namespace DS4Windows
                             127.0f, fraction);
                     int outputOffset = outputFrame * format.BlockAlign;
                     WriteSample(usbScratch,
-                        outputOffset + bytesPerSample * 2, format, left);
+                        outputOffset + bytesPerSample * 2, sampleFormat, left);
                     WriteSample(usbScratch,
-                        outputOffset + bytesPerSample * 3, format, right);
+                        outputOffset + bytesPerSample * 3, sampleFormat, right);
                 }
                 TryWriteUsbSamples(provider.AddSamples, usbScratch,
                     bytesNeeded, exception => FailUsbHapticsOutput(
@@ -1546,7 +1566,7 @@ namespace DS4Windows
                     value | unchecked((int)0xFF000000);
             }
 
-            private static void WriteSample(byte[] buffer, int offset,
+            internal static void WriteSample(byte[] buffer, int offset,
                 WaveFormat format, float sample)
             {
                 sample = Math.Clamp(sample, -1.0f, 1.0f);

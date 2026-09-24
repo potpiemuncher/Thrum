@@ -630,7 +630,15 @@ namespace DS4Windows
             }
             catch { }
 
-            oldCapture.Dispose();
+            // Every caller holds syncRoot, and Dispose joins the capture
+            // thread, which can be blocked on syncRoot inside
+            // Capture_DataAvailable: disposing here deadlocked both threads
+            // (a speaker-passthrough restart or profile change hung for good).
+            // Dispose once the caller has released the lock.
+            Task.Run(() =>
+            {
+                try { oldCapture.Dispose(); } catch { }
+            });
         }
 
         private void Capture_RecordingStopped(object sender, StoppedEventArgs e)
@@ -645,7 +653,10 @@ namespace DS4Windows
         {
             lock (syncRoot)
             {
-                if (captureFormat == null || captureFormat.Channels < 1)
+                // A capture that was replaced while this buffer waited for the
+                // lock may deliver once more; its data is in the old format.
+                if (!ReferenceEquals(sender, capture) ||
+                    captureFormat == null || captureFormat.Channels < 1)
                 {
                     return;
                 }
@@ -1350,6 +1361,12 @@ namespace DS4Windows
             private readonly WasapiOut output;
             private readonly BufferedWaveProvider provider;
             private readonly WaveFormat outputFormat;
+            // outputFormat is the endpoint's WAVE_FORMAT_EXTENSIBLE mix format,
+            // whose Encoding is Extensible, so no WriteSample branch matched it
+            // and wired USB speaker passthrough wrote pure silence. Samples are
+            // encoded in the standard form of the same format; the provider
+            // keeps the extensible one (and its channel mask).
+            private readonly WaveFormat sampleFormat;
             private readonly byte[] outputBuffer;
 
             public string EndpointId { get; }
@@ -1362,6 +1379,7 @@ namespace DS4Windows
                 this.output = output;
                 this.provider = provider;
                 this.outputFormat = outputFormat;
+                sampleFormat = outputFormat.AsStandardWaveFormat();
                 SpeakerVolume = speakerVolume;
                 outputBuffer = new byte[4096 * outputFormat.BlockAlign];
             }
@@ -1383,7 +1401,7 @@ namespace DS4Windows
                     int outputOffset = frame * outputFormat.BlockAlign;
                     int speakerChannel = outputFormat.Channels >= 4 ? 1 : 0;
                     WriteSample(outputBuffer, outputOffset + speakerChannel * BytesPerSample(outputFormat),
-                        outputFormat, mono);
+                        sampleFormat, mono);
                 }
 
                 provider.AddSamples(outputBuffer, 0, framesToWrite * outputFormat.BlockAlign);
@@ -1449,12 +1467,12 @@ namespace DS4Windows
                 value = Math.Clamp(value, -1.0f, 1.0f);
                 if (format.Encoding == WaveFormatEncoding.IeeeFloat && format.BitsPerSample == 32)
                 {
-                    Buffer.BlockCopy(BitConverter.GetBytes(value), 0, buffer, offset, sizeof(float));
+                    BitConverter.TryWriteBytes(buffer.AsSpan(offset, sizeof(float)), value);
                 }
                 else if (format.Encoding == WaveFormatEncoding.Pcm && format.BitsPerSample == 16)
                 {
                     short sample = (short)Math.Clamp(value * short.MaxValue, (float)short.MinValue, short.MaxValue);
-                    Buffer.BlockCopy(BitConverter.GetBytes(sample), 0, buffer, offset, sizeof(short));
+                    BitConverter.TryWriteBytes(buffer.AsSpan(offset, sizeof(short)), sample);
                 }
                 else if (format.Encoding == WaveFormatEncoding.Pcm && format.BitsPerSample == 24)
                 {
@@ -1466,7 +1484,7 @@ namespace DS4Windows
                 else if (format.Encoding == WaveFormatEncoding.Pcm && format.BitsPerSample == 32)
                 {
                     int sample = (int)Math.Clamp(value * int.MaxValue, (float)int.MinValue, int.MaxValue);
-                    Buffer.BlockCopy(BitConverter.GetBytes(sample), 0, buffer, offset, sizeof(int));
+                    BitConverter.TryWriteBytes(buffer.AsSpan(offset, sizeof(int)), sample);
                 }
             }
 

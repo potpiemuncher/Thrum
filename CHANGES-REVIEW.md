@@ -96,6 +96,9 @@ finding. Severity is the verified severity.
 - VIIPER debugger (Medium): device probes consult the same driver-safety gate as the product and are skipped with the reason when it refuses.
 - Profile editor output prompt (Phase 1 follow-up): unbinding the editor (Select Preset) also no longer counts as choosing an output, so it cannot show the VIIPER notice.
 
+- First-run wizard (Medium): choosing a data location no longer writes an empty settings file over an existing `Profiles.xml`. First run is inferred from `Auto Profiles.xml`, so deleting only that file reran the wizard and erased the user's settings. Tested.
+- Auto Profiles rules (Medium): a rule whose profile was renamed or deleted is skipped with one plain log line per profile per session. Loading the missing profile used to blank the slot and unplug its virtual controller, retried every second while the program stayed in front.
+
 ### Leaks
 
 - `ProfileDTO.SharedSerializer` (High): one cached serializer for profile files. `new XmlSerializer(type, overrides)` generates an assembly .NET never unloads, and one was built per profile load and save, so every profile switch leaked. Tested (instance reuse, and a source guard against building one per call).

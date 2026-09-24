@@ -3072,7 +3072,7 @@ namespace DS4Windows
                 : profileName;
         }
 
-        private static bool ProfileFileExists(string profileName)
+        internal static bool ProfileFileExists(string profileName)
         {
             if (string.IsNullOrWhiteSpace(profileName))
             {

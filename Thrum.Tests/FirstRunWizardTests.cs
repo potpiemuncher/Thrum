@@ -107,6 +107,31 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void ExistingSettingsAreNotReplacedByTheDefaultStub()
+        {
+            // The wizard also runs when only Auto Profiles.xml is missing.
+            var operations = new FakeDataLocationOperations();
+            operations.ExistingFiles.Add(Path.Combine(operations.AppDataPath,
+                "Profiles.xml"));
+            operations.ExistingFiles.Add(Path.Combine(
+                operations.ExeDirectoryPath, "Profiles.xml"));
+            var router = new FirstRunDataLocationRouter(operations);
+
+            router.Apply(FirstRunDataLocation.AppData,
+                multipleSaveSpots: false, keepExistingSettings: false);
+            router.Apply(FirstRunDataLocation.Portable,
+                multipleSaveSpots: false, keepExistingSettings: false);
+
+            Assert.IsFalse(operations.Events.Any(item =>
+                item.StartsWith("save-default:", StringComparison.Ordinal)),
+                "An existing Profiles.xml must not be overwritten.");
+            CollectionAssert.Contains(operations.Events,
+                "save-where:" + operations.AppDataPath);
+            CollectionAssert.Contains(operations.Events,
+                "save-where:" + operations.ExeDirectoryPath);
+        }
+
+        [TestMethod]
         public void MultiLocationAppDataUsesSaveWhereCleanupOrder()
         {
             var operations = new FakeDataLocationOperations();
@@ -134,6 +159,9 @@ namespace DS4WindowsTests
             public string ExeDirectoryPath => "C:\\Thrum";
             public bool NeedsAdministrator { get; set; }
             public List<string> Events { get; } = new();
+            public HashSet<string> ExistingFiles { get; } = new();
+
+            public bool FileExists(string path) => ExistingFiles.Contains(path);
 
             public bool AdminNeeded()
             {

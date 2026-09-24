@@ -46,6 +46,10 @@ jobs:
         echo "BINARY_VERSION=$BINARY_VERSION" >> $GITHUB_ENV
         echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
       shell: bash
+    # A release is built from the tagged commit, which may never have been
+    # through the CI workflow; publish nothing that fails its own tests.
+    - name: Run tests (x64)
+      run: dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64
     - name: Build X64
       run: dotnet publish .\Thrum\Thrum.csproj -c Release -r win-x64 --self-contained true /p:platform=x64 /p:AssemblyVersion=${{ env.BINARY_VERSION }} /p:FileVersion=${{ env.BINARY_VERSION }} /p:Version=${{ env.PACKAGE_VERSION }} /p:InformationalVersion=${{ env.VERSION }} -o .\bin\x64\Release\output
     - name: Post-Build script X64

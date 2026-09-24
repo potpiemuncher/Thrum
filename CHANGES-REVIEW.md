@@ -108,7 +108,12 @@ finding. Severity is the verified severity.
 
 - `AudioHapticsService` (High) and `DualSenseAudioPassthrough` (High): samples are encoded against the standard form of the endpoint's `WAVE_FORMAT_EXTENSIBLE` mix format. Its `Encoding` reads Extensible, not IeeeFloat, so USB Audio Haptics wrote int32 PCM into a float32 stream (near-silent, full-scale spikes, NaN) and USB speaker passthrough matched no branch at all and wrote silence. The provider and `WasapiOut` keep the extensible format and its channel mask. The speaker writer also stops allocating a byte array per sample on the audio path. Tested.
 
-## Phase 6 — Other (found early)
+## Phase 6 — Other
+
+- `.github/workflows/release.yml`: runs the test suite before building the release package. A release is built from the tagged commit, which may never have been through CI, and used to publish without running any tests.
+- `RELEASE-READINESS.md` (new): verdict, before/after measures, decisions needed, manual steps (including code-signing setup), a pre-release test checklist and every finding with its severity and status.
+
+### Found early
 
 - `docs/dev/HANDOFF.md`: replaced a local `C:\Users\<account>\...` path with a neutral description — CONTRIBUTING.md forbids account names and local paths in committed content.
 - `docs/dev/patches/viiper-0.1.2-usbip-0.9.8.0.patch`: `From:` headers now use the project's GitHub no-reply address instead of a personal email address — same rule. (Both remain in git history; see `RELEASE-READINESS.md`.)

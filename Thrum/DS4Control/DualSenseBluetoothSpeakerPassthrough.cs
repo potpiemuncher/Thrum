@@ -486,6 +486,13 @@ namespace DS4Windows
 
         private IWaveIn capture;
         private BufferedWaveProvider captureBuffer;
+        // DefaultRenderEndpointWatcher.Generation when the capture is on the
+        // default playback device, else -1; and a capture that stopped on its
+        // own. Either makes the capture pump reopen the source.
+        private int boundDefaultGeneration = -1;
+        private int captureSourceLost;
+        private int captureLossReported;
+        private long nextCaptureRebindTimestamp;
         private Thread worker;
         private Thread capturePump;
         private Thread pacerLifecycleWorker;
@@ -713,24 +720,19 @@ namespace DS4Windows
                     return;
                 }
 
+                int defaultGeneration = DefaultRenderEndpointWatcher.Generation;
                 capture = CreateCapture(sourceEndpointId, sourceEndpointKind,
                     out string sourceName);
-                isGameAudioEndpoint = IsLikelyGameAudioEndpoint(sourceName);
-                captureBuffer = new BufferedWaveProvider(capture.WaveFormat)
+                if (UsesSystemDefault(sourceEndpointId, sourceEndpointKind))
                 {
-                    BufferDuration = TimeSpan.FromMilliseconds(CaptureBufferMs),
-                    DiscardOnBufferOverflow = true,
-                    ReadFully = false,
-                };
+                    boundDefaultGeneration = defaultGeneration;
+                }
+                isGameAudioEndpoint = IsLikelyGameAudioEndpoint(sourceName);
+                captureBuffer = CreateCaptureBuffer(capture);
                 capture.DataAvailable += Capture_DataAvailable;
                 capture.RecordingStopped += Capture_RecordingStopped;
 
-                ISampleProvider source = captureBuffer.ToSampleProvider();
-                source = ToStereo(source);
-                if (source.WaveFormat.SampleRate != SampleRate)
-                {
-                    source = new WdlResamplingSampleProvider(source, SampleRate);
-                }
+                ISampleProvider source = CreatePumpSource(captureBuffer);
 
                 capturePump = new Thread(() => CapturePumpLoop(source))
                 {
@@ -762,6 +764,38 @@ namespace DS4Windows
             }
         }
 
+        private static BufferedWaveProvider CreateCaptureBuffer(IWaveIn source)
+        {
+            return new BufferedWaveProvider(source.WaveFormat)
+            {
+                BufferDuration = TimeSpan.FromMilliseconds(CaptureBufferMs),
+                DiscardOnBufferOverflow = true,
+                ReadFully = false,
+            };
+        }
+
+        private static ISampleProvider CreatePumpSource(
+            BufferedWaveProvider buffer)
+        {
+            ISampleProvider source = ToStereo(buffer.ToSampleProvider());
+            if (source.WaveFormat.SampleRate != SampleRate)
+            {
+                source = new WdlResamplingSampleProvider(source, SampleRate);
+            }
+
+            return source;
+        }
+
+        private static bool UsesSystemDefault(string endpointId,
+            ControllerAudioEndpointKind endpointKind)
+        {
+            return string.Equals(endpointId,
+                DualSenseAudioPassthrough.DefaultSystemAudioEndpointId,
+                StringComparison.Ordinal) ||
+                (string.IsNullOrEmpty(endpointId) &&
+                    endpointKind == ControllerAudioEndpointKind.Any);
+        }
+
         private static IWaveIn CreateCapture(string endpointId,
             ControllerAudioEndpointKind endpointKind, out string sourceName)
         {
@@ -786,12 +820,7 @@ namespace DS4Windows
                     "The selected app is not running, so its audio cannot be streamed to the controller.");
             }
 
-            bool useSystemDefault = string.Equals(endpointId,
-                DualSenseAudioPassthrough.DefaultSystemAudioEndpointId,
-                StringComparison.Ordinal) ||
-                (string.IsNullOrEmpty(endpointId) &&
-                    endpointKind == ControllerAudioEndpointKind.Any);
-            if (useSystemDefault)
+            if (UsesSystemDefault(endpointId, endpointKind))
             {
                 sourceName = "Default audio endpoint";
                 return new LowLatencyWasapiLoopbackCapture(
@@ -1056,6 +1085,10 @@ namespace DS4Windows
                 if (!stopping)
                 {
                     captureBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
+                    if (Volatile.Read(ref captureLossReported) != 0)
+                    {
+                        Volatile.Write(ref captureLossReported, 0);
+                    }
                     int blockAlign = capture?.WaveFormat?.BlockAlign ?? 0;
                     if (blockAlign > 0)
                     {
@@ -1074,9 +1107,20 @@ namespace DS4Windows
             RequestGenerationEnd(Interlocked.Read(ref speakerGeneration));
             Volatile.Write(ref pacerPrewarmAttemptedForSegment, 0);
             Interlocked.Exchange(ref lastRawAudibleTimestamp, 0);
-            if (!stopping && e.Exception != null)
+            // App (process) captures end with their app and have their own
+            // detection; only a device capture is reopened.
+            if (!stopping && ReferenceEquals(sender, capture) &&
+                sender is not ProcessLoopbackWaveCapture)
             {
-                AppLogger.LogToGui($"DualSense Bluetooth speaker capture stopped: {e.Exception.Message}", true);
+                // Reopened by the capture pump; nothing is disposed here,
+                // because disposing joins the thread raising this event.
+                Volatile.Write(ref captureSourceLost, 1);
+                // Once per loss, not once per failed reopen.
+                if (e.Exception != null &&
+                    Interlocked.Exchange(ref captureLossReported, 1) == 0)
+                {
+                    AppLogger.LogToGui($"The audio source for the DualSense Bluetooth speaker stopped ({e.Exception.Message}). Thrum reconnects when it is available again.", true);
+                }
             }
         }
 
@@ -1086,6 +1130,7 @@ namespace DS4Windows
             while (!stopping)
             {
                 captureDataAvailable.WaitOne(10);
+                source = ReopenCaptureIfNeeded(source);
                 while (!stopping)
                 {
                     int samplesRead;
@@ -1102,6 +1147,98 @@ namespace DS4Windows
                     AppendCaptureSamples(buffer, samplesRead);
                 }
             }
+        }
+
+        // The capture used to stay bound to the device it opened on: after
+        // Windows switched the default output (headset, TV over HDMI) the
+        // controller speaker looped back a device nothing played to, and a
+        // source that went away (unplugged, audio service restart) was never
+        // reopened. Runs on the capture pump thread; retried once a second.
+        private ISampleProvider ReopenCaptureIfNeeded(ISampleProvider source)
+        {
+            int bound = Volatile.Read(ref boundDefaultGeneration);
+            int currentDefault = bound >= 0 ?
+                DefaultRenderEndpointWatcher.Generation : bound;
+            bool defaultMoved = bound >= 0 && bound != currentDefault;
+            if (!defaultMoved && Volatile.Read(ref captureSourceLost) == 0)
+            {
+                return source;
+            }
+
+            long now = Stopwatch.GetTimestamp();
+            if (now < nextCaptureRebindTimestamp)
+            {
+                return source;
+            }
+
+            nextCaptureRebindTimestamp = now + Stopwatch.Frequency;
+            IWaveIn replacement;
+            string sourceName;
+            int defaultGeneration = DefaultRenderEndpointWatcher.Generation;
+            try
+            {
+                replacement = CreateCapture(sourceEndpointId,
+                    sourceEndpointKind, out sourceName);
+            }
+            catch (Exception)
+            {
+                return source;
+            }
+
+            BufferedWaveProvider replacementBuffer =
+                CreateCaptureBuffer(replacement);
+            ISampleProvider replacementSource =
+                CreatePumpSource(replacementBuffer);
+            IWaveIn previous;
+            lock (syncRoot)
+            {
+                if (stopping)
+                {
+                    replacement.Dispose();
+                    return source;
+                }
+
+                previous = capture;
+                if (previous != null)
+                {
+                    previous.DataAvailable -= Capture_DataAvailable;
+                    previous.RecordingStopped -= Capture_RecordingStopped;
+                }
+
+                capture = replacement;
+                captureBuffer = replacementBuffer;
+                capture.DataAvailable += Capture_DataAvailable;
+                capture.RecordingStopped += Capture_RecordingStopped;
+                Volatile.Write(ref boundDefaultGeneration,
+                    UsesSystemDefault(sourceEndpointId, sourceEndpointKind) ?
+                        defaultGeneration : -1);
+                Volatile.Write(ref captureSourceLost, 0);
+            }
+
+            if (previous != null)
+            {
+                try { previous.StopRecording(); } catch { }
+                previous.Dispose();
+            }
+
+            try
+            {
+                replacement.StartRecording();
+            }
+            catch (Exception)
+            {
+                Volatile.Write(ref captureSourceLost, 1);
+                return replacementSource;
+            }
+
+            if (defaultMoved)
+            {
+                AppLogger.LogToGui(
+                    $"DualSense Bluetooth speaker now plays audio from {sourceName}.",
+                    false);
+            }
+
+            return replacementSource;
         }
 
         private void AppendCaptureSamples(float[] samples, int sampleCount)

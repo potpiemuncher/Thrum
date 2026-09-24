@@ -13,7 +13,14 @@
 		<StartupObject>DS4WinWPF.App</StartupObject>
 		<NeutralLanguage>en</NeutralLanguage>
 		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
-		<EnableNETAnalyzers>false</EnableNETAnalyzers>
+		<!-- The SDK's default rule set: every rule Microsoft ships as a warning out of
+		     the box. Recommended/All were measured at 3,120/5,023 warnings, almost
+		     all style rules (public fields, naming, static-able members) in the
+		     inherited engine files, so enabling them would break the minimal-diff
+		     policy in CONTRIBUTING.md for no defect found. See CHANGES-REVIEW.md. -->
+		<EnableNETAnalyzers>true</EnableNETAnalyzers>
+		<AnalysisLevel>8.0</AnalysisLevel>
+		<AnalysisMode>Default</AnalysisMode>
 		<ServerGarbageCollection>true</ServerGarbageCollection>
 		<!-- Version, AssemblyVersion, FileVersion and InformationalVersion are
 		     inherited from the repository-root Directory.Build.props. Do not

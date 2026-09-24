@@ -38,7 +38,8 @@ namespace DS4Windows
             IReadOnlyCollection<string> activeRenderEndpointIds,
             bool defaultRenderEndpointAvailable,
             bool controllerAudioEndpointAvailable,
-            Func<AudioHapticsProfileSettings, bool> appIsRunning)
+            Func<AudioHapticsProfileSettings, bool> appIsRunning,
+            bool? processLoopbackSupported = null)
         {
             if (settings == null)
             {
@@ -67,6 +68,17 @@ namespace DS4Windows
                         ? Valid("The selected render endpoint is available.")
                         : Invalid("The selected render endpoint is no longer available. Refresh sources and choose another endpoint.");
                 case AudioHapticsSourceKind.AppSession:
+                    // Per-app capture needs Windows' process loopback, which
+                    // first shipped in build 20348 (Windows 11). Older Windows
+                    // 10 accepted this source and then failed silently at
+                    // every attach attempt.
+                    if (!(processLoopbackSupported ??
+                        OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348)))
+                    {
+                        return Invalid(
+                            "Following a single app or detected game needs Windows 11. " +
+                            "On this version of Windows, choose the system mix or a playback device instead.");
+                    }
                     if (settings.AutomaticGameDetection)
                     {
                         return Valid(
@@ -74,6 +86,16 @@ namespace DS4Windows
                     }
                     if (appIsRunning == null || !appIsRunning(settings))
                     {
+                        // An app known by path or name is picked up again as
+                        // soon as it starts, so "not running yet" is the
+                        // normal state before playing, not an error.
+                        if (!string.IsNullOrWhiteSpace(settings.ProcessPath) ||
+                            !string.IsNullOrWhiteSpace(settings.ExecutableName))
+                        {
+                            return Valid(
+                                "Waiting for the selected app to start.");
+                        }
+
                         return Invalid(
                             "The selected app is not running. Start it, refresh sources, and select it again.");
                     }

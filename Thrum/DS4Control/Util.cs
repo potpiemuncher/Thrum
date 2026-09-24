@@ -282,7 +282,14 @@ namespace DS4Windows
             {
                 if (t.IsFaulted)
                 {
-                    AppLogger.LogToGui(t.Exception.ToString(), true);
+                    // Full stack trace to the log file only; the Log page and
+                    // status line get one plain sentence instead of a
+                    // multi-line AggregateException dump.
+                    NLog.LogManager.GetLogger("BackgroundTask").Error(
+                        "Background task failed: " + t.Exception);
+                    AppLogger.LogToGui("Something went wrong in the background: " +
+                        t.Exception.GetBaseException().Message +
+                        " Details are in the log file.", true);
                 }
             });
         }

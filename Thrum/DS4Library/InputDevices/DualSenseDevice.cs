@@ -2055,16 +2055,33 @@ namespace DS4Windows.InputDevices
                         }
                         else
                         {
+                            if (exitInputThread)
+                            {
+                                // StopUpdate cancelled the pending read. Stopping
+                                // is not a disconnect: no warning and no second
+                                // removal racing Stop's own teardown.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
+                            // Switched off, flat or out of range ends here with
+                            // a timeout or ERROR_DEVICE_NOT_CONNECTED (1167);
+                            // the removal handler tells the user in plain words.
+                            // Any other read error is unexpected: still a warning.
+                            const int ErrorDeviceNotConnected = 1167;
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to timeout", true);
+                                ControlService.StartupDiag(Mac.ToString() + " disconnected due to timeout");
                             }
                             else
                             {
                                 int winError = Marshal.GetLastWin32Error();
                                 Console.WriteLine($"{Mac} {DateTime.UtcNow.ToString("o")} > disconnect due to read failure: {winError.ToString("x8")}");
                                 //Log.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
+                                if (winError == ErrorDeviceNotConnected)
+                                    ControlService.StartupDiag(Mac.ToString() + " disconnected due to read failure: " + winError);
+                                else
+                                    AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
                             }
 
                             exitInputThread = true;
@@ -2084,9 +2101,16 @@ namespace DS4Windows.InputDevices
                         HidDevice.ReadStatus res = hDevice.ReadFile(inputReport);
                         if (res != HidDevice.ReadStatus.Success)
                         {
+                            if (exitInputThread)
+                            {
+                                // Cancelled by StopUpdate: not a disconnect.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to timeout", true);
+                                ControlService.StartupDiag(Mac.ToString() + " disconnected due to timeout");
                             }
                             else
                             {

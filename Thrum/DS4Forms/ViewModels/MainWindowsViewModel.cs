@@ -293,17 +293,21 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     : null;
 
             NativePs5HidHideStatus hidHide;
-            if (!Global.hidHideInstalled)
+            if (device.CurrentExclusiveStatus != DS4Device.ExclusiveStatus.Shared)
+            {
+                // Exclusive access hides the pad from games on its own, so the
+                // "HidHide is not installed" warning was false here and showed
+                // on every launch (the status enum documents Hiding as
+                // "HidHide (or exclusive access)").
+                hidHide = NativePs5HidHideStatus.Hiding;
+            }
+            else if (!Global.hidHideInstalled)
             {
                 hidHide = NativePs5HidHideStatus.NotInstalled;
             }
-            else if (device.CurrentExclusiveStatus == DS4Device.ExclusiveStatus.Shared)
-            {
-                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
-            }
             else
             {
-                hidHide = NativePs5HidHideStatus.Hiding;
+                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
             }
 
             return new NativePs5ModeInputs(
@@ -975,11 +979,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public void CheckDrivers()
         {
-            ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus(tryStartServer: true);
-            if (!status.Ready)
-            {
-                ViiperSetupManager.EnsureReadyWithPrompt(null, forcePrompt: true);
-            }
+            // Starts an installed backend so the service-start status line
+            // sees it. Never prompts: a launch is not a request for virtual
+            // output, and this used to open a modal install offer on every
+            // start without VIIPER, holding back controller detection until it
+            // was answered. The install offers are the first-run wizard, the
+            // output-type choice (EnsureReadyWithPrompt) and the plain refusal
+            // when a virtual output is actually plugged.
+            ViiperSetupManager.GetStatus(tryStartServer: true);
         }
 
         public bool IsNET8Available()

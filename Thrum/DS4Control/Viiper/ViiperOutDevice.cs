@@ -731,9 +731,10 @@ namespace DS4Windows
             StartFeedbackReader();
             if (stateWriteRateHz > 0)
             {
-                AppLogger.LogToGui(
-                    $"VIIPER {viiperType} virtual input presentation is capped at {stateWriteRateHz} Hz with latest-state coalescing.",
-                    false);
+                // The cap is on by default, so this is a diagnostic, not news:
+                // as a log line it printed on every connect.
+                ControlService.StartupDiag(
+                    $"VIIPER {viiperType} virtual input presentation is capped at {stateWriteRateHz} Hz with latest-state coalescing.");
             }
         }
 
@@ -771,9 +772,9 @@ namespace DS4Windows
                     ViiperFeatureClass.ControllerOnly);
             if (!baseline.Allowed)
             {
-                AppLogger.LogToGui(
-                    $"Refused to create the virtual {outputType.ToDisplayName()} output. " +
-                    baseline.Reason, true);
+                // Not logged here: every caller of Connect already logs the
+                // exception message, so logging it too printed each refusal
+                // twice per controller per connect.
                 throw new IOException(baseline.Reason);
             }
 
@@ -794,9 +795,19 @@ namespace DS4Windows
                 throw new IOException(audio.Reason);
             }
 
-            AppLogger.LogToGui(
-                $"Virtual {outputType.ToDisplayName()} output is starting without its audio and microphone interfaces. " +
-                audio.Reason, false);
+            // Audio endpoints off is the default; saying so with the full risk
+            // paragraph on every connect was noise. Other refusals still log.
+            if (audio.Block == ViiperVirtualDeviceBlock.AudioClassNotEnabled)
+            {
+                ControlService.StartupDiag(
+                    $"Virtual {outputType.ToDisplayName()} output starting without audio interfaces (audio endpoints off).");
+            }
+            else
+            {
+                AppLogger.LogToGui(
+                    $"Virtual {outputType.ToDisplayName()} output is starting without its audio and microphone interfaces. " +
+                    audio.Reason, false);
+            }
             return false;
         }
 
@@ -4368,7 +4379,10 @@ namespace DS4Windows
 
             if (Interlocked.Exchange(ref edgePhysicalMismatchLogged, 1) == 0)
             {
-                AppLogger.LogToGui("VIIPER DualSense Edge native feedback is not being forwarded to a physical non-Edge DualSense. Use DualSense output for normal DualSense controllers, or connect a DualSense Edge for Edge native feedback.", true);
+                // Information, not a warning: choosing Edge output for a
+                // standard DualSense is a valid configuration (rumble falls
+                // back), and it was flagged as a warning on every connect.
+                AppLogger.LogToGui("VIIPER DualSense Edge native feedback is not being forwarded to a physical non-Edge DualSense. Use DualSense output for normal DualSense controllers, or connect a DualSense Edge for Edge native feedback.", false);
             }
 
             return false;

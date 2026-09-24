@@ -486,7 +486,9 @@ namespace DS4WindowsTests
                 acknowledged: true, audio: false);
 
             Assert.IsTrue(banner.IsVisible);
-            Assert.AreEqual("Limited", banner.Severity);
+            // Audio off by default is the recommended state: a neutral note,
+            // not a warning (no warning banner on a normal launch).
+            Assert.AreEqual("Info", banner.Severity);
             StringAssert.Contains(banner.Headline, "audio");
             StringAssert.Contains(banner.Text, "already plugged in");
         }

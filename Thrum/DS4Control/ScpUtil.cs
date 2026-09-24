@@ -9645,16 +9645,18 @@ namespace DS4Windows
                 }
                 catch (InvalidOperationException e)
                 {
-                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {e.InnerException.Message}", false);
+                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {(e.InnerException ?? e).Message}", false);
                 }
                 catch (XmlException e)
                 {
-                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {e.InnerException.Message}", false);
+                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {(e.InnerException ?? e).Message}", false);
                 }
             }
             else
             {
-                AppLogger.LogToGui("LinkedProfiles.xml can't be found.", false);
+                // No file is the normal state until a profile is linked to a
+                // controller; logging it put an error-sounding line in every
+                // launch's log.
                 loaded = false;
             }
 

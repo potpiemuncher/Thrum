@@ -125,6 +125,31 @@ namespace DS4WindowsTests
             return Release(tag, publishedAt, prerelease: false);
         }
 
+        [TestMethod]
+        public void ASkippedReleaseIsSkippedExactlyAndOnlyItself()
+        {
+            Assert.IsTrue(ReleaseChannelPolicy.IsSkippedRelease(
+                "v0.9.1-beta.3", "v0.9.1-beta.3"));
+            Assert.IsTrue(ReleaseChannelPolicy.IsSkippedRelease(
+                "V0.9.1-BETA.3 ", " v0.9.1-beta.3"),
+                "tag case and stray whitespace must not defeat a skip");
+
+            // The next beta parses to the same 0.9.1 but is a different
+            // release; skipping one must not hide the other.
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease(
+                "v0.9.1-beta.4", "v0.9.1-beta.3"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease(
+                "v0.9.2", "v0.9.1-beta.3"));
+        }
+
+        [TestMethod]
+        public void NothingIsSkippedWithoutAStoredSkip()
+        {
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease("v0.9.1", null));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease("v0.9.1", string.Empty));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease(null, "v0.9.1"));
+        }
+
         private static GithubRelease Prerelease(string tag, string publishedAt)
         {
             return Release(tag, publishedAt, prerelease: true);

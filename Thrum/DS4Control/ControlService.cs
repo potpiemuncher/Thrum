@@ -607,8 +607,10 @@ namespace DS4Windows
             {
                 stickMouseFakerInputMissingNoticeShown = true;
                 string helpURL = "https://github.com/Ryochan7/FakerInput/";
+                // Log line only. The tray toast that accompanied it returned on
+                // every launch (the "shown" flag is per session), which is a
+                // toast on a normal launch for an optional driver.
                 LogDebug($"Stick mouse profile detected, but FakerInput is not installed. Install FakerInput to expose a persistent virtual mouse and avoid hidden cursor behavior on couch/TV setups: {helpURL}");
-                AppLogger.LogToTray("Stick mouse works best with FakerInput installed for a persistent virtual mouse.");
             }
         }
 
@@ -1185,8 +1187,10 @@ namespace DS4Windows
                 ChangeExclusiveStatus(device);
                 StartupDiag($"HidHide virtual-output containment ready index={index} type={contType}");
             }
-            else if (ViiperOutDevice.IsViiperType(contType))
+            else if (ViiperOutDevice.IsViiperType(contType) && !device.isExclusive())
             {
+                // An exclusive open already hides the pad from games; the
+                // warning used to fire on every connect in that case too.
                 LogDebug($"VIIPER {contType} output is active but the physical {device.DisplayName} could not be hidden with HidHide. Games may detect both the physical controller and the virtual controller.", true);
             }
         }
@@ -1653,8 +1657,14 @@ namespace DS4Windows
                 bool runningAsAdmin = Global.IsAdministrator();
                 if (Global.outputKBMHandler.GetIdentifier() != FakerInputHandler.IDENTIFIER && !runningAsAdmin)
                 {
-                    string helpURL = @"https://ryochan7.github.io/ds4windows-site/troubleshooting/kb-mouse-issues/#windows-not-responding-to-ds4ws-kb-m-commands-in-some-situations";
-                    LogDebug($"Some applications may block controller inputs. (Windows UAC Conflictions). Please go to {helpURL} for more information and workarounds.");
+                    // Verbose diagnostics only. As a normal log line this
+                    // warned on every start for everyone who is not admin
+                    // (the required setup) and pointed at another product's
+                    // site. The explanation lives in USERGUIDE.md >
+                    // Troubleshooting ("Keyboard or mouse output does not
+                    // reach an app").
+                    StartupDiag("SendInput cannot reach apps running as administrator while " +
+                        ProductInfo.ProductName + " runs without admin rights (Windows UIPI).");
                 }
 
                 LogDebug($"Using output KB+M handler: {Global.outputKBMHandler.GetFullDisplayName()}");
@@ -1755,8 +1765,11 @@ namespace DS4Windows
                     // instead: input discovery refuses any pad attached
                     // through the usbip-win2 controller
                     // (UsbipAttachedInputPolicy), which needs no memory of who
-                    // created it.
-                    ViiperUsbipPortManager.ObserveLocalImports();
+                    // created it. Without usbip-win2 there is nothing to
+                    // observe, and querying anyway logged a WARN on every
+                    // start for everyone who never installed it.
+                    if (viiperStatus.UsbipInstalled)
+                        ViiperUsbipPortManager.ObserveLocalImports();
 
                     StartupDiag("DS4Devices.findControllers dispatch begin");
                     eventDispatcher.Invoke(() =>
@@ -2603,9 +2616,18 @@ namespace DS4Windows
                 return;
             }
 
-            AppLogger.LogToGui(
-                $"Controller #{index + 1}: no PlayStation audio interface was created. " +
-                decision.Reason, false);
+            // Audio endpoints off is the default and recommended state, and a
+            // Sony pad on Bluetooth with an Xbox or Switch output is the most
+            // common setup, so this used to print the full kernel-risk
+            // paragraph on every launch. The Settings card and the Output
+            // Slots note already explain the switch; only a refusal for any
+            // other reason still reaches the log.
+            if (decision.Block != ViiperVirtualDeviceBlock.AudioClassNotEnabled)
+            {
+                AppLogger.LogToGui(
+                    $"Controller #{index + 1}: no PlayStation audio interface was created. " +
+                    decision.Reason, false);
+            }
             StartupDiag(
                 $"PlayStation audio sidecar gated index={index} block={decision.Block}");
         }

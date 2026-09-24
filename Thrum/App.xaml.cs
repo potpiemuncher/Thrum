@@ -301,10 +301,22 @@ namespace DS4WinWPF
                 logger.Info("No config found. Creating default config");
                 AttemptSave();
 
-                DS4Windows.Global.SaveAsNewProfile(0, "Default");
+                // First run is inferred from a marker file, so it can also be
+                // true over surviving settings (marker deleted, or present in
+                // both the portable and app-data folders). Create only what is
+                // missing: this used to overwrite an existing Default profile
+                // and point every controller back at it.
+                if (!BootstrapProfileExists("Default"))
+                {
+                    DS4Windows.Global.SaveAsNewProfile(0, "Default");
+                }
+
                 for (int i = 0; i < DS4Windows.ControlService.MAX_DS4_CONTROLLER_COUNT; i++)
                 {
-                    DS4Windows.Global.ProfilePath[i] = DS4Windows.Global.OlderProfilePath[i] = "Default";
+                    if (!BootstrapProfileExists(DS4Windows.Global.ProfilePath[i]))
+                    {
+                        DS4Windows.Global.ProfilePath[i] = DS4Windows.Global.OlderProfilePath[i] = "Default";
+                    }
                 }
 
                 logger.Info("Default config created");
@@ -352,6 +364,7 @@ namespace DS4WinWPF
             window.Show();
             StartupDiag(logger, "MainWindow.Show end");
             window.IsInitialShow = false;
+            DS4Windows.ViiperSetupManager.AllowRestartAfterSetup();
 
             // Set up hooks for IPC command calls
             HwndSource source = PresentationSource.FromVisual(window) as HwndSource;
@@ -604,6 +617,26 @@ namespace DS4WinWPF
 
 
             return result;
+        }
+
+        private static bool BootstrapProfileExists(string profileName)
+        {
+            if (string.IsNullOrWhiteSpace(profileName))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(Path.Combine(DS4Windows.Global.appdatapath,
+                    "Profiles", profileName + ".xml"));
+            }
+            catch (Exception)
+            {
+                // A remembered name with illegal path characters is not a
+                // profile that can be loaded; treat it as missing.
+                return false;
+            }
         }
 
         private void AttemptSave()

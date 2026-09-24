@@ -275,7 +275,11 @@ namespace DS4WinWPF.DS4Forms
                 {
                     try
                     {
-                        if (Changelog.CheckNewerReleaseExists(out string releaseTag, false))
+                        // A release the person chose to skip is not offered
+                        // again by this unsolicited check; the manual Check
+                        // for updates button still shows it.
+                        if (Changelog.CheckNewerReleaseExists(out string releaseTag, false) &&
+                            !ReleaseChannelPolicy.IsSkippedRelease(releaseTag, Global.LastVersionChecked))
                         {
                             DisplayUpdaterWindow(releaseTag);
                         }
@@ -2517,31 +2521,70 @@ Suspend support not enabled.", true);
 
         private async void DriverSetupBtn_Click(object sender, RoutedEventArgs e)
         {
+            // The setup window runs in a separate elevated process. Waiting
+            // for it used to block this window's message loop for as long as
+            // it stayed open ("Not Responding"), a declined administrator
+            // prompt was swallowed silently, and the controller service stayed
+            // stopped afterwards.
+            driverSetupBtn.IsEnabled = false;
             StartStopBtn.IsEnabled = false;
-            await Task.Run(() =>
-            {
-                if (App.rootHub.running)
-                    App.rootHub.Stop();
-            });
-
-            StartStopBtn.IsEnabled = true;
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = Global.exelocation;
-            startInfo.Arguments = "-driverinstall";
-            startInfo.Verb = "runas";
-            startInfo.UseShellExecute = true;
+            bool wasRunning = App.rootHub.running;
             try
             {
-                using (Process temp = Process.Start(startInfo))
-                {
-                    temp.WaitForExit();
-                    Global.RefreshHidHideInfo();
-                    Global.RefreshFakerInputInfo();
+                ProcessStartInfo startInfo = new ProcessStartInfo();
+                startInfo.FileName = Global.exelocation;
+                startInfo.Arguments = "-driverinstall";
+                startInfo.Verb = "runas";
+                startInfo.UseShellExecute = true;
 
-                    settingsWrapVM.DriverCheckRefresh();
+                Process temp;
+                try
+                {
+                    temp = Process.Start(startInfo);
+                }
+                catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+                {
+                    AppLogger.LogToGui("Driver setup was canceled at the Windows administrator prompt. Nothing was changed.", false);
+                    return;
+                }
+
+                if (temp == null)
+                {
+                    return;
+                }
+
+                using (temp)
+                {
+                    if (wasRunning)
+                    {
+                        await Task.Run(() => App.rootHub.Stop());
+                    }
+
+                    await temp.WaitForExitAsync();
+                }
+
+                Global.RefreshHidHideInfo();
+                Global.RefreshFakerInputInfo();
+                settingsWrapVM.DriverCheckRefresh();
+
+                if (wasRunning && !App.rootHub.running)
+                {
+                    Task restart = Task.Run(() => App.rootHub.Start());
+                    // A failed restart is logged by LogAssistBackgroundTask;
+                    // it is not a failure to start driver setup.
+                    Util.LogAssistBackgroundTask(restart);
+                    await restart.ContinueWith(_ => { }, TaskScheduler.Default);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogToGui("Driver setup could not be started: " + ex.Message, true);
+            }
+            finally
+            {
+                driverSetupBtn.IsEnabled = true;
+                StartStopBtn.IsEnabled = true;
+            }
         }
 
         private void ViiperSetupBtn_Click(object sender, RoutedEventArgs e)

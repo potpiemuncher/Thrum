@@ -1511,6 +1511,23 @@ namespace DS4Windows
                         }
                         else
                         {
+                            if (exitInputThread)
+                            {
+                                // StopUpdate cancelled the pending read. Stopping
+                                // is not a disconnect: no warning, no "kick"
+                                // output report, and no Removal racing Stop's
+                                // own teardown.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
+                            // A pad that is switched off, runs flat or leaves
+                            // range ends here with a timeout or
+                            // ERROR_DEVICE_NOT_CONNECTED (1167). On_DS4Removal
+                            // already tells the user in plain words, so those
+                            // details go to the diagnostic log; any other read
+                            // error is unexpected and stays a warning.
+                            const int ErrorDeviceNotConnected = 1167;
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
                                 long lastInputTick = Interlocked.Read(
@@ -1518,21 +1535,23 @@ namespace DS4Windows
                                 long lastInputAge = lastInputTick == 0 ? -1 :
                                     Math.Max(0, Environment.TickCount64 -
                                         lastInputTick);
-                                AppLogger.LogToGui(Mac.ToString() +
+                                ControlService.StartupDiag(Mac.ToString() +
                                     " disconnected due to timeout" +
                                     $" (lastValidInputAgeMs={lastInputAge}, " +
                                     $"speaker={BluetoothSpeakerStreaming}, " +
                                     $"microphone={BluetoothMicrophoneStreaming}, " +
                                     $"effectWrites={BluetoothEffectReportsDuringAudio}, " +
-                                    $"effectDeferred={BluetoothEffectReportsDeferredDuringAudio})",
-                                    true);
+                                    $"effectDeferred={BluetoothEffectReportsDeferredDuringAudio})");
                             }
                             else
                             {
                                 int winError = Marshal.GetLastWin32Error();
                                 Console.WriteLine($"{Mac} {DateTime.UtcNow.ToString("o")}> disconnect due to read failure: {winError.ToString("x8")}");
                                 //Log.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
+                                if (winError == ErrorDeviceNotConnected)
+                                    ControlService.StartupDiag(Mac.ToString() + " disconnected due to read failure: " + winError);
+                                else
+                                    AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
                             }
 
                             readWaitEv.Reset();
@@ -1554,9 +1573,16 @@ namespace DS4Windows
                             conType == ConnectionType.BT ? READ_STREAM_TIMEOUT : uint.MaxValue);
                         if (res != HidDevice.ReadStatus.Success)
                         {
+                            if (exitInputThread)
+                            {
+                                // Cancelled by StopUpdate: not a disconnect.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to timeout", true);
+                                ControlService.StartupDiag(Mac.ToString() + " disconnected due to timeout");
                             }
                             else
                             {

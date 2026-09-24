@@ -57,6 +57,7 @@ namespace DS4WinWPF.DS4Forms
 
         private ControllerDiagramKind controllerDiagramKind;
         private bool controllerDiagramSelectorReady;
+        private bool applyingEditorBindings;
         private double controllerCoordinateScale = 1.0;
         private double controllerCoordinateOffsetX;
         private bool usingDualSenseDiagram =>
@@ -1840,7 +1841,18 @@ namespace DS4WinWPF.DS4Forms
             profileSettingsVM.PopulateGyroMouseStickTrig(gyroMouseStickTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroSwipeTrig(gyroSwipeTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroControlsTrig(gyroControlsTrigBtn.ContextMenu);
-            profileSettingsTabCon.DataContext = profileSettingsVM;
+            // Binding the tab moves outConTypeCombo from its fallback index to
+            // the profile's output, which raises SelectionChanged. That is the
+            // editor loading, not the user choosing an output.
+            applyingEditorBindings = true;
+            try
+            {
+                profileSettingsTabCon.DataContext = profileSettingsVM;
+            }
+            finally
+            {
+                applyingEditorBindings = false;
+            }
             mappingListBox.DataContext = mappingListVM;
             specialActionsTab.DataContext = specialActionsVM;
             lightbarRect.DataContext = profileSettingsVM;
@@ -1918,7 +1930,18 @@ namespace DS4WinWPF.DS4Forms
             profileSettingsVM.PopulateGyroMouseStickTrig(gyroMouseStickTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroSwipeTrig(gyroSwipeTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroControlsTrig(gyroControlsTrigBtn.ContextMenu);
-            profileSettingsTabCon.DataContext = profileSettingsVM;
+            // Binding the tab moves outConTypeCombo from its fallback index to
+            // the profile's output, which raises SelectionChanged. That is the
+            // editor loading, not the user choosing an output.
+            applyingEditorBindings = true;
+            try
+            {
+                profileSettingsTabCon.DataContext = profileSettingsVM;
+            }
+            finally
+            {
+                applyingEditorBindings = false;
+            }
             mappingListBox.DataContext = mappingListVM;
             specialActionsTab.DataContext = specialActionsVM;
             lightbarRect.DataContext = profileSettingsVM;
@@ -2546,7 +2569,12 @@ namespace DS4WinWPF.DS4Forms
             int index = outConTypeCombo.SelectedIndex;
             if (index >= 0)
             {
-                if (ViiperSetupManager.IsViiperOutputType(profileSettingsVM.TempConType))
+                // Only a choice the user makes prompts. Every profile's output
+                // is a VIIPER type, so opening the editor used to run the
+                // backend probe on the UI thread (and could show the
+                // experimental-driver notice) each time it opened.
+                if (!applyingEditorBindings &&
+                    ViiperSetupManager.IsViiperOutputType(profileSettingsVM.TempConType))
                 {
                     // Transport first (is the backend installed at all), then
                     // the experimental-driver acknowledgement. Asking for

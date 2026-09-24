@@ -42,6 +42,15 @@ public class StartupUpdateCheckTests
     }
 
     [TestMethod]
+    public void TheStartupUpdateCheckHonoursASkippedVersion()
+    {
+        string lateChecks = MethodBody("LateChecks");
+
+        Assert.IsTrue(lateChecks.Contains("ReleaseChannelPolicy.IsSkippedRelease"),
+            "the unsolicited startup check must not re-offer a release the person skipped");
+    }
+
+    [TestMethod]
     public void TheManualCheckStillAnswersThePersonWhoAskedForIt()
     {
         string manual = MethodBody("CheckUpdatesBtn_Click");

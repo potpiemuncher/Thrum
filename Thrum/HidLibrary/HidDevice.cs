@@ -508,7 +508,10 @@ namespace DS4Windows
             // as long the same device is always connected to the same usb port.
             if (serial == null)
             {
-                AppLogger.LogToGui($"WARNING: Failed to read serial# from a gamepad ({this._deviceAttributes.VendorHexId}/{this._deviceAttributes.ProductHexId}). Generating MAC address from a device path. From now on you should connect this gamepad always into the same USB port or BT pairing host to keep the same device path.", true);
+                // Expected for some controllers (the comment above), so this is
+                // information in plain words rather than a warning on every
+                // connect of those controllers.
+                AppLogger.LogToGui($"This controller ({this._deviceAttributes.VendorHexId}/{this._deviceAttributes.ProductHexId}) does not report a serial number, so it is recognised by the USB port or Bluetooth pairing it uses. Keep using the same port so a linked profile still finds it.", false);
                 serial = GenerateFakeHwSerial();
             }
 

@@ -358,6 +358,15 @@ endpoints and accept their separate risk.
 4. Open **Log** and search for audio/haptics stream start, source resolution, or
    health messages.
 
+### Keyboard or mouse output does not reach an app
+
+Windows does not let a program running with normal rights send keystrokes or
+mouse input to a program running as administrator. If a profile maps buttons
+to keys or the mouse and one particular app ignores them, check whether that
+app runs as administrator (Task Manager > Details > "Elevated" column). Run
+that app normally if it allows it. Thrum itself is designed to run without
+administrator rights and does not need them for anything else.
+
 ### Reporting a problem
 
 Copy the Diagnostics report, export the relevant Log buffer, and include the

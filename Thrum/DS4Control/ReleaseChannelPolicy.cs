@@ -117,6 +117,20 @@ namespace DS4Windows
                 currentVersion < selectedVersion;
         }
 
+        /// <summary>
+        /// True when the person chose "Skip this version" for exactly this
+        /// release. The tag is compared as text, not as a parsed number:
+        /// "v0.9.0-beta.2" and "v0.9.0-beta.3" parse to the same 0.9.0, and
+        /// skipping one beta must not hide the next.
+        /// </summary>
+        public static bool IsSkippedRelease(string offeredTag, string skippedTag)
+        {
+            return !string.IsNullOrWhiteSpace(offeredTag) &&
+                !string.IsNullOrWhiteSpace(skippedTag) &&
+                string.Equals(offeredTag.Trim(), skippedTag.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
         public static bool TryParseReleaseVersion(string versionText, out Version version)
         {
             version = new Version(0, 0, 0);

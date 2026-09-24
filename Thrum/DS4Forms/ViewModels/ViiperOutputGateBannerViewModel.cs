@@ -119,7 +119,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         /// <summary>
         /// Drives the banner's treatment. A refusal to create anything is an
-        /// error; a missing capability the user switched off is a warning.
+        /// error. Audio endpoints that are off only because the user has not
+        /// opted in - the default - are a neutral note ("Info"): that is the
+        /// recommended configuration, and styling it as a warning put an amber
+        /// banner on this page on every normal launch. Any other audio-only
+        /// refusal is still a warning ("Limited").
         /// </summary>
         public string Severity
         {
@@ -130,7 +134,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     return "Blocked";
                 }
 
-                return audio != null && !audio.Allowed ? "Limited" : "None";
+                if (audio != null && !audio.Allowed)
+                {
+                    return audio.Block == ViiperVirtualDeviceBlock.AudioClassNotEnabled
+                        ? "Info"
+                        : "Limited";
+                }
+
+                return "None";
             }
         }
 

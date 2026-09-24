@@ -431,6 +431,17 @@ namespace DS4Windows
             }
         }
 
+        private static int restartAllowed;
+
+        /// <summary>
+        /// Called once the main window is shown. Until then a successful setup
+        /// does not restart the app (see <see cref="InstallerProcess_Exited"/>).
+        /// </summary>
+        public static void AllowRestartAfterSetup()
+        {
+            Interlocked.Exchange(ref restartAllowed, 1);
+        }
+
         private static void InstallerProcess_Exited(Process process,
             Window owner)
         {
@@ -464,14 +475,33 @@ namespace DS4Windows
                     Interlocked.Exchange(ref promptShownThisSession, 0);
                 }
 
+                // Setup launched from the first-run wizard finishes before the
+                // main window exists. Restarting then shut the app down under
+                // the open wizard, before the first-run marker was written, so
+                // the replacement process showed the wizard again while the
+                // old one carried on starting up. Nothing needs a restart yet:
+                // the controller service has not started, and it starts with
+                // the refreshed status once the wizard closes.
+                bool restartNow = report.RestartApplication &&
+                    Volatile.Read(ref restartAllowed) == 1;
+                string logMessage = report.Message;
+                string restartSentence = "Restarting " + ProductInfo.ProductName + ".";
+                if (report.RestartApplication && !restartNow &&
+                    logMessage.EndsWith(restartSentence, StringComparison.Ordinal))
+                {
+                    logMessage = logMessage.Substring(0,
+                        logMessage.Length - restartSentence.Length) +
+                        "It will be used when setup finishes.";
+                }
+
                 AppLogger.LogToGui((report.Succeeded ? "SUCCESSFUL: " : string.Empty) +
-                    report.Message.Replace("\n", " "), report.IsError, false);
+                    logMessage.Replace("\n", " "), report.IsError, false);
 
                 InstallerFinished?.Invoke(null,
                     new ViiperInstallerFinishedEventArgs(report.Succeeded,
-                        report.Message, refreshed));
+                        logMessage, refreshed));
 
-                if (report.RestartApplication && RequestRestart())
+                if (restartNow && RequestRestart())
                 {
                     return;
                 }

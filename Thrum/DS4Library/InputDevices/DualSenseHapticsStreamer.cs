@@ -629,7 +629,11 @@ namespace DS4Windows.InputDevices
                     if (tick - lastHealthLogTick > 2800) // ~30 s
                     {
                         long ringDrops = audioRing?.TakeDropCount() ?? 0;
-                        if (audioUnderruns > 0 || stallSkips > 0 || slowWrites > 0 || ringDrops > 0)
+                        // Diagnostic telemetry, gated like AudioHapticsService's:
+                        // one slow write on an ordinary link was enough to print
+                        // this every 30 s into the user's log.
+                        if (Global.VerboseStartupLogging &&
+                            (audioUnderruns > 0 || stallSkips > 0 || slowWrites > 0 || ringDrops > 0))
                         {
                             AppLogger.LogToGui($"{device.MacAddress}: BT stream health: " +
                                 $"underruns={audioUnderruns} drops={ringDrops} stallSkips={stallSkips} " +

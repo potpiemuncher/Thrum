@@ -31,6 +31,7 @@ namespace DS4Windows
         private readonly object[] slotLocks = Enumerable.Range(0,
             ControllerCount).Select(_ => new object()).ToArray();
         private readonly SlotRuntime[] slots = new SlotRuntime[ControllerCount];
+        private readonly int[] nonDualSenseNoticeShown = new int[ControllerCount];
         private readonly AudioHapticsRuntimeStatus[] slotStatuses =
             Enumerable.Range(0, ControllerCount)
                 .Select(_ => AudioHapticsRuntimeStatus.Inactive).ToArray();
@@ -42,6 +43,12 @@ namespace DS4Windows
         /// Status shown while a profile has Audio Haptics enabled but the
         /// virtual DualSense's own haptics path is live (issue #87).
         /// </summary>
+        /// <summary>
+        /// Automatic game detection is armed and no game is running yet. A
+        /// normal state, not a failure: the lane reports it as ready.
+        /// </summary>
+        public const string WaitingForGameMessage = "Waiting for a detected game";
+
         public const string NativeHapticsSuspendedMessage =
             "Audio Haptics is off: the game drives haptics through the " +
             "virtual DualSense.";
@@ -105,11 +112,15 @@ namespace DS4Windows
             if (!settings.Enabled || device is not DualSenseDevice dualSense)
             {
                 Stop(slot);
-                if (settings.Enabled && device != null)
+                // Sharing an Audio Haptics profile with a non-DualSense pad is
+                // a valid setup. Say so once per slot per session, as
+                // information; it used to be a warning on every profile load.
+                if (settings.Enabled && device != null &&
+                    Interlocked.Exchange(ref nonDualSenseNoticeShown[slot], 1) == 0)
                 {
                     AppLogger.LogToGui(
                         "Audio Haptics requires a physical DualSense or DualSense Edge controller.",
-                        true);
+                        false);
                 }
                 return;
             }
@@ -540,7 +551,7 @@ namespace DS4Windows
                         .CreateAutomatic(slot);
                     sourceDisplayName = "Waiting for a detected game";
                     status = new AudioHapticsRuntimeStatus(false,
-                        "Waiting for a game");
+                        WaitingForGameMessage);
                 }
                 else
                 {
@@ -693,7 +704,7 @@ namespace DS4Windows
                     processCapture?.CurrentProcessId <= 0)
                 {
                     status = new AudioHapticsRuntimeStatus(false,
-                        "Waiting for a detected game");
+                        WaitingForGameMessage);
                     return;
                 }
 
@@ -940,7 +951,7 @@ namespace DS4Windows
                     ? CreateRunningStatus(
                         $"Active · {eventArgs.DisplayName}")
                     : new AudioHapticsRuntimeStatus(false,
-                        "Waiting for a detected game");
+                        WaitingForGameMessage);
                 status = PreferUsbFailureStatus(device.ConnectionType,
                     Volatile.Read(ref usbOutputFailureMessage), status);
             }

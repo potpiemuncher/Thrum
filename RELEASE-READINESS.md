@@ -6,33 +6,29 @@ items and the test plan.
 
 ## Verdict
 
-**Ready for a wider beta once decision #5 is made and the build is signed.
-Not ready for a general (non-beta) release.**
+**Ready for a wider beta once the build is signed and the
+[pre-release test checklist](#pre-release-test-checklist) passes on real
+hardware. Not ready for a general (non-beta) release.**
 
-The review fixed every Critical finding and 28 of 36 High ones (a 29th is
-mitigated). The rest are waiting on a decision from you, a check in the VM, or
-a real controller. Nothing found is unsafe to hand to beta testers who know
-it is a beta. Before a wider audience:
+The review fixed every Critical finding and 32 of 36 High ones (a 33rd is
+mitigated). Your six decisions were made on 2026-09-24 and are implemented
+([Decisions](#decisions)). What is left waits on a check in the VM or a real
+controller. Nothing found is unsafe to hand to beta testers who know it is a
+beta. Before a wider audience:
 
-1. **Decision #5 — the experimental-driver consent is never collected by the
-   first-run wizard.** A new user who follows setup gets no virtual controller
-   (Xbox 360 output is refused on every connect) until they find the switch in
-   Settings. The README now says where it is, but the core flow should not
-   depend on reading the README.
-2. **Sign the release.** Unsigned, every download shows "Windows protected your
-   PC", and the elevated setup script runs with `-ExecutionPolicy Bypass`,
-   which is the pattern Defender flags. See [Code signing](#code-signing).
-3. **Decide the elevation items (#1, #2, #4).** The app still asks for
-   administrator rights at runtime in one case (exclusive mode) and runs
-   downloaded installers elevated from `%TEMP%` in another. Both break the
-   "no admin at runtime" rule and are Defender triggers.
-4. **.NET 8 support ends on 2026-11-10** (decision #6). The release bundles its
-   own .NET runtime, so after that date users stop getting its security fixes
-   unless the app moves to .NET 10.
-5. **Run the [pre-release test checklist](#pre-release-test-checklist) on real
-   hardware.** Several fixes touch hardware paths (Switch Pro/Joy-Con HID
-   writes, Bluetooth audio lanes, device-change recovery) that the review
-   could build and reason about but not run.
+1. **Sign the release.** Unsigned, every download shows "Windows protected your
+   PC", and VIIPER setup keeps running its script with `-ExecutionPolicy
+   Bypass`. A signed build switches to `AllSigned` by itself (decision #4). See
+   [Code signing](#code-signing).
+2. **Run the [pre-release test checklist](#pre-release-test-checklist) on real
+   hardware.** The move to .NET 10 and the decisions changed paths the review
+   could build and test but not run: the first-run consent step, exclusive
+   mode's shared-mode fallback, the startup-task migration, and the hardware
+   fixes (Switch Pro/Joy-Con HID writes, Bluetooth audio lanes, device-change
+   recovery).
+3. **Watch for usbip-win2 0.9.8.2** ([below](#usbip-win2-update)). It is not
+   released yet, and it will need a rebuilt VIIPER before Thrum can use it.
+   0.9.8.0 stays pinned until then.
 
 A general release additionally needs the three licence items that
 `NOTICE.txt` marks release-blocking resolved, and a screen-reader pass (only 5
@@ -47,7 +43,8 @@ of 43 windows and pages set accessible names).
 | 3 — Performance | d29c77f | Game Bar process churn, Windows 11 timer throttling in the tray, Audio Haptics busy-wait, per-report tray updates, a permanent power-plan change |
 | 4 — Audio | c68f77c, d5a51c4 | Captures follow the default output device and recover when a device goes away; DS4 Bluetooth speaker choppiness; headset-only audio pacing; dialogue from surround devices |
 | 5 — Real users | 9586b4a, 8ff8841 | Crash-safe settings saves with backup and recovery; log size caps; crash notice; high-DPI window sizes; end-user README; notices corrected |
-| 6 — Other | (this commit) | Release workflow runs the tests before publishing; this report |
+| 6 — Other | 5c99f58 | Release workflow runs the tests before publishing; this report |
+| Decisions | 312e415, 0b9ff94, d91bc14 | No administrator rights at runtime (exclusive mode, Driver Setup, startup task); signed setup script under `AllSigned`; consent in the first-run wizard; .NET 10 |
 
 ## Before and after
 
@@ -55,8 +52,10 @@ of 43 windows and pages set accessible names).
 | --- | --- | --- | --- |
 | Build and analyzer warnings | 11 unique (19 as MSBuild counts); .NET analyzers off | **0**, analyzers on (`AnalysisLevel` 8.0, Default); CI fails on any warning | CI on windows-2022 |
 | PowerShell lint warnings | 42 | **0**; CI job fails on any | PSScriptAnalyzer 1.25.0 |
-| Tests | 1,134 passing | **1,151 passing** at d5a51c4, plus 3 added since | CI |
+| Tests | 1,134 passing | **1,164 passing** at d91bc14 (.NET 10) | CI on windows-2022 |
 | Actions deprecation notices | Node 20 warnings on every run | 0 | CI annotations |
+| Administrator prompts outside setup and driver installs | UAC in exclusive mode when another app held the controller; Driver Setup elevated the whole window and ran downloaded installers elevated; Task startup mode ran Thrum elevated at every sign-in | **None** | Code review; decisions #1–#3 |
+| Runtime | .NET 8 (support ends 2026-11-10) | **.NET 10 LTS** (supported until November 2028) | Decision #6 |
 | Dialogs, prompts or warning banners on a normal (not first) launch | VIIPER install prompt every launch without VIIPER; update dialog every 24 h ignoring "Skip this version"; amber "Needs attention" and kernel-crash banners in the default state; HidHide banner; FakerInput tray toast | **None** | Code review of every startup path |
 | Recurring warnings in the log on a normal start | usbip sweep, LinkedProfiles.xml, audio refusal paragraphs, gate refusal twice, serial-number warning, stream health, Edge notice, stack traces, power-off warnings | Removed or moved to verbose startup diagnostics | Startup sweep; list in CHANGES-REVIEW.md |
 | Hidden Thrum.exe launches with Game Bar compatibility on, overlay closed | about 6 per second, all session | 1 per second (fast rate only while the overlay is open or just after Thrum opens it) | Code; confirm with Process Monitor |
@@ -64,7 +63,7 @@ of 43 windows and pages set accessible names).
 | Tray battery icon UI work | 1 dispatcher operation per input report (hundreds a second) | 1 per icon change | Code |
 | Memory kept per profile load or save | 1 generated serializer assembly, never unloaded | 0 after the first | Code, test |
 | Log disk use | 1 file per session, no size limit | at most 10 MB per file, about 80 MB total | NLog config |
-| Package size | 195.2 MB, 527 files, about 79 MB zipped | unchanged | `dotnet publish`, zip |
+| Package size | 195.2 MB, 527 files, about 79 MB zipped | 216.4 MB, 536 files, about 86 MB zipped (the .NET 10 runtime is larger) | `dotnet publish`, zip |
 | Startup time (cold, warm) | not measurable here | — | Run `utils/measure-runtime.ps1 -ColdStart` on Windows |
 | Idle CPU and RAM, 30-minute leak check | not measurable here | — | `utils/measure-runtime.ps1` (soak mode) |
 | Audio latency and dropouts | not measurable here | — | Checklist items A1–A8 with real controllers |
@@ -76,20 +75,21 @@ app. `utils/measure-runtime.ps1` measures the missing rows on a real PC. It
 needs no administrator rights, changes nothing on the machine and sends nothing
 anywhere. Add its numbers to this table before the release.
 
-## Decisions needed
+## Decisions
 
-Numbered as in the phase reports.
+Made by you on 2026-09-24, each as recommended. Numbered as in the phase
+reports; details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions).
 
-| # | Question | Recommendation | Why it matters |
+| # | Question | Decision | What changed |
 | --- | --- | --- | --- |
-| 1 | Exclusive mode ("Hide DS4 Controller", Native PS5) relaunches Thrum elevated with a UAC prompt when another app holds the controller, and blocks the device thread for up to 30 s. | Drop the elevation: fall back to shared mode and say which app holds the controller. | Breaks "no admin at runtime"; a UAC prompt mid-game. |
-| 2 | The legacy Welcome dialog downloads HidHide and FakerInput to `%TEMP%` and runs them elevated with no integrity check. | Open the vendors' download pages instead. | Check-then-run race; a named Defender pattern. |
-| 3 | Settings > Run At Startup "Task" mode registers a highest-privilege logon task that runs a `.bat` from the user-writable app folder. | Remove the Task mode (the shortcut mode stays), or create the task without highest privileges. | Local elevation path; nothing needs admin at logon. |
-| 4 | VIIPER setup runs `powershell -ExecutionPolicy Bypass` on a script in the user-writable app folder, elevated. | Sign the script and run it with `-ExecutionPolicy AllSigned` once signing is in place. Moving setup into Thrum.exe is cleaner but a large refactor. | Defender/AMSI pattern; a same-user process can edit the script before the UAC prompt. |
-| 5 | The first-run wizard never collects the experimental-driver consent, so fresh installs get no virtual controller. | An unticked checkbox in the wizard's Backend step, showing the existing disclosure text; only a tick counts. | Core flow is broken for every new user. |
-| 6 | .NET 8 support ends 2026-11-10. | Move to .NET 10 (LTS) before then; the zip bundles its runtime. | Security fixes stop for the bundled runtime. |
+| 1 | Exclusive mode ("Hide DS4 Controller", Native PS5) relaunched Thrum elevated with a UAC prompt when another app held the controller, blocking the device thread for up to 30 s. | Drop the elevation. | Thrum stays in shared mode and says so, naming well-known controller programs that are running (Windows does not say which process holds a device without admin rights). Running Thrum as administrator still restarts the device. |
+| 2 | The legacy Welcome dialog downloaded HidHide and FakerInput to `%TEMP%` and ran them elevated with no integrity check; Driver Setup elevated the whole window. | Open the vendors' pages. | The buttons open the vendors' release pages, and Driver Setup no longer asks for administrator rights. |
+| 3 | "Task" run-at-startup mode registered a highest-privilege logon task that ran a `.bat` from the user-writable app folder. | Remove the Task mode. | Only the Startup-folder shortcut remains. An existing task is replaced by the shortcut the next time Thrum runs elevated (the task itself does that at the next sign-in); until then the log says how to delete it. |
+| 4 | VIIPER setup ran a script from the user-writable app folder, elevated, under `-ExecutionPolicy Bypass`. | Sign it; run under `AllSigned`. | A signed Thrum.exe runs the script under `AllSigned`, and only if it is signed by the same publisher. The setup window says what to answer at PowerShell's one-time "untrusted publisher" question. Unsigned builds keep `Bypass`, so this takes effect when you sign releases. |
+| 5 | The first-run wizard never collected the experimental-driver consent. | Unticked checkbox in the Backend step. | The step shows the full notice with an unticked box; a tick records the same consent as the Settings switch. |
+| 6 | .NET 8 support ends 2026-11-10 and the zip bundles its runtime. | Move to .NET 10 (LTS). | Thrum, tests, CI and the release workflow use .NET 10 (supported until November 2028). The package grows by about 21 MB (7 MB zipped). |
 
-Also for you, with a check needed first:
+Still for you, with a check needed first:
 
 - **VIIPER listens on every network interface** (USB-IP on 3241, API on 3242)
   in the pinned v0.1.2. USB-IP has no authentication and carries the virtual
@@ -114,10 +114,73 @@ Also for you, with a check needed first:
   Default level. Recommended/All would add 3,120/5,023 warnings, almost all
   style rules in inherited files, which the minimal-diff policy argues against.
   Keeping Default is the recommendation.
+- **The usbip-win2 #181 wording disagrees across the docs.** `SECURITY.md` and
+  `CONTRIBUTING.md` describe the audio-teardown race as present in every
+  published release. The in-app notice says 0.9.8.0 carries the upstream fixes
+  (which the review confirmed are in that tag) but keeps audio endpoints
+  opt-in. Proposed: say the same in all three, namely that 0.9.8.0 carries the
+  fixes, Thrum has not yet stress-tested audio teardown on it, and so audio
+  stays opt-in. This is a safety statement, so it is left for you.
+
+### usbip-win2 update
+
+Checked 2026-09-24 against the upstream repository. **There is no new
+release**: `v.0.9.8.0` is still the newest tag, and it is the release Thrum
+pins. Upstream is close to one:
+
+- master has about 97 commits since 0.9.8.0, and its version resources say
+  0.9.8.1 (never tagged);
+- `develop` has a commit dated today that bumps everything to **0.9.8.2**.
+
+What those commits change, from the diffs:
+
+- **Teardown hardening in the same area as #181.** A receive-thread wait that
+  treated a one-minute timeout as success (a use-after-free window) now waits
+  properly (830be07). Code that can run at DISPATCH_LEVEL is no longer paged
+  (8164ac2). Every chained MDL, including the isochronous one, is unchained
+  (0d0bcc2). Endpoint lookups now hold a reference (83d73ad). Nothing claims to
+  close #181, and the purge and cancel path is unchanged.
+- **Attach fix that may matter to Thrum** (df2103e): each attach phase gets its
+  own work item. The old code could deadlock when the connect completes at
+  once, as it does over loopback, which blocks driver unload. VIIPER attaches
+  over loopback, so this may bear on the hung-uninstaller observation in the VM
+  report (not verified).
+- **Input validation** of PDU sizes, URB lengths and string descriptors, and
+  an OUT-transfer fix at DISPATCH_LEVEL (b4c0fce).
+- **Breaking for Thrum:**
+  - The driver's attach IOCTL structure grew by 4 bytes (6b3af1f, a location
+    hash), and the driver rejects the old size. Thrum's pinned VIIPER fork
+    will fail to attach against 0.9.8.2 until it is rebuilt with the new
+    layout.
+  - The fork also checks for exactly `usbip 0.9.8.0`.
+  - A develop-only change (11c301f) stops rewriting full-speed interrupt
+    intervals, so the virtual DualShock 4's polling rate will change.
+    DualSense is high-speed and unaffected.
+- **Installer:** nothing the setup script reads has changed (AppId and uninstall
+  key, display name and version, `usbip.exe` location, hardware ID, INF names,
+  provider, silent switches). The new installer does behave differently:
+  - It aborts if the old uninstaller fails; the script already treats that as
+    a failure.
+  - It closes processes holding files under `USBip\`, so stop VIIPER first.
+  - It checks for a test-signing build. Confirm the release asset is not one
+    in the VM.
+
+When 0.9.8.2 is tagged:
+
+1. Rebuild the VIIPER fork (`potpiemuncher/VIIPER`) for the new IOCTL layout
+   and version.
+2. Pin the new installer's SHA-256 and signer, and add a manifest entry.
+3. In the VM, test:
+   - an upgrade from 0.9.8.0, with and without a device attached since boot;
+   - audio-endpoint teardown under stress;
+   - the virtual DualShock 4's polling rate.
+
+Until then nothing in Thrum needs to change.
 
 ## Remaining manual steps
 
-1. **Code signing** — see below.
+1. **Code signing** — see below. Decision #4 takes effect only on a signed
+   build.
 2. **Licences** (`NOTICE.txt`, UNRESOLVED): record the FakerInputWrapper licence
    once the author's LGPL commit lands and keep a source snapshot; reimplement
    `OneEuroFilter.cs` from the paper; rebuild or delete the Bezier editor bundle.
@@ -149,7 +212,12 @@ What signing buys: Windows shows the publisher's name instead of "Unknown
 publisher", and SmartScreen's "Windows protected your PC" warning fades as the
 signing identity builds a download history. No certificate type skips that
 warm-up any more: since 2024, EV certificates get no immediate reputation. It
-also lets the setup script run under `AllSigned` (decision #4).
+also switches the setup script to `AllSigned` (decision #4): a signed
+Thrum.exe runs `install-viiper-backend.ps1` only if the script carries a
+signature from the same publisher. So sign both, with the same identity, in
+the same release. The first time a user runs setup, PowerShell asks whether to
+run software from your publisher name (its default answer is "Do not run"); the
+setup window tells them to answer R or A just before the question appears.
 
 What to sign: `Thrum.exe`, `Thrum.dll`, `Thrum.resources.dll` and the
 satellite `Thrum.resources.dll` files, and `extras\install-viiper-backend.ps1`.
@@ -190,9 +258,10 @@ them. Tick each item; note the controller and connection.
 **Install and first run**
 - [ ] I1 Download the zip, check the SHA-256, extract to `%LOCALAPPDATA%\Programs\Thrum`, run. SmartScreen warning only, no other prompt.
 - [ ] I2 First-run wizard: every step fits the screen at 100%, 150% and 200% scaling.
-- [ ] I3 Install / Repair VIIPER from the wizard: one UAC prompt, completes, the wizard does not restart under you.
+- [ ] I3 Install / Repair VIIPER from the wizard: one UAC prompt, completes, the wizard does not restart under you. On a signed build, PowerShell asks once to trust the publisher; the line above it says to answer R; answering D shows the reason and waits.
 - [ ] I4 Finish the wizard. Exit, start again: no wizard, no dialog, no warning banner, no warning lines in the Log tab.
-- [ ] I5 Turn on the experimental-driver switch; a DualSense and a DS4 (USB and Bluetooth) each get an Xbox 360 virtual controller that a game sees.
+- [ ] I5 In the wizard's Backend step, the experimental-driver box starts unticked; tick it. After Finish, Settings shows the switch on, and a DualSense and a DS4 (USB and Bluetooth) each get an Xbox 360 virtual controller that a game sees. On a second fresh account, leave it unticked: no virtual controller, and the Output Slots banner says why.
+- [ ] I7 No .NET installed on the PC: Thrum starts and runs every check above (the zip carries its own .NET 10 runtime).
 - [ ] I6 Windows Firewall prompt for `viiper.exe`: choose Cancel; virtual controllers still work.
 
 **Controllers and profiles**
@@ -204,7 +273,8 @@ them. Tick each item; note the controller and connection.
 - [ ] C6 Macro recorder: start recording, close with X; mappings and the touchpad still work.
 - [ ] C7 Auto Profiles: Add directory `C:\Program Files`; completes, no crash. Rename the profile a rule uses; the rule is skipped with one log line.
 - [ ] C8 Trigger Lab: save a preset in the profile editor, then another on the main tab; both exist after restart.
-- [ ] C9 Hide DS4 Controller / Native PS5 mode with and without HidHide.
+- [ ] C9 Hide DS4 Controller / Native PS5 mode with and without HidHide. With Steam (or another controller app) open first and HidHide not installed: no UAC prompt; the log says the controller is in shared mode and names Steam; the tray says so once; closing Steam and reconnecting hides it.
+- [ ] C10 Settings > Driver Setup: no UAC prompt; the HidHide and FakerInput buttons open their release pages; closing the window restarts the service if it was running.
 
 **Audio**
 - [ ] A1 Audio Haptics on a Bluetooth DualSense, System audio: haptics follow game audio.
@@ -222,7 +292,7 @@ them. Tick each item; note the controller and connection.
 - [ ] U1 Leave Thrum idle in the tray for 30 minutes with `utils/measure-runtime.ps1`; no growth in handles, threads or GDI/USER objects.
 - [ ] U2 Sleep and resume with a controller connected; controllers come back.
 - [ ] U3 Start a second copy: the first window comes to the front, no second instance.
-- [ ] U4 Settings > Run At Startup: sign out and in; Thrum starts minimised; turn it off; it no longer starts.
+- [ ] U4 Settings > Run At Startup (no Program/Task choice any more): sign out and in; Thrum starts minimised, not elevated; turn it off; it no longer starts. On a PC where beta.1 had the Task mode on: after the next sign-in the task is gone from Task Scheduler, the shortcut exists, and the log says so once.
 - [ ] U5 Kill Thrum during a settings save (Task Manager) a few times; next start has your settings, or restores the backup with one message.
 - [ ] U6 Delete `Auto Profiles.xml` only; the wizard reruns and your settings and profiles survive.
 - [ ] U7 Game Bar compatibility on: Process Monitor shows about one Thrum.exe launch a second while idle, not six.
@@ -246,10 +316,10 @@ is in the review workflow output.
 | Severity | Fixed | Mitigated | Needs decision | Needs VM check | Needs hardware check | Manual step | Proposed | Total |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Critical | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 4 |
-| High | 28 | 1 | 4 | 2 | 1 | 0 | 0 | 36 |
-| Medium | 44 | 7 | 7 | 3 | 0 | 2 | 169 | 232 |
+| High | 32 | 1 | 0 | 2 | 1 | 0 | 0 | 36 |
+| Medium | 51 | 7 | 0 | 3 | 0 | 2 | 169 | 232 |
 | Low | 14 | 2 | 0 | 0 | 0 | 1 | 224 | 241 |
-| **All** | 90 | 10 | 11 | 5 | 1 | 3 | 393 | 513 |
+| **All** | 101 | 10 | 0 | 5 | 1 | 3 | 393 | 513 |
 
 Paths are relative to `Thrum/` unless they start with another top-level folder.
 
@@ -261,10 +331,10 @@ Paths are relative to `Thrum/` unless they start with another top-level folder.
 | C381 | `DS4Forms/AutoProfiles.xaml.cs:287` | Adding a directory to Auto Profiles crashes the app when any subfolder is inaccessible (e.g. C:\Program Files\WindowsApps) | Fixed (Phase 2) |  |
 | C349 | `DS4Forms/ProfileEditor.xaml.cs:2939` | Gyro Calibration button dereferences a null controller and crashes the app | Fixed (Phase 2) |  |
 | C464 | `DS4Forms/ViewModels/SpecialActions/LaunchProgramViewModel.cs:121` | Saving a 'Launch Program' special action without choosing a file crashes the app (NullReferenceException) | Fixed (Phase 2) |  |
-| C029 | `DS4Control/ControlService.cs:763` | Exclusive-mode open failure relaunches the app elevated with 'runas' (UAC at runtime) and blocks the device thread for up to 30 s | Needs decision (#1) | Runtime UAC in exclusive mode; recommended: fall back to shared mode with a message |
-| C055 | `DS4Control/Viiper/ViiperOutDevice.cs:768` | First-run flow never collects the experimental-driver acknowledgement, so fresh users' default ViiperX360 output is refused on every connect | Needs decision (#5) | Recommended: unticked consent checkbox in the wizard's Backend step |
-| C203 | `DS4Control/Viiper/ViiperSetupManager.cs:402` | Setup runs a user-writable script elevated via powershell -ExecutionPolicy Bypass | Needs decision (#4) | Recommended: sign the script and use AllSigned, or move setup into Thrum.exe |
-| C304 | `DS4Library/DS4Devices.cs:509` | Exclusive mode (Hide controller / Native PS5 mode) requests a UAC elevation at runtime when a controller is already open elsewhere | Needs decision (#1) | Runtime UAC in exclusive mode; recommended: fall back to shared mode with a message |
+| C029 | `DS4Control/ControlService.cs:763` | Exclusive-mode open failure relaunches the app elevated with 'runas' (UAC at runtime) and blocks the device thread for up to 30 s | Fixed (decision #1) | Thrum stays in shared mode and names likely holders; no UAC prompt |
+| C055 | `DS4Control/Viiper/ViiperOutDevice.cs:768` | First-run flow never collects the experimental-driver acknowledgement, so fresh users' default ViiperX360 output is refused on every connect | Fixed (decision #5) | Unticked consent checkbox with the full notice in the wizard's Backend step |
+| C203 | `DS4Control/Viiper/ViiperSetupManager.cs:402` | Setup runs a user-writable script elevated via powershell -ExecutionPolicy Bypass | Fixed (decision #4) | Signed builds run the script under AllSigned only if signed by Thrum.exe's publisher; takes effect once releases are signed |
+| C304 | `DS4Library/DS4Devices.cs:509` | Exclusive mode (Hide controller / Native PS5 mode) requests a UAC elevation at runtime when a controller is already open elsewhere | Fixed (decision #1) | Thrum stays in shared mode and names likely holders; no UAC prompt |
 | C204 | `DS4Control/Viiper/ViiperSetupManager.cs:455` | Setup leaves an elevated, unowned viiper.exe running for the rest of the session; Thrum cannot stop it | Needs VM check | Proposed: stop the backend setup started, or start it unelevated |
 | C219 | `extras/install-viiper-backend.ps1:667` | Setup starts viiper.exe elevated from a user-writable folder and leaves it running as admin after setup | Needs VM check | Proposed: stop the backend setup started, or start it unelevated |
 | C316 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:155` | BT haptics streamer overwrites lightbar, player LEDs, adaptive triggers and volumes with a hard-coded state every frame | Needs hardware check | Proposed patch in Phase 4 notes; needs a real Bluetooth DualSense |
@@ -304,13 +374,13 @@ Paths are relative to `Thrum/` unless they start with another top-level folder.
 
 | ID | Where | Finding | Status | Note or proposed fix |
 | --- | --- | --- | --- | --- |
-| C501 | `DS4Forms/MainWindow.xaml:517` | Settings UI tells users to run Thrum as Administrator (startup 'Task' mode with Highest run level, 'RealTime' priority) | Needs decision (#3) | Remove the "Task" startup mode, or run the task without highest privileges |
-| C288 | `DS4Forms/MainWindow.xaml.cs:2531` | Driver Setup elevates the whole app, which can then run the user-writable viiper.exe and temp-downloaded installers as admin | Needs decision (#2) | Open the vendor download pages instead of downloading and running installers elevated |
-| C358 | `DS4Forms/ViewModels/SettingsViewModel.cs:688` | 'Run at startup: Task' registers a highest-privilege logon task that runs a .bat from the user-writable portable folder (UAC bypass / local elevation) | Needs decision (#3) | Remove the "Task" startup mode, or run the task without highest privileges |
-| C403 | `DS4Forms/WelcomeDialog.xaml.cs:40` | Elevated -driverinstall WelcomeDialog auto-starts user-writable %LOCALAPPDATA%\VIIPER\viiper.exe as admin | Needs decision (#2) | Open the vendor download pages instead of downloading and running installers elevated |
-| C404 | `DS4Forms/WelcomeDialog.xaml.cs:81` | WelcomeDialog downloads HidHide/FakerInput to %TEMP% and runs them elevated with no integrity check (TOCTOU, Defender heuristic) | Needs decision (#2) | Open the vendor download pages instead of downloading and running installers elevated |
-| C236 | `StartupMethods.cs:181` | Opt-in 'run at logon' task runs a batch file from the install folder with highest privileges | Needs decision (#3) | Remove the "Task" startup mode, or run the task without highest privileges |
-| C487 | `Thrum.csproj:5` | Self-contained package bundles .NET 8, which leaves support on 2026-11-10 | Needs decision (#6) | .NET 8 support ends 2026-11-10; move to .NET 10 LTS |
+| C501 | `DS4Forms/MainWindow.xaml:517` | Settings UI tells users to run Thrum as Administrator (startup 'Task' mode with Highest run level, 'RealTime' priority) | Fixed (decision #3) | Task mode and its "run as Administrator" UI removed |
+| C288 | `DS4Forms/MainWindow.xaml.cs:2531` | Driver Setup elevates the whole app, which can then run the user-writable viiper.exe and temp-downloaded installers as admin | Fixed (decision #2) | Driver Setup runs without elevation |
+| C358 | `DS4Forms/ViewModels/SettingsViewModel.cs:688` | 'Run at startup: Task' registers a highest-privilege logon task that runs a .bat from the user-writable portable folder (UAC bypass / local elevation) | Fixed (decision #3) | Task mode removed; an existing task is replaced by the Startup-folder shortcut |
+| C403 | `DS4Forms/WelcomeDialog.xaml.cs:40` | Elevated -driverinstall WelcomeDialog auto-starts user-writable %LOCALAPPDATA%\VIIPER\viiper.exe as admin | Fixed (decision #2) | Driver Setup runs without elevation, so viiper.exe is never started elevated from it |
+| C404 | `DS4Forms/WelcomeDialog.xaml.cs:81` | WelcomeDialog downloads HidHide/FakerInput to %TEMP% and runs them elevated with no integrity check (TOCTOU, Defender heuristic) | Fixed (decision #2) | Buttons open the vendors' release pages |
+| C236 | `StartupMethods.cs:181` | Opt-in 'run at logon' task runs a batch file from the install folder with highest privileges | Fixed (decision #3) | Task mode removed; an existing task is replaced by the Startup-folder shortcut |
+| C487 | `Thrum.csproj:5` | Self-contained package bundles .NET 8, which leaves support on 2026-11-10 | Fixed (decision #6) | Moved to .NET 10 (LTS) |
 | C216 | `extras/install-viiper-backend.ps1:71` | Over-the-shoulder elevation installs VIIPER into the admin account's profile; app then advises a useless restart | Needs VM check | Installer-script change; validate in the VM |
 | C218 | `extras/install-viiper-backend.ps1:499` | Install/Repair kills a backend that is hosting live virtual controllers (no census), contrary to lifecycle invariant (e) | Needs VM check | Installer-script change; validate in the VM |
 | C220 | `extras/install-viiper-backend.ps1:736` | Pinned usbip installer is checked by path, then run elevated from the user's writable %TEMP% (check-then-run race) | Needs VM check | Installer-script change; validate in the VM |

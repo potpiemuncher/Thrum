@@ -28,9 +28,11 @@ Baseline: `main` @ `29ce29f` (0.9.0-beta.2).
 - `ci-build.yml`, `release.yml`: `actions/checkout@v4→v5`, `setup-dotnet@v4→v5`, `setup-python@v5→v6` (release: `@v3→v6`), `upload-artifact@v4→v6` — every run printed "Node.js 20 is deprecated" and `punycode` deprecation warnings.
 - `duplicate.yml`, `fix-shipped.yml`, `out-of-scope.yml`: `dessant/support-requests@v2→v5` — v2 runs on Node 12. `issue-close-reason: 'completed'` keeps v2's close reason (v5 defaults to "not planned").
 - `.github/dependabot.yml`: added the `github-actions` ecosystem (monthly) — only NuGet was watched, which is how the workflow actions drifted onto deprecated Node runtimes.
+- `docs/dev/ADR-0005-code-signing.md`: added a dated amendment — two of its premises are out of date: EV certificates stopped giving instant SmartScreen trust in 2024, and Azure Artifact Signing now accepts individual developers in Canada.
 
 ## Phase 6 — Other (found early)
 
 - `docs/dev/HANDOFF.md`: replaced a local `C:\Users\<account>\...` path with a neutral description — CONTRIBUTING.md forbids account names and local paths in committed content.
 - `docs/dev/patches/viiper-0.1.2-usbip-0.9.8.0.patch`: `From:` headers now use the project's GitHub no-reply address instead of a personal email address — same rule. (Both remain in git history; see `RELEASE-READINESS.md`.)
 - `ThrumDiagnostics*Tests.cs`: the sample user name in the redaction tests is now `somebody`, as in the other redaction tests, instead of a real first name. Test meaning unchanged.
+

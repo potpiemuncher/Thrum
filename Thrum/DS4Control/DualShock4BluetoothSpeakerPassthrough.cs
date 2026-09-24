@@ -701,6 +701,13 @@ namespace DS4Windows
                 return new MonoToStereoSampleProvider(source);
             }
 
+            // Quad, 5.1 and 7.1 keep their centre (dialogue) and surrounds;
+            // only front left and right used to reach the speaker.
+            if (SurroundDownmixSampleProvider.CanDownmix(source.WaveFormat.Channels))
+            {
+                return new SurroundDownmixSampleProvider(source);
+            }
+
             var mux = new MultiplexingSampleProvider(new[] { source }, Channels);
             mux.ConnectInputToOutput(0, 0);
             mux.ConnectInputToOutput(1, 1);

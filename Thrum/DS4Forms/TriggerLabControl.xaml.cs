@@ -120,6 +120,7 @@ namespace DS4WinWPF.DS4Forms
         private readonly DispatcherTimer previewResetTimer;
         private TriggerLabPresetStore presetStore;
         private bool presetStoreLoaded;
+        private bool presetStoreLoading;
 
         public TriggerLabControl()
         {
@@ -153,13 +154,31 @@ namespace DS4WinWPF.DS4Forms
             RoutedEventArgs eventArgs)
         {
             RefreshSettings();
-            if (presetStoreLoaded || string.IsNullOrWhiteSpace(
-                    Global.appdatapath))
+            if (presetStoreLoaded)
+            {
+                // The other Trigger Lab (main tab or profile editor) may have
+                // changed the library while this one was hidden.
+                if (presetStore != null && !presetStoreLoading)
+                {
+                    TriggerLabPresetLoadResult reloaded = presetStore.Load();
+                    if (!reloaded.Success)
+                    {
+                        SetPresetLibraryStatus(reloaded.Message, true);
+                    }
+
+                    RefreshSettings();
+                }
+
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(Global.appdatapath))
             {
                 return;
             }
 
             presetStoreLoaded = true;
+            presetStoreLoading = true;
             presetStore = TriggerLabPresetStore.ForAppData(Global.appdatapath);
             presetLibraryStatusText.Text = "Loading user presets...";
             try
@@ -174,6 +193,10 @@ namespace DS4WinWPF.DS4Forms
                 SetPresetLibraryStatus(
                     $"The user preset library could not be loaded: {exception.Message}",
                     true);
+            }
+            finally
+            {
+                presetStoreLoading = false;
             }
         }
 

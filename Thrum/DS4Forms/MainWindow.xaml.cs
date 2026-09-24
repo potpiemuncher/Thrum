@@ -2088,6 +2088,15 @@ Suspend support not enabled.", true);
         /// </summary>
         private async Task RestartServiceForExclusiveModeAsync()
         {
+            await RestartServiceAsync();
+        }
+
+        /// <summary>
+        /// Stops and starts the service once, in order, with Start/Stop and
+        /// Hide DS4 Controller disabled until it finishes.
+        /// </summary>
+        internal async Task RestartServiceAsync()
+        {
             StartStopBtn.IsEnabled = false;
             hideDS4ContCk.IsEnabled = false;
             Task serviceTask = Task.Run(() =>
@@ -2114,6 +2123,19 @@ Suspend support not enabled.", true);
 
         private void NativePs5_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Same guard as MainWinVM_SelectedControllerChanged: a refresh
+            // started off the UI thread must not read WPF state here.
+            if (!Dispatcher.CheckAccess())
+            {
+                if (!Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+                {
+                    Dispatcher.BeginInvoke(DispatcherPriority.DataBind,
+                        new Action(() => NativePs5_PropertyChanged(sender, e)));
+                }
+
+                return;
+            }
+
             if (NativePs5SheetOpen)
             {
                 RefreshNativePs5SheetInputs();
@@ -3038,8 +3060,55 @@ Suspend support not enabled.", true);
                 {
                     string profilename = System.IO.Path.GetFileName(files[i]);
                     string basename = System.IO.Path.GetFileNameWithoutExtension(files[i]);
-                    File.Copy(dialog.FileNames[i], Global.appdatapath + "\\Profiles\\" + profilename, true);
+                    string destination = Path.Combine(Global.appdatapath, "Profiles", profilename);
+                    // The dialog opens in the Profiles folder; picking a file
+                    // there copied it onto itself and closed the app. An
+                    // existing profile was replaced without asking.
+                    if (string.Equals(Path.GetFullPath(files[i]), Path.GetFullPath(destination),
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show(this, $"\"{basename}\" is already one of your profiles.",
+                            "Import Profile", MessageBoxButton.OK, MessageBoxImage.Information);
+                        continue;
+                    }
+
+                    bool replacing = File.Exists(destination);
+                    if (replacing && MessageBox.Show(this,
+                            $"A profile named \"{basename}\" already exists. Replace it with the imported file?",
+                            "Import Profile", MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                            MessageBoxResult.No) != MessageBoxResult.Yes)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        File.Copy(files[i], destination, true);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        MessageBox.Show(this, $"Thrum could not import \"{basename}\": {ex.Message}",
+                            "Import Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        continue;
+                    }
+
                     profileListHolder.AddProfileSort(basename);
+                    if (replacing)
+                    {
+                        // Controllers using the replaced profile would otherwise
+                        // keep the old settings and save them back over it.
+                        for (int slot = 0; slot < ControlService.CURRENT_DS4_CONTROLLER_LIMIT; slot++)
+                        {
+                            int deviceIndex = slot;
+                            DS4Device device = App.rootHub.DS4Controllers[deviceIndex];
+                            if (device != null && !Global.useTempProfile[deviceIndex] &&
+                                string.Equals(Global.ProfilePath[deviceIndex], basename, StringComparison.OrdinalIgnoreCase))
+                            {
+                                device.HaltReportingRunAction(() =>
+                                    Global.LoadProfile(deviceIndex, false, App.rootHub));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -3053,15 +3122,20 @@ Suspend support not enabled.", true);
                 dialog.DefaultExt = ".xml";
                 dialog.Filter = $"{ProductInfo.ProductName} Profile (*.xml)|*.xml";
                 dialog.Title = "Select Profile to Export File";
-                Stream stream;
-                Stream profile = new StreamReader(Global.appdatapath + "\\Profiles\\" + entity.Name + ".xml").BaseStream;
+                dialog.FileName = entity.Name + ".xml";
+                // The profile used to be opened before the dialog and left open
+                // on Cancel, which blocked saving, renaming or deleting it.
                 if (dialog.ShowDialog() == true)
                 {
-                    if ((stream = dialog.OpenFile()) != null)
+                    try
                     {
-                        profile.CopyTo(stream);
-                        profile.Close();
-                        stream.Close();
+                        File.Copy(Path.Combine(Global.appdatapath, "Profiles", entity.Name + ".xml"),
+                            dialog.FileName, true);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        MessageBox.Show(this, $"Thrum could not export \"{entity.Name}\": {ex.Message}",
+                            "Export Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 }
             }

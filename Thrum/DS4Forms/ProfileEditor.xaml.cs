@@ -1774,7 +1774,7 @@ namespace DS4WinWPF.DS4Forms
 
         public void Reload(int device, ProfileEntity profile = null, bool profileAlreadyLoaded = false)
         {
-            profileSettingsTabCon.DataContext = null;
+            ClearProfileSettingsBinding();
             mappingListBox.DataContext = null;
             specialActionsTab.DataContext = null;
             lightbarRect.DataContext = null;
@@ -1908,9 +1908,24 @@ namespace DS4WinWPF.DS4Forms
             }
         }
 
+        // Unbinding drops the output combo to its fallback index, which is a
+        // selection change too; it must not prompt like a user's choice.
+        private void ClearProfileSettingsBinding()
+        {
+            applyingEditorBindings = true;
+            try
+            {
+                profileSettingsTabCon.DataContext = null;
+            }
+            finally
+            {
+                applyingEditorBindings = false;
+            }
+        }
+
         private void StopEditorBindings()
         {
-            profileSettingsTabCon.DataContext = null;
+            ClearProfileSettingsBinding();
             mappingListBox.DataContext = null;
             specialActionsTab.DataContext = null;
             lightbarRect.DataContext = null;
@@ -2137,27 +2152,37 @@ namespace DS4WinWPF.DS4Forms
                 profileSettingsVM.TempControllerIndex = 1;
             }
 
-            if (profileSettingsVM.HasUseDs3PitchRollSimChanged)
-            {
-                var mainWindow = (MainWindow)Application.Current.MainWindow;
-                if (mainWindow is not null)
-                {
-                    var changeServiceTask = Task.Run(() => Dispatcher.InvokeAsync(mainWindow.ChangeService));
-                    changeServiceTask.ContinueWith(_ => Dispatcher.InvokeAsync(() => mainWindow.ChangeService()));
-
-                }
-                else
-                {
-                    MessageBox.Show("The app has to be restarted for DS3 gyro simulation to work.",
-                        ProductInfo.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-            }
-
+            bool ds3PitchRollSimChanged = profileSettingsVM.HasUseDs3PitchRollSimChanged;
             bool saved = ApplyProfileStep(false);
             if (saved)
             {
+                if (ds3PitchRollSimChanged)
+                {
+                    RestartServiceForDs3PitchRollSim();
+                }
+
                 profileTriggerLabControl.RestorePhysicalProfileEffects();
                 Closed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        // The DS3 pitch/roll simulation is read when the service starts. This
+        // used to queue two ChangeService toggles back to back, which could run
+        // two Stops (leaving the service off) or a Start during a Stop, and did
+        // so even when the save was then rejected.
+        private static void RestartServiceForDs3PitchRollSim()
+        {
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                if (App.rootHub.running)
+                {
+                    Util.LogAssistBackgroundTask(mainWindow.RestartServiceAsync());
+                }
+            }
+            else
+            {
+                MessageBox.Show("The app has to be restarted for DS3 gyro simulation to work.",
+                    ProductInfo.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -2964,6 +2989,14 @@ namespace DS4WinWPF.DS4Forms
             if (deviceNum < ControlService.CURRENT_DS4_CONTROLLER_LIMIT)
             {
                 DS4Device d = App.rootHub.DS4Controllers[deviceNum];
+                if (d == null)
+                {
+                    MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                        "Connect the controller you want to calibrate, then try again.",
+                        "Gyro Calibration", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
                 d.SixAxis.ResetContinuousCalibration();
                 if (d.JointDeviceSlotNumber != DS4Device.DEFAULT_JOINT_SLOT_NUMBER)
                 {

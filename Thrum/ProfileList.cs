@@ -60,6 +60,13 @@ namespace DS4WinWPF
 
         public void AddProfileSort(string profilename)
         {
+            // Import could list a replaced profile twice, and lookups by name
+            // use SingleOrDefault, which throws on a duplicate.
+            if (profileListCol.Any(x => string.Equals(x.Name, profilename, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
             int idx = 0;
             bool inserted = false;
             foreach (ProfileEntity entry in profileListCol)

@@ -141,6 +141,32 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void TwoStoresOverOneFileDoNotDropEachOthersPresets()
+        {
+            // The main Trigger Lab tab and a profile editor each own a store.
+            using TemporaryPresetDirectory temporary = new();
+            TriggerLabPresetStore mainTab = temporary.CreateStore();
+            TriggerLabPresetStore editor = temporary.CreateStore();
+            Assert.IsTrue(mainTab.Load().Success);
+            Assert.IsTrue(editor.Load().Success);
+
+            TriggerLabUserPreset fromEditor = editor.Add("From editor",
+                new TriggerLabEffectSettings());
+            mainTab.Add("From main tab", new TriggerLabEffectSettings());
+
+            TriggerLabPresetStore restored = temporary.CreateStore();
+            Assert.IsTrue(restored.Load().Success);
+            CollectionAssert.AreEquivalent(
+                new[] { "From editor", "From main tab" },
+                restored.Presets.Select(preset => preset.Name).ToArray());
+
+            Assert.IsTrue(mainTab.Delete(fromEditor.Id),
+                "A preset saved by the other store can be deleted here.");
+            Assert.IsTrue(restored.Load().Success);
+            Assert.AreEqual("From main tab", restored.Presets.Single().Name);
+        }
+
+        [TestMethod]
         public void BuiltInAndUserPresetsHaveDistinctOriginsAndPermissions()
         {
             using TemporaryPresetDirectory temporary = new();

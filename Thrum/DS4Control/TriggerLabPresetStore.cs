@@ -95,6 +95,7 @@ namespace DS4Windows
         private IReadOnlyList<TriggerLabUserPreset> presets =
             Array.Empty<TriggerLabUserPreset>();
         private bool writesBlockedByFutureVersion;
+        private bool lastReadFailed;
 
         public TriggerLabPresetStore(string filePath)
         {
@@ -117,6 +118,7 @@ namespace DS4Windows
 
         public TriggerLabPresetLoadResult Load()
         {
+            lastReadFailed = false;
             if (!File.Exists(filePath))
             {
                 writesBlockedByFutureVersion = false;
@@ -155,8 +157,24 @@ namespace DS4Windows
             catch (Exception exception) when (exception is IOException ||
                 exception is UnauthorizedAccessException)
             {
+                lastReadFailed = true;
                 return new TriggerLabPresetLoadResult(false,
                     $"The Trigger Lab preset library could not be read: {exception.Message}");
+            }
+        }
+
+        /// <summary>
+        /// The main Trigger Lab tab and each profile editor own separate
+        /// stores over the same file. Every change starts from the file rather
+        /// than this store's copy, so saving here cannot drop a preset the
+        /// other one saved. A file that cannot be read now is not overwritten.
+        /// </summary>
+        private void ReloadBeforeChange()
+        {
+            TriggerLabPresetLoadResult result = Load();
+            if (lastReadFailed)
+            {
+                throw new IOException(result.Message);
             }
         }
 
@@ -166,6 +184,7 @@ namespace DS4Windows
             string normalizedName = NormalizeName(name);
             TriggerLabEffectSettings normalizedEffect = (effect ??
                 throw new ArgumentNullException(nameof(effect))).Clone();
+            ReloadBeforeChange();
             TriggerLabUserPreset preset = new TriggerLabUserPreset(
                 $"user-{Guid.NewGuid():N}", normalizedName,
                 normalizedEffect.Mode, normalizedEffect.StartPercent,
@@ -179,6 +198,7 @@ namespace DS4Windows
 
         public TriggerLabUserPreset Rename(string id, string name)
         {
+            ReloadBeforeChange();
             int index = FindPresetIndex(id);
             TriggerLabUserPreset previous = presets[index];
             TriggerLabUserPreset renamed = new TriggerLabUserPreset(previous.Id,
@@ -193,6 +213,7 @@ namespace DS4Windows
 
         public bool Delete(string id)
         {
+            ReloadBeforeChange();
             int index = presets.ToList().FindIndex(item =>
                 string.Equals(item.Id, id, StringComparison.Ordinal));
             if (index < 0)
@@ -219,6 +240,7 @@ namespace DS4Windows
 
             List<TriggerLabUserPreset> imported = document.Presets
                 .Select(ToImportedPreset).ToList();
+            ReloadBeforeChange();
             List<TriggerLabUserPreset> next = presets.Concat(imported).ToList();
             SaveStore(next);
             presets = next.AsReadOnly();

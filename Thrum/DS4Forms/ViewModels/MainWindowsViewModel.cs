@@ -723,28 +723,23 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         {
             if (controller == null) return;
 
+            // Battery and ID changes are raised on the controller's input
+            // thread. Refreshing from there raced the UI timer and could throw
+            // on WPF objects; the 250 ms runtime timer already picks up battery
+            // and charging changes, and IdText binds through its own event.
             if (hook)
             {
                 controller.SelectedProfileChanged += SelectedController_ProfileChanged;
-                controller.BatteryStateChanged += SelectedController_StatusChanged;
-                controller.IdTextChanged += SelectedController_StatusChanged;
             }
             else
             {
                 controller.SelectedProfileChanged -= SelectedController_ProfileChanged;
-                controller.BatteryStateChanged -= SelectedController_StatusChanged;
-                controller.IdTextChanged -= SelectedController_StatusChanged;
             }
         }
 
         private void SelectedController_ProfileChanged(object sender, EventArgs e)
         {
             RefreshSelectedControllerProperties();
-        }
-
-        private void SelectedController_StatusChanged(object sender, EventArgs e)
-        {
-            RefreshRuntimeState(App.rootHub);
         }
 
         private void CaptureRuntimeSnapshot(ControlService controlService)

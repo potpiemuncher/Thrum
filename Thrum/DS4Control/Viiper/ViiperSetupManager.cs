@@ -394,12 +394,27 @@ namespace DS4Windows
                 return true;
             }
 
+            var verifier = new WinTrustAuthenticodeVerifier();
+            ViiperSetupScriptPolicy.Decision decision =
+                ViiperSetupScriptPolicy.Decide(
+                    verifier.VerifyFile(Global.exelocation),
+                    verifier.VerifyFile(status.SetupScriptPath));
+            if (!decision.Launch)
+            {
+                Interlocked.Exchange(ref installerRunning, 0);
+                message = decision.Refusal;
+                image = MessageBoxImage.Warning;
+                AppLogger.LogToGui(decision.Refusal, true);
+                return false;
+            }
+
             try
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{status.SetupScriptPath}\" -NoPause",
+                    Arguments = ViiperSetupScriptPolicy.Arguments(
+                        decision, status.SetupScriptPath),
                     UseShellExecute = true,
                     Verb = "runas",
                 };

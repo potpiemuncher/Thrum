@@ -783,13 +783,6 @@ namespace DS4WinWPF
                 exitApp = true;
                 Current.Shutdown();
             }
-            else if (parser.Runtask)
-            {
-                StartupMethods.LaunchOldTask();
-                runShutdown = false;
-                exitApp = true;
-                Current.Shutdown();
-            }
             else if (parser.Command)
             {
                 IntPtr hWndDS4WindowsForm = IntPtr.Zero;

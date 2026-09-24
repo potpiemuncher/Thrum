@@ -199,12 +199,6 @@ namespace DS4WinWPF.DS4Forms
 
             startMinimized = Global.StartMinimized || parser.Mini;
 
-            bool isElevated = Global.IsAdministrator();
-            if (isElevated)
-            {
-                uacImg.Visibility = Visibility.Collapsed;
-            }
-
             noContLb.Content = string.Format(Strings.NoControllersConnected,
                 ControlService.CURRENT_DS4_CONTROLLER_LIMIT);
 
@@ -1421,12 +1415,6 @@ Suspend support not enabled.", true);
             exportProfBtn.IsEnabled = hasSelection;
         }
 
-        private void RunAtStartCk_Click(object sender, RoutedEventArgs e)
-        {
-            settingsWrapVM.ShowRunStartPanel = runAtStartCk.IsChecked == true ? Visibility.Visible :
-                Visibility.Collapsed;
-        }
-
         private void ContStatusImg_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             Image img = sender as Image;
@@ -2545,11 +2533,13 @@ Suspend support not enabled.", true);
 
         private async void DriverSetupBtn_Click(object sender, RoutedEventArgs e)
         {
-            // The setup window runs in a separate elevated process. Waiting
-            // for it used to block this window's message loop for as long as
-            // it stayed open ("Not Responding"), a declined administrator
-            // prompt was swallowed silently, and the controller service stayed
-            // stopped afterwards.
+            // The setup window runs in a separate process, not elevated: it
+            // only opens download pages, and VIIPER setup asks for
+            // administrator rights itself. Running it elevated let it start the
+            // user-writable viiper.exe as administrator. Waiting for it used to
+            // block this window's message loop for as long as it stayed open
+            // ("Not Responding"), and the controller service stayed stopped
+            // afterwards.
             driverSetupBtn.IsEnabled = false;
             StartStopBtn.IsEnabled = false;
             bool wasRunning = App.rootHub.running;
@@ -2558,20 +2548,9 @@ Suspend support not enabled.", true);
                 ProcessStartInfo startInfo = new ProcessStartInfo();
                 startInfo.FileName = Global.exelocation;
                 startInfo.Arguments = "-driverinstall";
-                startInfo.Verb = "runas";
                 startInfo.UseShellExecute = true;
 
-                Process temp;
-                try
-                {
-                    temp = Process.Start(startInfo);
-                }
-                catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
-                {
-                    AppLogger.LogToGui("Driver setup was canceled at the Windows administrator prompt. Nothing was changed.", false);
-                    return;
-                }
-
+                Process temp = Process.Start(startInfo);
                 if (temp == null)
                 {
                     return;

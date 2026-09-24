@@ -44,6 +44,9 @@ defaults stage.
    options**.
 5. **Backend and driver status** checks VIIPER and usbip-win2. **Install / Repair
    VIIPER** runs the guided setup; **Recheck status** reads the state again.
+   Below it is the experimental-driver notice with an unticked box. Tick it to
+   allow virtual controllers; it is the same setting as **Use virtual
+   controllers (experimental kernel driver)** in Settings, and is saved at once.
    Skipping this stage is safe, and Thrum offers setup again if a profile later
    requests virtual output.
 6. **Connect a controller** reminds you to use USB or Bluetooth. Detection begins
@@ -334,6 +337,12 @@ or controller settings.
 This is double input. Install/configure HidHide, enable **Hide DS4 Controller** in
 Settings, and make sure Thrum is present in HidHide's application whitelist. Do
 not disable the physical HID device in Device Manager as a routine workaround.
+
+If the log says a controller "is open in another program", another program had
+it open before Thrum, so Thrum is using it in shared mode. The message names
+any well-known controller program it saw running (Steam, DS4Windows and so on).
+Close that program and reconnect the controller. Thrum does not ask for
+administrator rights to take the controller over.
 
 ### A virtual controller is blocked
 

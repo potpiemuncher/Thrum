@@ -137,6 +137,19 @@ namespace DS4WinWPF.DS4Forms
         public bool LaunchViiperInstaller(ViiperPrerequisiteStatus status) =>
             ViiperSetupManager.LaunchInstaller(status, Owner);
 
+        public bool ViiperExperimentalAcknowledged =>
+            Global.ViiperExperimentalAcknowledged;
+
+        public void RecordViiperExperimentalAcknowledgement(bool acknowledged)
+        {
+            Global.ViiperExperimentalAcknowledged = acknowledged;
+            Global.Save();
+            // The record of what the user was shown and what they answered.
+            AppLogger.LogToGui(acknowledged
+                ? "Virtual controller output enabled; the experimental kernel driver notice was accepted (first-run setup)."
+                : "Virtual controller output disabled (first-run setup).", false);
+        }
+
         private void RecordDecline(ImportPlanner planner, string target)
         {
             bool recorded = planner.RecordOfferDeclined(target);

@@ -31,6 +31,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         void SaveConfiguration();
         ViiperPrerequisiteStatus ReadViiperStatus(bool refreshDriver);
         bool LaunchViiperInstaller(ViiperPrerequisiteStatus status);
+        bool ViiperExperimentalAcknowledged { get; }
+        void RecordViiperExperimentalAcknowledgement(bool acknowledged);
     }
 
     public abstract class FirstRunStepViewModel : INotifyPropertyChanged
@@ -222,6 +224,42 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public string SetupButtonText => status?.Ready == true
             ? "VIIPER is ready"
             : "Install / Repair VIIPER";
+
+        /// <summary>
+        /// The experimental-driver notice, in full. Setup used to install the
+        /// backend without ever asking for this consent, so every virtual
+        /// controller was refused until the user found the switch in Settings.
+        /// </summary>
+        public string AcknowledgementBody =>
+            ViiperExperimentalDisclosure.AcknowledgementBody;
+
+        public string AcknowledgementLabel =>
+            "I have read this and accept that virtual controllers run on an " +
+            "experimental kernel driver";
+
+        /// <summary>
+        /// Starts unticked; only the user's tick records consent, and it is
+        /// saved at once. The same setting as "Use virtual controllers
+        /// (experimental kernel driver)" in Settings.
+        /// </summary>
+        public bool Acknowledged
+        {
+            get => effects.ViiperExperimentalAcknowledged;
+            set
+            {
+                if (value == effects.ViiperExperimentalAcknowledged)
+                {
+                    return;
+                }
+
+                effects.RecordViiperExperimentalAcknowledgement(value);
+                RaiseAllChanged();
+            }
+        }
+
+        public string AcknowledgementNote => Acknowledged
+            ? "Saved. Virtual controllers are allowed. Audio and microphone endpoints stay off; they are a separate choice in Settings."
+            : "Leave this unticked to keep virtual controllers off. You can change it later in Settings.";
 
         public void Refresh(bool refreshDriver = true)
         {

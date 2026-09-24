@@ -54,10 +54,11 @@ release falls short of it in two known ways:
    backend. The [User Guide](USERGUIDE.md#first-run-setup) explains each step.
 
 Virtual controllers (the Xbox 360, DualShock 4 or DualSense that games see) use
-an experimental kernel driver. Before Thrum creates one, turn on **Settings >
-VIIPER Virtual Controller Support > Use virtual controllers (experimental
-kernel driver)** after reading its notice. Reading your physical controller does
-not need any of this.
+an experimental kernel driver. Thrum creates one only after you accept its
+notice: tick the box under it in the wizard's backend step, or later turn on
+**Settings > VIIPER Virtual Controller Support > Use virtual controllers
+(experimental kernel driver)**. Reading your physical controller does not need
+any of this.
 
 ### What setup may install
 

@@ -53,6 +53,11 @@ namespace DS4Windows
         private readonly GameBarIntegration gameBarIntegration = new GameBarIntegration();
         private readonly object hidHideSessionLock = new object();
         private readonly HashSet<string> hidHideSessionManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Device paths whose exclusive open failed during the last scan, and
+        // the controllers already announced in the tray this session.
+        private readonly object exclusiveRefusalLock = new object();
+        private readonly HashSet<string> exclusiveOpenRefusedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> exclusiveRefusalTrayShown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> hidHidePersistentManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool? hidHideActiveStateBeforeManagedSession;
         // Might be useful for ScpVBus build
@@ -246,7 +251,7 @@ namespace DS4Windows
             //outputslotMan.SlotAssigned += OutputslotMan_SlotAssigned;
             deviceOptions = Global.DeviceOptions;
 
-            DS4Devices.RequestElevation += DS4Devices_RequestElevation;
+            DS4Devices.ExclusiveOpenRefused += DS4Devices_ExclusiveOpenRefused;
             DS4Devices.PrepareDS4Init = PrepareDS4DeviceInit;
             DS4Devices.PostDS4Init = PostDS4DeviceInit;
             DS4Devices.PreparePendingDevice = CheckForSupportedDevice;
@@ -757,29 +762,15 @@ namespace DS4Windows
             eventDispatchThread = null;
         }
 
-        private void DS4Devices_RequestElevation(RequestElevationArgs args)
+        private void DS4Devices_ExclusiveOpenRefused(string devicePath)
         {
-            // Launches an elevated child process to re-enable device
-            ProcessStartInfo startInfo =
-                new ProcessStartInfo(Global.exelocation);
-            startInfo.Verb = "runas";
-            startInfo.Arguments = "re-enabledevice " + args.InstanceId;
-            startInfo.UseShellExecute = true;
-
-            try
+            // Called during the device scan. The device is opened in shared
+            // mode; the warning is given once it is known which controller it
+            // is and whether HidHide hides it anyway.
+            lock (exclusiveRefusalLock)
             {
-                Process child = Process.Start(startInfo);
-                if (!child.WaitForExit(30000))
-                {
-                    child.Kill();
-                }
-                else
-                {
-                    args.StatusCode = child.ExitCode;
-                }
-                child.Dispose();
+                exclusiveOpenRefusedPaths.Add(devicePath);
             }
-            catch { }
         }
 
         public void CheckHidHidePresence(string ExePath = "", string ExeName = "Autoprofile Exe", bool AddExe = true) // Default value for D4W Startup
@@ -1488,13 +1479,26 @@ namespace DS4Windows
             changingUDPPort = false;
         }
 
-        private void WarnExclusiveModeFailure(DS4Device device)
+        private void WarnExclusiveModeFailure(DS4Device device, bool hiddenByHidHide)
         {
-            if (DS4Devices.isExclusiveMode && !device.isExclusive())
+            bool firstTrayNotice;
+            lock (exclusiveRefusalLock)
             {
-                string message = DS4WinWPF.Properties.Resources.CouldNotOpenDS4.Replace("*Mac address*", device.getMacAddress()) + " " +
-                    DS4WinWPF.Properties.Resources.QuitOtherPrograms;
-                LogDebug(message, true);
+                if (!exclusiveOpenRefusedPaths.Remove(device.HidDevice.DevicePath) ||
+                    device.isExclusive() || hiddenByHidHide)
+                {
+                    return;
+                }
+
+                firstTrayNotice = exclusiveRefusalTrayShown.Add(device.getMacAddress());
+            }
+
+            string message = ControllerHolderHint.BuildMessage(
+                $"{device.DisplayName} ({device.getMacAddress()})",
+                ControllerHolderHint.RunningKnownPrograms());
+            LogDebug(message, true);
+            if (firstTrayNotice)
+            {
                 AppLogger.LogToTray(message, true);
             }
         }
@@ -2453,17 +2457,19 @@ namespace DS4Windows
 
         private void BeginPrepareConnectedInputController(DS4Device device, bool showlog = false)
         {
+            bool hiddenByHidHide = false;
             if (DS4Devices.isExclusiveMode && EnsureHidHideSessionForDevice(device))
             {
                 ChangeExclusiveStatus(device);
+                hiddenByHidHide = true;
             }
             else if (hidDeviceHidingEnabled && CheckAffected(device))
             {
                 ChangeExclusiveStatus(device);
+                hiddenByHidHide = true;
             }
 
-            //Task task = new Task(() => { Thread.Sleep(5); WarnExclusiveModeFailure(device); });
-            //task.Start();
+            WarnExclusiveModeFailure(device, hiddenByHidHide);
 
             PrepareDS4DeviceSettingHooks(device);
         }

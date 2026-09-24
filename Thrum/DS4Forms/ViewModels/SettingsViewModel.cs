@@ -88,39 +88,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         }
         public event EventHandler RunStartProgChanged;
 
-        private bool runStartTask;
-        public bool RunStartTask
-        {
-            get => runStartTask;
-            set
-            {
-                runStartTask = value;
-                RunStartTaskChanged?.Invoke(this, EventArgs.Empty);
-            }
-        }
-        public event EventHandler RunStartTaskChanged;
-
-        private bool canWriteTask;
-        public bool CanWriteTask { get => canWriteTask; }
-
-        public ImageSource uacSource;
-        public ImageSource UACSource { get => uacSource; }
-
         public ImageSource questionMarkSource;
         public ImageSource QuestionMarkSource { get => questionMarkSource; }
-
-        private Visibility showRunStartPanel = Visibility.Collapsed;
-        public Visibility ShowRunStartPanel {
-            get => showRunStartPanel;
-            set
-            {
-                if (showRunStartPanel == value) return;
-                showRunStartPanel = value;
-                ShowRunStartPanelChanged?.Invoke(this, EventArgs.Empty);
-            }
-        }
-
-        public event EventHandler ShowRunStartPanelChanged;
 
         private Visibility _isProfileChangedCheckVisible;
 
@@ -543,50 +512,18 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
             CheckStartupOptions();
 
-            Icon img = SystemIcons.Shield;
-            Bitmap bitmap = img.ToBitmap();
-            IntPtr hBitmap = bitmap.GetHbitmap();
-
+            Icon img = SystemIcons.Question;
             ImageSource wpfBitmap =
-                 Imaging.CreateBitmapSourceFromHBitmap(
-                      hBitmap, IntPtr.Zero, Int32Rect.Empty,
-                      BitmapSizeOptions.FromEmptyOptions());
-            uacSource = wpfBitmap;
-
-            img = SystemIcons.Question;
-            wpfBitmap =
                  Imaging.CreateBitmapSourceFromHBitmap(
                       img.ToBitmap().GetHbitmap(), IntPtr.Zero, Int32Rect.Empty,
                       BitmapSizeOptions.FromEmptyOptions());
             questionMarkSource = wpfBitmap;
 
             runStartProg = StartupMethods.HasStartProgEntry();
-            try
-            {
-                runStartTask = StartupMethods.HasTaskEntry();
-            }
-            catch (COMException ex)
-            {
-                DS4Windows.AppLogger.LogToGui(string.Format("Error in TaskService. Check WinOS TaskScheduler service functionality. {0}", ex.Message), true);
-            }
+            bool legacyTaskRemains = RemoveLegacyStartupTask();
+            runAtStartup = runStartProg || legacyTaskRemains;
 
-            runAtStartup = runStartProg || runStartTask;
-            canWriteTask = DS4Windows.Global.IsAdministrator();
-
-            if (!runAtStartup)
-            {
-                runStartProg = true;
-            }
-            else if (runStartProg && runStartTask)
-            {
-                runStartProg = false;
-                if (StartupMethods.CanWriteStartEntry())
-                {
-                    StartupMethods.DeleteStartProgEntry();
-                }
-            }
-
-            if (runAtStartup && runStartProg)
+            if (runStartProg)
             {
                 bool locChange = StartupMethods.CheckStartupExeLocation();
                 if (locChange)
@@ -598,30 +535,15 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     }
                     else
                     {
-                        runAtStartup = false;
-                        showRunStartPanel = Visibility.Collapsed;
+                        runAtStartup = legacyTaskRemains;
                     }
                 }
-            }
-            else if (runAtStartup && runStartTask)
-            {
-                if (canWriteTask)
-                {
-                    StartupMethods.DeleteOldTaskEntry();
-                    StartupMethods.WriteTaskEntry();
-                }
-            }
-
-            if (runAtStartup)
-            {
-                showRunStartPanel = Visibility.Visible;
             }
 
             RefreshMonitorChoices();
 
             RunAtStartupChanged += SettingsViewModel_RunAtStartupChanged;
             RunStartProgChanged += SettingsViewModel_RunStartProgChanged;
-            RunStartTaskChanged += SettingsViewModel_RunStartTaskChanged;
             FakeExeNameChanged += SettingsViewModel_FakeExeNameChanged;
             FakeExeNameChangeCompare += SettingsViewModel_FakeExeNameChangeCompare;
             UseUdpSmoothingChanged += SettingsViewModel_UseUdpSmoothingChanged;
@@ -681,16 +603,52 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
         }
 
-        private void SettingsViewModel_RunStartTaskChanged(object sender, EventArgs e)
+        /// <summary>
+        /// Removes the logon task that the "Task" startup mode created. That
+        /// mode started Thrum with administrator rights at sign-in from a batch
+        /// file in the (user-writable) program folder, and was removed; the
+        /// Startup-folder shortcut replaces it.
+        /// </summary>
+        /// <returns>True if the task is still there.</returns>
+        private bool RemoveLegacyStartupTask()
         {
-            if (runStartTask)
+            bool hasTask;
+            try
             {
-                StartupMethods.WriteTaskEntry();
+                hasTask = StartupMethods.HasTaskEntry();
             }
-            else
+            catch (COMException ex)
             {
-                StartupMethods.DeleteTaskEntry();
+                DS4Windows.AppLogger.LogToGui(string.Format("Error in TaskService. Check WinOS TaskScheduler service functionality. {0}", ex.Message), true);
+                return false;
             }
+
+            if (!hasTask)
+            {
+                return false;
+            }
+
+            if (!StartupMethods.TryDeleteTaskEntry())
+            {
+                // Created with administrator rights, so only an elevated Thrum
+                // can remove it: the next sign-in, when the task itself starts
+                // Thrum that way, replaces it.
+                DS4Windows.AppLogger.LogToGui(
+                    $"Thrum's old startup task still starts it as administrator at sign-in. It is replaced with a normal startup shortcut the next time it runs. To remove it now, delete the task \"{DS4Windows.ProductInfo.StartupTaskName}\" in Task Scheduler.",
+                    false);
+                return true;
+            }
+
+            if (!runStartProg && StartupMethods.CanWriteStartEntry())
+            {
+                StartupMethods.WriteStartProgEntry();
+                runStartProg = true;
+            }
+
+            DS4Windows.AppLogger.LogToGui(
+                "Run at startup now uses a Startup-folder shortcut. Thrum no longer starts as administrator at sign-in.",
+                false);
+            return false;
         }
 
         private void SettingsViewModel_RunStartProgChanged(object sender, EventArgs e)
@@ -710,12 +668,26 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             if (runAtStartup)
             {
                 RunStartProg = true;
-                RunStartTask = false;
             }
             else
             {
                 StartupMethods.DeleteStartProgEntry();
-                StartupMethods.DeleteTaskEntry();
+                bool hasTask;
+                try
+                {
+                    hasTask = StartupMethods.HasTaskEntry();
+                }
+                catch (COMException)
+                {
+                    hasTask = false;
+                }
+
+                if (hasTask && !StartupMethods.TryDeleteTaskEntry())
+                {
+                    DS4Windows.AppLogger.LogToGui(
+                        $"Thrum could not remove its old startup task because it was created with administrator rights. Delete the task \"{DS4Windows.ProductInfo.StartupTaskName}\" in Task Scheduler to stop Thrum starting at sign-in.",
+                        true);
+                }
             }
         }
 

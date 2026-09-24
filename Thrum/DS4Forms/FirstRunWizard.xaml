@@ -179,6 +179,30 @@
                         </WrapPanel>
                     </StackPanel>
                 </Border>
+                <Border Style="{StaticResource BridgeCardStyle}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Experimental kernel driver"
+                                   Style="{StaticResource BridgeSectionTitleStyle}" />
+                        <ScrollViewer MaxHeight="200" Margin="0,8,0,10"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Focusable="True" IsTabStop="True" TabIndex="32"
+                                      AutomationProperties.Name="Experimental kernel driver notice">
+                            <TextBlock Text="{Binding AcknowledgementBody}"
+                                       Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                        </ScrollViewer>
+                        <CheckBox IsChecked="{Binding Acknowledged}"
+                                  Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                                  AutomationProperties.Name="{Binding AcknowledgementLabel}"
+                                  TabIndex="33">
+                            <TextBlock Text="{Binding AcknowledgementLabel}"
+                                       FontWeight="SemiBold" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource ForegroundColor}" />
+                        </CheckBox>
+                        <TextBlock Text="{Binding AcknowledgementNote}"
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="24,4,0,0" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </DataTemplate>
 

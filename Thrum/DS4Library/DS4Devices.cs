@@ -68,27 +68,6 @@ namespace DS4Windows
         }
     }
 
-    public class RequestElevationArgs : EventArgs
-    {
-        public const int STATUS_SUCCESS = 0;
-        public const int STATUS_INIT_FAILURE = -1;
-        private int statusCode = STATUS_INIT_FAILURE;
-        private string instanceId;
-        public int StatusCode
-        {
-            get => statusCode;
-            set => statusCode = value;
-        }
-        public string InstanceId { get => instanceId; }
-
-        public RequestElevationArgs(string instanceId)
-        {
-            this.instanceId = instanceId;
-        }
-    }
-
-    public delegate void RequestElevationDelegate(RequestElevationArgs args);
-
     public class CheckVirtualInfo : EventArgs
     {
         private string deviceInstanceId;
@@ -122,7 +101,13 @@ namespace DS4Windows
         // Keep instance of opened exclusive mode devices not in use (Charging while using BT connection)
         private static List<HidDevice> DisabledDevices = new List<HidDevice>();
         private static Stopwatch sw = new Stopwatch();
-        public static event RequestElevationDelegate RequestElevation;
+        /// <summary>
+        /// An exclusive open failed because another program has the
+        /// controller open; the device path is passed. The device is then
+        /// opened in shared mode. This used to relaunch Thrum elevated (a UAC
+        /// prompt mid-game) to restart the device.
+        /// </summary>
+        public static event Action<string> ExclusiveOpenRefused;
         public static PrepareInitDelegate PrepareDS4Init = null;
         public static PrepareInitDelegate PostDS4Init = null;
         public static CheckPendingDevice PreparePendingDevice = null;
@@ -509,14 +494,10 @@ namespace DS4Windows
 
                                 if (!elevated)
                                 {
-                                    // Tell the client to launch routine to re-enable a device
-                                    RequestElevationArgs eleArgs =
-                                        new RequestElevationArgs(Global.GetInstanceIdFromDevicePath(hDevice.DevicePath));
-                                    RequestElevation?.Invoke(eleArgs);
-                                    if (eleArgs.StatusCode == RequestElevationArgs.STATUS_SUCCESS)
-                                    {
-                                        hDevice.OpenDevice(isExclusiveMode);
-                                    }
+                                    // No elevation at runtime: fall back to
+                                    // shared mode below and let the service
+                                    // tell the user.
+                                    ExclusiveOpenRefused?.Invoke(hDevice.DevicePath);
                                 }
                                 else
                                 {

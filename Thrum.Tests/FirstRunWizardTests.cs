@@ -405,6 +405,32 @@ namespace DS4WindowsTests
             }, effects.Events.TakeLast(2).ToArray());
         }
 
+        [TestMethod]
+        public void BackendStepAsksForTheDriverConsentAndOnlyATickRecordsIt()
+        {
+            var effects = new FakeWizardEffects();
+            var wizard = new FirstRunWizardViewModel(effects,
+                appDataConfigPristine: true);
+
+            wizard.Advance();
+            wizard.Advance();
+            wizard.Advance();
+            var backend = (FirstRunBackendStepViewModel)wizard.CurrentStep;
+
+            Assert.IsFalse(backend.Acknowledged, "The box must start unticked.");
+            Assert.AreEqual(ViiperExperimentalDisclosure.AcknowledgementBody,
+                backend.AcknowledgementBody, "The notice is shown in full, not paraphrased.");
+            Assert.IsTrue(backend.CanAdvance, "Consent is optional; setup can continue without it.");
+            Assert.IsFalse(effects.Events.Any(e => e.StartsWith("consent:")));
+
+            backend.Acknowledged = true;
+            backend.Acknowledged = true;
+            backend.Acknowledged = false;
+
+            CollectionAssert.AreEqual(new[] { "consent:True", "consent:False" },
+                effects.Events.Where(e => e.StartsWith("consent:")).ToArray());
+        }
+
         private static void AssertStep(FirstRunWizardViewModel wizard,
             FirstRunStepKind expected) =>
             Assert.AreEqual(expected, wizard.CurrentStepKind);
@@ -485,6 +511,15 @@ namespace DS4WindowsTests
             {
                 Events.Add("launch-viiper");
                 return true;
+            }
+
+            public bool ViiperExperimentalAcknowledged { get; private set; }
+
+            public void RecordViiperExperimentalAcknowledgement(
+                bool acknowledged)
+            {
+                ViiperExperimentalAcknowledged = acknowledged;
+                Events.Add("consent:" + acknowledged);
             }
         }
     }

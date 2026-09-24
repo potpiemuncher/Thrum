@@ -39,7 +39,7 @@ public class ThrumDiagnosticsLiveSourcesTests
             ViiperDriverReadinessState.DetectedUnvalidated,
             new[]
             {
-                @"usbip.exe failed at C:\Users\patrick\Tools\usbip.exe",
+                @"usbip.exe failed at C:\Users\somebody\Tools\usbip.exe",
             }, Array.Empty<ViiperDriverComponentIdentity>(), null, null,
             DateTimeOffset.UnixEpoch);
         ThrumDiagnosticsLiveSources sources = Sources(
@@ -48,7 +48,7 @@ public class ThrumDiagnosticsLiveSourcesTests
         DiagnosticsDriverSection section = sources.ReadDriver();
 
         Assert.AreEqual(1, section.Reasons.Count);
-        Assert.IsFalse(section.Reasons[0].Contains("patrick"),
+        Assert.IsFalse(section.Reasons[0].Contains("somebody"),
             "a user path reached the pre-redacted snapshot: " +
             section.Reasons[0]);
         StringAssert.Contains(section.Reasons[0], @"\Users\<user>\");
@@ -129,14 +129,14 @@ public class ThrumDiagnosticsLiveSourcesTests
             readHidHideInstalled: () => true,
             readThisAppWhitelisted: () => throw
                 new InvalidOperationException(
-                    @"denied C:\Users\patrick\Games\private.exe"));
+                    @"denied C:\Users\somebody\Games\private.exe"));
 
         DiagnosticsHidHideSection section = sources.ReadHidHide();
 
         Assert.IsTrue(section.Installed);
         Assert.IsNull(section.ThisAppWhitelisted);
         StringAssert.Contains(section.ReadFailure, "InvalidOperationException");
-        Assert.IsFalse(section.ReadFailure.Contains("patrick"),
+        Assert.IsFalse(section.ReadFailure.Contains("somebody"),
             "a user path survived the whitelist failure: " +
             section.ReadFailure);
         StringAssert.Contains(section.ReadFailure, @"\Users\<user>\");

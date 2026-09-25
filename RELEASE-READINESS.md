@@ -318,8 +318,8 @@ is in the review workflow output.
 | Critical | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 4 |
 | High | 32 | 1 | 0 | 2 | 1 | 0 | 0 | 36 |
 | Medium | 51 | 7 | 0 | 3 | 0 | 2 | 169 | 232 |
-| Low | 14 | 2 | 0 | 0 | 0 | 1 | 224 | 241 |
-| **All** | 101 | 10 | 0 | 5 | 1 | 3 | 393 | 513 |
+| Low | 15 | 2 | 0 | 0 | 0 | 1 | 223 | 241 |
+| **All** | 102 | 10 | 0 | 5 | 1 | 3 | 392 | 513 |
 
 Paths are relative to `Thrum/` unless they start with another top-level folder.
 
@@ -637,7 +637,7 @@ Paths are relative to `Thrum/` unless they start with another top-level folder.
 | C459 | `DS4Control/AudioHapticsSourceValidation.cs:54` | Audio Haptics source validation messages use jargon ('render endpoint', 'system-mix endpoint') | Proposed | Use plain language, e.g. 'Windows has no default speakers or headphones set' and 'Controller audio is off. |
 | C032 | `DS4Control/ControlService.cs:1368` | ChangeMotionEventStatus captures the loop variable 'i', so DSU motion is not re-armed with 4 or more controllers | Proposed | Test tempIdx instead of i, and use dev.DeviceSlotNumber as the slot. |
 | C033 | `DS4Control/ControlService.cs:1395` | Dead async void UseUDPPort and unused changingUDPPort | Proposed | Delete UseUDPPort and changingUDPPort. |
-| C034 | `DS4Control/ControlService.cs:1651` | Unconditional Thread.Sleep(2000) delays controller availability on every start | Proposed | Remove the sleep, or document the dependency it waits for and replace it with an explicit readiness wait. |
+| C034 | `DS4Control/ControlService.cs:1651` | Unconditional Thread.Sleep(2000) delays controller availability on every start | Fixed (owner request) | Removed. Inherited from DS4Windows, where it followed the ViGEmBus connection. A start now waits (up to 2 s) only for a VIIPER backend Thrum launched in the last 10 s. |
 | C039 | `DS4Control/ControlService.cs:1868` | An unvalidated ProcessPriority index from settings throws at the end of Start | Proposed | Clamp processPriority in AppSettings PostProcessLoad, or use a bounds-checked lookup with a Normal fallback. |
 | C044 | `DS4Control/ControlService.cs:2986` | The profile 'Launch program' option hides launch failures and scans every process on each profile check | Proposed | Log a plain message on failure, compare with OrdinalIgnoreCase, dispose the Process objects, and use a pooled Task.Delay instead of Thread.Sleep(5000). |
 | C143 | `DS4Control/ControlServiceDeviceOptions.cs:485` | An unknown enum value in ControllerConfigs.xml silently resets all DualSense options for that controller | Proposed | Log one plain-language warning that names the controller and the option block. |

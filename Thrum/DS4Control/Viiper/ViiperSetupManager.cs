@@ -621,6 +621,55 @@ namespace DS4Windows
             return Path.Combine(Global.exedirpath, "extras", InstallerScriptName);
         }
 
+        /// <summary>How long after launching the backend a service start
+        /// still waits for it to answer.</summary>
+        internal static readonly TimeSpan RecentServerStartWindow = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// Whether a service start should wait for the backend: only when this
+        /// session launched it within <see cref="RecentServerStartWindow"/>.
+        /// </summary>
+        internal static bool ShouldWaitForServer(DateTime lastStartAttemptUtc, DateTime nowUtc)
+        {
+            TimeSpan sinceStart = nowUtc - lastStartAttemptUtc;
+            return sinceStart >= TimeSpan.Zero && sinceStart < RecentServerStartWindow;
+        }
+
+        /// <summary>
+        /// Waits up to <paramref name="timeout"/> for a backend this session
+        /// launched moments ago to answer, so the service start that follows
+        /// can plug in virtual outputs. Returns at once, without a request,
+        /// when no launch is that recent: a backend that is already up, not
+        /// installed, or not ours is never waited for.
+        /// </summary>
+        /// <returns>True if the backend answered.</returns>
+        internal static bool WaitForRecentlyStartedServer(TimeSpan timeout)
+        {
+            DateTime lastAttempt;
+            lock (serverStartLock)
+            {
+                lastAttempt = lastServerStartAttemptUtc;
+            }
+
+            if (!ShouldWaitForServer(lastAttempt, DateTime.UtcNow))
+            {
+                return false;
+            }
+
+            Stopwatch waited = Stopwatch.StartNew();
+            while (!CanPingServer())
+            {
+                if (waited.Elapsed >= timeout)
+                {
+                    return false;
+                }
+
+                Thread.Sleep(100);
+            }
+
+            return true;
+        }
+
         private static bool TryStartServerOnce(string viiperPath)
         {
             lock (serverStartLock)

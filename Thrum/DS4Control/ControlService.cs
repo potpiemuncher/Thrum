@@ -1702,8 +1702,6 @@ namespace DS4Windows
                 if (showlog)
                     LogDebug(DS4WinWPF.Properties.Resources.Starting);
 
-                Thread.Sleep(2000);
-
                 bool runningAsAdmin = Global.IsAdministrator();
                 if (Global.outputKBMHandler.GetIdentifier() != FakerInputHandler.IDENTIFIER && !runningAsAdmin)
                 {
@@ -1722,6 +1720,15 @@ namespace DS4Windows
                 // Probed, not proclaimed: this is the same status the Settings
                 // card reads, so the log cannot claim a backend the UI says is
                 // missing.
+                // DS4Windows paused 2 s here on every start, after connecting
+                // to ViGEmBus; with that gone it only delayed controllers,
+                // including on every restart. The one thing worth waiting for
+                // now is a backend Thrum launched moments ago (at startup),
+                // which virtual outputs plugged below need to be answering.
+                StartupDiag("Viiper recent-start wait begin");
+                bool waitedServerUp = ViiperSetupManager.WaitForRecentlyStartedServer(TimeSpan.FromSeconds(2));
+                StartupDiag($"Viiper recent-start wait end answered={waitedServerUp}");
+
                 StartupDiag("Viiper status probe begin");
                 ViiperPrerequisiteStatus viiperStatus = ViiperSetupManager.GetStatus();
                 StartupDiag($"Viiper status probe end ready={viiperStatus.Ready} helper={viiperStatus.ViiperInstalled} usbip={viiperStatus.UsbipInstalled} server={viiperStatus.ServerRunning}");

@@ -46,7 +46,7 @@ of 43 windows and pages set accessible names).
 | 5 — Real users | 9586b4a, 8ff8841 | Crash-safe settings saves with backup and recovery; log size caps; crash notice; high-DPI window sizes; end-user README; notices corrected |
 | 6 — Other | 5c99f58 | Release workflow runs the tests before publishing; this report |
 | Decisions | 312e415, 0b9ff94, d91bc14 | No administrator rights at runtime (exclusive mode, Driver Setup, startup task); signed setup script under `AllSigned`; consent in the first-run wizard; .NET 10 |
-| Owner testing | 2a86ab6, 8290f99, 1e3c5b2, d56610e, 5d17078, and the installer commit | Fixes from your first run (wizard, update prompt, HidHide link, profile box); Native PS5 mode no longer loses the controller for about 25 s; the 2 s pause at every service start is gone; an installer |
+| Owner testing | 2a86ab6, 8290f99, 1e3c5b2, d56610e, 5d17078, e627fca | Fixes from your first run (wizard, update prompt, HidHide link, profile box); Native PS5 mode no longer loses the controller for about 25 s; the 2 s pause at every service start is gone; an installer |
 
 ## Before and after
 
@@ -54,11 +54,11 @@ of 43 windows and pages set accessible names).
 | --- | --- | --- | --- |
 | Build and analyzer warnings | 11 unique (19 as MSBuild counts); .NET analyzers off | **0**, analyzers on (`AnalysisLevel` 8.0, Default); CI fails on any warning | CI on windows-2022 |
 | PowerShell lint warnings | 42 | **0**; CI job fails on any | PSScriptAnalyzer 1.25.0 |
-| Tests | 1,134 passing | **1,164 passing** at d91bc14 (.NET 10) | CI on windows-2022 |
+| Tests | 1,134 passing | **1,177 passing** at e627fca (.NET 10) | CI on windows-2022 |
 | Actions deprecation notices | Node 20 warnings on every run | 0 | CI annotations |
 | Administrator prompts outside setup and driver installs | UAC in exclusive mode when another app held the controller; Driver Setup elevated the whole window and ran downloaded installers elevated; Task startup mode ran Thrum elevated at every sign-in | **None** | Code review; decisions #1–#3 |
 | Runtime | .NET 8 (support ends 2026-11-10) | **.NET 10 LTS** (supported until November 2028) | Decision #6 |
-| Install | Zip only, recommended into a folder the user can write (where the elevated setup script could be changed) | **Installer** (Program Files for all users by default, or for one user without admin) and the zip | Decision #7 |
+| Install | Zip only, recommended into a folder the user can write (where the elevated setup script could be changed) | **Installer** (Program Files for all users by default, or for one user without admin; about 59 MB) and the zip | Decision #7; Inno Setup compiles it in CI |
 | Native PS5 mode, turning it on with a controller connected | about 25 s without a controller (your logs, with and without admin) | about 1 s expected (service stop plus start); confirm with checklist item C11 | Owner testing, decision #8 |
 | Dialogs, prompts or warning banners on a normal (not first) launch | VIIPER install prompt every launch without VIIPER; update dialog every 24 h ignoring "Skip this version"; amber "Needs attention" and kernel-crash banners in the default state; HidHide banner; FakerInput tray toast | **None** | Code review of every startup path |
 | Recurring warnings in the log on a normal start | usbip sweep, LinkedProfiles.xml, audio refusal paragraphs, gate refusal twice, serial-number warning, stream health, Edge notice, stack traces, power-off warnings | Removed or moved to verbose startup diagnostics | Startup sweep; list in CHANGES-REVIEW.md |

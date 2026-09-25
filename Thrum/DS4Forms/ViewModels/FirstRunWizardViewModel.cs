@@ -215,17 +215,33 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         }
 
         public ViiperDriverStatusViewModel DriverStatus { get; }
-        public string StatusText => status?.DisplayText ?? "Status unavailable";
+
+        /// <summary>
+        /// Everything is installed and only the server is stopped. This step
+        /// reads status without starting the server, so that is the normal
+        /// state of a set-up machine here; it used to read "VIIPER server not
+        /// running" and invite a needless repair.
+        /// </summary>
+        public bool InstalledNotRunning => status != null &&
+            status.ViiperInstalled && status.UsbipInstalled && !status.ServerRunning;
+
+        public string StatusText => InstalledNotRunning
+            ? "VIIPER is installed"
+            : status?.DisplayText ?? "Status unavailable";
 
         public string ComponentText => status == null
             ? "Thrum could not read the VIIPER prerequisites."
-            : status.ComponentSummary;
+            : InstalledNotRunning
+                ? status.ComponentSummary + ". The server starts when Thrum starts."
+                : status.ComponentSummary;
 
         public bool SetupAvailable => status?.SetupScriptFound == true;
 
         public string SetupButtonText => status?.Ready == true
             ? "VIIPER is ready"
-            : "Install / Repair VIIPER";
+            : InstalledNotRunning
+                ? "Repair VIIPER"
+                : "Install / Repair VIIPER";
 
         /// <summary>
         /// The experimental-driver notice, in full. Setup used to install the

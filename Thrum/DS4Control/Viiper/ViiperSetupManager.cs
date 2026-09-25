@@ -378,8 +378,15 @@ namespace DS4Windows
             image = MessageBoxImage.Information;
             if (!status.SetupScriptFound)
             {
+                // Antivirus software can quarantine this script (it downloads a
+                // driver and runs elevated), which is the usual reason it is
+                // missing from an otherwise complete copy.
                 message =
-                    ProductInfo.ProductName + " could not find the bundled VIIPER setup script.\n\n" +
+                    ProductInfo.ProductName + " could not find its VIIPER setup script (extras\\" +
+                    InstallerScriptName + " next to " + ProductInfo.ExeBaseName + ".exe).\n\n" +
+                    "Antivirus software may have removed it: check Windows Security > " +
+                    "Virus & threat protection > Protection history, or download " +
+                    ProductInfo.ProductName + " again.\n\n" +
                     "Opening the VIIPER and usbip-win2 release pages instead.";
                 image = MessageBoxImage.Warning;
                 Util.StartProcessHelper(ViiperReleasesUrl);

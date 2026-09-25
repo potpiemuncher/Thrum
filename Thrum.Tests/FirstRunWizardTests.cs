@@ -432,6 +432,31 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void AnInstalledBackendIsNotReportedAsBroken()
+        {
+            var effects = new FakeWizardEffects
+            {
+                StatusToReturn = new ViiperPrerequisiteStatus
+                {
+                    ViiperInstalled = true,
+                    UsbipInstalled = true,
+                    ServerRunning = false,
+                },
+            };
+            var wizard = new FirstRunWizardViewModel(effects,
+                appDataConfigPristine: true);
+            wizard.Advance();
+            wizard.Advance();
+            wizard.Advance();
+            var backend = (FirstRunBackendStepViewModel)wizard.CurrentStep;
+            backend.Refresh();
+
+            Assert.AreEqual("VIIPER is installed", backend.StatusText);
+            Assert.AreEqual("Repair VIIPER", backend.SetupButtonText);
+            StringAssert.EndsWith(backend.ComponentText, "The server starts when Thrum starts.");
+        }
+
+        [TestMethod]
         public void BackendStepOffersHidHideOnlyWhenItIsMissing()
         {
             var effects = new FakeWizardEffects();
@@ -518,11 +543,13 @@ namespace DS4WindowsTests
                 Events.Add("save");
             }
 
+            public ViiperPrerequisiteStatus StatusToReturn { get; set; } = new();
+
             public ViiperPrerequisiteStatus ReadViiperStatus(
                 bool refreshDriver)
             {
                 Events.Add("read-viiper:" + refreshDriver);
-                return new ViiperPrerequisiteStatus();
+                return StatusToReturn;
             }
 
             public bool LaunchViiperInstaller(

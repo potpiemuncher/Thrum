@@ -482,7 +482,9 @@ namespace DS4Windows
 
                     if (!hDevice.IsOpen)
                     {
+                        ControlService.StartupDiag($"findControllers open begin exclusive={isExclusiveMode} path={hDevice.DevicePath}");
                         hDevice.OpenDevice(isExclusiveMode);
+                        ControlService.StartupDiag($"findControllers open end open={hDevice.IsOpen}");
                         if (!hDevice.IsOpen && isExclusiveMode)
                         {
                             try
@@ -491,6 +493,11 @@ namespace DS4Windows
                                 WindowsIdentity identity = WindowsIdentity.GetCurrent();
                                 WindowsPrincipal principal = new WindowsPrincipal(identity);
                                 bool elevated = principal.IsInRole(WindowsBuiltInRole.Administrator);
+                                if (Global.VerboseStartupLogging)
+                                {
+                                    ControlService.StartupDiag($"findControllers exclusive open refused elevated={elevated} " +
+                                        $"knownControllerPrograms=[{string.Join(", ", ControllerHolderHint.RunningKnownPrograms())}]");
+                                }
 
                                 if (!elevated)
                                 {
@@ -503,14 +510,21 @@ namespace DS4Windows
                                 {
                                     reEnableDevice(Global.GetInstanceIdFromDevicePath(hDevice.DevicePath));
                                     hDevice.OpenDevice(isExclusiveMode);
+                                    ControlService.StartupDiag($"findControllers exclusive open after device restart open={hDevice.IsOpen}");
                                 }
                             }
-                            catch (Exception) { }
+                            catch (Exception ex)
+                            {
+                                ControlService.StartupDiag($"findControllers device restart failed {ex.GetType().Name}: {ex.Message}");
+                            }
                         }
-                        
+
                         // TODO in exclusive mode, try to hold both open when both are connected
                         if (isExclusiveMode && !hDevice.IsOpen)
+                        {
                             hDevice.OpenDevice(false);
+                            ControlService.StartupDiag($"findControllers shared fallback open={hDevice.IsOpen}");
+                        }
                     }
 
                     if (hDevice.IsOpen)
@@ -536,6 +550,7 @@ namespace DS4Windows
                         {
                             serial = hDevice.ReadSerial(DS4Device.SERIAL_FEATURE_ID);
                         }
+                        ControlService.StartupDiag($"findControllers serial read valid={!serial.Equals(DS4Device.BLANK_SERIAL)}");
 
                         if (HasMoonlightVirtualDS4Identity(hDevice, serial) &&
                             !Global.UseMoonlight)
@@ -766,7 +781,9 @@ namespace DS4Windows
             {
                 throw new Exception("Error setting class install params, error code = " + Marshal.GetLastWin32Error());
             }
+            ControlService.StartupDiag($"reEnableDevice disable begin {deviceInstanceId}");
             success = NativeMethods.SetupDiCallClassInstaller(NativeMethods.DIF_PROPERTYCHANGE, deviceInfoSet, ref deviceInfoData);
+            ControlService.StartupDiag($"reEnableDevice disable end success={success}");
             // TEST: If previous SetupDiCallClassInstaller fails, just continue
             // otherwise device will likely get permanently disabled.
             /*if (!success)
@@ -791,7 +808,9 @@ namespace DS4Windows
             {
                 throw new Exception("Error setting class install params, error code = " + Marshal.GetLastWin32Error());
             }
+            ControlService.StartupDiag("reEnableDevice enable begin");
             success = NativeMethods.SetupDiCallClassInstaller(NativeMethods.DIF_PROPERTYCHANGE, deviceInfoSet, ref deviceInfoData);
+            ControlService.StartupDiag($"reEnableDevice enable end success={success}");
             if (!success)
             {
                 throw new Exception("Error enabling device, error code = " + Marshal.GetLastWin32Error());

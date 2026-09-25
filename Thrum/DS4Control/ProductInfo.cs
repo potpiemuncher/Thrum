@@ -296,6 +296,13 @@ namespace DS4Windows
             ExeBaseName + ".release";
 
         /// <summary>
+        /// Where users get HidHide (optional; hides the physical pad from
+        /// games). Thrum links to it and never downloads or runs it itself.
+        /// </summary>
+        public const string HidHideDownloadPage =
+            "https://github.com/nefarius/HidHide/releases/latest";
+
+        /// <summary>
         /// <c>User-Agent</c> sent with GitHub API requests. GitHub rejects
         /// requests without one, so this must stay non-empty.
         /// </summary>

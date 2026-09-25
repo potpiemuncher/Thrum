@@ -3635,6 +3635,14 @@ namespace DS4Windows
             {
             }
 
+            if (string.IsNullOrEmpty(installedReleaseTag) &&
+                selectedRelease != null &&
+                ReleaseChannelPolicy.IsSameRelease(Global.exeDisplayVersion,
+                    selectedRelease.TagName))
+            {
+                installedReleaseTag = selectedRelease.TagName;
+            }
+
             bool updateAvailable = ReleaseChannelPolicy.ShouldUpdate(
                 selectedRelease,
                 Global.exeversion,

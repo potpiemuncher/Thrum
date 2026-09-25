@@ -57,6 +57,14 @@ namespace DS4WinWPF.DS4Forms
             }
         }
 
+        private void HidHideDownload_Click(object sender, RoutedEventArgs e)
+        {
+            if (viewModel.CurrentStep is FirstRunBackendStepViewModel backend)
+            {
+                backend.OpenHidHideDownloadPage();
+            }
+        }
+
         private void Window_Closing(object sender, CancelEventArgs e)
         {
             if (!closeApproved)

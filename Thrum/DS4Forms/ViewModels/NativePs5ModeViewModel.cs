@@ -419,6 +419,15 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                   "may also see it. Make sure Hide DS4 Controller is on and " +
                   ProductInfo.ProductName + " is on the HidHide allow list.";
 
+        /// <summary>
+        /// The link opens the download page when HidHide is missing, so it
+        /// must not say it opens the client.
+        /// </summary>
+        public string HidHideLinkText =>
+            inputs.HidHide == NativePs5HidHideStatus.NotInstalled
+                ? "Get HidHide"
+                : "Open the HidHide client";
+
         public const string HidHideWorksWithoutNote =
             "Native PS5 mode works without it.";
 

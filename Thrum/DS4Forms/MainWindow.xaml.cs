@@ -2231,7 +2231,7 @@ Suspend support not enabled.", true);
                 return;
             }
 
-            Util.StartProcessHelper("https://github.com/nefarius/HidHide/releases");
+            Util.StartProcessHelper(ProductInfo.HidHideDownloadPage);
         }
 
         private void OpenNativePs5Sheet()

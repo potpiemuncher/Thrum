@@ -9,6 +9,18 @@ namespace DS4WindowsTests
     public class ReleaseChannelPolicyTests
     {
         [TestMethod]
+        public void ABuildOfTheOfferedReleaseIsTheSameRelease()
+        {
+            Assert.IsTrue(ReleaseChannelPolicy.IsSameRelease(
+                "0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)",
+                "v0.9.0-beta.2"));
+            Assert.IsTrue(ReleaseChannelPolicy.IsSameRelease("0.9.0-beta.2", "0.9.0-beta.2"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSameRelease("0.9.0-beta.1", "v0.9.0-beta.2"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSameRelease("0.9.0-beta.2", "v0.9.0-beta.20"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSameRelease(null, "v0.9.0-beta.2"));
+        }
+
+        [TestMethod]
         public void StableBuildOnlyFollowsStableReleases()
         {
             GithubRelease selected = ReleaseChannelPolicy.SelectPreferredRelease(

@@ -21,7 +21,7 @@ namespace DS4WinWPF.DS4Forms
         // administrator with no integrity check, which a same-user process
         // could swap between download and launch (and which Defender flags).
         private const string HidHideDownloadPage =
-            "https://github.com/nefarius/HidHide/releases/latest";
+            DS4Windows.ProductInfo.HidHideDownloadPage;
         private const string FakerInputDownloadPage =
             "https://github.com/Ryochan7/FakerInput/releases/latest";
 

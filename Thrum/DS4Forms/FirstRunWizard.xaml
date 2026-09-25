@@ -190,17 +190,33 @@
                             <TextBlock Text="{Binding AcknowledgementBody}"
                                        Style="{StaticResource BridgeSectionDescriptionStyle}" />
                         </ScrollViewer>
+                        <!-- Content is a string: this style's template shows
+                             Content as text, so an element here rendered as its
+                             type name. -->
                         <CheckBox IsChecked="{Binding Acknowledged}"
+                                  Content="{Binding AcknowledgementLabel}"
                                   Style="{StaticResource BridgeDescribedCheckBoxStyle}"
                                   AutomationProperties.Name="{Binding AcknowledgementLabel}"
-                                  TabIndex="33">
-                            <TextBlock Text="{Binding AcknowledgementLabel}"
-                                       FontWeight="SemiBold" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource ForegroundColor}" />
-                        </CheckBox>
+                                  TabIndex="33" />
                         <TextBlock Text="{Binding AcknowledgementNote}"
                                    Style="{StaticResource BridgeSectionDescriptionStyle}"
                                    Margin="24,4,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource BridgeCardStyle}" Margin="0,12,0,0"
+                        Visibility="{Binding ShowHidHideOffer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Optional: HidHide"
+                                   Style="{StaticResource BridgeSectionTitleStyle}" />
+                        <TextBlock Text="HidHide hides the physical controller from games, so a game that sees the virtual controller does not also see the real one and get double input. Thrum works without it. Install it from its own release page, then restart Thrum."
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,4,0,10" />
+                        <WrapPanel>
+                            <Button Content="Get HidHide"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    Click="HidHideDownload_Click"
+                                    TabIndex="34" />
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>

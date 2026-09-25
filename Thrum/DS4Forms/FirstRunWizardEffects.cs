@@ -140,6 +140,11 @@ namespace DS4WinWPF.DS4Forms
         public bool ViiperExperimentalAcknowledged =>
             Global.ViiperExperimentalAcknowledged;
 
+        public bool HidHideInstalled => Global.hidHideInstalled;
+
+        public void OpenHidHideDownloadPage() =>
+            Util.StartProcessHelper(ProductInfo.HidHideDownloadPage);
+
         public void RecordViiperExperimentalAcknowledgement(bool acknowledged)
         {
             Global.ViiperExperimentalAcknowledged = acknowledged;

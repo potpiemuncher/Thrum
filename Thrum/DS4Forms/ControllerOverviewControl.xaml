@@ -377,7 +377,7 @@
                                       DisplayMemberPath="Name"
                                       SelectedIndex="{Binding SelectedController.SelectedIndex, Mode=TwoWay}"
                                       Style="{StaticResource BridgeProfileComboBoxStyle}"
-                                      HorizontalAlignment="Left" Margin="0,8,0,5"
+                                      Width="Auto" HorizontalAlignment="Stretch" Margin="0,8,0,5"
                                       SelectionChanged="ActiveProfileComboBox_SelectionChanged" />
                              <TextBlock Text="Settings below save to this profile"
                                         TextWrapping="Wrap"
@@ -498,8 +498,8 @@
                                         <Run Text="{Binding HidHideWarningText, Mode=OneWay}" />
                                         <Hyperlink x:Name="HidHideClientLink" Click="HidHideClientLink_Click"
                                                    Foreground="{DynamicResource AccentTextColor}"
-                                                   AutomationProperties.Name="Open the HidHide client"
-                                                   ToolTip="Opens the HidHide configuration client, or its download page when HidHide is not installed.">Open the HidHide client</Hyperlink><Run Text=". " />
+                                                   AutomationProperties.Name="{Binding HidHideLinkText, Mode=OneWay}"
+                                                   ToolTip="Opens the HidHide configuration client, or its download page when HidHide is not installed."><Run Text="{Binding HidHideLinkText, Mode=OneWay}" /></Hyperlink><Run Text=". " />
                                         <Run Text="{x:Static vm:NativePs5ModeViewModel.HidHideWorksWithoutNote}" />
                                     </TextBlock>
                                 </Grid>

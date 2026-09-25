@@ -33,6 +33,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         bool LaunchViiperInstaller(ViiperPrerequisiteStatus status);
         bool ViiperExperimentalAcknowledged { get; }
         void RecordViiperExperimentalAcknowledgement(bool acknowledged);
+        bool HidHideInstalled { get; }
+        void OpenHidHideDownloadPage();
     }
 
     public abstract class FirstRunStepViewModel : INotifyPropertyChanged
@@ -256,6 +258,15 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 RaiseAllChanged();
             }
         }
+
+        /// <summary>
+        /// HidHide is optional, and setup used to never mention it: nothing in
+        /// the first run said how to stop games seeing the physical pad as well
+        /// as the virtual one.
+        /// </summary>
+        public bool ShowHidHideOffer => !effects.HidHideInstalled;
+
+        public void OpenHidHideDownloadPage() => effects.OpenHidHideDownloadPage();
 
         public string AcknowledgementNote => Acknowledged
             ? "Saved. Virtual controllers are allowed. Audio and microphone endpoints stay off; they are a separate choice in Settings."

@@ -431,6 +431,25 @@ namespace DS4WindowsTests
                 effects.Events.Where(e => e.StartsWith("consent:")).ToArray());
         }
 
+        [TestMethod]
+        public void BackendStepOffersHidHideOnlyWhenItIsMissing()
+        {
+            var effects = new FakeWizardEffects();
+            var wizard = new FirstRunWizardViewModel(effects,
+                appDataConfigPristine: true);
+            wizard.Advance();
+            wizard.Advance();
+            wizard.Advance();
+            var backend = (FirstRunBackendStepViewModel)wizard.CurrentStep;
+
+            Assert.IsTrue(backend.ShowHidHideOffer);
+            backend.OpenHidHideDownloadPage();
+            CollectionAssert.Contains(effects.Events, "hidhide-page");
+
+            effects.HidHideInstalled = true;
+            Assert.IsFalse(backend.ShowHidHideOffer);
+        }
+
         private static void AssertStep(FirstRunWizardViewModel wizard,
             FirstRunStepKind expected) =>
             Assert.AreEqual(expected, wizard.CurrentStepKind);
@@ -521,6 +540,10 @@ namespace DS4WindowsTests
                 ViiperExperimentalAcknowledged = acknowledged;
                 Events.Add("consent:" + acknowledged);
             }
+
+            public bool HidHideInstalled { get; set; }
+
+            public void OpenHidHideDownloadPage() => Events.Add("hidhide-page");
         }
     }
 

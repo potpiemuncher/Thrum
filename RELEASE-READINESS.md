@@ -11,8 +11,8 @@ items and the test plan.
 hardware. Not ready for a general (non-beta) release.**
 
 The review fixed every Critical finding and 32 of 36 High ones (a 33rd is
-mitigated). Your six decisions were made on 2026-09-24 and are implemented
-([Decisions](#decisions)). What is left waits on a check in the VM or a real
+mitigated). Your decisions (six on 2026-09-24, two more on 2026-09-25 while
+testing) are implemented ([Decisions](#decisions)). What is left waits on a check in the VM or a real
 controller. Nothing found is unsafe to hand to beta testers who know it is a
 beta. Before a wider audience:
 
@@ -22,8 +22,9 @@ beta. Before a wider audience:
    [Code signing](#code-signing).
 2. **Run the [pre-release test checklist](#pre-release-test-checklist) on real
    hardware.** The move to .NET 10 and the decisions changed paths the review
-   could build and test but not run: the first-run consent step, exclusive
-   mode's shared-mode fallback, the startup-task migration, and the hardware
+   could build and test but not run: the installer, the first-run consent
+   step, exclusive mode's shared-mode fallback, the startup-task migration,
+   Native PS5 mode's restart, and the hardware
    fixes (Switch Pro/Joy-Con HID writes, Bluetooth audio lanes, device-change
    recovery).
 3. **Watch for usbip-win2 0.9.8.2** ([below](#usbip-win2-update)). It is not
@@ -45,6 +46,7 @@ of 43 windows and pages set accessible names).
 | 5 — Real users | 9586b4a, 8ff8841 | Crash-safe settings saves with backup and recovery; log size caps; crash notice; high-DPI window sizes; end-user README; notices corrected |
 | 6 — Other | 5c99f58 | Release workflow runs the tests before publishing; this report |
 | Decisions | 312e415, 0b9ff94, d91bc14 | No administrator rights at runtime (exclusive mode, Driver Setup, startup task); signed setup script under `AllSigned`; consent in the first-run wizard; .NET 10 |
+| Owner testing | 2a86ab6, 8290f99, 1e3c5b2, d56610e, 5d17078, and the installer commit | Fixes from your first run (wizard, update prompt, HidHide link, profile box); Native PS5 mode no longer loses the controller for about 25 s; the 2 s pause at every service start is gone; an installer |
 
 ## Before and after
 
@@ -56,6 +58,8 @@ of 43 windows and pages set accessible names).
 | Actions deprecation notices | Node 20 warnings on every run | 0 | CI annotations |
 | Administrator prompts outside setup and driver installs | UAC in exclusive mode when another app held the controller; Driver Setup elevated the whole window and ran downloaded installers elevated; Task startup mode ran Thrum elevated at every sign-in | **None** | Code review; decisions #1–#3 |
 | Runtime | .NET 8 (support ends 2026-11-10) | **.NET 10 LTS** (supported until November 2028) | Decision #6 |
+| Install | Zip only, recommended into a folder the user can write (where the elevated setup script could be changed) | **Installer** (Program Files for all users by default, or for one user without admin) and the zip | Decision #7 |
+| Native PS5 mode, turning it on with a controller connected | about 25 s without a controller (your logs, with and without admin) | about 1 s expected (service stop plus start); confirm with checklist item C11 | Owner testing, decision #8 |
 | Dialogs, prompts or warning banners on a normal (not first) launch | VIIPER install prompt every launch without VIIPER; update dialog every 24 h ignoring "Skip this version"; amber "Needs attention" and kernel-crash banners in the default state; HidHide banner; FakerInput tray toast | **None** | Code review of every startup path |
 | Recurring warnings in the log on a normal start | usbip sweep, LinkedProfiles.xml, audio refusal paragraphs, gate refusal twice, serial-number warning, stream health, Edge notice, stack traces, power-off warnings | Removed or moved to verbose startup diagnostics | Startup sweep; list in CHANGES-REVIEW.md |
 | Hidden Thrum.exe launches with Game Bar compatibility on, overlay closed | about 6 per second, all session | 1 per second (fast rate only while the overlay is open or just after Thrum opens it) | Code; confirm with Process Monitor |
@@ -77,8 +81,9 @@ anywhere. Add its numbers to this table before the release.
 
 ## Decisions
 
-Made by you on 2026-09-24, each as recommended. Numbered as in the phase
-reports; details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions).
+Decisions 1–6 made by you on 2026-09-24, 7–8 on 2026-09-25 while testing, each
+as recommended. Details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions)
+and its owner-testing section.
 
 | # | Question | Decision | What changed |
 | --- | --- | --- | --- |
@@ -88,6 +93,8 @@ reports; details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions).
 | 4 | VIIPER setup ran a script from the user-writable app folder, elevated, under `-ExecutionPolicy Bypass`. | Sign it; run under `AllSigned`. | A signed Thrum.exe runs the script under `AllSigned`, and only if it is signed by the same publisher. The setup window says what to answer at PowerShell's one-time "untrusted publisher" question. Unsigned builds keep `Bypass`, so this takes effect when you sign releases. |
 | 5 | The first-run wizard never collected the experimental-driver consent. | Unticked checkbox in the Backend step. | The step shows the full notice with an unticked box; a tick records the same consent as the Settings switch. |
 | 6 | .NET 8 support ends 2026-11-10 and the zip bundles its runtime. | Move to .NET 10 (LTS). | Thrum, tests, CI and the release workflow use .NET 10 (supported until November 2028). The package grows by about 21 MB (7 MB zipped). |
+| 7 | Thrum shipped as a zip only, recommended into a folder the user owns, so the elevated VIIPER setup script sat where any program running as the user could change it; users expect Program Files. | Add an installer; Program Files by default. | `Thrum_<version>_x64_setup.exe` (Inno Setup, `installer/Thrum.iss`). It installs for all users in Program Files (one UAC prompt, while installing) or, if chosen on its first page, for the current user without admin. Start menu entry, entry in Settings > Apps, uninstaller (removes the startup shortcut, asks whether to delete settings), asks to close a running Thrum, starts Thrum as the user, not elevated. CI and the release workflow build it; the zip stays. |
+| 8 | Every service start paused 2 s (C034), including each restart for Native PS5 mode and Hide DS4 Controller. | Remove it. | Removed. A start now waits (up to 2 s) only for a VIIPER backend Thrum launched in the last 10 s. |
 
 Still for you, with a check needed first:
 
@@ -225,6 +232,18 @@ satellite `Thrum.resources.dll` files, and `extras\install-viiper-backend.ps1`.
 files are already signed. Unsigned third-party DLLs can be signed with
 `-IncludeUnsignedThirdParty`, but only if you accept vouching for them.
 
+The installer (decision #7) needs signing too, after it is built from the
+signed files: sign the files, then run `utils/build-installer.ps1`, then sign
+`Thrum_<version>_x64_setup.exe`. In the workflow that order is automatic once
+signing runs before `post-build.py`; add one more signing call on the setup
+file after `build-installer.ps1`. If you sign locally with
+`extras/sign-release.ps1`, which signs the files inside the zip, rebuild the
+installer from the signed zip's folder and sign it, then replace both release
+assets.
+The uninstaller Inno Setup writes into the installation is unsigned unless
+`installer/Thrum.iss` is given a `SignTool` and `SignedUninstaller=yes`; that
+affects only the name Windows shows when uninstalling.
+
 Recommended route for an individual in the USA or Canada: **Azure Artifact
 Signing** (formerly Trusted Signing), about USD 9.99 a month, signing inside
 GitHub Actions with no hardware token.
@@ -256,7 +275,8 @@ account is enough), x64, with the Visual C++ runtime *not* installed on one of
 them. Tick each item; note the controller and connection.
 
 **Install and first run**
-- [ ] I1 Download the zip, check the SHA-256, extract to `%LOCALAPPDATA%\Programs\Thrum`, run. SmartScreen warning only, no other prompt.
+- [ ] I1 Download the installer, check the SHA-256, run it with the default (all users). SmartScreen warning, one UAC prompt, nothing else. It installs to `C:\Program Files\Thrum`, adds a Start menu entry and an entry in Settings > Apps, and "Launch Thrum" starts Thrum not elevated (the Log tab says "Running as User").
+- [ ] I8 Installer, other paths: on a second account choose "Install for me only": no UAC prompt, installs to `%LOCALAPPDATA%\Programs\Thrum`. Run the installer again while Thrum is running: it asks you to close Thrum first. Uninstall from Settings > Apps: it asks whether to delete settings (No keeps `%APPDATA%\Thrum`), and removes the Run at startup shortcut. The zip, extracted to `%LOCALAPPDATA%\Programs\Thrum`, still runs the same way.
 - [ ] I2 First-run wizard: every step fits the screen at 100%, 150% and 200% scaling.
 - [ ] I3 Install / Repair VIIPER from the wizard: one UAC prompt, completes, the wizard does not restart under you. On a signed build, PowerShell asks once to trust the publisher; the line above it says to answer R; answering D shows the reason and waits.
 - [ ] I4 Finish the wizard. Exit, start again: no wizard, no dialog, no warning banner, no warning lines in the Log tab.
@@ -275,6 +295,7 @@ them. Tick each item; note the controller and connection.
 - [ ] C8 Trigger Lab: save a preset in the profile editor, then another on the main tab; both exist after restart.
 - [ ] C9 Hide DS4 Controller / Native PS5 mode with and without HidHide. With Steam (or another controller app) open first and HidHide not installed: no UAC prompt; the log says the controller is in shared mode and names Steam; the tray says so once; closing Steam and reconnecting hides it.
 - [ ] C10 Settings > Driver Setup: no UAC prompt; the HidHide and FakerInput buttons open their release pages; closing the window restarts the service if it was running.
+- [ ] C11 With a DualSense connected and Hide DS4 Controller off, turn on Native PS5 mode: the controller is back within about a second, not 25 s. With Verbose logging on, the log shows no pause after "Starting...".
 
 **Audio**
 - [ ] A1 Audio Haptics on a Bluetooth DualSense, System audio: haptics follow game audio.
@@ -298,7 +319,7 @@ them. Tick each item; note the controller and connection.
 - [ ] U7 Game Bar compatibility on: Process Monitor shows about one Thrum.exe launch a second while idle, not six.
 - [ ] U8 Update check: with a newer release published, the dialog opens the release page; "Skip this version" keeps it quiet.
 - [ ] U9 Keyboard only: reach Start/Stop, the profile list and Settings with Tab; Narrator reads the main buttons.
-- [ ] U10 Uninstall per README; nothing of Thrum left running or starting at logon.
+- [ ] U10 Uninstall per README (installer and zip); nothing of Thrum left running or starting at logon.
 
 ## Findings
 

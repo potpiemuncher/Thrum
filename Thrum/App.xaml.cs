@@ -69,6 +69,8 @@ namespace DS4WinWPF
         private bool exitComThread = false;
         private const string SingleAppComEventName = DS4Windows.ProductInfo.SingleInstanceEventName;
         private EventWaitHandle threadComEvent = null;
+        // Checked by the installer and uninstaller; see ProductInfo.InstallerAppMutexName.
+        private static Mutex installerAppMutex;
         private Timer collectTimer;
         private static LoggerHolder logHolder;
 
@@ -184,6 +186,15 @@ namespace DS4WinWPF
                 runShutdown = false;
                 Current.Shutdown();
                 return;
+            }
+
+            try
+            {
+                installerAppMutex = new Mutex(false, DS4Windows.ProductInfo.InstallerAppMutexName);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is WaitHandleCannotBeOpenedException)
+            {
+                // Only the installer's "close Thrum first" check depends on it.
             }
 
             CreateTempWorkerThread();
@@ -1205,6 +1216,7 @@ namespace DS4WinWPF
                 LaunchPendingRestart();
 
                 if (ipcClassNameMMF != null) ipcClassNameMMF.Dispose();
+                installerAppMutex?.Dispose();
 
                 LogManager.Flush();
                 LogManager.Shutdown();

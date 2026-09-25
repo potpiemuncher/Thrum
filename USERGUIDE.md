@@ -34,7 +34,8 @@ defaults stage.
 2. **Choose where Thrum stores its data** defaults to **App data
    (recommended)**, under `%APPDATA%\Thrum`. Expand **Advanced: portable data
    location** only when you intentionally want settings beside `Thrum.exe`.
-   Portable mode is unavailable when the program folder is not writable.
+   Portable mode is unavailable when the program folder is not writable, as
+   in an installation for all users in Program Files.
 3. **Import existing settings** reviews any compatible DS4Windows configuration
    found in the legacy data folder. Import skips files already present and does
    not modify the source. Choose **Start fresh** in the review dialog to decline.

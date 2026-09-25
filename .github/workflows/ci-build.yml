@@ -102,6 +102,18 @@ jobs:
           path: .\bin\${{ matrix.platform }}\Release\artifact
           if-no-files-found: error
 
+      - name: Build ${{ matrix.platform }} installer
+        shell: pwsh
+        run: .\utils\build-installer.ps1 -PackageDir .\bin\${{ matrix.platform }}\Release\Thrum -Version ${{ env.VERSION }} -OutputDir .\bin\${{ matrix.platform }}\Release\installer -InstallInnoSetup
+
+      - name: Upload ${{ matrix.platform }} installer
+        id: upload-installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: Thrum_${{ env.VERSION }}_${{ matrix.platform }}_setup
+          path: .\bin\${{ matrix.platform }}\Release\installer\*.exe
+          if-no-files-found: error
+
       - name: Publish artifact link to run summary
         shell: bash
         run: |
@@ -110,4 +122,6 @@ jobs:
           echo "Version: \`${{ env.VERSION }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "[Download Thrum_${{ env.VERSION }}_${{ matrix.platform }} (contains Thrum folder)](${{ steps.upload.outputs.artifact-url }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Download Thrum_${{ env.VERSION }}_${{ matrix.platform }}_setup (installer)](${{ steps.upload-installer.outputs.artifact-url }})" >> "$GITHUB_STEP_SUMMARY"
 

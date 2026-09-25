@@ -14,6 +14,8 @@ Thrum still tracks upstream. Please do not open drive-by renaming pull requests.
 - **.NET 10 SDK.** Get it from
   <https://dotnet.microsoft.com/download/dotnet/10.0>.
 - **Python 3.10+**, only if you need the packaging step (`utils/post-build.py`).
+- **Inno Setup 6.3+**, only if you build the installer
+  (<https://jrsoftware.org/isdl.php>).
 - Visual Studio 2022 or Rider are convenient but not required; the command
   line below is the source of truth.
 
@@ -32,8 +34,19 @@ dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64
 To produce the same self-contained win-x64 output that CI packages:
 
 ```powershell
-dotnet publish .\Thrum\Thrum.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64
+dotnet publish .\Thrum\Thrum.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o .\bin\x64\Release\output
 ```
+
+And to package it as the zip and the installer, as the release workflow does:
+
+```powershell
+python .\utils\post-build.py .\bin\x64\Release\output . 0.0.0-local
+.\utils\build-installer.ps1 -PackageDir .\bin\x64\Release\Thrum -Version 0.0.0-local -OutputDir .\bin\x64\Release
+```
+
+The installer script is `installer\Thrum.iss`. It repeats a few names the app
+defines (the running-app mutex, the startup shortcut); `InstallerScriptTests`
+fails if they drift apart.
 
 Run the **full** suite before opening a pull request, not just the tests near
 your change. Report failures verbatim; do not summarise them.

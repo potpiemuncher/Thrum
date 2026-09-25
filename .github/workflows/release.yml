@@ -70,7 +70,17 @@ jobs:
           Move-Item -LiteralPath $source -Destination $asset -Force
         }
         "RELEASE_ASSET=$asset" >> $env:GITHUB_ENV
+    - name: Build installer X64
+      shell: pwsh
+      run: |
+        $name = if ("${{ env.VERSION }}" -like "VIIPER*") {
+          "Thrum_VIIPER_x64_setup"
+        } else {
+          "Thrum_${{ env.VERSION }}_x64_setup"
+        }
+        .\utils\build-installer.ps1 -PackageDir .\bin\x64\Release\Thrum -Version "${{ env.VERSION }}" -BinaryVersion "${{ env.BINARY_VERSION }}" -OutputDir .\bin\x64\Release -OutputBaseFilename $name -InstallInnoSetup
+        "RELEASE_INSTALLER=.\bin\x64\Release\$name.exe" >> $env:GITHUB_ENV
     - name: Publish release Build X64
-      run: gh release upload ${{github.event.release.tag_name}} ${{ env.RELEASE_ASSET }} --clobber
+      run: gh release upload ${{github.event.release.tag_name}} ${{ env.RELEASE_ASSET }} ${{ env.RELEASE_INSTALLER }} --clobber
       env:
         GITHUB_TOKEN: ${{ github.TOKEN }}

@@ -180,6 +180,13 @@ namespace DS4Windows
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static int pendingOwnVirtualSonyConnects;
         private static long pendingOwnVirtualSonyTimestamp;
+        // Sony HID paths that were present before every pending connect began.
+        // None of them can be the output that is arriving, so the pending guard
+        // lets them through. Without this a physical DualSense (same VID/PID as
+        // the virtual one) was ignored for up to 15 s after any Sony output was
+        // plugged in, e.g. when Native PS5 mode plugged one and restarted the
+        // service straight away.
+        private static HashSet<string> pendingOwnVirtualSonyPriorPaths;
 
         // Moonlight/Sunshine DS4 streams report the Sony VID with one of these PIDs.
         private static readonly int[] VirtualDS4Pids = { 0x05C4, 0x09CC };
@@ -222,10 +229,26 @@ namespace DS4Windows
             return before;
         }
 
-        public static void BeginOwnVirtualSonyConnect()
+        /// <param name="beforePaths">The snapshot taken just before the
+        /// connect (<see cref="SnapshotBeforeOwnVirtualSony"/>).</param>
+        public static void BeginOwnVirtualSonyConnect(HashSet<string> beforePaths)
         {
             lock (ownVirtualLock)
             {
+                IEnumerable<string> before = beforePaths ?? Enumerable.Empty<string>();
+                if (!IsPendingWindowOpen() || pendingOwnVirtualSonyPriorPaths == null)
+                {
+                    pendingOwnVirtualSonyPriorPaths =
+                        new HashSet<string>(before, StringComparer.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    // An earlier connect's output may have arrived after its
+                    // snapshot and be in this one; only paths in every
+                    // snapshot are known not to be arriving outputs.
+                    pendingOwnVirtualSonyPriorPaths.IntersectWith(before);
+                }
+
                 pendingOwnVirtualSonyConnects++;
                 pendingOwnVirtualSonyTimestamp = Stopwatch.GetTimestamp();
             }
@@ -239,24 +262,47 @@ namespace DS4Windows
                 {
                     pendingOwnVirtualSonyConnects--;
                 }
+
+                if (pendingOwnVirtualSonyConnects == 0)
+                {
+                    pendingOwnVirtualSonyPriorPaths = null;
+                }
             }
         }
 
-        private static bool IsOwnVirtualSonyConnectPending()
+        /// <summary>
+        /// True while <paramref name="devicePath"/> could be a VIIPER Sony
+        /// output that is still arriving: a connect is pending and the path was
+        /// not there before it began.
+        /// </summary>
+        internal static bool IsOwnVirtualSonyConnectPending(string devicePath)
         {
             lock (ownVirtualLock)
             {
-                if (pendingOwnVirtualSonyConnects <= 0)
+                if (!IsPendingWindowOpen())
                 {
                     return false;
                 }
 
-                long elapsed = Stopwatch.GetTimestamp() -
-                    pendingOwnVirtualSonyTimestamp;
-                long timeoutTicks = (long)(OwnVirtualSonyPendingTimeout.
-                    TotalSeconds * Stopwatch.Frequency);
-                return elapsed < timeoutTicks;
+                return pendingOwnVirtualSonyPriorPaths == null ||
+                    string.IsNullOrEmpty(devicePath) ||
+                    !pendingOwnVirtualSonyPriorPaths.Contains(devicePath);
             }
+        }
+
+        // Caller holds ownVirtualLock.
+        private static bool IsPendingWindowOpen()
+        {
+            if (pendingOwnVirtualSonyConnects <= 0)
+            {
+                return false;
+            }
+
+            long elapsed = Stopwatch.GetTimestamp() -
+                pendingOwnVirtualSonyTimestamp;
+            long timeoutTicks = (long)(OwnVirtualSonyPendingTimeout.
+                TotalSeconds * Stopwatch.Frequency);
+            return elapsed < timeoutTicks;
         }
 
         // VIIPER presents a complete USB composite device through USBIP. Windows can
@@ -416,7 +462,7 @@ namespace DS4Windows
 
             if (hDevice.Attributes.VendorId == SONY_VID &&
                 IsViiperSonyProductId(hDevice.Attributes.ProductId) &&
-                IsOwnVirtualSonyConnectPending())
+                IsOwnVirtualSonyConnectPending(devicePath))
             {
                 return false;
             }

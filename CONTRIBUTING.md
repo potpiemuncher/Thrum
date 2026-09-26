@@ -73,9 +73,12 @@ from a clean checkpoint, with crash dumps configured. Never on a development
 or daily-driver machine.
 
 There is a reproduced, source-confirmed request-lifetime race in usbip-win2
-(upstream issue #181) that corrupts kernel heap during virtual audio endpoint
-teardown and produces bugchecks `0xA` / `0x139`. Controller-only emulation
-does not reach it; audio, microphone, and advanced-haptics endpoints do.
+releases before 0.9.8.0 (upstream issue #181) that corrupts kernel heap during
+virtual audio endpoint teardown and produces bugchecks `0xA` / `0x139`.
+Controller-only emulation does not reach it; audio, microphone, and
+advanced-haptics endpoints do. 0.9.8.0 carries the upstream fixes, and Thrum
+creates audio endpoints (on by default) only on it; teardown changes still get
+the VM treatment.
 
 Non-negotiable rules:
 

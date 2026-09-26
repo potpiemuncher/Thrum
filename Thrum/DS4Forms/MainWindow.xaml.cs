@@ -2336,25 +2336,16 @@ Suspend support not enabled.", true);
         }
 
         /// <summary>
-        /// Step 4: the audio-class opt-in, with the disclosure on every
-        /// enablement exactly as the Settings checkbox shows it.
+        /// Step 4: the same switch as the Settings checkbox. On by default;
+        /// the gate still refuses audio on a release without the upstream fix.
         /// </summary>
         private void NativePs5Sheet_AudioConsentChanged(object sender,
             NativePs5ConsentEventArgs e)
         {
-            if (e.Requested && !ConfirmAudioClassEnablement())
-            {
-                AppLogger.LogToGui(
-                    "Virtual audio endpoints stay off: the kernel-crash risk " +
-                    "notice was declined.", false);
-                RefreshNativePs5SheetInputs();
-                return;
-            }
-
             settingsWrapVM.AllowExperimentalAudioEndpoints = e.Requested;
             AppLogger.LogToGui(e.Requested
-                ? "Virtual audio endpoints enabled; the kernel-crash risk notice was accepted. Applies to the next controller connection."
-                : "Virtual audio endpoints disabled. Endpoints that are already running are left alone.",
+                ? "Virtual audio endpoints turned on. Applies to the next controller connection."
+                : "Virtual audio endpoints turned off. Endpoints that are already running are left alone.",
                 false);
             slotManControl.RefreshGateBanner();
             mainWinVM.RefreshNativePs5();
@@ -2737,8 +2728,7 @@ Suspend support not enabled.", true);
             }
 
             viiperConsentIntroText.Text =
-                "Installed driver package: " +
-                ViiperExperimentalDisclosure.DescribeInstalled(readiness);
+                ViiperExperimentalDisclosure.InstalledPackageLine(readiness);
             viiperExperimentalAckText.Text =
                 ViiperExperimentalDisclosure.AcknowledgementSummary;
             viiperAudioEndpointsText.Text =
@@ -2782,9 +2772,9 @@ Suspend support not enabled.", true);
         }
 
         /// <summary>
-        /// The audio-class opt-in. The disclosure is shown on <b>every</b>
-        /// enablement, not once: the risk does not fade with familiarity, and
-        /// the installed package can have changed since the last time.
+        /// The audio-class switch. On by default; the gate still refuses audio
+        /// endpoints on a usbip-win2 release without the upstream fix, and the
+        /// one-time experimental notice says so.
         /// </summary>
         private void ViiperAudioEndpointsCk_Checked(object sender, RoutedEventArgs e)
         {
@@ -2795,19 +2785,10 @@ Suspend support not enabled.", true);
                 return;
             }
 
-            if (requested && !ConfirmAudioClassEnablement())
-            {
-                viiperAudioEndpointsCk.IsChecked = false;
-                AppLogger.LogToGui(
-                    "Virtual audio endpoints stay off: the kernel-crash risk " +
-                    "notice was declined.", false);
-                return;
-            }
-
             settingsWrapVM.AllowExperimentalAudioEndpoints = requested;
             AppLogger.LogToGui(requested
-                ? "Virtual audio endpoints enabled; the kernel-crash risk notice was accepted. Applies to the next controller connection."
-                : "Virtual audio endpoints disabled. Endpoints that are already running are left alone.",
+                ? "Virtual audio endpoints turned on. Applies to the next controller connection."
+                : "Virtual audio endpoints turned off. Endpoints that are already running are left alone.",
                 false);
             slotManControl.RefreshGateBanner();
         }
@@ -2839,19 +2820,6 @@ Suspend support not enabled.", true);
                 ViiperExperimentalDisclosure.AcknowledgementTitle,
                 MessageBoxButton.YesNo, MessageBoxImage.Warning,
                 MessageBoxResult.No) == MessageBoxResult.Yes;
-
-        private bool ConfirmAudioClassEnablement()
-        {
-            // Names the package that is installed right now, which is why the
-            // readiness is read here rather than captured when the card loaded.
-            string body = ViiperExperimentalDisclosure.BuildAudioClassBody(
-                ViiperSetupManager.DriverReadiness);
-
-            return MessageBox.Show(this, body,
-                ViiperExperimentalDisclosure.AudioClassTitle,
-                MessageBoxButton.YesNo, MessageBoxImage.Warning,
-                MessageBoxResult.No) == MessageBoxResult.Yes;
-        }
 
         private void ApplyViiperStatusText(ViiperPrerequisiteStatus status)
         {

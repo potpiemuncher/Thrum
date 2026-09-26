@@ -1742,11 +1742,11 @@ namespace DS4Windows
 
         /// <summary>
         /// Whether virtual USB audio and microphone endpoints may be created.
-        /// Default off. This is the switch that keeps ordinary use off the
-        /// kernel path the confirmed usbip-win2 defect lives on, so it is only
-        /// ever turned on from a flow that showed
-        /// <see cref="ViiperExperimentalDisclosure.BuildAudioClassBody"/>.
-        /// Turning it off never tears down an endpoint that is already live.
+        /// Default on. The gate still refuses them on a usbip-win2 release
+        /// without the upstream fix for the teardown defect, and
+        /// <see cref="ViiperExperimentalDisclosure.AcknowledgementBody"/> says
+        /// so before any virtual device is created. Turning it off never tears
+        /// down an endpoint that is already live.
         /// </summary>
         public static bool AllowExperimentalAudioEndpoints
         {
@@ -4225,12 +4225,12 @@ namespace DS4Windows
         public bool viiperExperimentalAcknowledged =
             DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED;
 
-        // Whether virtual USB audio/microphone endpoints may be created at all.
-        // Default off, and it stays off until a Production-tier driver exists:
-        // this is the only feature class that reaches the confirmed usbip-win2
-        // request-lifetime defect (upstream issue #181), and it is not needed
-        // for any controller function.
-        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = false;
+        // Whether virtual USB audio/microphone endpoints (game haptics and the
+        // pad speaker in Native PS5 mode) may be created. On by default. This
+        // is the only feature class that reaches the usbip-win2 request-lifetime
+        // defect (upstream issue #181), so the gate also requires a release that
+        // carries the upstream fix (0.9.8.0 or later) whatever this says.
+        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = true;
         public bool allowExperimentalAudioEndpoints =
             DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS;
 

@@ -505,14 +505,6 @@
                                 </Grid>
                             </Border>
 
-                            <StackPanel Margin="0,0,0,6"
-                                        Visibility="{Binding ShowAudioEndpointsLine, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock Text="{x:Static vm:NativePs5ModeViewModel.AudioEndpointsUnverifiedLine}"
-                                           TextWrapping="Wrap" Foreground="{DynamicResource WarningColor}" />
-                                <TextBlock Text="{Binding AudioEndpointsRiskText}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                           Foreground="{DynamicResource WarningColor}" />
-                            </StackPanel>
-
                             <Button x:Name="NativePs5SetupButton" Content="{Binding SetupButtonText}"
                                     HorizontalAlignment="Left" Margin="0,4,0,0"
                                     Style="{StaticResource OverviewOutlineAccentButtonStyle}"

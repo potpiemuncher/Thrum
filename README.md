@@ -20,12 +20,12 @@ release falls short of it in two known ways:
   and this project's build of VIIPER v0.1.2 for it — see
   `docs/viiper-backend-upgrade-path.md` for why a fork build and what was
   validated.
-- **The full "plugged-in" DualSense feel is opt-in.** Native PS5 mode gives
-  games a virtual DualSense with adaptive triggers and rumble out of the box.
-  Game-authored haptics and the pad's speaker additionally need the virtual
-  audio endpoints switch (setup step 4), which stays off by default. With it on
-  they are relayed to the pad over Bluetooth or USB. Bluetooth has had daily
-  use on real hardware; USB has not (issue #65).
+- **Native PS5 mode gives the full "plugged-in" DualSense feel.** Games see a
+  virtual DualSense with adaptive triggers and rumble, and, through the virtual
+  pad's audio endpoints, game-authored haptics and the pad's speaker, relayed to
+  the pad over Bluetooth or USB. The endpoints are on by default with usbip-win2
+  0.9.8.0 and can be turned off in setup step 4 or Settings. Bluetooth has had
+  daily use on real hardware; USB has not (issue #65).
 
 ## Using Thrum
 

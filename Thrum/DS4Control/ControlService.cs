@@ -2675,12 +2675,11 @@ namespace DS4Windows
                 return;
             }
 
-            // Audio endpoints off is the default and recommended state, and a
-            // Sony pad on Bluetooth with an Xbox or Switch output is the most
-            // common setup, so this used to print the full kernel-risk
-            // paragraph on every launch. The Settings card and the Output
-            // Slots note already explain the switch; only a refusal for any
-            // other reason still reaches the log.
+            // Audio endpoints turned off is the user's own choice, so this
+            // used to print the full kernel-risk paragraph on every launch for
+            // nothing. The Settings card and the Output Slots note already
+            // explain the switch; only a refusal for any other reason (such
+            // as a driver release without the upstream fix) reaches the log.
             if (decision.Block != ViiperVirtualDeviceBlock.AudioClassNotEnabled)
             {
                 AppLogger.LogToGui(

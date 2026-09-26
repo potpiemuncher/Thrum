@@ -795,8 +795,8 @@ namespace DS4Windows
                 throw new IOException(audio.Reason);
             }
 
-            // Audio endpoints off is the default; saying so with the full risk
-            // paragraph on every connect was noise. Other refusals still log.
+            // Audio endpoints turned off is the user's choice; saying so on
+            // every connect was noise. Other refusals still log.
             if (audio.Block == ViiperVirtualDeviceBlock.AudioClassNotEnabled)
             {
                 ControlService.StartupDiag(

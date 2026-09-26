@@ -119,11 +119,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         /// <summary>
         /// Drives the banner's treatment. A refusal to create anything is an
-        /// error. Audio endpoints that are off only because the user has not
-        /// opted in - the default - are a neutral note ("Info"): that is the
-        /// recommended configuration, and styling it as a warning put an amber
-        /// banner on this page on every normal launch. Any other audio-only
-        /// refusal is still a warning ("Limited").
+        /// error. Audio endpoints that are off because the user turned them
+        /// off are a neutral note ("Info"): a working configuration the user
+        /// chose, not something to warn about. Any other audio-only refusal,
+        /// such as a driver release without the upstream fix, is still a
+        /// warning ("Limited").
         /// </summary>
         public string Severity
         {

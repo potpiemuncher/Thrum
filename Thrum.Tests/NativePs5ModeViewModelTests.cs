@@ -131,7 +131,7 @@ public class NativePs5ModeViewModelTests
     }
 
     [TestMethod]
-    public void State4_On_OverUsbWithoutAudioConsent()
+    public void State4_On_OverUsbWithAudioEndpointsOff()
     {
         NativePs5ModeViewModel card = Card(Inputs(
             output: OutContType.ViiperDualSense, wireless: false));
@@ -147,7 +147,6 @@ public class NativePs5ModeViewModelTests
         StringAssert.Contains(card.SecondaryLine, "not torn down");
         Assert.IsFalse(card.ShowSetupButton);
         Assert.IsFalse(card.ShowHidHideWarning);
-        Assert.IsFalse(card.ShowAudioEndpointsLine);
     }
 
     [TestMethod]
@@ -174,7 +173,6 @@ public class NativePs5ModeViewModelTests
         Assert.AreEqual("Success", card.BadgeKind);
         Assert.AreEqual("Success", card.CardBorderKind);
         StringAssert.Contains(card.PrimaryLine, "needs no driver");
-        Assert.IsFalse(card.ShowAudioEndpointsLine);
     }
 
     [TestMethod]
@@ -193,24 +191,27 @@ public class NativePs5ModeViewModelTests
                 source: AudioHapticsSourceKind.AppSession)));
     }
 
+    /// <summary>
+    /// Virtual audio endpoints are on by default since 2026-09-26, so the
+    /// state they select is a normal "On": green, no warning lines.
+    /// </summary>
     [TestMethod]
-    public void State6_VirtualPadHapticsCarriesTheRiskSentenceAndUnverifiedLabel()
+    public void State6_VirtualPadHapticsIsAPlainGreenOn()
     {
         NativePs5ModeViewModel card = Card(Inputs(
             output: OutContType.ViiperDualSense, wireless: false,
             audioAllowed: true));
 
         Assert.AreEqual(NativePs5ModeState.OnHapticsVirtualPad, card.State);
-        Assert.AreEqual("Experimental, unverified", card.BadgeText);
-        Assert.AreEqual("Warning", card.BadgeKind);
-        Assert.AreEqual("Warning", card.CardBorderKind);
-        Assert.IsTrue(card.ShowAudioEndpointsLine);
-        Assert.AreEqual(ViiperExperimentalDisclosure.AudioClassSummary,
-            card.AudioEndpointsRiskText);
-        StringAssert.Contains(NativePs5ModeViewModel.AudioEndpointsUnverifiedLine,
-            "#65");
+        Assert.AreEqual("On · game haptics via the virtual pad", card.BadgeText);
+        Assert.AreEqual("Success", card.BadgeKind);
+        Assert.AreEqual("Success", card.CardBorderKind);
         StringAssert.Contains(card.GamesSeeSuffix, "endpoints on");
         StringAssert.Contains(card.PrimaryLine, "over USB");
+        Assert.IsFalse(card.PrimaryLine.Contains("unverified",
+            StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(card.SecondaryLine.Contains("unverified",
+            StringComparison.OrdinalIgnoreCase));
     }
 
     [TestMethod]
@@ -226,8 +227,7 @@ public class NativePs5ModeViewModelTests
             source: AudioHapticsSourceKind.SystemAudio));
 
         Assert.AreEqual(NativePs5ModeState.OnHapticsVirtualPad, card.State);
-        Assert.AreEqual("Experimental, unverified", card.BadgeText);
-        Assert.IsTrue(card.ShowAudioEndpointsLine);
+        Assert.AreEqual("On · game haptics via the virtual pad", card.BadgeText);
         StringAssert.Contains(card.PrimaryLine, "relayed over Bluetooth");
         Assert.IsFalse(card.GamesSeeSuffix.Contains("USB"),
             "The suffix must not name a transport the state no longer requires.");

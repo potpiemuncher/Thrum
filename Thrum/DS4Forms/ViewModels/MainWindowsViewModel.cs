@@ -253,6 +253,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public bool ShowEmulatedDeviceChoice => !ShowNativePs5Mode;
 
         private ViiperDriverReadinessState? nativePs5DriverState;
+        private bool nativePs5DriverCarriesFixes;
         private bool nativePs5BackendReady;
 
         /// <summary>
@@ -265,6 +266,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             bool backendReady)
         {
             nativePs5DriverState = readiness?.State;
+            nativePs5DriverCarriesFixes =
+                ViiperExperimentalDisclosure.CarriesUpstreamFixes(readiness);
             nativePs5BackendReady = backendReady;
             RefreshNativePs5();
         }
@@ -317,7 +320,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 DriverState: nativePs5DriverState,
                 BackendReady: nativePs5BackendReady,
                 ExperimentalAcknowledged: Global.ViiperExperimentalAcknowledged,
-                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints,
+                // What the gate will actually do: the setting, and a release
+                // with the upstream fix (earlier ones never get audio).
+                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints &&
+                    nativePs5DriverCarriesFixes,
                 IsWireless: selectedController.IsWireless,
                 AudioHapticsEnabled: haptics?.Enabled == true,
                 AudioHapticsSource: haptics?.Source ?? AudioHapticsSourceKind.SystemAudio,

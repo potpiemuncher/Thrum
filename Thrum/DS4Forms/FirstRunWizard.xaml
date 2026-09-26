@@ -84,9 +84,9 @@
         <DataTemplate DataType="{x:Type vm:FirstRunImportStepViewModel}">
             <Border Style="{StaticResource BridgeCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Existing DS4Windows settings were found"
+                    <TextBlock Text="Settings from DS4Windows were found"
                                Style="{StaticResource BridgeSectionTitleStyle}" />
-                    <TextBlock Text="Next opens the existing import review. Import is the default action there; Start fresh or Escape declines the one-time offer. The importer skips every file already present and never changes the source."
+                    <TextBlock Text="DS4Windows, the program Thrum is based on, has settings on this PC (in %APPDATA%\DS4Windows). Thrum can copy them so you do not have to set them up again. Next shows what would be copied: choose Import, or Start fresh to skip. This is offered once. Files Thrum already has are kept, and the DS4Windows settings are not changed."
                                Style="{StaticResource BridgeSectionDescriptionStyle}"
                                Margin="0,4,0,10" />
                     <ItemsControl ItemsSource="{Binding SummaryLines}"

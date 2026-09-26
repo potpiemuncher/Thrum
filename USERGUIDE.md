@@ -94,16 +94,22 @@ Setup and consent are separate:
    the one-time disclosure. No currently listed usbip-win2 release is treated as
    production-approved. A kernel-driver fault can stop Windows, and Thrum cannot
    catch or recover from it.
-3. **Allow virtual audio and microphone endpoints** is a separate, default-off
-   switch. Enabling it shows a second disclosure every time because those virtual
-   endpoints reach a confirmed usbip-win2 teardown defect that can corrupt kernel
-   memory and crash Windows. The upstream report is
-   [usbip-win2 #181](https://github.com/vadimgrn/usbip-win2/issues/181).
+3. **Allow virtual audio and microphone endpoints** is on by default. These
+   endpoints carry game-authored haptics and the pad's speaker and microphone in
+   Native PS5 mode. usbip-win2 releases before 0.9.8.0 have a confirmed teardown
+   defect on this path that can corrupt kernel memory and crash Windows
+   ([usbip-win2 #181](https://github.com/vadimgrn/usbip-win2/issues/181)).
+   0.9.8.0, the release Thrum installs, carries the upstream fixes, and Thrum
+   never creates these endpoints on an earlier release.
+
+When the virtual pad connects with its audio endpoints, Windows may make it your
+default speaker and microphone. If game sound moves to the controller, set your
+usual devices back in Windows Sound settings.
 
 You do not need virtual audio endpoints for buttons, sticks, triggers, rumble,
-gyro, touchpad, or lightbar output. Do not enable them merely to get ordinary
-controller emulation working. Turning either setting off does not tear down a
-device that is already running; the new policy applies on the next connection.
+gyro, touchpad, or lightbar output; turning them off loses only game haptics and
+the pad's speaker and microphone. Turning either setting off does not tear down
+a device that is already running; the new policy applies on the next connection.
 
 Driver-free Audio Haptics is a different path. A physical DualSense or DualSense
 Edge connected over Bluetooth can receive the Windows mix or a selected render
@@ -268,7 +274,9 @@ Read the banner above the table before pressing **Plug**:
 - **New virtual controllers are blocked** means the driver is missing,
   unvalidated, or not yet acknowledged. The banner gives the exact remedy.
 - **Virtual audio endpoints are off** means ordinary controller output remains
-  available but the separate audio-class opt-in is disabled.
+  available but no audio endpoints are created: either the audio switch is off,
+  or the installed usbip-win2 release is older than 0.9.8.0 (the banner says
+  which, and Install / Repair VIIPER fixes the second).
 
 Existing attached devices continue running when the policy changes. The gate is
 authoritative for every new allocation, even if a button remains clickable.
@@ -303,7 +311,7 @@ appearance, and update checks.
 - backend ownership and holdings, with a guarded stop action only when Thrum can
   prove it is safe to offer;
 - the virtual-controller acknowledgement; and
-- the separate virtual audio/microphone opt-in.
+- the virtual audio/microphone switch (on by default).
 
 Expand **Advanced settings** for OSC, UDP motion data, language, compatibility,
 process, monitor, device-registration, and maintenance controls. The **Utils**

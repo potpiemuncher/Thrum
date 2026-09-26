@@ -81,8 +81,8 @@ anywhere. Add its numbers to this table before the release.
 
 ## Decisions
 
-Decisions 1–6 made by you on 2026-09-24, 7–8 on 2026-09-25 while testing and 9
-on 2026-09-26, each as recommended. Details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions)
+Decisions 1–6 made by you on 2026-09-24, 7–8 on 2026-09-25 while testing and
+9–10 on 2026-09-26; 1–9 as recommended, 10 at your request. Details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions)
 and its owner-testing section.
 
 | # | Question | Decision | What changed |
@@ -96,6 +96,7 @@ and its owner-testing section.
 | 7 | Thrum shipped as a zip only, recommended into a folder the user owns, so the elevated VIIPER setup script sat where any program running as the user could change it; users expect Program Files. | Add an installer; Program Files by default. | `Thrum_<version>_x64_setup.exe` (Inno Setup, `installer/Thrum.iss`). It installs for all users in Program Files (one UAC prompt, while installing) or, if chosen on its first page, for the current user without admin. Start menu entry, entry in Settings > Apps, uninstaller (removes the startup shortcut, asks whether to delete settings), asks to close a running Thrum, starts Thrum as the user, not elevated. CI and the release workflow build it; the zip stays. |
 | 8 | Every service start paused 2 s (C034), including each restart for Native PS5 mode and Hide DS4 Controller. | Remove it. | Removed. A start now waits (up to 2 s) only for a VIIPER backend Thrum launched in the last 10 s. |
 | 9 | You are fine with Thrum using administrator rights (only admins should run it). Should it always run elevated? | No: keep starting as the signed-in user. | Nothing changed. Nothing Thrum needs requires admin: HidHide lets any user update its application list, and its persistent hiding keeps Steam off the controller. "Run as administrator" still lets exclusive mode restart a controller another program holds (decision 1). Always elevated would need the removed logon task back for Run at startup, and would run the network listeners (OSC, UDP) as admin. |
+| 10 | The Native PS5 card showed orange "Experimental, unverified" warnings whenever the virtual audio endpoints were on, and the endpoints were off by default behind a risk dialog on every enablement. You have used them daily for a week with no issues. | On by default; drop the warnings. | New installs have the endpoints on (a saved setting keeps its value, so existing installs are unchanged). The card's audio state is a green "On · game haptics via the virtual pad" with no warning lines. The per-enablement dialog is gone; the one-time experimental-driver notice now explains the endpoints, the #181 defect and its fix. The gate refuses audio endpoints on any usbip-win2 release before 0.9.8.0 whatever the setting says, so the default never reaches the defective driver. Setup step 3 says Windows may move the default speaker and microphone to the virtual pad. |
 
 Still for you, with a check needed first:
 
@@ -122,13 +123,6 @@ Still for you, with a check needed first:
   Default level. Recommended/All would add 3,120/5,023 warnings, almost all
   style rules in inherited files, which the minimal-diff policy argues against.
   Keeping Default is the recommendation.
-- **The usbip-win2 #181 wording disagrees across the docs.** `SECURITY.md` and
-  `CONTRIBUTING.md` describe the audio-teardown race as present in every
-  published release. The in-app notice says 0.9.8.0 carries the upstream fixes
-  (which the review confirmed are in that tag) but keeps audio endpoints
-  opt-in. Proposed: say the same in all three, namely that 0.9.8.0 carries the
-  fixes, Thrum has not yet stress-tested audio teardown on it, and so audio
-  stays opt-in. This is a safety statement, so it is left for you.
 
 ### usbip-win2 update
 
@@ -277,7 +271,7 @@ them. Tick each item; note the controller and connection.
 
 **Install and first run**
 - [ ] I1 Download the installer, check the SHA-256, run it with the default (all users). SmartScreen warning, one UAC prompt, nothing else. It installs to `C:\Program Files\Thrum`, adds a Start menu entry and an entry in Settings > Apps, and "Launch Thrum" starts Thrum not elevated (the Log tab says "Running as User").
-- [ ] I8 Installer, other paths: on a second account choose "Install for me only": no UAC prompt, installs to `%LOCALAPPDATA%\Programs\Thrum`. Run the installer again while Thrum is running: it asks you to close Thrum first. Uninstall from Settings > Apps: it asks whether to delete settings (No keeps `%APPDATA%\Thrum`), and removes the Run at startup shortcut. The zip, extracted to `%LOCALAPPDATA%\Programs\Thrum`, still runs the same way.
+- [ ] I8 Installer, other paths: on a second account choose "Install for me only": no UAC prompt, installs to `%LOCALAPPDATA%\Programs\Thrum`. Run the installer again while Thrum is running: it asks you to close Thrum first. Uninstall from Settings > Apps: it asks whether to delete settings (No keeps `%APPDATA%\Thrum`), and removes the Run at startup shortcut. The zip, extracted to `%LOCALAPPDATA%\Programs\Thrum`, still runs the same way. *Uninstall prompt seen on the owner's PC (2026-09-26): it names `%APPDATA%\Thrum` and defaults to No.*
 - [ ] I2 First-run wizard: every step fits the screen at 100%, 150% and 200% scaling.
 - [ ] I3 Install / Repair VIIPER from the wizard: one UAC prompt, completes, the wizard does not restart under you. On a signed build, PowerShell asks once to trust the publisher; the line above it says to answer R; answering D shows the reason and waits.
 - [ ] I4 Finish the wizard. Exit, start again: no wizard, no dialog, no warning banner, no warning lines in the Log tab.
@@ -297,6 +291,7 @@ them. Tick each item; note the controller and connection.
 - [ ] C9 Hide DS4 Controller / Native PS5 mode with and without HidHide. With Steam (or another controller app) open first and HidHide not installed: no UAC prompt; the log says the controller is in shared mode and names Steam; the tray says so once; closing Steam and reconnecting hides it.
 - [ ] C10 Settings > Driver Setup: no UAC prompt; the HidHide and FakerInput buttons open their release pages; closing the window restarts the service if it was running.
 - [x] C11 With a DualSense connected and Hide DS4 Controller off, turn on Native PS5 mode: the controller is back within about a second, not 25 s. With Verbose logging on, the log shows no pause after "Starting...". *Passed on the owner's PC (2026-09-26, installed build 0b030b3): back in 1–2 s. The log was not checked.*
+- [ ] C12 Fresh settings, DualSense, usbip-win2 0.9.8.0: turn on Native PS5 mode. The card shows a green "On · game haptics via the virtual pad" with no orange lines; a game drives the pad's haptics and speaker. If Windows moves the default speaker or microphone to the virtual pad, set it back once in Sound settings and check it stays. Settings > "Allow virtual audio and microphone endpoints": unticking and ticking again shows no dialog and applies on the next connection.
 
 **Audio**
 - [ ] A1 Audio Haptics on a Bluetooth DualSense, System audio: haptics follow game audio.

@@ -194,7 +194,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         /// <summary>
         /// Whether virtual USB audio and microphone endpoints may be created.
-        /// Default off; see
+        /// Default on; see
         /// <see cref="DS4Windows.Global.AllowExperimentalAudioEndpoints"/>.
         ///
         /// <para>Turning this off is a decision about future connections only.

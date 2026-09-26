@@ -2211,7 +2211,8 @@ namespace DS4Windows.InputDevices
                         // Bit 0 of the status byte flags a headset in the 3.5mm jack;
                         // used for automatic BT audio routing.
                         headsetPlugged = (tempByte & 0x01) != 0;
-                        tempCharging = (tempByte & 0x08) != 0;
+                        tempCharging = IsOnExternalPower(
+                            inputReport[53 + reportOffset], tempByte);
                         if (tempCharging != charging)
                         {
                             charging = tempCharging;
@@ -2219,7 +2220,7 @@ namespace DS4Windows.InputDevices
                         }
 
                         tempByte = inputReport[53 + reportOffset];
-                        tempFull = (tempByte & 0x20) != 0; // Check for Full status
+                        tempFull = IsFullyCharged(tempByte);
                         maxBatteryValue = BATTERY_MAX;
                         if (tempFull)
                         {
@@ -3207,6 +3208,33 @@ namespace DS4Windows.InputDevices
                 return true;
             }
         }
+
+        // Charge state, the high nibble of the battery byte (status[0] in the
+        // Linux hid-playstation driver): 0 discharging, 1 charging, 2 full;
+        // 0xA, 0xB and 0xF are error states.
+        private const int ChargeStateCharging = 0x1;
+        private const int ChargeStateFull = 0x2;
+
+        /// <summary>
+        /// Whether the pad is on external power, for "Charging" in the UI.
+        /// Reads the charge state, so a pad on a wall charger counts. Bit 3 of
+        /// the byte after it, which DS4Windows used on its own, is set only
+        /// with a USB data connection to the PC; it stays as a fallback.
+        /// </summary>
+        internal static bool IsOnExternalPower(byte batteryByte, byte plugByte)
+        {
+            int chargeState = batteryByte >> 4;
+            return chargeState == ChargeStateCharging ||
+                chargeState == ChargeStateFull ||
+                (plugByte & 0x08) != 0;
+        }
+
+        /// <summary>
+        /// Full only for charge state 2. The old bit-5 test also matched the
+        /// error states 0xA, 0xB and 0xF and showed them as 100 %.
+        /// </summary>
+        internal static bool IsFullyCharged(byte batteryByte) =>
+            batteryByte >> 4 == ChargeStateFull;
 
         internal static bool IsValidBluetoothHapticsStreamerReport(
             byte[] report)

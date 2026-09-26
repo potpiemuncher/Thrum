@@ -81,8 +81,8 @@ anywhere. Add its numbers to this table before the release.
 
 ## Decisions
 
-Decisions 1–6 made by you on 2026-09-24, 7–8 on 2026-09-25 while testing, each
-as recommended. Details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions)
+Decisions 1–6 made by you on 2026-09-24, 7–8 on 2026-09-25 while testing and 9
+on 2026-09-26, each as recommended. Details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions)
 and its owner-testing section.
 
 | # | Question | Decision | What changed |
@@ -95,6 +95,7 @@ and its owner-testing section.
 | 6 | .NET 8 support ends 2026-11-10 and the zip bundles its runtime. | Move to .NET 10 (LTS). | Thrum, tests, CI and the release workflow use .NET 10 (supported until November 2028). The package grows by about 21 MB (7 MB zipped). |
 | 7 | Thrum shipped as a zip only, recommended into a folder the user owns, so the elevated VIIPER setup script sat where any program running as the user could change it; users expect Program Files. | Add an installer; Program Files by default. | `Thrum_<version>_x64_setup.exe` (Inno Setup, `installer/Thrum.iss`). It installs for all users in Program Files (one UAC prompt, while installing) or, if chosen on its first page, for the current user without admin. Start menu entry, entry in Settings > Apps, uninstaller (removes the startup shortcut, asks whether to delete settings), asks to close a running Thrum, starts Thrum as the user, not elevated. CI and the release workflow build it; the zip stays. |
 | 8 | Every service start paused 2 s (C034), including each restart for Native PS5 mode and Hide DS4 Controller. | Remove it. | Removed. A start now waits (up to 2 s) only for a VIIPER backend Thrum launched in the last 10 s. |
+| 9 | You are fine with Thrum using administrator rights (only admins should run it). Should it always run elevated? | No: keep starting as the signed-in user. | Nothing changed. Nothing Thrum needs requires admin: HidHide lets any user update its application list, and its persistent hiding keeps Steam off the controller. "Run as administrator" still lets exclusive mode restart a controller another program holds (decision 1). Always elevated would need the removed logon task back for Run at startup, and would run the network listeners (OSC, UDP) as admin. |
 
 Still for you, with a check needed first:
 
@@ -542,7 +543,7 @@ Paths are relative to `Thrum/` unless they start with another top-level folder.
 | C484 | `DS4Forms/Themes/DefaultTheme.xaml:5` | No high-contrast support: theme text follows system colors but cards/sidebar stay hard-coded white, making text invisible in dark contrast themes | Proposed | Add a HighContrast dictionary that maps every token (Foreground, Muted, Card/Surface/Sidebar/Raised backgrounds, Accent, Border, Success/Warning/Danger, FocusRing) to SystemColors.*BrushKey through DynamicResource. |
 | C383 | `DS4Forms/TriggerLabControl.xaml.cs:148` | Trigger Lab preview stays on the controller if the user changes tab or controller within 2.8 s | Proposed | If the timer is running when Unloaded or SetDevice fires, run the restore (for the old physicalDeviceIndex) before stopping it, e.g. |
 | C387 | `DS4Forms/TriggerLabControl.xaml.cs:1393` | Trigger Lab applies Off when the lab is inactive, replacing the profile's standard L2/R2 trigger effect on the controller | Proposed | Mirror the ControlService rule. When !settings.HasActiveOverride, restore the profile's standard effect with device.PrepareTriggerEffect(trigger, Global.L2/R2OutputSettings[i].TriggerEffect, ...TrigEffectSettings) … |
-| C355 | `DS4Forms/ViewModels/AutoProfilesViewModel.cs:522` | Auto-profile HidHide whitelist sync does nothing without admin, and when elevated it removes whitelist entries the user added | Proposed | Only remove entries Thrum added (keep a small owned-entries list). |
+| C355 | `DS4Forms/ViewModels/AutoProfilesViewModel.cs:522` | Turning off an auto-profile's HidHide option removes the program from HidHide's application list even when the user had added it (corrected 2026-09-26: HidHide lets any user change the list, so the sync also runs without admin) | Proposed | Only remove entries Thrum added (keep a small owned-entries list). |
 | C367 | `DS4Forms/ViewModels/BindingWindowViewModel.cs:691` | Clearing a lightbar macro in the binding editor is never saved; edits also change the live object the HID thread iterates | Proposed | Clone settings.LightbarMacro into the OutBinding (via Compile/Parse) instead of sharing it. |
 | C368 | `DS4Forms/ViewModels/BindingWindowViewModel.cs:912` | A malformed lightbar macro in a profile throws IndexOutOfRangeException, which escapes profile loading | Proposed | In GetMacroFromString, check elementSplit.Length == 2 and throw ArgumentException (or return an inactive macro). |
 | C432 | `DS4Forms/ViewModels/ChangelogViewModel.cs:61` | Changelog/update windows: network failure leaves a blank window; rate-limit/HTTP error shows a false 'has not published a release' message | Proposed | Catch HttpRequestException and TaskCanceledException in DisplayChangelog, and have GetChangelog report failure separately from 'no releases'. |

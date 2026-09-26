@@ -149,7 +149,7 @@ finding. Severity is the verified severity.
 
 ## Owner decisions
 
-Made by the owner on 2026-09-24 (#1–#6) and 2026-09-25 (#7–#8) from the recommendations in `RELEASE-READINESS.md` (numbers as there).
+Made by the owner on 2026-09-24 (#1–#6), 2026-09-25 (#7–#8) and 2026-09-26 (#9) from the recommendations in `RELEASE-READINESS.md` (numbers as there).
 
 - #1 Exclusive mode ("Hide DS4 Controller", Native PS5) (High): when another program already has the controller open, Thrum stays in shared mode and says so in the log (and once per controller per session in the tray), naming any well-known controller programs that are running (Steam, DS4Windows, DSX, reWASD and others). It used to relaunch itself with a UAC prompt, mid-game, to restart the device, and blocked the device thread for up to 30 s while waiting. Windows cannot say which process holds a HID device without administrator rights, so the named programs are likely holders, not certain ones. Running Thrum as administrator still restarts the device as before. The old shared-mode warning was never shown (its call was commented out). Tested.
 - #2 Driver Setup and the Welcome dialog (High): Driver Setup opens the setup window without administrator rights, and its HidHide and FakerInput buttons open the vendors' release pages. It used to run the whole window elevated, which let it start the user-writable `viiper.exe` as administrator, and downloaded the installers to `%TEMP%` and ran them elevated with no integrity check. VIIPER setup still asks for administrator rights itself.
@@ -160,6 +160,7 @@ Made by the owner on 2026-09-24 (#1–#6) and 2026-09-25 (#7–#8) from the reco
 
 - #7 Installer (Medium): releases and CI builds now include `Thrum_<version>_x64_setup.exe`, built with Inno Setup from `installer/Thrum.iss` by `utils/build-installer.ps1`, beside the unchanged zip. It installs for all users in Program Files by default (one UAC prompt, while installing; the owner's rules allow prompts during install) or, on its first page, for the current user in `%LOCALAPPDATA%\Programs` without admin. It adds a Start menu entry and a Settings > Apps entry, asks for Thrum to be closed before replacing or removing it, starts Thrum as the signed-in user rather than elevated, and its uninstaller removes the Run at startup shortcut and asks whether to delete the settings folder (default No). Program Files also protects the elevated setup script from edits by programs running as the user, which a user-writable zip folder could not. Supporting changes: Thrum holds a named mutex (`Thrum_AppRunning`) while it runs, for the installer's check; Settings > Custom exe name, which copies Thrum.exe inside the program folder, now logs why when it cannot (Program Files) instead of failing silently from a binding. `InstallerScriptTests` keep the script's names in step with the app. CI compiles it (about 59 MB); not yet run on a real PC.
 - #8 Service start pause: see the owner-testing entry (C034).
+- #9 Administrator rights: no change. The owner accepts Thrum using admin rights, but Thrum keeps starting as the signed-in user because nothing it needs requires them (HidHide lets any user change its application list); "Run as administrator" still enables the exclusive-mode device restart.
 
 ## Owner testing (2026-09-25)
 

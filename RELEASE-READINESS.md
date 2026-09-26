@@ -1,0 +1,878 @@
+# Release readiness — Thrum 0.9.0-beta.2
+
+Pre-release review, 2026-09-24. Every change made is listed with its reason in
+[CHANGES-REVIEW.md](CHANGES-REVIEW.md); this file is the summary, the open
+items and the test plan.
+
+## Verdict
+
+**Ready for a wider beta once the build is signed and the
+[pre-release test checklist](#pre-release-test-checklist) passes on real
+hardware. Not ready for a general (non-beta) release.**
+
+The review fixed every Critical finding and 32 of 36 High ones (a 33rd is
+mitigated). Your decisions (six on 2026-09-24, two more on 2026-09-25 while
+testing) are implemented ([Decisions](#decisions)). What is left waits on a check in the VM or a real
+controller. Nothing found is unsafe to hand to beta testers who know it is a
+beta. Before a wider audience:
+
+1. **Sign the release.** Unsigned, every download shows "Windows protected your
+   PC", and VIIPER setup keeps running its script with `-ExecutionPolicy
+   Bypass`. A signed build switches to `AllSigned` by itself (decision #4). See
+   [Code signing](#code-signing).
+2. **Run the [pre-release test checklist](#pre-release-test-checklist) on real
+   hardware.** The move to .NET 10 and the decisions changed paths the review
+   could build and test but not run: the installer, the first-run consent
+   step, exclusive mode's shared-mode fallback, the startup-task migration,
+   Native PS5 mode's restart, and the hardware
+   fixes (Switch Pro/Joy-Con HID writes, Bluetooth audio lanes, device-change
+   recovery).
+3. **Watch for usbip-win2 0.9.8.2** ([below](#usbip-win2-update)). It is not
+   released yet, and it will need a rebuilt VIIPER before Thrum can use it.
+   0.9.8.0 stays pinned until then.
+
+A general release additionally needs the three licence items that
+`NOTICE.txt` marks release-blocking resolved, and a screen-reader pass (only 5
+of 43 windows and pages set accessible names).
+
+## What was done
+
+| Phase | Commits | In short |
+| --- | --- | --- |
+| 1 — Warnings | d906400, 7bc0216, 30e5a86, c22571a, 93f175d, 19635e6 | 0 build/analyzer warnings with CI failing on any new one; 0 PowerShell lint warnings; no prompts, warning dialogs or warning banners on a normal launch; recurring log warnings and stack traces removed; personal data removed from committed files; signing guidance corrected |
+| 2 — Code review | 8e96a14, 6ddbf4b, ff44cba | All Critical crashes; hangs and deadlocks; two leaks; broken USB audio format; profile data loss (duplicate, import, export, Trigger Lab, first-run rerun); HID write memory safety |
+| 3 — Performance | d29c77f | Game Bar process churn, Windows 11 timer throttling in the tray, Audio Haptics busy-wait, per-report tray updates, a permanent power-plan change |
+| 4 — Audio | c68f77c, d5a51c4 | Captures follow the default output device and recover when a device goes away; DS4 Bluetooth speaker choppiness; headset-only audio pacing; dialogue from surround devices |
+| 5 — Real users | 9586b4a, 8ff8841 | Crash-safe settings saves with backup and recovery; log size caps; crash notice; high-DPI window sizes; end-user README; notices corrected |
+| 6 — Other | 5c99f58 | Release workflow runs the tests before publishing; this report |
+| Decisions | 312e415, 0b9ff94, d91bc14 | No administrator rights at runtime (exclusive mode, Driver Setup, startup task); signed setup script under `AllSigned`; consent in the first-run wizard; .NET 10 |
+| Owner testing | 2a86ab6, 8290f99, 1e3c5b2, d56610e, 5d17078, e627fca | Fixes from your first run (wizard, update prompt, HidHide link, profile box); Native PS5 mode no longer loses the controller for about 25 s; the 2 s pause at every service start is gone; an installer |
+
+## Before and after
+
+| Measure | Before | After | How |
+| --- | --- | --- | --- |
+| Build and analyzer warnings | 11 unique (19 as MSBuild counts); .NET analyzers off | **0**, analyzers on (`AnalysisLevel` 8.0, Default); CI fails on any warning | CI on windows-2022 |
+| PowerShell lint warnings | 42 | **0**; CI job fails on any | PSScriptAnalyzer 1.25.0 |
+| Tests | 1,134 passing | **1,177 passing** at e627fca (.NET 10) | CI on windows-2022 |
+| Actions deprecation notices | Node 20 warnings on every run | 0 | CI annotations |
+| Administrator prompts outside setup and driver installs | UAC in exclusive mode when another app held the controller; Driver Setup elevated the whole window and ran downloaded installers elevated; Task startup mode ran Thrum elevated at every sign-in | **None** | Code review; decisions #1–#3 |
+| Runtime | .NET 8 (support ends 2026-11-10) | **.NET 10 LTS** (supported until November 2028) | Decision #6 |
+| Install | Zip only, recommended into a folder the user can write (where the elevated setup script could be changed) | **Installer** (Program Files for all users by default, or for one user without admin; about 59 MB) and the zip | Decision #7; Inno Setup compiles it in CI |
+| Native PS5 mode, turning it on with a controller connected | about 25 s without a controller (your logs, with and without admin) | **1–2 s** on your PC (2026-09-26, installed build 0b030b3) | Owner testing, decision #8 |
+| Dialogs, prompts or warning banners on a normal (not first) launch | VIIPER install prompt every launch without VIIPER; update dialog every 24 h ignoring "Skip this version"; amber "Needs attention" and kernel-crash banners in the default state; HidHide banner; FakerInput tray toast | **None** | Code review of every startup path |
+| Recurring warnings in the log on a normal start | usbip sweep, LinkedProfiles.xml, audio refusal paragraphs, gate refusal twice, serial-number warning, stream health, Edge notice, stack traces, power-off warnings | Removed or moved to verbose startup diagnostics | Startup sweep; list in CHANGES-REVIEW.md |
+| Hidden Thrum.exe launches with Game Bar compatibility on, overlay closed | about 6 per second, all session | 1 per second (fast rate only while the overlay is open or just after Thrum opens it) | Code; confirm with Process Monitor |
+| Audio Haptics writer busy time per controller | about 1.25–1.5 ms of every 10.667 ms (12–14% of a core) | up to 0.75 ms (at most 7%) | Code estimate; confirm with `utils/measure-runtime.ps1` |
+| Tray battery icon UI work | 1 dispatcher operation per input report (hundreds a second) | 1 per icon change | Code |
+| Memory kept per profile load or save | 1 generated serializer assembly, never unloaded | 0 after the first | Code, test |
+| Log disk use | 1 file per session, no size limit | at most 10 MB per file, about 80 MB total | NLog config |
+| Package size | 195.2 MB, 527 files, about 79 MB zipped | 216.4 MB, 536 files, about 86 MB zipped (the .NET 10 runtime is larger) | `dotnet publish`, zip |
+| Startup time (cold, warm) | not measurable here | — | Run `utils/measure-runtime.ps1 -ColdStart` on Windows |
+| Idle CPU and RAM, 30-minute leak check | not measurable here | — | `utils/measure-runtime.ps1` (soak mode) |
+| Audio latency and dropouts | not measurable here | — | Checklist items A1–A8 with real controllers |
+| Battery | not measurable here | — | `powercfg /srumutil` before and after a 30-minute idle soak |
+
+The review ran in a Linux container with no display, controllers or audio
+devices, so it could build, test and reason about the code but not run the
+app. `utils/measure-runtime.ps1` measures the missing rows on a real PC. It
+needs no administrator rights, changes nothing on the machine and sends nothing
+anywhere. Add its numbers to this table before the release.
+
+## Decisions
+
+Decisions 1–6 made by you on 2026-09-24, 7–8 on 2026-09-25 while testing and
+9–10 on 2026-09-26; 1–9 as recommended, 10 at your request. Details in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#owner-decisions)
+and its owner-testing section.
+
+| # | Question | Decision | What changed |
+| --- | --- | --- | --- |
+| 1 | Exclusive mode ("Hide DS4 Controller", Native PS5) relaunched Thrum elevated with a UAC prompt when another app held the controller, blocking the device thread for up to 30 s. | Drop the elevation. | Thrum stays in shared mode and says so, naming well-known controller programs that are running (Windows does not say which process holds a device without admin rights). Running Thrum as administrator still restarts the device. |
+| 2 | The legacy Welcome dialog downloaded HidHide and FakerInput to `%TEMP%` and ran them elevated with no integrity check; Driver Setup elevated the whole window. | Open the vendors' pages. | The buttons open the vendors' release pages, and Driver Setup no longer asks for administrator rights. |
+| 3 | "Task" run-at-startup mode registered a highest-privilege logon task that ran a `.bat` from the user-writable app folder. | Remove the Task mode. | Only the Startup-folder shortcut remains. An existing task is replaced by the shortcut the next time Thrum runs elevated (the task itself does that at the next sign-in); until then the log says how to delete it. |
+| 4 | VIIPER setup ran a script from the user-writable app folder, elevated, under `-ExecutionPolicy Bypass`. | Sign it; run under `AllSigned`. | A signed Thrum.exe runs the script under `AllSigned`, and only if it is signed by the same publisher. The setup window says what to answer at PowerShell's one-time "untrusted publisher" question. Unsigned builds keep `Bypass`, so this takes effect when you sign releases. |
+| 5 | The first-run wizard never collected the experimental-driver consent. | Unticked checkbox in the Backend step. | The step shows the full notice with an unticked box; a tick records the same consent as the Settings switch. |
+| 6 | .NET 8 support ends 2026-11-10 and the zip bundles its runtime. | Move to .NET 10 (LTS). | Thrum, tests, CI and the release workflow use .NET 10 (supported until November 2028). The package grows by about 21 MB (7 MB zipped). |
+| 7 | Thrum shipped as a zip only, recommended into a folder the user owns, so the elevated VIIPER setup script sat where any program running as the user could change it; users expect Program Files. | Add an installer; Program Files by default. | `Thrum_<version>_x64_setup.exe` (Inno Setup, `installer/Thrum.iss`). It installs for all users in Program Files (one UAC prompt, while installing) or, if chosen on its first page, for the current user without admin. Start menu entry, entry in Settings > Apps, uninstaller (removes the startup shortcut, asks whether to delete settings), asks to close a running Thrum, starts Thrum as the user, not elevated. CI and the release workflow build it; the zip stays. |
+| 8 | Every service start paused 2 s (C034), including each restart for Native PS5 mode and Hide DS4 Controller. | Remove it. | Removed. A start now waits (up to 2 s) only for a VIIPER backend Thrum launched in the last 10 s. |
+| 9 | You are fine with Thrum using administrator rights (only admins should run it). Should it always run elevated? | No: keep starting as the signed-in user. | Nothing changed. Nothing Thrum needs requires admin: HidHide lets any user update its application list, and its persistent hiding keeps Steam off the controller. "Run as administrator" still lets exclusive mode restart a controller another program holds (decision 1). Always elevated would need the removed logon task back for Run at startup, and would run the network listeners (OSC, UDP) as admin. |
+| 10 | The Native PS5 card showed orange "Experimental, unverified" warnings whenever the virtual audio endpoints were on, and the endpoints were off by default behind a risk dialog on every enablement. You have used them daily for a week with no issues. | On by default; drop the warnings. | New installs have the endpoints on (a saved setting keeps its value, so existing installs are unchanged). The card's audio state is a green "On · game haptics via the virtual pad" with no warning lines. The per-enablement dialog is gone; the one-time experimental-driver notice now explains the endpoints, the #181 defect and its fix. The gate refuses audio endpoints on any usbip-win2 release before 0.9.8.0 whatever the setting says, so the default never reaches the defective driver. Setup step 3 says Windows may move the default speaker and microphone to the virtual pad. |
+
+Still for you, with a check needed first:
+
+- **VIIPER listens on every network interface** (USB-IP on 3241, API on 3242)
+  in the pinned v0.1.2. USB-IP has no authentication and carries the virtual
+  controller's microphone and speaker audio. Proposed fix: add
+  `--usb.addr=127.0.0.1:3241 --api.addr=127.0.0.1:3242` to
+  `ViiperBackendSpawn.ServerArguments` (the setup script takes its arguments
+  from the same list). This also removes the firewall prompt on the backend's
+  first start, an open finding in the VM report. Upstream VIIPER has since made
+  USB-IP loopback-only by default while still attaching to `localhost`, but
+  the attach path must be checked in the VM before shipping. Until then the
+  README tells users to decline the firewall prompt.
+- **Setup leaves an elevated `viiper.exe` running** that Thrum does not own
+  and cannot stop. Proposed: after verification, stop the backend setup
+  started and let Thrum start its own, unelevated. VM check needed.
+- **Bluetooth Audio Haptics overwrites the profile's lightbar, player LEDs and
+  adaptive triggers** on every frame with a fixed "known-good" state. Proposed
+  patch: send haptics-only frames through `WriteBluetoothHapticsSamples` and
+  build audio frames on the cached profile state, keeping only the streamer's
+  config and Opus bytes. Needs a real Bluetooth DualSense to confirm haptics and
+  speaker audio still play.
+- **Analyzer strictness.** The build now runs the .NET analyzers at the
+  Default level. Recommended/All would add 3,120/5,023 warnings, almost all
+  style rules in inherited files, which the minimal-diff policy argues against.
+  Keeping Default is the recommendation.
+
+### usbip-win2 update
+
+Checked 2026-09-24 against the upstream repository. **There is no new
+release**: `v.0.9.8.0` is still the newest tag, and it is the release Thrum
+pins. Upstream is close to one:
+
+- master has about 97 commits since 0.9.8.0, and its version resources say
+  0.9.8.1 (never tagged);
+- `develop` has a commit dated today that bumps everything to **0.9.8.2**.
+
+What those commits change, from the diffs:
+
+- **Teardown hardening in the same area as #181.** A receive-thread wait that
+  treated a one-minute timeout as success (a use-after-free window) now waits
+  properly (830be07). Code that can run at DISPATCH_LEVEL is no longer paged
+  (8164ac2). Every chained MDL, including the isochronous one, is unchained
+  (0d0bcc2). Endpoint lookups now hold a reference (83d73ad). Nothing claims to
+  close #181, and the purge and cancel path is unchanged.
+- **Attach fix that may matter to Thrum** (df2103e): each attach phase gets its
+  own work item. The old code could deadlock when the connect completes at
+  once, as it does over loopback, which blocks driver unload. VIIPER attaches
+  over loopback, so this may bear on the hung-uninstaller observation in the VM
+  report (not verified).
+- **Input validation** of PDU sizes, URB lengths and string descriptors, and
+  an OUT-transfer fix at DISPATCH_LEVEL (b4c0fce).
+- **Breaking for Thrum:**
+  - The driver's attach IOCTL structure grew by 4 bytes (6b3af1f, a location
+    hash), and the driver rejects the old size. Thrum's pinned VIIPER fork
+    will fail to attach against 0.9.8.2 until it is rebuilt with the new
+    layout.
+  - The fork also checks for exactly `usbip 0.9.8.0`.
+  - A develop-only change (11c301f) stops rewriting full-speed interrupt
+    intervals, so the virtual DualShock 4's polling rate will change.
+    DualSense is high-speed and unaffected.
+- **Installer:** nothing the setup script reads has changed (AppId and uninstall
+  key, display name and version, `usbip.exe` location, hardware ID, INF names,
+  provider, silent switches). The new installer does behave differently:
+  - It aborts if the old uninstaller fails; the script already treats that as
+    a failure.
+  - It closes processes holding files under `USBip\`, so stop VIIPER first.
+  - It checks for a test-signing build. Confirm the release asset is not one
+    in the VM.
+
+When 0.9.8.2 is tagged:
+
+1. Rebuild the VIIPER fork (`potpiemuncher/VIIPER`) for the new IOCTL layout
+   and version.
+2. Pin the new installer's SHA-256 and signer, and add a manifest entry.
+3. In the VM, test:
+   - an upgrade from 0.9.8.0, with and without a device attached since boot;
+   - audio-endpoint teardown under stress;
+   - the virtual DualShock 4's polling rate.
+
+Until then nothing in Thrum needs to change.
+
+## Remaining manual steps
+
+1. **Code signing** — see below. Decision #4 takes effect only on a signed
+   build.
+2. **Licences** (`NOTICE.txt`, UNRESOLVED): record the FakerInputWrapper licence
+   once the author's LGPL commit lands and keep a source snapshot; reimplement
+   `OneEuroFilter.cs` from the paper; rebuild or delete the Bezier editor bundle.
+3. **Run `utils/measure-runtime.ps1`** on a Windows PC (cold start after a
+   reboot, then a 30-minute idle soak, then an active soak with a game) and fill
+   in the table above.
+4. **Run the [pre-release test checklist](#pre-release-test-checklist).**
+5. **VM checks** for the VIIPER loopback flags and the elevated backend (above),
+   and confirm that declining the firewall prompt leaves virtual controllers
+   working.
+6. **README License section** still names `v0.9.0-beta.1` as the current
+   release; update it when beta.2 is tagged.
+7. **Visual C++ runtime** (proposal): FakerInput's DLL and RNNoise need
+   `VCRUNTIME140.dll`, which the package does not include. Without it both
+   degrade quietly (SendInput fallback, noise suppression off). Microsoft
+   allows app-local deployment: CI can copy `vcruntime140.dll` from the
+   runner's Visual Studio `VC\Redist` folder next to `Thrum.exe`. The README
+   lists it as an optional download in the meantime.
+8. **Repository leftovers**: `ds4w.bat` at the root installs upstream
+   DS4Windows, not Thrum. `TODO.md` is upstream's. Delete them, or leave them if
+   keeping upstream files eases merges (ADR-0002).
+9. **Git history** still contains the personal email address and local account
+   path removed in 7bc0216. Removing them from history means rewriting and
+   force-pushing the default branch; decide whether that is worth it.
+
+## Code signing
+
+What signing buys: Windows shows the publisher's name instead of "Unknown
+publisher", and SmartScreen's "Windows protected your PC" warning fades as the
+signing identity builds a download history. No certificate type skips that
+warm-up any more: since 2024, EV certificates get no immediate reputation. It
+also switches the setup script to `AllSigned` (decision #4): a signed
+Thrum.exe runs `install-viiper-backend.ps1` only if the script carries a
+signature from the same publisher. So sign both, with the same identity, in
+the same release. The first time a user runs setup, PowerShell asks whether to
+run software from your publisher name (its default answer is "Do not run"); the
+setup window tells them to answer R or A just before the question appears.
+
+What to sign: `Thrum.exe`, `Thrum.dll`, `Thrum.resources.dll` and the
+satellite `Thrum.resources.dll` files, and `extras\install-viiper-backend.ps1`.
+`extras/sign-release.ps1` already selects exactly these. Microsoft's runtime
+files are already signed. Unsigned third-party DLLs can be signed with
+`-IncludeUnsignedThirdParty`, but only if you accept vouching for them.
+
+The installer (decision #7) needs signing too, after it is built from the
+signed files: sign the files, then run `utils/build-installer.ps1`, then sign
+`Thrum_<version>_x64_setup.exe`. In the workflow that order is automatic once
+signing runs before `post-build.py`; add one more signing call on the setup
+file after `build-installer.ps1`. If you sign locally with
+`extras/sign-release.ps1`, which signs the files inside the zip, rebuild the
+installer from the signed zip's folder and sign it, then replace both release
+assets.
+The uninstaller Inno Setup writes into the installation is unsigned unless
+`installer/Thrum.iss` is given a `SignTool` and `SignedUninstaller=yes`; that
+affects only the name Windows shows when uninstalling.
+
+Recommended route for an individual in the USA or Canada: **Azure Artifact
+Signing** (formerly Trusted Signing), about USD 9.99 a month, signing inside
+GitHub Actions with no hardware token.
+
+1. In an Azure subscription, create an Artifact Signing account (Basic tier).
+2. Complete identity validation as an individual. The certificate subject is
+   your verified legal name.
+3. Create a *Public Trust* certificate profile.
+4. Create an app registration with a federated credential for this repository
+   (OIDC, no stored secret) and give it the *Artifact Signing Certificate
+   Profile Signer* role on the profile.
+5. In `release.yml`, after `dotnet publish` and before `post-build.py` zips
+   the output: log in with `azure/login` (OIDC), then run Microsoft's Artifact
+   Signing action (`azure/trusted-signing-action` at the time of writing) on the
+   files above, with the timestamp server it documents.
+6. Sign every release with the same identity. Reputation belongs to it.
+
+Alternative outside the USA and Canada: a **Certum open-source cloud
+certificate** (about EUR 49 a year), used locally with
+`extras/sign-release.ps1` (sign by thumbprint, timestamp, verify, repackage).
+**SignPath Foundation** signs open-source projects for free after an
+application. Background and the full comparison are in
+`docs/dev/ADR-0005-code-signing.md`.
+
+## Pre-release test checklist
+
+Run on a clean Windows 11 PC and a clean Windows 10 22H2 PC (a fresh user
+account is enough), x64, with the Visual C++ runtime *not* installed on one of
+them. Tick each item; note the controller and connection.
+
+**Install and first run**
+- [ ] I1 Download the installer, check the SHA-256, run it with the default (all users). SmartScreen warning, one UAC prompt, nothing else. It installs to `C:\Program Files\Thrum`, adds a Start menu entry and an entry in Settings > Apps, and "Launch Thrum" starts Thrum not elevated (the Log tab says "Running as User").
+- [ ] I8 Installer, other paths: on a second account choose "Install for me only": no UAC prompt, installs to `%LOCALAPPDATA%\Programs\Thrum`. Run the installer again while Thrum is running: it asks you to close Thrum first. Uninstall from Settings > Apps: it asks whether to delete settings (No keeps `%APPDATA%\Thrum`), and removes the Run at startup shortcut. The zip, extracted to `%LOCALAPPDATA%\Programs\Thrum`, still runs the same way. *Uninstall prompt seen on the owner's PC (2026-09-26): it names `%APPDATA%\Thrum` and defaults to No.*
+- [ ] I2 First-run wizard: every step fits the screen at 100%, 150% and 200% scaling.
+- [ ] I3 Install / Repair VIIPER from the wizard: one UAC prompt, completes, the wizard does not restart under you. On a signed build, PowerShell asks once to trust the publisher; the line above it says to answer R; answering D shows the reason and waits.
+- [ ] I4 Finish the wizard. Exit, start again: no wizard, no dialog, no warning banner, no warning lines in the Log tab.
+- [ ] I5 In the wizard's Backend step, the experimental-driver box starts unticked; tick it. After Finish, Settings shows the switch on, and a DualSense and a DS4 (USB and Bluetooth) each get an Xbox 360 virtual controller that a game sees. On a second fresh account, leave it unticked: no virtual controller, and the Output Slots banner says why.
+- [ ] I7 No .NET installed on the PC: Thrum starts and runs every check above (the zip carries its own .NET 10 runtime).
+- [ ] I6 Windows Firewall prompt for `viiper.exe`: choose Cancel; virtual controllers still work.
+
+**Controllers and profiles**
+- [ ] C1 Hot-plug and unplug each controller type you support; no crash, no stuck virtual controller.
+- [ ] C2 Switch Pro and Joy-Con (enable them in Settings first): connect over USB and Bluetooth; they initialise and rumble works. (HID write fix.)
+- [ ] C3 Profile editor: change settings, Save; Duplicate, Import (including a file already in the Profiles folder and one with an existing name), Export and Cancel.
+- [ ] C4 Gyro Calibration with no controller in the slot shows a message.
+- [ ] C5 Special action "Launch Program" saved with no program shows a message.
+- [ ] C6 Macro recorder: start recording, close with X; mappings and the touchpad still work.
+- [ ] C7 Auto Profiles: Add directory `C:\Program Files`; completes, no crash. Rename the profile a rule uses; the rule is skipped with one log line.
+- [ ] C8 Trigger Lab: save a preset in the profile editor, then another on the main tab; both exist after restart.
+- [ ] C9 Hide DS4 Controller / Native PS5 mode with and without HidHide. With Steam (or another controller app) open first and HidHide not installed: no UAC prompt; the log says the controller is in shared mode and names Steam; the tray says so once; closing Steam and reconnecting hides it.
+- [ ] C10 Settings > Driver Setup: no UAC prompt; the HidHide and FakerInput buttons open their release pages; closing the window restarts the service if it was running.
+- [x] C11 With a DualSense connected and Hide DS4 Controller off, turn on Native PS5 mode: the controller is back within about a second, not 25 s. With Verbose logging on, the log shows no pause after "Starting...". *Passed on the owner's PC (2026-09-26, installed build 0b030b3): back in 1–2 s. The log was not checked.*
+- [ ] C12 Fresh settings, DualSense, usbip-win2 0.9.8.0: turn on Native PS5 mode. The card shows a green "On · game haptics via the virtual pad" with no orange lines; a game drives the pad's haptics and speaker. If Windows moves the default speaker or microphone to the virtual pad, set it back once in Sound settings and check it stays. Settings > "Allow virtual audio and microphone endpoints": unticking and ticking again shows no dialog and applies on the next connection. *Card green with no orange lines on the owner's PC (2026-09-26, installed build e519f79); the rest not reported yet.*
+- [x] C13 DualSense on Bluetooth: plug it into a wall charger (not the PC). The controller card says "Charging" and the battery reads with a "+"; unplug it and it says "On battery". Plugged into the PC by USB it still says "Charging". *Passed on the owner's PC (2026-09-26, installed build e519f79): "Charging" on a wall charger. The unplug and USB cases were not reported.*
+
+**Audio**
+- [ ] A1 Audio Haptics on a Bluetooth DualSense, System audio: haptics follow game audio.
+- [ ] A2 While A1 runs, switch the Windows default output (connect a headset); haptics continue from the new device within about a second.
+- [ ] A3 Unplug the playback device in use; the speaker/haptics resume when it returns; one log line, not one per second.
+- [ ] A4 DualSense Bluetooth speaker passthrough and headset-only audio: no crackle; lightbar and adaptive triggers stay as the profile sets them (known issue until the streamer patch).
+- [ ] A5 DualShock 4 Bluetooth speaker: audio is continuous, not choppy.
+- [ ] A6 A 5.1 or 7.1 default device: dialogue is audible on the controller speaker.
+- [ ] A7 Wired USB DualSense: Audio Haptics and speaker passthrough play (not silence or noise).
+- [ ] A8 Minimise Thrum to the tray for 10 minutes during A1/A5; no stutter (Windows 11 timer fix).
+- [ ] A9 Microphone passthrough over Bluetooth with noise suppression, on the PC without the VC++ runtime: works, suppression reported as unavailable.
+- [ ] A10 After A5, check Power Options > USB selective suspend is back to its previous value once the speaker stops.
+
+**Everyday use**
+- [ ] U1 Leave Thrum idle in the tray for 30 minutes with `utils/measure-runtime.ps1`; no growth in handles, threads or GDI/USER objects.
+- [ ] U2 Sleep and resume with a controller connected; controllers come back.
+- [ ] U3 Start a second copy: the first window comes to the front, no second instance.
+- [ ] U4 Settings > Run At Startup (no Program/Task choice any more): sign out and in; Thrum starts minimised, not elevated; turn it off; it no longer starts. On a PC where beta.1 had the Task mode on: after the next sign-in the task is gone from Task Scheduler, the shortcut exists, and the log says so once.
+- [ ] U5 Kill Thrum during a settings save (Task Manager) a few times; next start has your settings, or restores the backup with one message.
+- [ ] U6 Delete `Auto Profiles.xml` only; the wizard reruns and your settings and profiles survive.
+- [ ] U7 Game Bar compatibility on: Process Monitor shows about one Thrum.exe launch a second while idle, not six.
+- [ ] U8 Update check: with a newer release published, the dialog opens the release page; "Skip this version" keeps it quiet.
+- [ ] U9 Keyboard only: reach Start/Stop, the profile list and Settings with Tab; Narrator reads the main buttons.
+- [ ] U10 Uninstall per README (installer and zip); nothing of Thrum left running or starting at logon.
+
+## Findings
+
+Found by a read of every file by 33 reviewers, with every finding rated
+Medium or worse checked by two independent skeptics (a trace lens and a
+context lens). Severity is the verified one. Low findings were not
+independently verified. Duplicates across reviewers are merged: 607 raw
+findings became 513.
+
+"Proposed" means the fix is described but not made, because it is Medium or
+Low, needs a check, or changes behaviour you would notice. The proposed fix
+column gives the reviewer's recommendation; the full evidence for each finding
+is in the review workflow output.
+
+| Severity | Fixed | Mitigated | Needs decision | Needs VM check | Needs hardware check | Manual step | Proposed | Total |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Critical | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 4 |
+| High | 32 | 1 | 0 | 2 | 1 | 0 | 0 | 36 |
+| Medium | 51 | 7 | 0 | 3 | 0 | 2 | 169 | 232 |
+| Low | 15 | 2 | 0 | 0 | 0 | 1 | 223 | 241 |
+| **All** | 102 | 10 | 0 | 5 | 1 | 3 | 392 | 513 |
+
+Paths are relative to `Thrum/` unless they start with another top-level folder.
+
+### Critical and High
+
+| ID | Where | Finding | Status | Note or proposed fix |
+| --- | --- | --- | --- | --- |
+| C003 | `DS4Control/ScpUtil.cs:2040` | Saving a profile's debounce setting crashes the app when no controller has connected yet this session | Fixed (Phase 2) |  |
+| C381 | `DS4Forms/AutoProfiles.xaml.cs:287` | Adding a directory to Auto Profiles crashes the app when any subfolder is inaccessible (e.g. C:\Program Files\WindowsApps) | Fixed (Phase 2) |  |
+| C349 | `DS4Forms/ProfileEditor.xaml.cs:2939` | Gyro Calibration button dereferences a null controller and crashes the app | Fixed (Phase 2) |  |
+| C464 | `DS4Forms/ViewModels/SpecialActions/LaunchProgramViewModel.cs:121` | Saving a 'Launch Program' special action without choosing a file crashes the app (NullReferenceException) | Fixed (Phase 2) |  |
+| C029 | `DS4Control/ControlService.cs:763` | Exclusive-mode open failure relaunches the app elevated with 'runas' (UAC at runtime) and blocks the device thread for up to 30 s | Fixed (decision #1) | Thrum stays in shared mode and names likely holders; no UAC prompt |
+| C055 | `DS4Control/Viiper/ViiperOutDevice.cs:768` | First-run flow never collects the experimental-driver acknowledgement, so fresh users' default ViiperX360 output is refused on every connect | Fixed (decision #5) | Unticked consent checkbox with the full notice in the wizard's Backend step |
+| C203 | `DS4Control/Viiper/ViiperSetupManager.cs:402` | Setup runs a user-writable script elevated via powershell -ExecutionPolicy Bypass | Fixed (decision #4) | Signed builds run the script under AllSigned only if signed by Thrum.exe's publisher; takes effect once releases are signed |
+| C304 | `DS4Library/DS4Devices.cs:509` | Exclusive mode (Hide controller / Native PS5 mode) requests a UAC elevation at runtime when a controller is already open elsewhere | Fixed (decision #1) | Thrum stays in shared mode and names likely holders; no UAC prompt |
+| C204 | `DS4Control/Viiper/ViiperSetupManager.cs:455` | Setup leaves an elevated, unowned viiper.exe running for the rest of the session; Thrum cannot stop it | Needs VM check | Proposed: stop the backend setup started, or start it unelevated |
+| C219 | `extras/install-viiper-backend.ps1:667` | Setup starts viiper.exe elevated from a user-writable folder and leaves it running as admin after setup | Needs VM check | Proposed: stop the backend setup started, or start it unelevated |
+| C316 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:155` | BT haptics streamer overwrites lightbar, player LEDs, adaptive triggers and volumes with a hard-coded state every frame | Needs hardware check | Proposed patch in Phase 4 notes; needs a real Bluetooth DualSense |
+| C117 | `DS4Control/GameBarIntegration.cs:394` | Game Bar detection spawns a hidden copy of Thrum.exe every ~150 ms for the whole session | Mitigated (Phase 3) | Probe rate cut from every 150 ms to once a second when idle; a long-lived helper or in-process API is the full fix (needs Windows testing) |
+| C106 | `DS4Control/AudioHapticsService.cs:516` | System audio source (the default) never follows a change of Windows default output device; haptics go silent while status says active | Fixed (Phase 4) |  |
+| C113 | `DS4Control/AudioHapticsService.cs:1311` | Wired USB Audio Haptics writes int32 PCM into a float32 extensible stream (garbage/NaN haptics) | Fixed (Phase 2) |  |
+| C114 | `DS4Control/AudioHapticsService.cs:1410` | USB Audio Haptics: WasapiOut is disposed from its own PlaybackStopped callback, so its playback thread joins itself and hangs forever holding usbOutputLifecycleLock; this cascades into a permanent UI and hotplug hang | Fixed (Phase 2) |  |
+| C027 | `DS4Control/ControlService.cs:306` | OSC listener callback crashes the whole process on a malformed or bundled OSC packet from any LAN host | Fixed (Phase 2) |  |
+| C036 | `DS4Control/ControlService.cs:1711` | OSC setup exceptions abort ControlService.Start and leave Start/Stop disabled; unchecking OSC server after Stop crashes the app with a null reference | Fixed (Phase 2) |  |
+| C038 | `DS4Control/ControlService.cs:1759` | usbip port sweep logs a WARN on every service start when usbip-win2 is not installed | Fixed (Phase 1) |  |
+| C188 | `DS4Control/DTOXml/ProfileDTO.cs:2890` | Every profile load/save builds an uncached XmlSerializer with overrides, leaking a dynamic assembly each time | Fixed (Phase 2) |  |
+| C095 | `DS4Control/DualSenseAudioPassthrough.cs:179` | USB DualSense speaker passthrough writes pure silence: SlotPlayback ignores WAVE_FORMAT_EXTENSIBLE mix formats | Fixed (Phase 2) |  |
+| C096 | `DS4Control/DualSenseAudioPassthrough.cs:536` | DualSenseAudioPassthrough disposes captures while holding the lock its capture callback needs: hang (infinite Join) or crash | Fixed (Phase 2) |  |
+| C098 | `DS4Control/DualSenseAudioPassthrough.cs:633` | Speaker passthrough can deadlock: StopCapture joins the NAudio capture thread while holding syncRoot that Capture_DataAvailable waits on | Fixed (Phase 2) |  |
+| C100 | `DS4Control/DualSenseAudioPassthrough.cs:1450` | Wired USB speaker passthrough always writes silence: WaveFormatExtensible mix format matches no WriteSample branch | Fixed (Phase 2) |  |
+| C049 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:794` | Speaker loopback never follows a Windows default-output change and does not recover a stopped capture, while the lane still reports Ready | Fixed (Phase 4) |  |
+| C173 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:2458` | Loopback lane reads up to 1024 frames per tick but encodes only 384, discarding audio and inserting silence | Fixed (Phase 4) |  |
+| C129 | `DS4Control/ProcessLoopbackWaveCapture.cs:294` | Automatic game audio retries a failing attach every 500 ms forever, flooding the log with warnings (always fails on Windows builds < 20348) | Fixed (Phase 1) |  |
+| C130 | `DS4Control/ProcessLoopbackWaveCapture.cs:309` | ProcessLoopbackWaveCapture lets post-dispose exceptions escape its worker threads after bounded joins time out, which crashes the process | Fixed (Phase 2) |  |
+| C007 | `DS4Control/ScpUtil.cs:5748` | Profile load and save build a new XmlSerializer with attribute overrides on every call, so each profile switch leaks a generated assembly and repeats code generation | Fixed (Phase 2) |  |
+| C205 | `DS4Control/Viiper/ViiperSetupManager.cs:474` | VIIPER install from the first-run wizard triggers an app restart before the first-run marker exists, so the wizard reruns or startup continues after shutdown | Fixed (Phase 1) |  |
+| C277 | `DS4Forms/MainWindow.xaml.cs:251` | Every normal launch can show a modal VIIPER setup prompt that blocks the service from starting | Fixed (Phase 1) |  |
+| C279 | `DS4Forms/MainWindow.xaml.cs:278` | Updater modal ignores 'Skip this version' and reappears every 24 h at launch, including minimized logon starts | Fixed (Phase 1) |  |
+| C289 | `DS4Forms/MainWindow.xaml.cs:2537` | Driver Setup freezes the main window for the whole session, stops the mapping service and never restarts it; UAC decline is swallowed | Fixed (Phase 1) |  |
+| C293 | `DS4Forms/MainWindow.xaml.cs:2998` | Profile Import crashes the app or silently overwrites a profile and creates a duplicate list entry that later crashes | Fixed (Phase 2) |  |
+| C408 | `DS4Forms/RecordBox.xaml.cs:97` | Closing the macro recorder with the title-bar X leaves the touchpad in Passthru (saved into the profile) and can leave recordingMacro=true, disabling all mappings | Fixed (Phase 2) |  |
+| C384 | `DS4Forms/TriggerLabControl.xaml.cs:163` | Main-window and profile-editor Trigger Lab each hold a separate, never-reloaded preset store and overwrite each other's presets on disk | Fixed (Phase 2) |  |
+| C353 | `DS4Forms/ViewModels/AutoProfilesViewModel.cs:219` | Auto-profile 'Browse' scan crashes the app when the chosen folder has an unreadable subfolder (e.g. C:\Program Files) | Fixed (Phase 2) |  |
+| C200 | `DS4Forms/ViewModels/MainWindowsViewModel.cs:976` | Startup CheckDrivers forces a modal VIIPER install prompt on every launch where VIIPER is not ready, and blocks controller start until it is answered | Fixed (Phase 1) |  |
+| C264 | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:475` | Pacer treats headset-routed audio (packet 0x96) as control reports, so headset audio is never paced and can flood the BT link | Fixed (Phase 4) |  |
+| C274 | `DS4Library/InputDevices/DualSenseDevice.cs:3558` | Deadlock between ViiperOutDevice.Disconnect's drain barrier and DualSenseDevice.queueEvent when a profile switch unplugs the virtual pad | Fixed (Phase 2) |  |
+| C462 | `HidLibrary/HidDevice.cs:364` | Timeout-0 HID writes (Switch Pro / Joy-Con) return while the overlapped write is still in flight: stack OVERLAPPED abandoned, write reported as failed | Fixed (Phase 2) |  |
+
+### Medium
+
+<details><summary>232 findings</summary>
+
+| ID | Where | Finding | Status | Note or proposed fix |
+| --- | --- | --- | --- | --- |
+| C501 | `DS4Forms/MainWindow.xaml:517` | Settings UI tells users to run Thrum as Administrator (startup 'Task' mode with Highest run level, 'RealTime' priority) | Fixed (decision #3) | Task mode and its "run as Administrator" UI removed |
+| C288 | `DS4Forms/MainWindow.xaml.cs:2531` | Driver Setup elevates the whole app, which can then run the user-writable viiper.exe and temp-downloaded installers as admin | Fixed (decision #2) | Driver Setup runs without elevation |
+| C358 | `DS4Forms/ViewModels/SettingsViewModel.cs:688` | 'Run at startup: Task' registers a highest-privilege logon task that runs a .bat from the user-writable portable folder (UAC bypass / local elevation) | Fixed (decision #3) | Task mode removed; an existing task is replaced by the Startup-folder shortcut |
+| C403 | `DS4Forms/WelcomeDialog.xaml.cs:40` | Elevated -driverinstall WelcomeDialog auto-starts user-writable %LOCALAPPDATA%\VIIPER\viiper.exe as admin | Fixed (decision #2) | Driver Setup runs without elevation, so viiper.exe is never started elevated from it |
+| C404 | `DS4Forms/WelcomeDialog.xaml.cs:81` | WelcomeDialog downloads HidHide/FakerInput to %TEMP% and runs them elevated with no integrity check (TOCTOU, Defender heuristic) | Fixed (decision #2) | Buttons open the vendors' release pages |
+| C236 | `StartupMethods.cs:181` | Opt-in 'run at logon' task runs a batch file from the install folder with highest privileges | Fixed (decision #3) | Task mode removed; an existing task is replaced by the Startup-folder shortcut |
+| C487 | `Thrum.csproj:5` | Self-contained package bundles .NET 8, which leaves support on 2026-11-10 | Fixed (decision #6) | Moved to .NET 10 (LTS) |
+| C216 | `extras/install-viiper-backend.ps1:71` | Over-the-shoulder elevation installs VIIPER into the admin account's profile; app then advises a useless restart | Needs VM check | Installer-script change; validate in the VM |
+| C218 | `extras/install-viiper-backend.ps1:499` | Install/Repair kills a backend that is hosting live virtual controllers (no census), contrary to lifecycle invariant (e) | Needs VM check | Installer-script change; validate in the VM |
+| C220 | `extras/install-viiper-backend.ps1:736` | Pinned usbip installer is checked by path, then run elevated from the user's writable %TEMP% (check-then-run race) | Needs VM check | Installer-script change; validate in the VM |
+| C506 | `NOTICE.txt:45` | Release package ships no MIT/BSD licence texts and none of the bundled .NET runtime's notices | Manual step | Licence items; see NOTICE.txt UNRESOLVED |
+| C508 | `NOTICE.txt:243` | FakerInputWrapper.dll is still redistributed with no licence, and NOTICE still says it will resolve | Manual step | Licence items; see NOTICE.txt UNRESOLVED |
+| C116 | `DS4Control/AudioHapticsService.cs:1588` | Real-time loops busy-spin and poll even when silent (battery and CPU) | Mitigated (Phase 3) | Audio Haptics writer fixed; the Bluetooth streamer and pacer spins remain |
+| C051 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:1071` | Speaker and microphone passthrough captures never recover after the device is invalidated; the status stays 'Ready' and a profile re-apply is short-circuited | Mitigated (Phase 4) | Speaker lanes now recover; microphone passthrough does not yet (see C149) |
+| C451 | `DS4Control/FirstRun/FirstRunDataLocationRouter.cs:129` | Wizard writes the SaveDefault Profiles.xml stub before building the import plan, so the DS4Windows Profiles.xml is skipped as 'already present' | Mitigated (Phase 2) | The stub is no longer written over an existing Profiles.xml; ordering before the import plan unchanged |
+| C001 | `DS4Control/ScpUtil.cs:1441` | Portable-mode first-run marker does not survive an upgrade into a new versioned folder: the wizard reruns and settings are orphaned | Mitigated (Phase 5) | README says to extract updates over the same folder |
+| C012 | `DS4Control/ScpUtil.cs:8929` | Save() catches only UnauthorizedAccessException, and on every save it writes and deletes a test.txt probe in the install folder | Mitigated (Phase 5) | IOException is now caught; the per-save test.txt write remains |
+| C068 | `DS4Control/Viiper/ViiperOutDevice.cs:4369` | Edge-output / non-Edge-pad warning is re-raised on every connect, mid-game | Mitigated (Phase 1) | Info level now; still repeated per connect |
+| C494 | `extras/sign-release.ps1:33` | Release is unsigned; the signing script covers 2 of 56 unsigned PE files and never the elevated .ps1 or the spawned viiper.exe | Mitigated (Phase 1) | sign-release.ps1 now covers Thrum's own binaries and the setup script; a certificate is still needed (manual step) |
+| C243 | `App.xaml.cs:639` | First-run save failure path shows misleading 'Copy complete' and then crashes (startup continues after Shutdown with appdatapath=null) | Proposed | Have AttemptSave return bool. Application_Startup should `return` right after a failed save instead of continuing. |
+| C247 | `App.xaml.cs:938` | -command Query.* always prints nothing: client reads the result from the wrong (null) memory-mapped file | Proposed | Read from ipcResultDataMMF, not ipcClassNameMMF, and dispose the view accessor with `using`. |
+| C249 | `App.xaml.cs:1041` | NullReferenceException in Exit/SessionEnding when startup ends before the logger exists | Proposed | Use `logHolder?.Logger?.Info(...)` in Application_Exit and Application_SessionEnding, and make CleanShutdown tolerate a null logger. |
+| C250 | `App.xaml.cs:1047` | CleanShutdown runs twice on Windows sign-out/shutdown; second pass throws from the Exit handler | Proposed | Make CleanShutdown idempotent, for example with `if (Interlocked.Exchange(ref cleanShutdownDone, 1) != 0) return;` at the top. |
+| C232 | `AutoProfileChecker.cs:74` | Any exception in AutoProfileChecker.Process silently and permanently stops auto-profile switching; collection read without synchronization | Proposed | Take a snapshot under the holder's lock (for example `lock(_colLockobj) rules = coll.ToArray()`) and make every UI mutation take the same lock. |
+| C251 | `AutoProfileHolder.cs:75` | Unreadable 'Auto Profiles.xml' is silently discarded and then overwritten; open errors crash startup | Proposed | Open the file inside the try. On a parse failure, rename the file to 'Auto Profiles.xml.unreadable-<timestamp>' and show or log one plain-language line saying the rules could not be read and a copy was kept. |
+| C252 | `AutoProfileHolder.cs:76` | Corrupt Auto Profiles.xml is silently treated as empty (no log, no message); the next edit overwrites every rule | Proposed | On parse failure: log a warning, rename the file to 'Auto Profiles.xml.corrupt-<timestamp>', and show a one-line notice on the Auto Profiles page. |
+| C253 | `AutoProfileHolder.cs:117` | AutoProfileHolder.Save is non-atomic, catches only UnauthorizedAccess, and callers ignore its result | Proposed | Write to a temp file and File.Replace it over the target. |
+| C445 | `BezierCurveEditor/BezierCurve.cs:74` | Custom Bezier curves from the bundled editor are misparsed on comma-decimal locales, logging a warning on every load; unmatched definitions keep the previous profile's curve | Proposed | Parse with CultureInfo.InvariantCulture first (this is the editor's and AsString's canonical format), falling back to the current culture. |
+| C107 | `DS4Control/AudioHapticsService.cs:618` | Capture retry runs every 250 ms forever on the Highest-priority writer thread; the app-session path enumerates every process's MainModule each time | Proposed | Back the retry off exponentially (250 ms up to 5 s) and reset it on success or a settings change. |
+| C108 | `DS4Control/AudioHapticsService.cs:627` | Audio Haptics status line shows raw COM/exception text and jargon to users | Proposed | Map the known failure causes (endpoint missing or inactive, app not running, USB audio device not found, device invalidated) to plain sentences with an action, for example 'The selected sound device is not connected. |
+| C109 | `DS4Control/AudioHapticsService.cs:652` | A failed pacer helper start is retried every 2 s indefinitely (a new Thrum.exe each time) with no plain-language reason shown to the user | Proposed | Use exponential backoff with a cap (2 s up to 60 s), shared by both consumers in DualSenseDevice. |
+| C110 | `DS4Control/AudioHapticsService.cs:877` | Routine device events surface raw COM HRESULT text as warnings | Proposed | Add a small AudioErrorText.Describe(Exception) that maps 0x88890004 (device invalidated), 0x88890010 (audio service not running), 0x88890026 (resources invalidated), 0x80070490 (not found) and E_ACCESSDENIED to plain … |
+| C112 | `DS4Control/AudioHapticsService.cs:1301` | Wired USB haptics output never retries: a hot-plug race or any playback stop leaves Audio Haptics failed until the profile is re-applied | Proposed | Treat USB output like the Bluetooth transport: keep the runtime alive when the endpoint is missing, with status 'Waiting for the controller's audio device'. |
+| C327 | `DS4Control/AudioHapticsStreamerMapping.cs:74` | Enabling Audio Haptics on a BT DualSense silently drops all ordinary game rumble for the session | Proposed | Map AudioHapticsMode.Mix to HapticsMode.Mix (audio plus the rumble synth) for the BT streamer. |
+| C030 | `DS4Control/ControlService.cs:1026` | HidHide 'adopt' step claims the user's own persistent blacklist entry, and Stop/exit then deletes it | Proposed | Do not adopt entries that existed before this session. |
+| C041 | `DS4Control/ControlService.cs:2564` | The VIIPER sidecar Connect/Disconnect runs while playStationFeatureOutputLock is held, and UI-thread getters take the same lock | Proposed | Build and connect the sidecar outside the lock and publish it with a short lock, or Interlocked.Exchange. |
+| C042 | `DS4Control/ControlService.cs:2814` | The single global microphone passthrough is stopped by any other controller's profile load or disconnect | Proposed | Track the owning slot in ControlService, for example dualSenseMicrophoneOwnerSlot. |
+| C043 | `DS4Control/ControlService.cs:2941` | App-audio speaker source is resolved once, on the HID thread, with a full process scan, and is never re-resolved when the app starts later | Proposed | Pass the process selector (path or executable name), not a resolved PID, to the speaker start, and resolve it inside the retry loop off the HID thread. |
+| C191 | `DS4Control/DTOXml/ActionsDTO.cs:291` | The hold interval of Gyro-calibrate and SA-wheel-calibrate special actions is lost on restart | Proposed | Let ShouldSerializeDelayString return true for Program, SASteeringWheelEmulationCalibrate and GyroCalibration. |
+| C192 | `DS4Control/DTOXml/AppSettingsDTO.cs:242` | LastChecked is written and parsed in different cultures, so day-month-year locales run the update check on nearly every launch | Proposed | Serialize with `LastChecked.ToString("o", CultureInfo.InvariantCulture)`. |
+| C193 | `DS4Control/DTOXml/AppSettingsDTO.cs:378` | One unparseable typed element in Profiles.xml silently resets every app setting, including the consent flags | Proposed | Convert UseMoonlight, UseAdvancedMoonlight and VerboseStartupLogging to the string-proxy pattern already used for StopViiperBackendOnExit (bool.TryParse, keeping the default). |
+| C195 | `DS4Control/DTOXml/OutputSlotPersistDTO.cs:69` | Output slots 5-8 marked Permanent are saved but ignored on load | Proposed | Replace the hard-coded 3 with the real array bound: `if (tempSlot.Index >= 0 && tempSlot.Index < destination.OutputSlots.Length)`. |
+| C182 | `DS4Control/DTOXml/ProfileDTO.cs:1442` | TouchRelMouseRotation converts degrees to radians on save and again on load, so the rotation collapses to about 0 | Proposed | Make the getter return `_touchRelMouseRotation * 180.0 / Math.PI`, as LSRotation does. |
+| C183 | `DS4Control/DTOXml/ProfileDTO.cs:1731` | The profile Sensitivity string uses the current UI culture, so a language switch or a shared profile corrupts sensitivities | Proposed | Format each value with Global.configFileDecimalCulture (en-US) in MapFrom. |
+| C184 | `DS4Control/DTOXml/ProfileDTO.cs:2081` | Shift-layer extras are never saved, and legacy shift extras load onto the normal layer | Proposed | After the hasExtrasValue loop, add `if (hasExtrasValue) shiftExtrasSerializer.CustomMapExtras.Add(dcs.control, dcs.shiftExtras);` and change the shift argument at line 2761 to `true`. |
+| C185 | `DS4Control/DTOXml/ProfileDTO.cs:2354` | An imported profile's LaunchProgram runs any executable, including UNC paths, with no confirmation | Proposed | Treat LaunchProgram as untrusted unless the user set it on this machine. |
+| C186 | `DS4Control/DTOXml/ProfileDTO.cs:2782` | Malformed colour or macro values throw from MapTo, outside the load's catch, and can close Thrum | Proposed | Use byte.TryParse/int.TryParse in PostProcessXml and in both macro loops, keeping the default colour or skipping the bad key. |
+| C189 | `DS4Control/DTOXml/ProfileDTO.cs:3579` | The touchpad mouse-stick Rotation getter uses the wrong formula and always saves 0 | Proposed | Change the getter to `(int)Math.Round(_rotationRad * 180.0 / Math.PI)`. |
+| C441 | `DS4Control/Debouncer.cs:18` | Debounce setting changes are ignored until the controller reconnects (stale primary-constructor gate) | Proposed | Store the duration in a mutable field that SetDuration updates, and gate on that field. |
+| C097 | `DS4Control/DualSenseAudioPassthrough.cs:585` | USB speaker passthrough logs 'waiting' but never retries; a dead capture still reports Ready | Proposed | Keep a pending state (report Starting, not Ready) and retry capture binding on a short timer or on endpoint-arrival notification until it succeeds. |
+| C099 | `DS4Control/DualSenseAudioPassthrough.cs:1371` | USB passthrough copies frames with no sample-rate conversion, drops frames past 4096, and allocates per sample on the audio thread | Proposed | Resample with a WdlResampler or a linear resampler state kept per SlotPlayback, loop over the input in chunks instead of truncating, and replace BitConverter.GetBytes with BinaryPrimitives or BitConverter.TryWriteBytes … |
+| C046 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:428` | Audio buffered during a lifecycle gate is played late and drained only by a 0.78% clock trim, so the speaker can lag by seconds for minutes | Proposed | When the gate opens, or whenever the buffered level is far above target (for example more than 100 ms), drop the ring to the target level with a short crossfade. |
+| C047 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:481` | 24 s capture buffers allocate 18-46 MB per speaker instance, repeated on every retry and profile change | Proposed | Shrink both buffers to what the gate needs (about 500-1000 ms). |
+| C052 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:1689` | Pacer start failure is silent, retried forever about every 2 s, and polls the RT thread at 500 Hz while gated | Proposed | After N consecutive non-exception failures, log device.BluetoothAudioPacerLastError once in plain language, back off exponentially (cap about 60 s) and report the lane as Unavailable. |
+| C053 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:1806` | The idle speaker path keeps a 94 Hz real-time loop, a 100 Hz pump and timeBeginPeriod(1) running while no audio plays | Proposed | When audioSegmentActive is false and the ring is empty, block on captureFramesAvailable (no timeout, or 250 ms) instead of the cadence timer. |
+| C054 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:2563` | Dispose joins each worker for up to 2 s on the caller's thread, which is the controller's HID input thread during a profile reload | Proposed | In DualSenseAudioPassthrough, dispose the retired instance on the same background Task that starts the replacement; the per-slot gate already orders them. |
+| C145 | `DS4Control/DualSenseMicrophonePassthrough.cs:8` | Single slot-less mic passthrough is stopped by other controllers' profile loads and removals | Proposed | Record the owning slot in DualSenseMicrophonePassthrough (Start(slot, ...), Stop(slot), IsRunningFor(slot, ...)) and ignore Stop from a non-owning slot. |
+| C147 | `DS4Control/DualSenseMicrophonePassthrough.cs:123` | Mic passthrough Stop() disposes WasapiCapture while holding the lock the capture callback needs (deadlock race) | Proposed | Under the lock, only swap the fields to null. |
+| C149 | `DS4Control/DualSenseMicrophonePassthrough.cs:162` | Mic passthrough never recovers from device loss and keeps reporting Ready | Proposed | On RecordingStopped or PlaybackStopped with an error (or any unexpected stop), clear the state (after releasing the lock) and mark the lane failed with a plain-language reason. |
+| C150 | `DS4Control/DualSenseMicrophonePassthrough.cs:236` | Per-callback and per-sample heap allocation on the WASAPI capture thread (default mic volume) | Proposed | Scale in place on a Span<float>/Span<short> using MemoryMarshal.Cast over e.Buffer, or copy into a reusable buffer sized once, and pass that to provider.AddSamples. |
+| C155 | `DS4Control/DualShock4AudioPassthrough.cs:127` | An intentional DS4 speaker stop is reported as a failure, causing an unexplained 'Needs attention' | Proposed | Separate 'stopped on purpose' from 'failed': Stop() should clear startFailed, and ControlService should report NotRequired (or a detail string) when the device does not support BT speaker audio. |
+| C163 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:245` | 48->16 kHz and 32->16 kHz sample-rate conversion has no anti-alias filter (pure decimation), so 8-24 kHz content folds into the audible band | Proposed | Low-pass at about 7 kHz before decimating, for example 2-4 cascaded NAudio BiQuadFilter.LowPassFilter stages (already used by the processor) or a short FIR half-band. |
+| C165 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:627` | DS4 capture cannot handle Audio Haptics per-app endpoints: it falls back to a different controller endpoint or fails after about 10 s of retries | Proposed | Mirror the DualSense path: build a ProcessLoopbackWaveCapture for TryParseEndpointId/TryParseAutomaticEndpointId ids. |
+| C167 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:801` | Speaker compression and bass boost are silently ignored on the virtual-DS4 (32 kHz) direct path | Proposed | Run a DualSenseSpeakerProcessor in the 32 kHz branch. |
+| C170 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:1650` | Speaker worker streams silence, spin-waits and holds 1 ms timer resolution for as long as the speaker is enabled (idle timeout declared but unused) | Proposed | After a few seconds of source idle, disarm the speaker transport (one 0x11 off report), call timeEndPeriod, and park the worker on captureAvailable/stoppingSignal. |
+| C171 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:1654` | Direct VIIPER lane's worker thread exits for good on the first HID write failure; slot keeps reporting Ready | Proposed | Treat Failed as recoverable. Back off (for example 250 ms), dispose and reopen the dedicated HID handle/pool, re-arm the transport, and re-prime. |
+| C177 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4329` | Speaker failure messages are protocol jargon, and a single flag suppresses every failure after the first | Proposed | Map transport errors to a few plain messages, for example "The controller speaker lost its Bluetooth audio link; reconnect the controller or move it closer." Keep technical details behind VerboseStartupLogging. |
+| C449 | `DS4Control/FirstRun/FirstRunDataLocationRouter.cs:85` | Multi-location first run: default-unchecked 'Keep' silently deletes the other config folder; ticking it re-runs the wizard on every launch | Proposed | Word the option as an explicit delete ('Delete the settings stored in <other location>'), default to keep, and confirm before deleting. |
+| C450 | `DS4Control/FirstRun/FirstRunDataLocationRouter.cs:122` | First-run data-location step crashes on delete errors other than UnauthorizedAccessException, and the fallback message is unclear | Proposed | Catch IOException and UnauthorizedAccessException per operation, and skip missing paths with Exists checks. |
+| C076 | `DS4Control/Mapping.cs:745` | Gamepad-button macro state is global, so a macro on one controller presses buttons on every connected virtual controller | Proposed | Make macroControl a [MAX_DS4_CONTROLLER_COUNT][26] array and macroCount an int[] indexed by device. |
+| C077 | `DS4Control/Mapping.cs:756` | nowAction/oldnowAction have 4 slots but are indexed by device 0-7; hold-delay special actions on controllers 5-8 throw and silently abort all of that pad's special actions | Proposed | Size both arrays as new DateTime[Global.MAX_DS4_CONTROLLER_COUNT], the same way as oldnowKeyAct next to them. |
+| C080 | `DS4Control/Mapping.cs:2506` | The Left Stick 'Delta Acceleration' setting has no effect: LSProcessor.Process is never called | Proposed | Before the LS control-settings loop, mirror the RS block using LX/LY and deltaAccelProcessors[device].LSProcessor. |
+| C081 | `DS4Control/Mapping.cs:3096` | The button/stick-to-absolute-mouse output computes the selected-display translation and then throws it away, so the cursor spans all monitors | Proposed | Translate into the output values: Global.TranslateCoorToAbsDisplay(absMouseOut.x, absMouseOut.y, out outX, out outY). |
+| C083 | `DS4Control/Mapping.cs:3723` | The per-key native alias is cached on first press and never refreshed, so keys are wrong after Thrum's runtime SendInput-to-FakerInput switch | Proposed | Store the alias on every press (deviceState.nativeKeyAlias[value] = actionAlias; this is a cheap overwrite), or add Mapping.ResetSyntheticKeyState() that releases held keys and clears keyPresses/nativeKeyAlias for all … |
+| C084 | `DS4Control/Mapping.cs:4008` | RunLightbarMacro holds the DS4LightBar locks for the whole macro, so clicking 'Identify' freezes the UI thread until the macro ends | Proposed | Don't hold the locks across the delay loop. |
+| C087 | `DS4Control/Mapping.cs:4244` | The 'Launch program' special action runs ShellExecute synchronously on the HID thread; failures are swallowed and the Process handle leaks | Proposed | Hand the launch to Task.Run with a try/catch that logs a plain message, for example "Couldn't start 'X' for controller 1: the file wasn't found". |
+| C088 | `DS4Control/Mapping.cs:4310` | Special-action profile switch announces success before loading; a missing target profile silently resets the pad's profile and unplugs its virtual controller | Proposed | Log and toast the UsingProfile text only from the afterLoad callback when loaded == true. |
+| C092 | `DS4Control/Mapping.cs:6893` | The steering-wheel anti-deadzone formula ignores outputAxisZero, so any anti-deadzone above 0 breaks the steering output on DS4, DualSense, Edge and Switch 2 Pro virtual pads | Proposed | Add outputAxisZero to both branches. Negative turns: zero + antiNeg + (min - zero - antiNeg) * frac. |
+| C093 | `DS4Control/Mapping.cs:6917` | The 'Trigger L+R Axis' steering-wheel output (±255, left side wrap-encoded) does not match VIIPER's steering consumers, so trigger steering is effectively dead on every virtual controller type | Proposed | Make Scale360degreeGyroAxis return the L2R2 case in the same per-output-type range it uses for sticks: ±32767 centered at 0 for X360, 0..255 centered at 128 for byte outputs. |
+| C120 | `DS4Control/Mouse.cs:262` | Gyro mouse-joystick never resets gyroStickY (typo assigns gyroStickX twice), leaving a stuck vertical deflection | Proposed | Change line 262 to `Mapping.gyroStickX[deviceNum] = Mapping.gyroStickY[deviceNum] = 128;`. |
+| C122 | `DS4Control/Mouse.cs:473` | Gyro mouse-joystick horizontal axis reads controller 1's setting for every controller | Proposed | Use `Global.getGyroMouseStickHorizontalAxis(deviceNum)` (one-token change). |
+| C134 | `DS4Control/MouseCursor.cs:93` | Weighted-average gyro mouse smoothing is a no-op: the smoothing weight is hard-coded to 0 and the editor slider does nothing | Proposed | Derive the weight from tempInfo.smoothingWeight when gyroSmooth is set, for example gyroSmoothWeight = Math.Clamp(1.0 - tempInfo.smoothingWeight, 0.0, 0.995) to match upstream's older semantics. |
+| C444 | `DS4Control/OutputKBM/SendInputHandler.cs:127` | SendInput wheel event passes cbSize = inputs*sizeof(INPUT), so diagonal two-finger scrolls are dropped | Proposed | Pass Marshal.SizeOf<INPUT>() as cbSize, and skip the call when inputs == 0. |
+| C124 | `DS4Control/ProcessLoopbackWaveCapture.cs:109` | Fixed 'selected app' capture never notices the target exiting; status stays 'Audio Haptics is active.' while no audio flows | Proposed | In fixed mode, run a lightweight liveness check (a Process.WaitForExit handle or a periodic HasExited check). |
+| C125 | `DS4Control/ProcessLoopbackWaveCapture.cs:192` | Saved process ID is trusted without an identity check, so after a reboot or PID reuse Audio Haptics captures an unrelated app | Proposed | Accept settings.ProcessId only if the live process's ProcessName (and path, when known) matches the saved ExecutableName/ProcessPath. |
+| C126 | `DS4Control/ProcessLoopbackWaveCapture.cs:206` | ResolveProcessId scans every process's MainModule, on the Highest-priority haptics writer thread every 250 ms and on the auto-detect monitor every 500 ms | Proposed | Return 0 immediately when ProcessPath and ExecutableName are both empty. |
+| C127 | `DS4Control/ProcessLoopbackWaveCapture.cs:212` | Automatic game detection reads MainModule of every process every 500 ms while no game is running | Proposed | Return 0 immediately when no identity is configured. |
+| C128 | `DS4Control/ProcessLoopbackWaveCapture.cs:251` | Automatic mode scans every process's MainModule twice a second while no game is running, on an AboveNormal-priority thread (and runs twice per slot) | Proposed | Only enumerate when ProcessPath or ExecutableName is non-empty. |
+| C000 | `DS4Control/ScpUtil.cs:184` | A lightbar macro from the previous profile stays active after switching profiles | Proposed | In the setter, also set LightbarMacro = null (or a new inactive LightbarMacro) when the value is null or empty, so Reset() clears the runtime object. |
+| C002 | `DS4Control/ScpUtil.cs:1488` | A corrupt Actions.xml is never repaired: every launch rewrites every profile file, logs the same error once per profile, and leaves all special actions silently gone | Proposed | When ActionsDTO deserialization fails, rename the bad file (Actions.xml.unreadable), recreate the default action set with SaveActions(), and log or notify once in plain language. |
+| C004 | `DS4Control/ScpUtil.cs:3444` | TranslateCoorToAbsDisplay uses Left + Right instead of the display width, so absolute-mouse mapping to a monitor that is not at the virtual-desktop origin is wrong | Proposed | Use `widthRatio = absDisplayBounds.Width / fullDesktopBounds.Width; bX = (absDisplayBounds.Left - fullDesktopBounds.Left) / fullDesktopBounds.Width;` and the same for Y. |
+| C005 | `DS4Control/ScpUtil.cs:3583` | The manual update check tells the user "up-to-date" when the GitHub request fails with an HTTP error (for example a 403 rate limit) | Proposed | Make the method report three outcomes (UpdateAvailable / UpToDate / CheckFailed), or throw an HttpRequestException on non-success so the manual button's existing catch shows its failure dialog with a plain-language … |
+| C008 | `DS4Control/ScpUtil.cs:5817` | A profile's LaunchProgram runs any path, including UNC, from an imported profile without confirmation; failures are silent and every running process is enumerated | Proposed | Accept only a local absolute path to an existing .exe. |
+| C016 | `DS4Control/ScpUtil.cs:10242` | ResetProfile sets SXMaxzone/SZMaxzone to DEFAULT_RUMBLE (100) instead of 1.0 and never resets RS anti-snapback, so blank and preset profiles have almost no Sixaxis tilt output | Proposed | Use DEFAULT_SX_TILT_MAXZONE on line 10242 and add the three matching rsAntiSnapbackInfo resets. |
+| C017 | `DS4Control/ScpUtil.cs:10999` | CheckProfileOptions runs the audio lifecycle (WASAPI init, thread joins, helper start) on the HID input thread under eventQueueLock | Proposed | Keep only HID-state setters in CheckProfileOptions on the input thread. |
+| C133 | `DS4Control/TriggerLabPresetStore.cs:155` | Preset library that failed to load due to an I/O error is overwritten on the next save, silently deleting the user's presets | Proposed | On IOException or UnauthorizedAccessException, set a 'library not loaded' flag that makes SaveStore throw a plain-language 'Reload the preset library before saving' error, or retry Load inside SaveStore before writing. |
+| C138 | `DS4Control/UdpServer.cs:629` | DSU server bound to a LAN address is an unauthenticated, spoofable UDP reflector with no limit on clients or MAC entries | Proposed | Show a plain-language warning when a non-loopback address is entered. |
+| C211 | `DS4Control/Viiper/DualSenseMicrophoneProcessor.cs:192` | RNNoise load failure is reported only with verbose logging on; noise suppression silently turns off | Proposed | Make the unavailable state sticky for the process, for example a static Lazy<bool> probed once on a non-audio thread. |
+| C223 | `DS4Control/Viiper/Validation/ViiperInstallerPolicy.cs:780` | Restart-before-upgrade can loop forever: nothing stops Thrum attaching a virtual device before Install/Repair runs | Proposed | When the installer exits with code 4, save an 'usbip upgrade pending' flag that survives restarts. |
+| C224 | `DS4Control/Viiper/Validation/ViiperInstallerPolicy.cs:813` | Exit-1 message says nothing on the machine changed, but several exit-1 paths run after the driver and/or backend were installed | Proposed | Drop the 'none of them change anything' claim. |
+| C063 | `DS4Control/Viiper/ViiperOutDevice.cs:2417` | Stream recovery treats a bare TCP connect as success with no cap across cycles, so recovery can loop with a warning flood or report a dead device as recovered | Proposed | Require proof that the device is alive before declaring recovery: read the first frame or query bus/{id}/list for the devId before publishing. |
+| C064 | `DS4Control/Viiper/ViiperOutDevice.cs:2843` | RNNoise failing to load (and mic processing failures) is only reported with verbose logging on; noise suppression silently turns off while the setting still shows on | Proposed | Log RNNoise unavailability once per session as a plain-language, non-verbose message (for example 'Microphone noise suppression is unavailable (rnnoise.dll could not load); the microphone still works without it'), or … |
+| C069 | `DS4Control/Viiper/ViiperOutDevice.cs:4583` | 'Output stopped' message is raw exception text with no remedy, and the virtual pad is never re-created | Proposed | Map failures to plain text: 'The virtual controller stopped because the VIIPER backend closed. |
+| C202 | `DS4Control/Viiper/ViiperSetupManager.cs:385` | Missing-script fallback auto-opens the wrong VIIPER fork and the unpinned latest usbip-win2 releases | Proposed | Say in plain words that the setup files are missing and the zip should be extracted again. |
+| C207 | `DS4Control/Viiper/ViiperSetupManager.cs:608` | Readiness probes, a fixed 750 ms sleep and a lock held across them run on the UI thread | Proposed | Run GetStatus/RefreshDriverReadiness through Task.Run and marshal the result back. |
+| C212 | `DS4Control/Viiper/ViiperUnownedBackend.cs:357` | Unowned-backend stop reads only the IPv4 listener table, but VIIPER listens on [::]:3242, so the Stop action cannot find the process | Proposed | Also read GetExtendedTcpTable(AF_INET6, TCP_TABLE_OWNER_PID_LISTENER) (MIB_TCP6ROW_OWNER_PID) and prefer ::1, then ::, alongside the IPv4 rows. |
+| C213 | `DS4Control/Viiper/ViiperUnownedBackend.cs:407` | Stopping a backend Thrum did not start cannot find VIIPER's PID: the lookup reads only the IPv4 table and VIIPER listens on [::] | Proposed | Also read GetExtendedTcpTable(AF_INET6, TCP_TABLE_OWNER_PID_LISTENER) (MIB_TCP6ROW_OWNER_PID) and prefer the ::1 or :: listeners. |
+| C401 | `DS4Forms/AudioHapticsControl.xaml:130` | Unnamed sliders, toggles and icon-glyph buttons on main pages (Overview, Audio Haptics, Profiles, Settings) | Proposed | Give each control an AutomationProperties.Name, or LabeledBy the visible label (add x:Name to the label TextBlocks). |
+| C392 | `DS4Forms/AudioHapticsControl.xaml.cs:372` | Audio Haptics shows a red 'selected app is not running... select it again' error in the normal state, contradicting its own reacquire tip | Proposed | For an app source whose ProcessPath or ExecutableName is known, treat 'not running' as a neutral status (muted text such as 'Waiting for <app> to start') rather than a validation error. |
+| C393 | `DS4Forms/AudioHapticsControl.xaml.cs:612` | Every Audio Haptics change (including each gain-slider move) scans all processes on the UI thread when the saved app is not running | Proposed | Validate only when the source fields change, not for gain, mode or response edits. |
+| C394 | `DS4Forms/AudioHapticsControl.xaml.cs:715` | 'Play app through controller' permanently turns on the controller speaker, which keeps playing system audio after the option is turned off | Proposed | Delete the assignment. IsControllerSpeakerEnabled already enables the speaker while the override is active. |
+| C380 | `DS4Forms/AutoProfiles.xaml.cs:115` | Auto-profile list is always sorted by file name, so Move Up/Down appears to do nothing and match priority is invisible | Proposed | Either drop the Filename SortDescription (show the true priority order, maybe with a 'Priority' number) or remove the Move Up/Down menu and document that the first match wins in the order shown. |
+| C382 | `DS4Forms/AutoProfiles.xaml.cs:395` | Auto-profile Save, Remove, Duplicate and Move ignore save failures (silent), and a locked file crashes the app | Proposed | Wrap the four Save calls in one helper that catches IOException and UnauthorizedAccessException, checks the bool result, and shows a plain-language message ('Auto-profile rules could not be saved to <folder>. |
+| C300 | `DS4Forms/BindingWindow.xaml.cs:1309` | Test rumble keeps running after the binding window closes | Proposed | In Window_Closing, if bindingVM.RumbleActive, call setRumble(0,0) on App.rootHub.DS4Controllers[DeviceNum] (with a null check) and clear RumbleActive. |
+| C413 | `DS4Forms/ChangelogWindow.xaml.cs:51` | Changelog/Updater windows fail silently offline and claim 'No release notes yet' when GitHub rate-limits | Proposed | Wrap DisplayChangelog in try/catch and set Markdown to a plain 'Release notes could not be loaded (no connection or GitHub is busy). |
+| C397 | `DS4Forms/ControllerOverviewControl.xaml:412` | Hard-coded amber/grey text colors bypass theme tokens and fail contrast (Overview 'needs attention' status ~1.8:1 on white) | Proposed | Replace the literals with the existing tokens {DynamicResource WarningColor} and {DynamicResource WarningBackgroundColor}. |
+| C398 | `DS4Forms/ControllerOverviewControl.xaml:560` | Sliders, toggle switches and icon buttons on Overview, Audio Haptics and Trigger Lab have no screen-reader name | Proposed | Add AutomationProperties.Name (or AutomationProperties.LabeledBy pointing at the adjacent TextBlock) to each slider and toggle, and pass the tooltip text as AutomationProperties.Name in MakeIconButton and on glyph … |
+| C410 | `DS4Forms/ControllerReadingsControl.xaml.cs:327` | Readings pane waits on ReadWaitEv with no timeout; a controller disconnect leaves the timer thread blocked forever | Proposed | Use if (!ds.ReadWaitEv.Wait(100)) { skip this tick; restart timer; } and put the Reset/copy/Set sequence in try/finally so Set always runs. |
+| C388 | `DS4Forms/ControllerTesterControl.xaml.cs:172` | Input tester waits on ReadWaitEv with no timeout; the gate is never set again after a disconnect, so the tester stalls and a thread leaks | Proposed | Use a bounded wait, as HaltReportingRunAction does: if (!device.ReadWaitEv.Wait(50)) return ControllerTesterSnapshot.Disconnected (or keep the previous snapshot). |
+| C452 | `DS4Forms/Controls/NumericUpDown.cs:156` | NumericUpDown's focused inner TextBox has no accessible name | Proposed | In OnApplyTemplate, set AutomationProperties.LabeledBy on textBox to this control (or set its Name from ResolveAutomationName()). |
+| C453 | `DS4Forms/Controls/NumericUpDown.cs:464` | NumericUpDown can display a value that was not applied (out-of-range text at a bound, or cleared text) | Proposed | After SetCurrentValue in CommitText, always call RefreshText(). |
+| C454 | `DS4Forms/Controls/SplitButton.cs:140` | SplitButton dropdown cannot be reached by keyboard; Enter while it is open runs the main action | Proposed | When IsOpen becomes true because of keyboard input, move focus into DropDownContent (for example with MoveFocus(First) on the popup child). |
+| C500 | `DS4Forms/MainWindow.xaml:50` | About half the UI is hard-coded English, so any of the 24 shipped languages gives a mixed-language app | Proposed | Move Thrum-era strings into Strings.resx behind lex:Loc (the LocExtension already falls back to neutral English), starting with nav headers, the shell sidebar, Overview and the tray menu. |
+| C281 | `DS4Forms/MainWindow.xaml.cs:632` | Swipe-profile and auto-profile timers stop for good after one exception; the swipe timer iterates a collection other threads modify | Proposed | Wrap each handler body in try/finally and re-arm in the finally. |
+| C282 | `DS4Forms/MainWindow.xaml.cs:1100` | VIIPER status probes, including a 750 ms sleep, run on the UI thread in three click paths | Proposed | Compute the status with Task.Run, then show the prompt or launch the installer on the dispatcher, as RefreshViiperStatusText already does. |
+| C283 | `DS4Forms/MainWindow.xaml.cs:1163` | Overview quick settings overwrite the base profile file while a temporary (auto-)profile is loaded | Proposed | When Global.useTempProfile[deviceIndex] is true, save to Global.tempprofilename[deviceIndex], or block the edit with an explanation. |
+| C286 | `DS4Forms/MainWindow.xaml.cs:2056` | Controllers-tab Edit and several commands look up controllers with the wrong key (view position or list order instead of slot) | Proposed | Resolve controllers by DevIndex: conLvViewModel.ControllerDict.TryGetValue(idx, out var item) or ControllerCol.FirstOrDefault(c => c.DevIndex == idx), and stop using CurrentIndex or ControllerCol[...] positions. |
+| C290 | `DS4Forms/MainWindow.xaml.cs:2722` | Declining a consent dialog unbinds the Settings consent checkbox, which then shows 'off' when consent is on | Proposed | Use viiperExperimentalAckCk.SetCurrentValue(ToggleButton.IsCheckedProperty, false), or call BindingOperations.GetBindingExpression(box, ToggleButton.IsCheckedProperty)?.UpdateTarget(). |
+| C291 | `DS4Forms/MainWindow.xaml.cs:2967` | Manual 'Check for updates' says 'up-to-date' when GitHub returns an HTTP error; the real failure is never logged | Proposed | Return a three-state result: UpToDate, UpdateAvailable, or CheckFailed(reason). |
+| C337 | `DS4Forms/ProfileEditor.xaml.cs:1441` | The controller-diagram buttons have no accessible name: about 35 focusable, unnamed buttons on the main editor screen | Proposed | Set AutomationProperties.Name, for example from MappedControl.ToString() for the hotspot (Content is cleared for visuals), or set Focusable=False/IsTabStop=False on the hotspots since the mapping list is the accessible … |
+| C341 | `DS4Forms/ProfileEditor.xaml.cs:2114` | DS3 pitch/roll sim forces the output to Xbox 360, not DualShock 4 as the comment intends (index order changed) | Proposed | Use the enum rather than a literal index, for example TempControllerIndex = 0 (DS4), or set the index from GetOutputControllerType's inverse for ViiperDS4. |
+| C343 | `DS4Forms/ProfileEditor.xaml.cs:2174` | A failed profile save is reported as success (editor closes); an IOException crashes the app | Proposed | Have the save path return success (make Global.SaveProfile return the bool, catch IOException there) and in ApplyProfileStep keep the editor open and show 'Couldn't save the profile: <reason>. |
+| C344 | `DS4Forms/ProfileEditor.xaml.cs:2189` | The new-profile 'name already exists' case shows 'Please enter a valid name' | Proposed | Show a separate message: 'A profile named "X" already exists. |
+| C347 | `DS4Forms/ProfileEditor.xaml.cs:2648` | Editing a special action (RemoveAt then Insert) desyncs item indices, so later Remove or Edit act on the wrong row | Proposed | Replace in place with specialActionsVM.ActionCol[currentIndex] = newitem, which raises Replace and keeps all indices valid. |
+| C348 | `DS4Forms/ProfileEditor.xaml.cs:2736` | The 'Use controller for readout' index table is stale, so pressing sticks or the touchpad opens the wrong control's binding | Proposed | Replace the switch with mappingListVM.ControlIndexMap.TryGetValue(control, out index) and skip unavailable mappings. |
+| C351 | `DS4Forms/ProfileEditor.xaml.cs:3043` | Export Special Actions has no error handling: an I/O failure crashes the app and leaks file handles | Proposed | Wrap the copy in using and try/catch, use File.Copy(source, dialog.FileName, overwrite: true), and show 'Couldn't export special actions: <reason>' on failure plus a short success note. |
+| C407 | `DS4Forms/RecordBox.xaml.cs:77` | Macro recorder mutates UI-bound collection and Dictionary from a timer thread without the registered lock | Proposed | Marshal ProcessDS4Tick's results to the dispatcher (poll on the timer, then Dispatcher.BeginInvoke the AddMacroStep calls). |
+| C409 | `DS4Forms/RecordBox.xaml.cs:596` | Macro recorder UI handlers throw on ordinary edge interactions, and the global handler does not mark exceptions handled, so the app exits | Proposed | Use keysdownMap[value] = true (or TryAdd) in MouseDown and FourMouseBtnAction/FiveMouseBtnAction. |
+| C472 | `DS4Forms/Themes/BridgeShellStyles.xaml:42` | Light (default) theme: primary buttons keep the native Aero2 template, whose hover/pressed light-blue background makes their forced white text unreadable | Proposed | Give BridgePrimaryButtonStyle (and ideally BridgeSecondaryButtonStyle) its own simple ControlTemplate: a Border using TemplateBinding Background, with IsMouseOver/IsPressed/IsEnabled/IsKeyboardFocused triggers that use … |
+| C473 | `DS4Forms/Themes/BridgeShellStyles.xaml:48` | Switching theme at runtime in Settings leaves Bridge-styled controls based on the previous theme; going from Dark to Light makes secondary button labels white on white | Proposed | Reference Bridge styles with DynamicResource in views (Style="{DynamicResource BridgeSecondaryButtonStyle}"), which makes them re-resolve against the new dictionaries. |
+| C474 | `DS4Forms/Themes/BridgeShellStyles.xaml:272` | Main navigation icons use 'Segoe Fluent Icons' with no fallback, and that font is Windows 11-only; on Windows 10 (a supported target) every navigation icon shows as a missing-glyph box | Proposed | Use FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" at line 272, and "Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI Symbol, Segoe UI" at line 341. |
+| C476 | `DS4Forms/Themes/BridgeShellStyles.xaml:664` | Profile-editor rail puts 'Back to Profiles' (cancel and discard) inside a selectable ListBox, so arrow keys, Home or one click throw away unsaved profile edits without asking | Proposed | Visible UI change: make "Back to Profiles" a button outside the list |
+| C477 | `DS4Forms/Themes/DarkTheme.xaml:72` | Dark theme has no visible keyboard focus indicator: button focus visuals are removed, and the other focus rectangles are black on near-black | Proposed | Define a dark app-wide focus visual (a Style keyed {x:Static SystemParameters.FocusVisualStyleKey}) that draws a 2px FocusRingColor rectangle. |
+| C480 | `DS4Forms/Themes/DarkTheme.xaml:345` | Dark theme's app-wide implicit TextBlock style overrides every inherited Foreground, so red/accent/muted/disabled colours set on parent controls never show | Proposed | Remove the Foreground setter from TextBlockStyle; WindowStyle already sets Foreground=ForegroundColor, and it inherits down. |
+| C484 | `DS4Forms/Themes/DefaultTheme.xaml:5` | No high-contrast support: theme text follows system colors but cards/sidebar stay hard-coded white, making text invisible in dark contrast themes | Proposed | Add a HighContrast dictionary that maps every token (Foreground, Muted, Card/Surface/Sidebar/Raised backgrounds, Accent, Border, Success/Warning/Danger, FocusRing) to SystemColors.*BrushKey through DynamicResource. |
+| C383 | `DS4Forms/TriggerLabControl.xaml.cs:148` | Trigger Lab preview stays on the controller if the user changes tab or controller within 2.8 s | Proposed | If the timer is running when Unloaded or SetDevice fires, run the restore (for the old physicalDeviceIndex) before stopping it, e.g. |
+| C387 | `DS4Forms/TriggerLabControl.xaml.cs:1393` | Trigger Lab applies Off when the lab is inactive, replacing the profile's standard L2/R2 trigger effect on the controller | Proposed | Mirror the ControlService rule. When !settings.HasActiveOverride, restore the profile's standard effect with device.PrepareTriggerEffect(trigger, Global.L2/R2OutputSettings[i].TriggerEffect, ...TrigEffectSettings) … |
+| C355 | `DS4Forms/ViewModels/AutoProfilesViewModel.cs:522` | Turning off an auto-profile's HidHide option removes the program from HidHide's application list even when the user had added it (corrected 2026-09-26: HidHide lets any user change the list, so the sync also runs without admin) | Proposed | Only remove entries Thrum added (keep a small owned-entries list). |
+| C367 | `DS4Forms/ViewModels/BindingWindowViewModel.cs:691` | Clearing a lightbar macro in the binding editor is never saved; edits also change the live object the HID thread iterates | Proposed | Clone settings.LightbarMacro into the OutBinding (via Compile/Parse) instead of sharing it. |
+| C368 | `DS4Forms/ViewModels/BindingWindowViewModel.cs:912` | A malformed lightbar macro in a profile throws IndexOutOfRangeException, which escapes profile loading | Proposed | In GetMacroFromString, check elementSplit.Length == 2 and throw ArgumentException (or return an inactive macro). |
+| C432 | `DS4Forms/ViewModels/ChangelogViewModel.cs:61` | Changelog/update windows: network failure leaves a blank window; rate-limit/HTTP error shows a false 'has not published a release' message | Proposed | Catch HttpRequestException and TaskCanceledException in DisplayChangelog, and have GetChangelog report failure separately from 'no releases'. |
+| C433 | `DS4Forms/ViewModels/ControllerLightbarIdentify.cs:56` | Identify lightbar blocks the UI thread for the full duration of any running lightbar macro | Proposed | Use Monitor.TryEnter with a short timeout in Begin/Restore, and skip or retry if contended. |
+| C379 | `DS4Forms/ViewModels/ControllerUiCapabilityPolicy.cs:173` | The 'Noise suppression' setting (RNNoise) is enabled but silently ignored on the USB DualSense microphone route | Proposed | Either run DualSenseMicrophoneProcessor on the USB path (downmix and resample to 48 kHz mono 480-sample frames) or, for UsbLegacyRoute, disable the combo with a short explanation ('Noise suppression is available for … |
+| C429 | `DS4Forms/ViewModels/LogViewModel.cs:218` | Log buffer: unlocked Clear races producer appends, and AddLogMessage leaks the write lock on any exception (UI hang, logging threads block) | Proposed | Wrap the add in try/finally (WriteLocker). |
+| C311 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:3479` | outDevTypeTemp is left at an Xbox 360 placeholder, so the Trigger Lab 'Full pull' label and binding window use Xbox naming/layout for DS4/DualSense/Switch output | Proposed | Initialise from the real profile type (Global.outDevTypeTemp[device] = Global.OutContType[device].Normalize()) as UpdateLateProperties does. |
+| C312 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:3834` | Trigger-menu Populate helpers drop the last touch-disable trigger and never clear stale check marks | Proposed | Clear IsChecked on every item at the start of each Populate* call. |
+| C369 | `DS4Forms/ViewModels/RecordBoxViewModel.cs:287` | Saving or loading a macro preset has no error handling, so any file error crashes the app | Proposed | Use File.WriteAllText or a using block inside try/catch in the view model or the caller, and show 'Could not save/load the macro preset: <reason>'. |
+| C370 | `DS4Forms/ViewModels/RecordBoxViewModel.cs:386` | The macro recorder always reads controller 1, whatever controller's profile is being edited | Proposed | Use deviceNum (clamped to connected slots) for DS4Controllers, touchPad and GetBoolMappingExternal. |
+| C371 | `DS4Forms/ViewModels/RecordBoxViewModel.cs:400` | The macro recorder changes shared state from the 10 ms timer thread and the UI thread without locking | Proposed | Run ProcessDS4Tick on the dispatcher (a DispatcherTimer, or a Timer with SynchronizingObject), or take one lock around every AddMacroStep, keysdownMap and appendIndex access, including lock(_colLockobj) for collection … |
+| C372 | `DS4Forms/ViewModels/RecordBoxViewModel.cs:493` | Macro rumble editor shows wrong values or throws when heavy rumble is below 100 or on a Stop Rumble step | Proposed | Decode arithmetically: v = step.Value - 1000000; heavy = v / 1000; light = v % 1000. |
+| C359 | `DS4Forms/ViewModels/SettingsViewModel.cs:762` | The custom exe name feature copies Thrum.exe under a user-chosen name, then throws on a wrong config path and leaves an orphaned copy | Proposed | If the feature stays: derive the source paths from Path.GetFileNameWithoutExtension(exeFileName); wrap the copy in try/catch with a plain-language message; handle existing targets; reject names that match Windows system … |
+| C360 | `DS4Forms/ViewModels/SettingsViewModel.cs:771` | Custom exe name: runtimeconfig source path is wrong, and every failure is silently swallowed | Proposed | Derive the paths from Path.ChangeExtension(exelocation, null) + ".runtimeconfig.json", or drop those copies because the apphost already resolves Thrum.dll's config. |
+| C431 | `DS4Forms/ViewModels/SpecialActEditorViewModel.cs:129` | Special action names may contain '/', which the profile serializer uses as its delimiter; the action is silently disabled after reload | Proposed | In IsValid, reject names containing '/' (and trim surrounding whitespace) with a plain message such as "Action names can't contain '/'." Optionally reword the duplicate message to 'An action with this name already … |
+| C467 | `DS4Forms/ViewModels/SpecialActions/CheckBatteryViewModel.cs:104` | Malformed Actions.xml entries crash the special-action editor (unchecked byte.Parse / array indexing) | Proposed | Check details.Length and use byte.TryParse with defaults. |
+| C465 | `DS4Forms/ViewModels/SpecialActions/LoadProfileViewModel.cs:99` | Special-action IsValid() always returns true in 6 view models; errors are never shown, invalid actions are saved, and a phantom 'null' action or lost action can result | Proposed | Set valid=false wherever an error is added in each IsValid. |
+| C362 | `DS4Forms/ViewModels/TrayIconViewModel.cs:224` | Tray menu labels controllers and ticks profiles by list position, not slot number | Proposed | Use holder.Index for the header, Global.ProfilePath and the Tag, and resolve clicks by slot index. |
+| C025 | `DS4Library/DS4Device.cs:2109` | Bluetooth keepalive stopwatch is stopped after the first changed report, so the 1 s microphone-only keepalive never fires | Proposed | Use standbySw.Restart() in the change branch (line 2109, and likewise line 2186) so the interval always counts from the last write. |
+| C302 | `DS4Library/DS4Devices.cs:432` | Physical Sony pads that connect while a VIIPER Sony output is being created are rejected, can stay registered as Thrum's own virtual output until restart, and are un-hidden in HidHide | Proposed | Classify new Sony paths by usbip ancestry, not timing (verified Medium; needs hardware) |
+| C306 | `DS4Library/DS4Devices.cs:683` | Sony Wireless Adapter is registered under a path-derived key but unregistered by MAC, so replugging it into the same port is ignored until restart | Proposed | Record the key used at registration on the device (for example an internal RegistryKey property set in findControllers). |
+| C265 | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:1138` | The helper ownership barrier throws InvalidOperationException out of Stop()/Dispose(), which can crash the app from the HID input thread | Proposed | Have EnsureHelperProcessExited return false instead of throwing. |
+| C335 | `DS4Library/InputDevices/DualSenseBluetoothRealtimeWriter.cs:781` | Realtime writer Dispose waits up to 1 s per pending IRP, one after another, while holding its own lock and the caller's transport locks | Proposed | Issue CancelIoEx for all pending slots first, then wait on all of them with one short total deadline (for example 100 ms), and hand anything still pending to the existing deferred ThreadPool retirer. |
+| C268 | `DS4Library/InputDevices/DualSenseDevice.cs:1090` | If the helper fails to start, controller speaker audio stays silent with no user-facing message; the only error is technical text in a private field | Proposed | When the pacer first fails to start, log one plain-language, rate-limited message through AppLogger (for example: 'Thrum couldn't start its Bluetooth audio helper, so controller speaker audio is off. |
+| C317 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:316` | Every streamer restart or stop blocks its caller for the full 500 ms (lock held across Join), including the UI thread | Proposed | Under the lock, capture the thread and CTS, cancel, and clear the fields. |
+| C318 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:363` | Two independent Bluetooth audio-haptics producers run for the same source (AudioHapticsService and the streamer) | Proposed | Pick one BT owner. Either map the streamer to Off whenever AudioHapticsService owns the slot (only enable it when the service is not running), or skip AudioHapticsService's standalone BT writes while … |
+| C321 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:426` | Streamer busy-spins ~1 ms of every 10.67 ms tick at Pro Audio priority, even while silence-gated | Proposed | Wake closer to the deadline (the high-resolution timer is sub-ms accurate) and spin at most ~0.2 ms. |
+| C322 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:619` | Stream aborts for good after ~0.5 s of rejected writes (including non-fault rejections); log shows Win32 error 0 | Proposed | Treat saturation and ownership-transition rejections as transient: keep the loop running and back off. |
+| C328 | `DS4Library/InputDevices/JoyConDevice.cs:401` | Joy-Con USB grip handshake loops forever (tight spin on unplug) while holding lock(Devices) on the ControlService event thread | Proposed | Bound every handshake loop with a deadline or retry count (for example 2 s). |
+| C330 | `DS4Library/InputDevices/SwitchProDevice.cs:891` | Subcommand reply matching uses && instead of \|\| and accepts stale or unrelated reports as SPI calibration data | Proposed | Wait for the actual matching reply: loop while `tmpReport[0] != 0x21 \|\| tmpReport[14] != subcommand` (with the existing tries and timeout bound). |
+| C331 | `DS4Library/InputDevices/SwitchProDevice.cs:1003` | Switch Pro / Joy-Con init: null Subcommand result causes NullReferenceException that StartUpdate does not catch | Proposed | When Subcommand gets a null or short response during init, throw IOException (or null-check in CalibrationData). |
+| C461 | `HidLibrary/HidDevice.cs:341` | HID read/write paths silently re-open the device exclusively outside handleLock after CloseDevice, and use raw handles without AddRef | Proposed | Remove the lazy `??=` re-open from ReadFile/Write*. |
+| C258 | `LogWriter.cs:52` | Export Log silently fails: every exception swallowed, writer leaked | Proposed | Use `using var stream = new StreamWriter(filename)`. |
+| C256 | `ProfileEntity.cs:98` | Profile rename/delete leave controller slots, linked profiles and auto-profile rules pointing at the old name; IO errors are unhandled | Proposed | After a successful move, raise an event that MainWindow uses to update ProfilePath/OlderProfilePath for the affected slots, linked profiles and AutoProfileEntity names, then save. |
+| C257 | `ProfileEntity.cs:108` | Renaming a profile orphans every reference to it, and an IO error in File.Move crashes the app | Proposed | Wrap File.Move in try/catch with a plain message. |
+| C254 | `ProfileList.cs:46` | Startup crashes on every launch if the Profiles folder is missing | Proposed | Call Directory.CreateDirectory on the Profiles path before enumerating (it is a no-op if the folder exists), and use Path.Combine. |
+| C259 | `StatusLogMsg.cs:56` | Footer status text uses hard-coded colours that fail contrast (dark and light) and signal warnings by colour only | Proposed | Bind Foreground with a DataTrigger on Warning to DynamicResource MutedForegroundColor / DangerColor, and add a warning glyph or 'Warning:' prefix. |
+| C489 | `Thrum.csproj:17` | Server GC enabled for a desktop tray app | Proposed | Measure with utils/measure-runtime.ps1 using DOTNET_gcServer=0 before changing |
+| C490 | `Thrum.csproj:93` | Native DLLs import VCRUNTIME140.dll, which the self-contained package does not ship | Proposed | Copy vcruntime140.dll from the runner's VC redist folder into the package (app-local deployment) |
+| C496 | `app.manifest:52` | No per-monitor DPI awareness declared: window is bitmap-stretched (blurry) on monitors with a different scale | Proposed | Add <application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings><dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware><dpiAwareness … |
+| C509 | `.github/workflows/release.yml:14` | Release workflow builds and publishes without running the test suite | Fixed (Phase 6) |  |
+| C498 | `README.md:51` | No uninstall path or removal instructions; deleting the zip folder leaves startup entries, a driver, a backend and data behind | Fixed (Phase 5) |  |
+| C237 | `App.xaml.cs:173` | timeBeginPeriod(1) is not honoured on Windows 11 while Thrum is hidden in the tray; Audio Haptics pacing falls back to ~15.6 ms sleeps | Fixed (Phase 3) |  |
+| C238 | `App.xaml.cs:294` | Unreadable Profiles.xml is silently replaced by defaults and overwritten on exit (no backup, no message) | Fixed (Phase 5) |  |
+| C240 | `App.xaml.cs:304` | First-run bootstrap overwrites an existing Default profile and resets all slot assignments when firstRun is true but the config is not pristine | Fixed (Phase 1) |  |
+| C242 | `App.xaml.cs:579` | Unhandled exceptions end the app silently: no plain-language crash message, Handled never set, handlers attached late | Fixed (Phase 5) |  |
+| C233 | `AutoProfileChecker.cs:146` | Auto-profile rule pointing at a renamed/deleted profile unplugs the virtual controller every second and never reverts | Fixed (Phase 2) |  |
+| C115 | `DS4Control/AudioHapticsService.cs:1584` | Audio Haptics writer thread busy-yields ~12% of a core per controller all session, even when silent | Fixed (Phase 3) |  |
+| C028 | `DS4Control/ControlService.cs:606` | The stick-mouse FakerInput tray toast repeats on every launch because its 'shown' flag is not persisted | Fixed (Phase 1) |  |
+| C031 | `DS4Control/ControlService.cs:1188` | HidHide warning appears on every controller connect when 'Hide controller' is on without HidHide, even when the exclusive open succeeded | Fixed (Phase 1) |  |
+| C035 | `DS4Control/ControlService.cs:1657` | Every normal start without FakerInput logs a line with the upstream DS4Windows site URL and the non-word 'Conflictions' | Fixed (Phase 1) |  |
+| C037 | `DS4Control/ControlService.cs:1714` | OSC listener/sender start failure (port in use, unresolvable host) aborts ControlService.Start or crashes the app | Fixed (Phase 2) |  |
+| C040 | `DS4Control/ControlService.cs:2529` | Audio-class refusal (with 'can crash Windows' wording) is logged on every launch for each Sony Bluetooth pad with Xbox/Switch output, even when no audio feature is enabled | Fixed (Phase 1) |  |
+| C144 | `DS4Control/ControllerRuntimeStatus.cs:188` | Audio Haptics idle 'Waiting for a game' is reported as amber 'Needs attention' on every launch | Fixed (Phase 1) |  |
+| C156 | `DS4Control/DualShock4AudioPassthrough.cs:201` | DS4 speaker start permanently disables USB selective suspend in the active power plan, without consent or restore | Fixed (Phase 3) |  |
+| C446 | `DS4Control/DualShock4BluetoothPowerPolicy.cs:61` | USB selective suspend is disabled system-wide on AC and battery without consent, documentation or restore | Fixed (Phase 3) |  |
+| C166 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:669` | Multichannel loopback keeps only FL/FR and drops centre (dialogue), LFE and surrounds | Fixed (Phase 4) |  |
+| C172 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:2395` | No recovery when the loopback device changes or is removed; stream keeps sending silence and slot stays Ready | Fixed (Phase 4) |  |
+| C131 | `DS4Control/ProcessLoopbackWaveCapture.cs:312` | Monitor thread can crash the process with ObjectDisposedException after Dispose() when a detection pass takes longer than the 1.2 s join | Fixed (Phase 2) |  |
+| C010 | `DS4Control/ScpUtil.cs:8543` | Unreadable Profiles.xml is silently replaced with defaults on exit; saves are non-atomic | Fixed (Phase 5) |  |
+| C011 | `DS4Control/ScpUtil.cs:8918` | Settings and profile files are overwritten in place with no backup; a torn write silently resets all app settings to defaults on the next exit | Fixed (Phase 5) |  |
+| C209 | `DS4Control/Viiper/ViiperBackendDebugger.cs:239` | VIIPER debugger creates virtual devices without consulting the driver-safety gate | Fixed (Phase 2) |  |
+| C061 | `DS4Control/Viiper/ViiperOutDevice.cs:2238` | State-write rate limiter waits with ms-granularity WaitOne, so on Win11 with Thrum minimized the input cap can collapse to the ~15.6 ms default timer tick | Fixed (Phase 3) |  |
+| C062 | `DS4Control/Viiper/ViiperOutDevice.cs:2241` | The VIIPER state writer and Audio Haptics pacing depend on 1 ms Sleep/WaitOne granularity, which Windows 11 does not guarantee for hidden, inaudible processes (Thrum in the tray) | Fixed (Phase 3) |  |
+| C070 | `DS4Control/Viiper/ViiperOutDevice.cs:4941` | Driver-safety gate bypassed: public ungated ViiperClient.CreateDeviceAndOpenStream is used by the VIIPER debugger | Fixed (Phase 2) |  |
+| C406 | `DS4Forms/DupBox.xaml.cs:59` | Duplicate Profile silently overwrites an existing profile (stale name reused), and crashes on same-name copy | Fixed (Phase 2) |  |
+| C499 | `DS4Forms/MainWindow.xaml:14` | MainWindow MinHeight=620 exceeds the screen at 175-200% scaling on 1080p, pushing the footer Start/Stop button off screen | Fixed (Phase 5) |  |
+| C294 | `DS4Forms/MainWindow.xaml.cs:3014` | Profile Export leaks an open read handle on Cancel, which makes later save, delete or rename of that profile crash | Fixed (Phase 2) |  |
+| C411 | `DS4Forms/OutputSlotManagerControl.xaml:25` | Output Slots shows a permanent 'Virtual audio endpoints are off' warning banner in the default configuration | Fixed (Phase 1) |  |
+| C342 | `DS4Forms/ProfileEditor.xaml.cs:2122` | Saving after toggling DS3 pitch/roll sim runs two overlapping ChangeService toggles, so the service stops and starts at the same time | Fixed (Phase 2) |  |
+| C345 | `DS4Forms/ProfileEditor.xaml.cs:2549` | Opening the editor runs the VIIPER readiness probe on the UI thread and can show the experimental-driver warning, not only on a deliberate output change | Fixed (Phase 1) |  |
+| C395 | `DS4Forms/SpecialActionEditor.xaml.cs:269` | Special-action Save with a validation error unbinds the whole editor, hiding the error and reverting the form to placeholder values | Fixed (Phase 2) |  |
+| C485 | `DS4Forms/UpdaterWindow.xaml.cs:45` | 'Skip this version' does nothing, so the modal update dialog returns every check interval | Fixed (Phase 1) |  |
+| C199 | `DS4Forms/ViewModels/MainWindowsViewModel.cs:741` | RefreshRuntimeState runs on the HID input thread via BatteryStateChanged/IdTextChanged, racing the UI timer and able to throw on a thread with no catch | Fixed (Phase 2) |  |
+| C356 | `DS4Forms/ViewModels/NativePs5ModeViewModel.cs:411` | Native PS5 card shows a HidHide warning banner on every launch, including when the pad is already hidden by exclusive access | Fixed (Phase 1) |  |
+| C365 | `DS4Forms/ViewModels/TrayIconViewModel.cs:494` | Battery tray icon queues a dispatcher operation for every controller input report | Fixed (Phase 3) |  |
+| C426 | `DS4Forms/ViewModels/ViiperOutputGateBannerViewModel.cs:106` | Output Slots shows a permanent kernel-crash warning banner for the default, recommended configuration | Fixed (Phase 1) |  |
+| C405 | `DS4Forms/ViiperDebuggerWindow.xaml.cs:30` | VIIPER debugger probes create/tear down virtual devices without consulting the driver-safety gate | Fixed (Phase 2) |  |
+| C021 | `DS4Library/DS4Device.cs:1000` | Stopping the service is handled as a controller failure: warning log, extra output write, and a second full removal running alongside Stop's own teardown | Fixed (Phase 1) |  |
+| C022 | `DS4Library/DS4Device.cs:1536` | Normal controller power-off or out-of-range is logged as a warning with raw Win32 codes and internal audio counters | Fixed (Phase 1) |  |
+| C023 | `DS4Library/DS4Device.cs:1941` | Every controller connection subscribes a closure over the device to the static Global.DebouncingMsChanged and never unsubscribes, leaking every disconnected device object | Fixed (Phase 2) |  |
+| C333 | `DS4Library/InputDevices/DS3Device.cs:388` | DS3 over Bluetooth with idle-disconnect floods the log on every poll forever | Fixed (Phase 1) |  |
+| C325 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:1082` | Streamer capture never recovers from audio device removal and never follows default-device changes (silent failure) | Fixed (Phase 4) |  |
+| C463 | `HidLibrary/HidDevice.cs:511` | WARN-level 'Failed to read serial#' log on every connect of controllers that have no serial feature report | Fixed (Phase 1) |  |
+
+</details>
+
+### Low (not independently verified)
+
+<details><summary>241 findings</summary>
+
+| ID | Where | Finding | Status | Note or proposed fix |
+| --- | --- | --- | --- | --- |
+| C507 | `NOTICE.txt:121` | NOTICE misattributes the Bezier editor bundle (React 0.13.1 is BSD+PATENTS, the package says ISC, it is browserify) and uses stale paths | Manual step | Licence items; see NOTICE.txt UNRESOLVED |
+| C278 | `DS4Forms/MainWindow.xaml.cs:274` | Update check contacts api.github.com on the very first launch with no disclosure or opt-in | Mitigated (Phase 5) | README now discloses the daily update check; no opt-out on first launch yet |
+| C430 | `DS4Forms/ViewModels/LogViewModel.cs:219` | GUI log buffer is unbounded, and each search keystroke re-filters the whole buffer on the UI thread under the read lock | Mitigated (Phase 5) | Buffer capped at 10,000 lines; search still re-filters on the UI thread |
+| C510 | `.github/workflows/release.yml:31` | Workflow hygiene: deprecated setup-python@v3, tag name interpolated into shell, third-party action on a mutable tag | Proposed | Use setup-python@v5. Pass the tag through `env:` and reference it as "$TAG". |
+| C511 | `.github/workflows/release.yml:50` | Release builds override InformationalVersion and drop the base-commit text that Directory.Build.props says must be kept | Proposed | Pass `/p:InformationalVersion="${VERSION} (base: ...)"` built from the props value, or stop overriding it and derive the suffix in the props from $(Version). |
+| C239 | `App.xaml.cs:296` | Stray '$' in the settings-not-read log message | Proposed | Drop the literal '$', raise the line to Warn, and word it plainly. |
+| C241 | `App.xaml.cs:575` | Single-instance check has a check-then-create race; createdNew is discarded | Proposed | Check `out bool createdNew` from Create; if it is false, Set() the event and exit like the TryOpenExisting branch does. |
+| C244 | `App.xaml.cs:797` | Forced GC every 30 s on top of Server GC in a tray app | Proposed | Switch to workstation (concurrent) GC for the desktop app, or enable DATAS/GCConserveMemory, and remove the forced-collection timer. |
+| C245 | `App.xaml.cs:803` | UI thread busy-spins while ControlService is constructed | Proposed | Replace the loop with controlThread.Join(). |
+| C246 | `App.xaml.cs:851` | Starting Thrum again while it runs may not bring its window to the front | Proposed | In the second instance call AllowSetForegroundWindow(ASFW_ANY) before Set(). |
+| C248 | `App.xaml.cs:1007` | The 'Default' theme (follow Windows) is read once at startup and does not follow a Windows light/dark switch while Thrum runs | Proposed | When UseCurrentTheme == Default, subscribe to SystemEvents.UserPreferenceChanged (category General) or hook WM_SETTINGCHANGE with "ImmersiveColorSet". |
+| C234 | `AutoProfileChecker.cs:358` | Foreground title read with unbounded stackalloc; two title readers disagree | Proposed | Cap the length (for example at 1024) or use a pooled heap buffer for large titles, and use one title-reading helper for both paths. |
+| C235 | `AutoProfileChecker.cs:375` | SetAndWaitServiceStatus busy-spins a full CPU core for up to 10 s | Proposed | Wait on an event that ControlService signals on start and stop (a ManualResetEventSlim with a timeout), or at least poll with Thread.Sleep(20). |
+| C458 | `BezierCurveEditor/index.html:5` | Bundled Bezier curve editor is branded 'for DS4Windows' and links to the Ryochan7 wiki | Proposed | Retitle the page for Thrum and point the documentation link at USERGUIDE or the Thrum repository, keeping the GRE/MIKA-N credits. |
+| C102 | `DS4Control/AudioHapticsService.cs:117` | AudioHapticsService holds slotLocks[slot] across multi-second runtime start and dispose while the UI polls it at 20 Hz and 4 Hz | Proposed | Under the lock, only swap the runtime reference and status. |
+| C103 | `DS4Control/AudioHapticsService.cs:167` | Per-slot lock is held across COM enumeration, WASAPI init and thread joins, stalling the VIIPER feedback path and UI polling | Proposed | Swap the runtime reference under the lock and dispose or start it outside the lock: Stop: `runtime = Interlocked.Exchange(ref slots[slot], null)`, then Dispose after releasing the lock. |
+| C104 | `DS4Control/AudioHapticsService.cs:229` | The Audio Haptics UI timers block on the slot lock while Start or Stop joins threads | Proposed | Publish the SlotRuntime reference and status with Volatile and read them without the lock. |
+| C105 | `DS4Control/AudioHapticsService.cs:322` | Runtime status struct is written from several threads without synchronisation; the 'stopped' event is dead code | Proposed | Store the status in a small immutable class and publish it with Volatile.Write/Read, and remove `stopped`. |
+| C111 | `DS4Control/AudioHapticsService.cs:1285` | MMDevice.AudioClient creates a new IAudioClient on each access; these are never disposed, and nor are the endpoints enumerated for candidate selection | Proposed | `using AudioClient client = endpoint.AudioClient; WaveFormat f = client.MixFormat;` and dispose the MMDevices from enumerations that are not returned (or return IDs and reopen the one needed). |
+| C459 | `DS4Control/AudioHapticsSourceValidation.cs:54` | Audio Haptics source validation messages use jargon ('render endpoint', 'system-mix endpoint') | Proposed | Use plain language, e.g. 'Windows has no default speakers or headphones set' and 'Controller audio is off. |
+| C032 | `DS4Control/ControlService.cs:1368` | ChangeMotionEventStatus captures the loop variable 'i', so DSU motion is not re-armed with 4 or more controllers | Proposed | Test tempIdx instead of i, and use dev.DeviceSlotNumber as the slot. |
+| C033 | `DS4Control/ControlService.cs:1395` | Dead async void UseUDPPort and unused changingUDPPort | Proposed | Delete UseUDPPort and changingUDPPort. |
+| C034 | `DS4Control/ControlService.cs:1651` | Unconditional Thread.Sleep(2000) delays controller availability on every start | Fixed (owner request) | Removed. Inherited from DS4Windows, where it followed the ViGEmBus connection. A start now waits (up to 2 s) only for a VIIPER backend Thrum launched in the last 10 s. |
+| C039 | `DS4Control/ControlService.cs:1868` | An unvalidated ProcessPriority index from settings throws at the end of Start | Proposed | Clamp processPriority in AppSettings PostProcessLoad, or use a bounds-checked lookup with a Normal fallback. |
+| C044 | `DS4Control/ControlService.cs:2986` | The profile 'Launch program' option hides launch failures and scans every process on each profile check | Proposed | Log a plain message on failure, compare with OrdinalIgnoreCase, dispose the Process objects, and use a pooled Task.Delay instead of Thread.Sleep(5000). |
+| C143 | `DS4Control/ControlServiceDeviceOptions.cs:485` | An unknown enum value in ControllerConfigs.xml silently resets all DualSense options for that controller | Proposed | Log one plain-language warning that names the controller and the option block. |
+| C194 | `DS4Control/DTOXml/AppSettingsDTO.cs:874` | The CustomLed7 ShouldSerialize check uses > 7 where the others use >= N | Proposed | Use `>= 7` to match CustomLed5/6/8. |
+| C181 | `DS4Control/DTOXml/ProfileDTO.cs:742` | The dead ShiftModifier property carries a 'WTF' doc comment | Proposed | Keep it as a read-only migration shim with a factual comment ("legacy element, read and ignored"), or remove it. |
+| C187 | `DS4Control/DTOXml/ProfileDTO.cs:2795` | The legacy <Red>/<Green>/<Blue> lightbar import reads Red into all three channels | Proposed | Parse GreenColorString into .green and BlueColorString into .blue. |
+| C190 | `DS4Control/DTOXml/ProfileDTO.cs:3777` | A duplicate child element in a binding block throws from Dictionary.Add and rejects the whole profile | Proposed | Use the indexer (last one wins) or TryAdd in all six ReadXml methods. |
+| C196 | `DS4Control/DTOXml/SwitchProControllerOptsDTO.cs:43` | SwitchPro/JoyCon options DTOs default EnableHomeLED to false while the runtime default is true | Proposed | Initialise `EnableHomeLED { get; set; } = true;` in both DTOs, and use bool.TryParse so a malformed value keeps the default. |
+| C442 | `DS4Control/Debouncer.cs:20` | Debouncer allocates a DS4State and boxes 42 reflective field reads/writes per input report on the HID thread | Proposed | Keep a reusable DS4State per device, and replace reflection with a precomputed array of getter/setter delegates or direct field switches (as DS4StateFieldMapping does elsewhere). |
+| C457 | `DS4Control/Diagnostics/ThrumDiagnosticsReportFormatter.cs:286` | Diagnostics report footer says it contains no personal names, but includes user-renameable audio device names | Proposed | Add a footer line: 'Audio device names are included; they may contain names you gave your devices. |
+| C045 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:278` | Dead code in the speaker passthrough: an unused converter class kept alive by tests, an uncalled method, a write-only field and a misleading log flag | Proposed | Delete the unused class and move its tests to DualSensePcm16SourceRateConverter. |
+| C048 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:711` | Jargon and raw exception text in normal-path speaker log lines | Proposed | Log 'Controller speaker is on (game audio)' to the user and put the details in StartupDiag. |
+| C146 | `DS4Control/DualSenseMicrophonePassthrough.cs:72` | USB microphone relay with no virtual output gives a warning on every launch and no real guidance about VB-CABLE | Proposed | When the route is UsbLegacyRoute and no output is set, show an inline plain message in the Overview and in the profile ('Choose a virtual output such as VB-CABLE, a free separate download from VB-Audio, under Profile > … |
+| C148 | `DS4Control/DualSenseMicrophonePassthrough.cs:155` | USB microphone relay allocates on every audio callback and for every sample | Proposed | Keep one scratch buffer grown to the largest callback. |
+| C154 | `DS4Control/DualShock4AudioPassthrough.cs:97` | Developer-jargon DS4 audio owner log lines on every profile apply | Proposed | Route these to StartupDiag or a debug-level logger. |
+| C141 | `DS4Control/DualShock4AudioTransport.cs:244` | Default DS4 speaker-lane comment says a 4 ms cadence while the constant is 8 ms; 12 experimental lanes ship behind an undocumented env var | Proposed | Fix the comment so it says 8 ms and 16 kHz SBC. |
+| C159 | `DS4Control/DualShock4BluetoothAudioProtocol.cs:336` | Mic SBC frame extraction allocates on the HID input thread for every frame | Proposed | Pass a ReadOnlySpan<byte>/offset to the handler, or rent frames from a fixed pool owned by the receiver. |
+| C164 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:331` | captureAvailable/stoppingSignal wait handles are never disposed | Proposed | Dispose both events at the end of Dispose, but only once the worker has actually exited (Join returned true); otherwise leave them to the finalizer. |
+| C168 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:1012` | 13 environment-variable-selected transport lanes and duplicated submit paths make the 5.5k-line file error-prone | Proposed | Keep Realtime0x12 and loopback. Move the experimental lanes to a separate diagnostics-only class (or remove them, since git history retains them). |
+| C169 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:1357` | Dead code: unused PCM packet queue (256 KiB allocated per instance), PadForgeReferenceDirectStreamLoop, tick helpers, pool.TrySend, idle constants | Proposed | Delete the unused members and the freeDirectPcmPackets preallocation. |
+| C174 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:3096` | Presenter allocates closures on every report and takes the DS4 audio-state lock that the input thread holds across blocking control writes | Proposed | Cache the delegates in fields and pass per-call state through instance fields (the presenter is single-threaded). |
+| C175 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4058` | Diagnostic capture metadata says 32 kHz / bitpool 48 but data is 16 kHz | Proposed | Build the text from SpeakerSampleRate and the encoder's real parameters. |
+| C176 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4128` | PadForgeReference lane writes through the reader's raw handle without DangerousAddRef | Proposed | Call DangerousAddRef on the SafeHandle for the pool's lifetime and DangerousRelease in Dispose, or delete this experimental lane (see the maintainability finding). |
+| C178 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4538` | Dispose tears down the write pool after a bounded 500 ms Join; worker reads the pool field without a guard and has no try/catch | Proposed | Read speakerWritePool into a local once per Submit call and bail if it is null. |
+| C179 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4736` | NativeOverlappedWritePool constructor leaks pinned buffers and events if CreateEventW fails part-way | Proposed | Wrap the loop in try/catch that frees the already-allocated pins, events and HGlobals before rethrowing, or allocate lazily and call Dispose() on failure. |
+| C180 | `DS4Control/DualShock4BluetoothSpeakerPassthrough.cs:4877` | Control/effect writes fail on stale audio-write errors; failed disable leaves DS4Device in speaker mode with no lane | Proposed | In DrainOutstandingNoLock, count reaped failures of earlier audio writes as drained (telemetry only). |
+| C447 | `DS4Control/FirstRun/FirstRunDataLocationRouter.cs:41` | Unclear or unhelpful dialogs: typo with no location, title-less boxes, update failure with no reason | Proposed | Change the first to 'Thrum couldn't remove your old settings folder: {path}. |
+| C448 | `DS4Control/FirstRun/FirstRunDataLocationRouter.cs:61` | PortableAllowed re-probes the program folder by writing test.txt on every binding refresh | Proposed | Evaluate AdminNeeded once in the router constructor and cache it. |
+| C118 | `DS4Control/GameBarIntegration.cs:521` | About 450 lines of unreachable UI Automation and diagnostics code in GameBarIntegration | Proposed | Delete the unreachable UIA and diagnostics methods, or expose them through the existing diagnostics bundle if they are still wanted. |
+| C119 | `DS4Control/GameBarIntegration.cs:718` | Timed-out Game Bar probe is killed without waiting, so its result file can be left in %TEMP% | Proposed | After TerminateProcess, call WaitForSingleObject(hProcess, a short timeout) before deleting the file. |
+| C151 | `DS4Control/HidHideAPIDevice.cs:53` | HidHide open failure is silent: the constructor throws away the Win32 error | Proposed | Store Marshal.GetLastWin32Error() after CreateFile in a LastOpenError property. |
+| C152 | `DS4Control/HidHideAPIDevice.cs:127` | HidHide list reads parse uninitialised memory on IOCTL failure, and callers write the result back to the persistent blacklist | Proposed | Add TryGetBlacklist that mirrors TryGetWhitelist: check both IOCTL results, use bytesReturned from the second call, and retry once on ERROR_INSUFFICIENT_BUFFER. |
+| C078 | `DS4Control/Mapping.cs:936` | Commit takes the shared write lock without try/finally, so any exception inside it would freeze input on every controller | Proposed | Wrap the body in try { ... } finally { syncStateLock.ExitWriteLock(); }, and read Global.outputKBMHandler into a local once per Commit. |
+| C079 | `DS4Control/Mapping.cs:1181` | ds4ControlMapping comments no longer match the DS4Controls enum, and every control after SideR shares macro-done slot 0 | Proposed | Build the table from a Dictionary<DS4Controls, int> or a switch keyed by enum name, extend it to LAST_DS4_ACTION, and size macrodone to match. |
+| C082 | `DS4Control/Mapping.cs:3541` | The lightbar-macro task and its CancellationTokenSource are single statics shared by all controllers | Proposed | Make threadCts and lightbarMacroTask per-device arrays. |
+| C085 | `DS4Control/Mapping.cs:4092` | The triggerToBeTapped branch is unreachable, and it holds the only await that keeps MapCustomAction an async void method on the HID thread | Proposed | Delete the dead branch and oldnowKeyAct, and make MapCustomAction a plain private static void. |
+| C086 | `DS4Control/Mapping.cs:4118` | The debounce is added with the wrong sign in the hold-delay reset, which makes 'hold for N seconds' actions more bounce-sensitive when debouncing is enabled | Proposed | Use DateTime.UtcNow - TimeSpan.FromMilliseconds(100 + Global.DebouncingMs[device]). |
+| C089 | `DS4Control/Mapping.cs:4449` | A user-requested battery check is shown as a warning-icon toast | Proposed | Pass warning: false, and consider a clearer message such as 'Controller 1 battery: 85%'. |
+| C090 | `DS4Control/Mapping.cs:4584` | Per-tick heap allocations on the HID thread: MultiAction/XboxGameDVR details are split every tick, lightbar-macro bindings use reflection with boxing, and extras are re-parsed while held | Proposed | Parse action.details and dcs.extras once when the profile loads and cache typed fields on SpecialAction and DS4ControlSettings. |
+| C091 | `DS4Control/Mapping.cs:6739` | The steering-wheel path logs internal jargon and raw calibration numbers on every controller connect | Proposed | Show plain text once per session, such as 'Steering wheel isn't calibrated yet. |
+| C094 | `DS4Control/Mapping.cs:6967` | Anti-snapback times its history with the wall clock and allocates a LINQ closure every tick; a backward clock step makes the queue grow without bound and scans it in full each report | Proposed | Use Stopwatch.GetTimestamp() (monotonic) for the timestamps. |
+| C121 | `DS4Control/Mouse.cs:332` | Gyro trigger evaluation allocates a string[] (string.Split) on every motion report | Proposed | Cache the parsed int[] of triggers per slot when the profile loads (as getTouchDisInvertTriggers already does), and keep the change minimal in this inherited file. |
+| C123 | `DS4Control/Mouse.cs:1643` | Release-mode touch button: the 100 ms hold check is inverted, so the button releases on the next frame | Proposed | Change `<` to `>=` (one character). |
+| C135 | `DS4Control/MouseCursor.cs:355` | Typo in absolute touchpad clamp: the Y clamp tests currentX against minY | Proposed | Change the condition to `currentY < minY`. |
+| C153 | `DS4Control/OpenRGBServer.cs:60` | OpenRGB server is dead code but would expose an unauthenticated LAN listener with unbounded allocation | Proposed | Delete OpenRGBServer and the DS4LightBar/ControlService hooks. |
+| C162 | `DS4Control/OutSlotDevice.cs:187` | OutSlotDevice finalizer runs event handlers and logging on the finalizer thread | Proposed | Remove the finalizer. The class owns no unmanaged resources. |
+| C443 | `DS4Control/OutputKBM/SendInputHandler.cs:51` | SendInputHandler allocates a new INPUT[] for every mouse and key event on the input thread | Proposed | Reuse a [ThreadStatic] INPUT[2] buffer (or stackalloc with a pointer P/Invoke overload), and log a rate-limited diagnostic when SendInput returns 0. |
+| C161 | `DS4Control/OutputSlotManager.cs:322` | OutputSlotManager dead and broken code: RunningQueue is never true and the slot range guards never fire | Proposed | Remove queuedTasks, RunningQueue and both wait loops (or implement them). |
+| C455 | `DS4Control/OutputSlotPersist.cs:103` | OutputSlotPersist.WriteConfig never reports success, only catches UnauthorizedAccess, and truncates in place | Proposed | Set result = true on success, catch IOException, and write to a temp file then File.Replace/Move (as TriggerLabPresetStore.AtomicWrite already does). |
+| C160 | `DS4Control/ProcessLoopbackAudioClient.cs:34` | Per-app capture error sends Windows 10 users looking for a build that does not exist | Proposed | Word it as 'Per-app Audio Haptics needs Windows 11. |
+| C132 | `DS4Control/ProcessLoopbackWaveCapture.cs:401` | Real-time capture thread allocates a WaveInEventArgs for every capture packet | Proposed | Cache one WaveInEventArgs per session, updating it when the scratch buffer or byte count changes, or use a custom reusable args type. |
+| C142 | `DS4Control/ProfileFeatureSettings.cs:90` | Audio Haptics profile XML stores the full executable path (including the Windows user name) and a volatile PID | Proposed | Mark ProcessId [XmlIgnore]. Store ProcessPath with %USERPROFILE%/%LOCALAPPDATA% tokens, or store only the executable name plus a relative launcher path. |
+| C140 | `DS4Control/ProfilePropGroups.cs:778` | Wheel smoothing handlers pile up on every controller reconnect because SteeringWheelSmoothingInfo has no RemoveRefreshEvents | Proposed | Add RemoveRefreshEvents() to SteeringWheelSmoothingInfo, matching the other info classes, and call it before SetRefreshEvents. |
+| C006 | `DS4Control/ScpUtil.cs:5425` | The old "sbn*" shift-name cases in getDS4ControlsByName are unreachable, and one contains a typo | Proposed | Delete the OldShiftname region, or fix the early return if legacy "sbn" names are meant to be supported. |
+| C009 | `DS4Control/ScpUtil.cs:5911` | About 3,800 lines of unreachable legacy XmlDocument load/save code are still maintained alongside the live DTO path | Proposed | Delete LoadProfile (5911-8527), SaveProfileOld, LoadOld, SaveOld, SaveAction, CheckForDevice and the unused HidD_GetHidGuid call as a single pure-deletion change, which fits the minimal-diff policy because no runtime … |
+| C013 | `DS4Control/ScpUtil.cs:9129` | Bounds checks `index < 0 && index > MAX` can never be true | Proposed | Use `\|\|` and the correct upper bound (`>= Global.TEST_PROFILE_ITEM_COUNT`), or remove the checks. |
+| C015 | `DS4Control/ScpUtil.cs:9849` | ControllerConfigs.xml errors: loading reports every failure as "can't be found", and saving lets XML or IO exceptions escape onto the mapping thread | Proposed | Catch XmlException and IOException in both methods. |
+| C136 | `DS4Control/UdpServer.cs:536` | DSU server client table grows without bound when no controller is reporting | Proposed | Cap the dictionary (for example 64 clients, evicting the oldest) or prune stale entries in ProcessIncoming as well. |
+| C137 | `DS4Control/UdpServer.cs:585` | DSU receive loop: restart and stop races and narrow exception handling (ObjectDisposed/NullReference can escape on an IO thread; `throw ex` loses the stack) | Proposed | Pass the socket through AsyncState and only re-arm when it is still the current udpSock. |
+| C139 | `DS4Control/UdpServer.cs:1017` | DSU per-report allocations on the HID thread; the SocketAsyncEventArgs pool is never used (80 are allocated and dropped) | Proposed | Keep a real pool of SocketAsyncEventArgs, one per ring slot, and reuse the lists. |
+| C157 | `DS4Control/Util.cs:241` | StartProcessHelper and StartProcessInExplorer swallow all launch failures silently | Proposed | Return bool, or log and show a plain-language message ('Windows could not open <url>. |
+| C215 | `DS4Control/Viiper/ControllerMicrophoneRoutePolicy.cs:36` | Sony product-ID eligibility table is duplicated in two policy classes | Proposed | Have PlayStationFeatureOutputPolicy.GetAudioOnlySidecarType call ControllerMicrophoneRoutePolicy.IsEligibleBluetoothSource, or share one named PID table. |
+| C210 | `DS4Control/Viiper/DualSenseMicrophoneProcessor.cs:188` | RNNoise state (and first DLL load) is created lazily on the real-time mic thread after every Reset | Proposed | Create or recreate the RnnoiseSuppressor on the control thread that calls Reset, or at stream start, and swap it in under the lock. |
+| C226 | `DS4Control/Viiper/Validation/ViiperDriverInspectors.cs:223` | Filter extension identity is the highest-DriverVer staged package, not the one in use; DriverVer is not monotonic across releases | Proposed | Return every staged filter candidate. In FindMatchingRelease, pair the bound host package with any candidate whose DriverVer matches the same release, instead of taking the maximum first. |
+| C227 | `DS4Control/Viiper/Validation/ViiperDriverInspectors.cs:540` | WINTRUST_FILE_INFO path string marshalled to native memory is never freed | Proposed | Call Marshal.DestroyStructure<WINTRUST_FILE_INFO>(fileInfoPtr) before FreeHGlobal in the finally block, or marshal the path yourself with Marshal.StringToHGlobalUni and free it. |
+| C231 | `DS4Control/Viiper/Validation/ViiperDriverManifest.cs:253` | Report compares against 0.9.7.7 (Releases[0]), not the pinned 0.9.8.0, when nothing matches | Proposed | Make ReferenceRelease the entry whose label matches ViiperInstallerPins.UsbipWin2.ReleaseLabel, or order the manifest with the pinned release first. |
+| C228 | `DS4Control/Viiper/Validation/ViiperDriverValidation.cs:411` | Every readiness evaluation reads the machine twice (Inspect re-runs Validate), and observations and verdict come from different snapshots | Proposed | Split Validate into a pure Evaluate(host, filter, client, trusts) and gather the observations once in Inspect. |
+| C229 | `DS4Control/Viiper/Validation/ViiperDriverValidation.cs:739` | Validator diagnostics written for reports appear verbatim on the Settings card, with jargon and an inaccurate 'configured location' | Proposed | Have the resolver map (FailedComponent, Reason) to short plain-language card text with a next step, and keep the technical diagnostic for the full report. |
+| C230 | `DS4Control/Viiper/Validation/ViiperDriverValidationCommand.cs:310` | Diagnostic report text includes unredacted exception messages even though the report claims to contain no user paths | Proposed | Pass writeError and the RunDiagnostic exception message through ViiperDriverReportFormatter.RedactUserPathsInText, which already exists for this purpose. |
+| C221 | `DS4Control/Viiper/Validation/ViiperInstallerPolicy.cs:353` | Every DetectedUnvalidated cause is reported as 'packages do not match any release' and Install/Repair refuses | Proposed | Carry the validator's FailedComponent and Reason, or the comparison release, on ViiperDriverReadiness. |
+| C222 | `DS4Control/Viiper/Validation/ViiperInstallerPolicy.cs:702` | ResolveScriptExitCode is used only by tests; the script hard-codes its own exit mapping and gives conflicting exit-3 advice | Proposed | Either have the script get its final exit code from a policy verb that uses ResolveScriptExitCode, or delete the function and its claim. |
+| C225 | `DS4Control/Viiper/Validation/ViiperInstallerPolicy.cs:851` | A partial inspection error blocks removal of autostart entries that were found, even when --remove was requested | Proposed | When InspectionError is set but some entries were found, report them. |
+| C214 | `DS4Control/Viiper/ViiperAutostart.cs:288` | Autostart task lookup searches every Task Scheduler folder but removal deletes only from the root, on the UI thread | Proposed | Use task.Folder.DeleteTask(task.Name) on the task that was found, or FindTask(name, false) for both reads and deletes. |
+| C058 | `DS4Control/Viiper/ViiperOutDevice.cs:1427` | Microphone-interface monitor opens a new TCP API connection every 125 ms even when the profile's microphone passthrough is off | Proposed | Check the profile flag at the top of the loop and wait for a longer interval (for example 1-2 s, or until signalled on profile change) without querying when passthrough is off. |
+| C059 | `DS4Control/Viiper/ViiperOutDevice.cs:1512` | The VIIPER state packet is a fresh byte[] for every input report on the HID input thread | Proposed | Use a small ring of preallocated packet buffers that are exchanged under pendingPacketLock, with the writer returning a buffer after WriteState. |
+| C060 | `DS4Control/Viiper/ViiperOutDevice.cs:1778` | Speaker dispatch thread polls every 25 ms at Highest priority whenever no speaker subscriber exists | Proposed | Wait on the signal without a timeout (or with a long one) when no subscriber is present. |
+| C065 | `DS4Control/Viiper/ViiperOutDevice.cs:3379` | DualSense output passes (lightFast, heavySlow) into SetDevRumble(heavyMotor, lightMotor), so rumble motors are swapped relative to the rest of the branch | Proposed | Call SetDevRumble(device, heavySlow, lightFast, deviceIndex). |
+| C066 | `DS4Control/Viiper/ViiperOutDevice.cs:3453` | Dead code and an unreachable user message | Proposed | Emit the 'no microphone-capable backend' message from Connect (or the ControlService route check) when the profile wants the mic and the negotiated stream lacks it. |
+| C067 | `DS4Control/Viiper/ViiperOutDevice.cs:4106` | Per-frame managed allocation on the Bluetooth microphone real-time path | Proposed | Preallocate a ring of MaxPendingMicrophoneFrames x 71-byte slots and enqueue slot indices. |
+| C071 | `DS4Control/Viiper/ViiperOutDevice.cs:4964` | Ambiguous or missing usbip port (-1) does not roll back creation as documented; the device proceeds with no port to detach or match | Proposed | When usbipPort < 0, throw IOException("could not identify the new device's usbip import") inside the try, so the existing catch removes the device and bus, as the documentation says. |
+| C072 | `DS4Control/Viiper/ViiperOutDevice.cs:5857` | usbip.exe output read only after WaitForExit, so large output can deadlock the pipe and be reported as a timeout | Proposed | Start reading asynchronously before waiting (BeginOutputReadLine/ReadToEndAsync on both streams), then WaitForExit. |
+| C073 | `DS4Control/Viiper/ViiperOutDevice.cs:5883` | Duplicate PATH-first usbip.exe resolver runs whichever usbip.exe is first on PATH (including relative entries) instead of the signature-checked install | Proposed | Reuse ViiperDriverValidationCommand.ResolveUsbipExecutablePath (or the path the readiness check verified). |
+| C074 | `DS4Control/Viiper/ViiperOutDevice.cs:6358` | GetViiperDeviceName maps DualSense and Edge to legacy type names the current backend rejects, so debugger DualSense probes always fail | Proposed | Map DualSense and Edge to 'dualsensegamepadv5' / 'dualsenseedgegamepadv5' for the probe, or have the debugger reuse the runtime ladder once it is gated (see the High finding). |
+| C075 | `DS4Control/Viiper/ViiperOutDevice.cs:6473` | New byte[] per input report and per native feedback report on hot paths | Proposed | Build into a small pool of per-device buffers, for example double-buffering pendingStatePacket so the writer returns the old one. |
+| C201 | `DS4Control/Viiper/ViiperSetupManager.cs:84` | Unreachable 'VIIPER status unknown' branch in DisplayText | Proposed | Return "VIIPER server not running" directly. |
+| C206 | `DS4Control/Viiper/ViiperSetupManager.cs:488` | Orphaned XML doc summary attached to the wrong member | Proposed | Move the first summary line onto InstallLogPath. |
+| C208 | `DS4Control/Viiper/ViiperSetupManager.cs:891` | usbip-win2 heuristic matches other USB/IP products such as usbipd-win | Proposed | Use ViiperDriverReadiness.State != Missing (already cached) for UsbipInstalled, or at least match the exact usbip-win2 DisplayName prefix instead of the 'USBip' substring. |
+| C399 | `DS4Forms/About.xaml:763` | About > Credits says Extras lists the third-party components this build ships, but Extras omits NAudio/Opus/RNNoise/SbcSharp/VIIPER and lists drivers that are not shipped | Proposed | Change the sentence to point at NOTICE.txt (add a link that opens it from the install folder), or generate the Extras list from the same data as NOTICE.txt. |
+| C400 | `DS4Forms/About.xaml.cs:68` | About window has dead Google Code links, an http:// link, and typos in the hotkey and translator text | Proposed | Point the links at archive or current https URLs (for example the 1-euro page on https), and fix the typos. |
+| C402 | `DS4Forms/AudioHapticsControl.xaml:502` | Engineering jargon in user-facing help text on Audio Haptics and the tester | Proposed | Rewrite as plain sentences, e.g. 'Sound from the chosen source is turned into controller vibration.' and 'Tests run briefly, then put everything back the way it was.' |
+| C389 | `DS4Forms/AudioHapticsControl.xaml.cs:134` | Audio source enumeration (Core Audio COM + per-process MainModule/MainWindowTitle) runs on the UI thread at startup even with no controller | Proposed | Skip PopulateAudioSources while settings == null or the control is not loaded or visible, and move the session and process probing to a background task that hands the finished choice list back to the UI. |
+| C390 | `DS4Forms/AudioHapticsControl.xaml.cs:182` | Audio pages use signal-processing jargon ('render endpoint', 'soft-clipped into the native DualSense haptic lane', 'Opus/SBC', 'RNNoise') | Proposed | Change the source names to 'All PC sound (default speakers)', 'Sound sent to the controller', 'Output device: {name}' and '{app} (app)'. |
+| C391 | `DS4Forms/AudioHapticsControl.xaml.cs:210` | The Audio Haptics page enumerates audio sessions and reads process modules on the UI thread | Proposed | Move session enumeration into AudioEndpointChoiceCache.RefreshCore (background) as a session snapshot and bind the picker to it. |
+| C301 | `DS4Forms/BindingWindow.xaml:165` | BindingWindow controller hit targets and media keys have no accessible names | Proposed | Set AutomationProperties.Name from the existing Tag or GetControlString, and show the highlight label on GotKeyboardFocus. |
+| C299 | `DS4Forms/BindingWindow.xaml.cs:1117` | Dead and misleading code in both code-behinds | Proposed | Delete InitDS4Canvas, the highlightImg element, the unused handlers and the timer thread. |
+| C425 | `DS4Forms/ControllerRegisterOptionsWindow.xaml:26` | Device options window links to a third-party fork's docs and never reads UseMoonlightChanged | Proposed | Point the link at USERGUIDE.md in this repo (or remove it), guard Process.Start, delete UseMoonlightChanged, and reuse or activate an existing window instance. |
+| C456 | `DS4Forms/Converters/EscapeAccessKeysConverter.cs:31` | EscapeAccessKeysConverter doubles underscores in profile names shown in a TextBlock | Proposed | Remove the converter from the TextBlock binding (keep it only for Label/ContentPresenter content), and null-guard it. |
+| C412 | `DS4Forms/FirstRunWizard.xaml.cs:43` | First-run wizard VIIPER card goes stale after install and refreshes synchronously on the UI thread | Proposed | Subscribe the wizard/backend step to ViiperSetupManager.InstallerFinished (it is already raised on the dispatcher) and Refresh from there. |
+| C420 | `DS4Forms/LightbarMacroCreator.xaml.cs:27` | Colour picker has no Cancel; closing always applies, and the lightbar macro picker starts at black | Proposed | Add OK/Cancel to ColorPickerWindow, set DialogResult, and have callers apply only on true. |
+| C421 | `DS4Forms/LogMessageDisplay.xaml.cs:49` | Log detail window launches any markdown link target via ShellExecute (log text can contain LAN-supplied strings) | Proposed | Launch only http/https (Uri.TryCreate and a scheme check) through Util.StartProcessHelper, and escape markdown in message text before the URL regex wraps real links. |
+| C422 | `DS4Forms/LogMessageDisplay.xaml.cs:52` | Log message dialog ShellExecutes any markdown link target with no guard | Proposed | Render log text as plain text with only the regex-detected http(s) URLs as Hyperlinks. |
+| C502 | `DS4Forms/MainWindow.xaml:660` | Settings > General (for 'most players') shows driver-inspection jargon: usbip-win2, INF provider, DriverVer, Catalog trust, Backend process, -viiperdriverdiagnostic | Proposed | Keep a short 'Virtual controllers' card in General. |
+| C503 | `DS4Forms/MainWindow.xaml:1119` | Log tab gives no visual cue for warnings (LogItem.Color unused) | Proposed | Add a severity glyph or colored badge column bound to Warning, colored with {DynamicResource DangerColor} or {DynamicResource WarningColor}. |
+| C275 | `DS4Forms/MainWindow.xaml.cs:97` | Enum names shown to users ('AboveNormal', 'RealTime', 'VIIPER ViiperDualSense output') | Proposed | Give the priority combo display strings ('Normal', 'Above normal', 'High') through an ItemTemplate or a small wrapper with ToString. |
+| C276 | `DS4Forms/MainWindow.xaml.cs:131` | Status and polling timers keep running while the app is hidden in the tray; WMI watcher is never stopped | Proposed | Stop overviewStatusRefreshTimer on Hide or minimize and restart it on Show or activation. |
+| C280 | `DS4Forms/MainWindow.xaml.cs:353` | Unsynchronized ControllerDict indexer reads on the UI thread can throw after a pad is removed | Proposed | Use TryGetValue and return when the controller is gone. |
+| C284 | `DS4Forms/MainWindow.xaml.cs:1535` | Programmatic shutdown (VIIPER-setup restart, sign-out) shows the 'disconnect controllers? Proceed?' prompt and ignores 'No' | Proposed | Skip the prompt when shutdown was requested programmatically: set a field in RequestRestart/SessionEnding, or check Application.Current.Dispatcher.HasShutdownStarted or a shutting-down flag before showing it. |
+| C285 | `DS4Forms/MainWindow.xaml.cs:2048` | A device-notification registration failure closes the app with no message | Proposed | Show a plain-language error (with the Win32 error) before shutting down, or keep running with hotplug disabled and log a warning. |
+| C287 | `DS4Forms/MainWindow.xaml.cs:2151` | viiper.exe network backend is started automatically with no consent check (every launch and on each DualSense selection) | Proposed | Never start the backend from status or display paths. |
+| C292 | `DS4Forms/MainWindow.xaml.cs:2974` | Manual update check failure is never logged (rethrow in unobserved Task) and can hang up to 100 s with no feedback | Proposed | Log ex.GetBaseException().Message in the catch and include it in the dialog, drop the rethrow, and set requestClient.Timeout to about 15 s. |
+| C295 | `DS4Forms/MainWindow.xaml.cs:3070` | Main-screen accessibility: keyboard trap on the profile combo, right-click-only disconnect, unnamed icon buttons | Proposed | Only swallow the keys that change the selection (letters and arrows when closed), and let Tab, Escape and Alt+Down through. |
+| C296 | `DS4Forms/MainWindow.xaml.cs:3268` | A failed profile-editor open leaves window-size saving off and may leave an orphaned editor on screen | Proposed | In the catch block, set preserveSize = true. |
+| C297 | `DS4Forms/MainWindow.xaml.cs:3350` | The XInput Checker link does nothing silently because the tool is not shipped | Proposed | Remove the xinputCheckerBtn (or hide it when the file is missing). |
+| C298 | `DS4Forms/MainWindow.xaml.cs:3453` | An out-of-range saved process-priority index crashes the Settings combo handler and the service start | Proposed | Clamp ProcessPriority to 0..3 when loading. |
+| C424 | `DS4Forms/NativePs5SetupSheet.xaml:466` | Native PS5 sheet shows a permanently disabled 'Restore my previous default device' button | Proposed | Replace the disabled button with a sentence telling users where to change the default device (Windows Sound settings), or remove it until the feature exists, and reword the tooltips in plain language. |
+| C418 | `DS4Forms/PluginOutDevWindow.xaml:9` | Plug dialog titled 'PluginOutDevWindow', unowned, with unlabeled combo boxes | Proposed | Set a localized title such as 'Plug in virtual controller', set Owner = Window.GetWindow(this), and add labels/AutomationProperties.Name for both combos. |
+| C352 | `DS4Forms/ProfileEditor.xaml:2659` | The 'Use controller' number box is capped at 4, so slots 5-8 show the wrong controller | Proposed | Set Maximum to ControlService.CURRENT_DS4_CONTROLLER_LIMIT, or bind it; alternatively show the slot number as plain text. |
+| C336 | `DS4Forms/ProfileEditor.xaml.cs:1277` | Switch 2 Pro diagram paddle hotspots are swapped and target inputs no Switch device reports | Proposed | Map blpConBtn to ControlIndexMap[DS4Controls.BLP] and brpConBtn to BRP. |
+| C338 | `DS4Forms/ProfileEditor.xaml.cs:1487` | About 170 lines of unreachable hover-image code plus unused fallback state | Proposed | Delete the dead block together with hoverImages/hoverLocations/PopulateHoverLocations, picBoxHover2, the unused ResourcePaths entries and the unused fullSave parameter, as one small cleanup PR. |
+| C339 | `DS4Forms/ProfileEditor.xaml.cs:1801` | PresetOptionWindow is shown modally without an Owner | Proposed | Set presetWin.Owner = Application.Current.MainWindow (and WindowStartupLocation=CenterOwner) in both places. |
+| C340 | `DS4Forms/ProfileEditor.xaml.cs:1947` | Cancel reloads the profile fire-and-forget; its result and any exceptions are dropped, and the comment says it waits | Proposed | Make the handler async, await the reload, and raise Closed afterwards. |
+| C346 | `DS4Forms/ProfileEditor.xaml.cs:2577` | Developer jargon in user-facing editor text | Proposed | Rewrite in plain language, for example: 'Adaptive trigger effects from games are not passed through yet.' 'Options for PlayStation controllers.' 'Choose where controller speaker and microphone audio goes.' |
+| C350 | `DS4Forms/ProfileEditor.xaml.cs:3009` | Magic numbers duplicate existing constants | Proposed | Use Global.TEST_PROFILE_INDEX (or deviceNum >= ControlService.CURRENT_DS4_CONTROLLER_LIMIT) and the existing DualSense Edge PID constant or helper. |
+| C419 | `DS4Forms/ProfileEditorResetController.cs:161` | Reset buttons announce internal property names to users and screen readers | Proposed | Add a display label to ProfileEditorResetEntry, or read the adjacent Label/TextBlock text, and use it in the tooltip and automation name. |
+| C415 | `DS4Forms/SaveWhere.xaml.cs:35` | Legacy SaveWhere window is dead code duplicated by FirstRunDataLocationRouter | Proposed | Delete SaveWhere.xaml and SaveWhere.xaml.cs and keep the router as the single implementation. |
+| C416 | `DS4Forms/SaveWhere.xaml.cs:58` | Dead SaveWhere and FirstLaunchUtilWindow still ship, including recursive delete of the settings folder | Proposed | Delete SaveWhere.xaml(.cs) and FirstLaunchUtilWindow.xaml(.cs) along with their resx keys and view model. |
+| C417 | `DS4Forms/SaveWhere.xaml.cs:82` | Dead first-run windows (SaveWhere, FirstLaunchUtilWindow) remain; SaveWhere contains destructive deletes | Proposed | Delete SaveWhere.xaml(.cs) and FirstLaunchUtilWindow.xaml(.cs); the router and wizard replace them. |
+| C396 | `DS4Forms/SpecialActionEditor.xaml.cs:399` | Special-action editor replaces localized button text with hard-coded English | Proposed | Use Translations.Strings resources for both states. |
+| C423 | `DS4Forms/StickCalibrationWindow.xaml.cs:53` | Stick calibration stores one raw sample as drift with no bounds or averaging | Proposed | Average ~0.5 s of samples. Reject offsets above a sane threshold (for example \|d\| > 25) with a plain 'Let go of the stick and try again' message. |
+| C475 | `DS4Forms/Themes/BridgeShellStyles.xaml:526` | Sidebar battery level is always green (SuccessColor), even at critically low charge | Proposed | Colour by threshold: add a BatteryLevelKind token to CompositeDeviceModel (or reuse ControllerCardStatusFormatter) and use DataTriggers, for example Warning at 20% or below and Danger at 10% or below, with muted as the … |
+| C478 | `DS4Forms/Themes/DarkTheme.xaml:128` | Dark RepeatButtonStyle paints disabled RepeatButtons solid DimGray, so the horizontal scrollbar's left arrow shows a grey block whenever the mouse is not over it; hover arrows turn black on dark blue | Proposed | In the disabled trigger, use BackgroundColor or Transparent for the background and DisabledForegroundColor for the glyph. |
+| C479 | `DS4Forms/Themes/DarkTheme.xaml:275` | Dark markdown style keeps light table and note backgrounds, so tables in release notes are near-white text on white in the Changelog and Updater windows | Proposed | In DarkTheme's copy, use RaisedBackgroundColor/CardBackgroundColor and BorderColor for table header, even rows, Note and table borders. |
+| C481 | `DS4Forms/Themes/DarkTheme.xaml:478` | Dark TabItem hover trigger uses IsMouseDirectlyOver, which never fires, so hovering an unselected tab looks exactly like the selected tab | Proposed | Replace it with an IsMouseOver trigger that sets Background to SecondaryColor, placed before the IsSelected trigger. |
+| C482 | `DS4Forms/Themes/DarkTheme.xaml:1040` | Dark tray submenus (Controller N > profiles, Disconnect Menu) are drawn inside a hard-coded light-theme popup frame | Proposed | Replace the #FFEEF5FD/#FFB6BDC5 literals in the MenuItem templates with BackgroundColor/BorderColor, and use DisabledForegroundColor instead of GrayTextBrushKey for disabled items. |
+| C483 | `DS4Forms/Themes/DarkTheme.xaml:1406` | About 200 lines of dead theme code: ToolBar styles for a control the app never uses, a MenuItem base template no role uses, and unused resource keys | Proposed | Delete the ToolBar styles and the themes1 xmlns, the unused MenuItem base template, and the unused keys (in both themes, keeping ThemeResourceTests' key parity). |
+| C385 | `DS4Forms/TriggerLabControl.xaml.cs:1003` | EnsureAutoCustomProfile can insert a second 'custom' entry; Normalize then keeps the stale one | Proposed | When profileId is not an existing custom-profile id, fall back to looking up "custom" before creating one, i.e. |
+| C386 | `DS4Forms/TriggerLabControl.xaml.cs:1265` | Raw exception text shown as user-facing error messages in Trigger Lab and Audio Haptics | Proposed | Map the known exception types (JsonException, InvalidDataException, IOException, UnauthorizedAccessException, COMException) to short plain-language sentences and log the technical detail instead. |
+| C439 | `DS4Forms/ViewModels/AudioEndpointChoiceCache.cs:120` | Audio endpoint enumeration failures are swallowed with no log; device pickers silently show empty lists | Proposed | Record the failure (a LastError string or flag) and log one non-warning line through AppLogger. |
+| C435 | `DS4Forms/ViewModels/AxialStickControlViewModel.cs:57` | Axial dead-zone fields truncate floating-point input (0.7 + 0.1 step stores 79, shows 0.79) | Proposed | Use (int)Math.Round(value * 100.0), as the DeadZoneX/Y setters already do. |
+| C434 | `DS4Forms/ViewModels/ControllerLightbarIdentify.cs:89` | Identify restore leaves forcedFlash=20 when a lightbar macro superseded it, so later macros on that pad flash | Proposed | When bailing out because another owner took the colour, still restore forcedFlash to previousFlash if it is still IdentifyFlash, since the macro does not own flash. |
+| C366 | `DS4Forms/ViewModels/ControllerListViewModel.cs:205` | Controller removal changes the UI-bound collection on the HID thread and blocks on Dispatcher.Invoke while holding the write lock | Proposed | Do the collection mutation and the Save on the dispatcher (BeginInvoke) and do not hold the lock across any dispatcher call. |
+| C440 | `DS4Forms/ViewModels/ControllerRegDeviceOptsViewModel.cs:264` | ControllerRegDeviceOptsViewModel: dead state and per-selection event subscriptions on long-lived device options that are never removed | Proposed | Unsubscribe the previous wrapper when replacing dataContextObject, and on window close. |
+| C315 | `DS4Forms/ViewModels/ControllerTesterViewModel.cs:378` | Controller tester exposes pressed state only visually; screen readers cannot tell which buttons are pressed | Proposed | Add an AccessibleText property (e.g. Name + ", pressed"), raise it with IsPressed, and bind AutomationProperties.Name/ItemStatus to it in the template. |
+| C378 | `DS4Forms/ViewModels/ControllerUiCapabilityPolicy.cs:164` | A genuine DS4 on the Sony wireless adapter is told it needs 'a genuine Sony DualShock 4' | Proposed | Treat 0x0BA0 as a genuine DS4 (or check ConnectionType first) so that the 'requires Bluetooth' message is shown. |
+| C377 | `DS4Forms/ViewModels/CurrentOutDeviceViewModel.cs:372` | Dead output-type choice code in the Output Slots view model | Proposed | Delete the unused methods and stub properties together with their commented-out callers. |
+| C373 | `DS4Forms/ViewModels/FirstRunWizardViewModel.cs:161` | First-run progress text skips numbers ('Step 2 of 7' then 'Step 4 of 7') | Proposed | Compute the progress text from the index in the steps list and the expected total when the step is activated. |
+| C374 | `DS4Forms/ViewModels/FirstRunWizardViewModel.cs:253` | First-run 'Install / Repair VIIPER' re-reads status before the installer has run and never refreshes when it finishes | Proposed | Have LaunchViiperInstaller return a Task, or raise an InstallerExited event, and refresh the step when it completes. |
+| C375 | `DS4Forms/ViewModels/FirstRunWizardViewModel.cs:330` | Wizard's 'Finish later' implies it can be resumed, but it never reappears | Proposed | Rename the button to 'Skip remaining steps', or add a 'Run first-time setup' button in Settings. |
+| C436 | `DS4Forms/ViewModels/LightbarMacroViewModel.cs:71` | LightbarMacroElement value-equality makes 'Delete' remove the first matching step, not the selected one; Equals hard-casts | Proposed | Remove by index (Macro.RemoveAt(MacroListBox.SelectedIndex)). |
+| C197 | `DS4Forms/ViewModels/MainWindowsViewModel.cs:417` | Overview haptic slider clamps rumble boost to 100% although the profile editor allows 200% | Proposed | Either show and allow the full 0-200 range for linear-rumble devices, or leave RumbleBoost unchanged when the stored value exceeds 100 and the slider is at its maximum. |
+| C198 | `DS4Forms/ViewModels/MainWindowsViewModel.cs:574` | Overview runtime refresh runs 4x/second for the app lifetime, including when minimised to the tray | Proposed | Stop the timer when the window is hidden or minimised to the tray, restart it on show, and rely on the existing event-driven refreshes (SyncChange, OutputSlot_RuntimeChanged) in between. |
+| C427 | `DS4Forms/ViewModels/MappingListViewModel.cs:382` | Shift-trigger names for triggers 28-34 are wrong in the mapping list / hover label (and 34 is mistyped as 43) | Proposed | Reorder the cases to match Mapping.shiftTriggerMapping: 28 Function Left, 29 Function Right, 30 Bottom Left Paddle, 31 Bottom Right Paddle, 32 Capture, 33 Side L, 34 Side R. |
+| C376 | `DS4Forms/ViewModels/NativePs5SetupViewModel.cs:157` | Native PS5 setup subtitle says 'Three steps' but the rail shows four | Proposed | 'Three steps, plus an optional fourth...' or 'Four steps (the last is optional)...'. |
+| C438 | `DS4Forms/ViewModels/ProfileEditorSectionStateViewModel.cs:218` | Profile editor open does 4 full profile XML serializations + 2-3 default BackingStore builds on the UI thread; the first pass is discarded | Proposed | Cache the default snapshot in a static Lazy<ProfileEditorSectionSnapshot>. |
+| C308 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:1119` | Out-of-range index setters and getters for steering range and touchpad invert | Proposed | Return -1 or the nearest index from the getter, and ignore out-of-range values in the setters (bounds-check before indexing). |
+| C309 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:1218` | Zone setters truncate instead of rounding, so spinner steps land on 0.79/0.89/0.99 | Proposed | Use (int)Math.Round(value * 100.0) and (byte)Math.Round(value * 255.0), clamped, in these setters. |
+| C310 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:1938` | Dead code: unused two-stage trigger properties (R2 setter bypasses TwoStageModeChanged), IsNET8Available, leftover update-check usings | Proposed | Delete the unused members and usings, and merge UpdateForcedColor with StartForcedColor. |
+| C313 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:4203` | Curve-editor launch passes the unvalidated profile curve string into the browser command line (argument injection) | Proposed | Validate the definition before launching: exactly four invariant-culture numbers separated by commas (reject anything else and show a plain message). |
+| C314 | `DS4Forms/ViewModels/ProfileSettingsViewModel.cs:4215` | Curve-editor failure message is jargon with a typo and exposes the install path | Proposed | Show a plain message such as "Couldn't open the curve editor in your browser. |
+| C357 | `DS4Forms/ViewModels/SettingsViewModel.cs:548` | GDI HBITMAP handles leaked when building the UAC and question-mark images | Proposed | Use Imaging.CreateBitmapSourceFromHIcon(SystemIcons.Shield.Handle, ...), or DeleteObject the HBITMAP and dispose the Bitmap. |
+| C361 | `DS4Forms/ViewModels/SettingsViewModel.cs:782` | Monitor list is rebuilt in place and the changed event re-publishes the same List, so the combo box can go stale after a display change | Proposed | Assign a new List (or use an ObservableCollection) and raise the changed event with the new instance. |
+| C466 | `DS4Forms/ViewModels/SpecialActions/CheckBatteryViewModel.cs:66` | Duplicate methods UpdateForcedColor and StartForcedColor in CheckBatteryViewModel | Proposed | Make one method delegate to the other and add a lower-bound check on device. |
+| C363 | `DS4Forms/ViewModels/TrayIconViewModel.cs:325` | Tray 'Disconnect Controller' runs the Bluetooth disconnect on the UI thread; the controller card queues it to the input thread | Proposed | Use the same path as the card: tempDev.queueEvent(() => tempDev.DisconnectBT()), or call CompositeDeviceModel.RequestDisconnect. |
+| C364 | `DS4Forms/ViewModels/TrayIconViewModel.cs:462` | Tray battery subscriptions do nothing; the tooltip never shows battery | Proposed | Either restore a battery summary in the tooltip (at most 63 characters) or remove the BatteryChanged/ChargingChanged subscriptions and UpdateForBattery. |
+| C437 | `DS4Forms/ViewModels/ViiperDriverStatusViewModel.cs:305` | Driver card 'report could not be saved' text shows raw exception message including the unredacted user-profile path | Proposed | Map the exception to a plain category ('permission denied', 'disk full', 'path invalid'), or run ex.Message through ViiperDriverReportFormatter.RedactUserPath before storing WriteError. |
+| C414 | `DS4Forms/WelcomeDialog.xaml:25` | Driver Setup dialog contradicts the wizard (VIIPER 'Required' vs 'optional') and still shows a dead Windows 7 / Xbox 360 step | Proposed | Delete the step2Btn row and the Step2HelpText row, and number the remaining steps 1-4. |
+| C307 | `DS4Library/Crc32.cs:213` | The CRC-32 fast table depends on ControlService calling InitializeTable first, and CalculateHash has a wrong loop bound | Proposed | Populate testLook in a static constructor (or a static readonly initializer), drop the secondTablePop flag, and fix the loop bound to start + size. |
+| C018 | `DS4Library/DS4Device.cs:791` | The custom-feature-set log line always says '(BT)' because it runs before the connection type is known | Proposed | Move the log line to the end of PostInit, after conType = HidConnectionType(hDevice). |
+| C019 | `DS4Library/DS4Device.cs:874` | Dead code in DS4Device, including an async output branch that would throw if ever reached | Proposed | Delete the three unused methods and the unreachable async branch, or make it lock(outReportBuffer) like the synchronous path. |
+| C020 | `DS4Library/DS4Device.cs:937` | The Bluetooth gyro calibration failure branch can never run, so corrupt calibration is applied silently | Proposed | After the loop, if (!found), log a plain-language message ('Could not read motion-sensor calibration from controller X; motion controls may be inaccurate. |
+| C024 | `DS4Library/DS4Device.cs:2036` | Per-report allocations on the 1 kHz input thread (closure, delegate, event args) | Proposed | Pass state explicitly: have ReadSynchronized return the snapshot while holding the gate, or accept a static callback with a state argument. |
+| C026 | `DS4Library/DS4Device.cs:2281` | DisconnectBT always reports success, so a failed idle-disconnect leaves a live pad that Thrum has dropped | Proposed | Return the real result. On failure, log a plain-language line ('Could not turn off controller X over Bluetooth; turn it off manually') and keep the input loop running. |
+| C303 | `DS4Library/DS4Devices.cs:443` | The Sunshine process scan runs for every candidate pad even when Moonlight support is off | Proposed | Short-circuit the check: return !isVirtualDevice \|\| (Global.UseMoonlight && MoonlightVirtualDevicePolicy.IsSunshineHostRunning()). |
+| C305 | `DS4Library/DS4Devices.cs:597` | findControllers leaves opened HID handles on devices it then rejects | Proposed | Call hDevice.CloseDevice() (or Dispose) on every continue/newdev=false path for a device that was opened in this scan, except the DisabledDevices hand-off. |
+| C332 | `DS4Library/InputDevices/DS3Device.cs:281` | DS3 timestamp logic is dead: tempStamp is never assigned | Proposed | Delete the dead branch and document that DS3 timing comes from the host clock, or read the real timestamp bytes if the report carries them. |
+| C262 | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:286` | Bluetooth audio starts the unsigned Thrum.exe as a hidden child, duplicates the HID handle into it, and keeps it at High priority for the whole connection | Proposed | Preferred: host the pacer loop in-process on a dedicated MMCSS thread, using the existing DualSenseBluetoothRealtimeWriter, and drop the child process. |
+| C263 | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:436` | Several heap allocations per 10.667 ms frame on the BT speaker, haptics and mic paths (clone + payload + command, ACK read buffers, mic payload, status strings) | Proposed | Pre-allocate a pool of HostReservoirCapacity+16 payload buffers/commands and write the report straight into the payload (drop the Clone). |
+| C266 | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:1221` | The helper blocks the WPF dispatcher thread for its whole life, and the helper's SessionEnding handler dereferences a null logHolder | Proposed | Detect the helper argument in a custom Main (or before InitializeComponent) and run the helper without starting WPF. |
+| C267 | `DS4Library/InputDevices/DualSenseBluetoothAudioPacer.cs:1983` | The helper's pacer thread spin-waits about 0.5 ms every 10.667 ms frame at Highest priority in a High-priority-class process | Proposed | With CREATE_WAITABLE_TIMER_HIGH_RESOLUTION available, shrink the spin window (for example to 0.1-0.2 ms), or accept the timer's jitter since the controller keeps a 64-deep buffer. |
+| C334 | `DS4Library/InputDevices/DualSenseBluetoothRealtimeWriter.cs:254` | Realtime writer reports Marshal.GetLastWin32Error() after a managed exception | Proposed | Capture the Win32 error at the failing P/Invoke inside WriteSlot and carry it in the exception, or report the exception message. |
+| C269 | `DS4Library/InputDevices/DualSenseDevice.cs:1176` | Dead or degenerate code in the BT transport, including an unused TryEnsureBluetoothAudioPacer that spawns the helper while holding the pacer lock | Proposed | Delete the unused members (update the reflection-based tests that pin the degenerate helpers), or mark them clearly as test seams. |
+| C270 | `DS4Library/InputDevices/DualSenseDevice.cs:1290` | ClearBluetoothAudioPacerLocked tears down a faulted helper (up to ~6 s of process-exit waits) while holding the combined transport lock that the HID input thread takes for every microphone frame | Proposed | Detach the faulted pacer under the locks and hand its Stop/Dispose to the dedicated lifecycle worker, as TransitionBluetoothSpeakerClockTransport already does, keeping bluetoothAudioLifecycleTransitioning set until it … |
+| C271 | `DS4Library/InputDevices/DualSenseDevice.cs:1772` | The BT calibration/feature-report failure branch can never run, so invalid gyro calibration is applied silently | Proposed | Check `if (!found)` after the loop: log a plain-language warning and keep the default calibration instead of applying the unvalidated buffer. |
+| C272 | `DS4Library/InputDevices/DualSenseDevice.cs:1993` | BT mic frames are forwarded to the Opus consumer without CRC validation | Proposed | Run the same CalculateFasterBT78Hash check before RecordBluetoothMicrophoneFrame; drop and count corrupt mic frames without resetting the error counter. |
+| C319 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:369` | About half of the streamer (Opus listening audio, latency profiles, rumble synth modes) can only be reached by hand-editing XML | Proposed | Either expose these features deliberately (see the rumble finding) or remove or feature-flag the unreachable paths with a comment explaining why they stay. |
+| C320 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:379` | Opus encoder factory loads any native opus.dll found on the DLL search path | Proposed | Set `OpusCodecFactory.AttemptToUseNativeLibrary = false;` once at startup, to use the bundled managed encoder deterministically. |
+| C324 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:1041` | MMDevice COM objects created in CreateCapture are never disposed | Proposed | Wrap the default-endpoint lookup in `using`, and dispose the explicit endpoint after the capture is disposed in the finally block. |
+| C326 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:1169` | Capture callback takes a lock per decimated sample on the WASAPI thread | Proposed | Decimate into a small local stack buffer and write it to the ring with one lock per callback. |
+| C329 | `DS4Library/InputDevices/JoyConDevice.cs:1191` | Right Joy-Con init blocks for 1 s and writes to Console; unprofessional identifier | Proposed | Remove the Console writes and rename the buffer. |
+| C261 | `DateTimeJsonConverter.cs:28` | Dead code and files in the entry slice | Proposed | Delete these items, keeping the diffs in inherited files minimal. |
+| C460 | `HidLibrary/HidDevice.cs:288` | HidDevice.ReadFile does not return the Win32 error, so callers log a stale or zero error code | Proposed | Add an `out int win32Error` to ReadFile, as WriteOutputReportViaInterrupt already has, capture it right after the failing call, and log that value in the callers. |
+| C471 | `HidLibrary/HidDevices.cs:181` | Device description fallback uses the ANSI SetupAPI entry point and decodes it as UTF-8 | Proposed | Declare it with CharSet = CharSet.Unicode and EntryPoint "SetupDiGetDeviceRegistryPropertyW", and decode with ToUTF16String. |
+| C470 | `HidLibrary/NativeMethods.cs:522` | Dead and mis-typed P/Invoke declarations in NativeMethods, plus [Obsolete] dead methods in HidDevice | Proposed | Remove the unused declarations and the obsolete HidDevice methods. |
+| C505 | `Properties/Resources.resx:413` | Exclusive-mode failure message says 'DS4', lists stale apps and links to the upstream DS4Windows wiki | Proposed | Rewrite CouldNotOpenDS4 and QuitOtherPrograms: '{controller name} is being used by another program, so Thrum can't hide it from games. |
+| C469 | `ThirdParty/SbcSharp/SbcEncoder.cs:480` | Generic SbcEncoder and unused encoder tables ship in the app but are only used by one unit test; the 4-subband path allocates and uses a window the code itself calls broken | Proposed | Delete SbcEncoder, Window4, Window8 and CosMatrix8, or move them to the test project, and point that test at DualShock4SbcEncoder. |
+| C491 | `Thrum.csproj:101` | Unused bloomtom.HttpProgress dependency ships an HTTP download library the app no longer uses | Proposed | Remove the PackageReference, the three using directives, and the NOTICE/third-party-audit entries. |
+| C492 | `Thrum.csproj:394` | Indonesian and Swedish translations are mislabelled (idn, se), so Indonesian is never offered and Swedish shows as Northern Sami | Proposed | Rename to Strings.id.resx and Strings.sv.resx, and update the langs list in utils/post-build.py:82-83. |
+| C504 | `Translations/Strings.se.resx:277` | Translations: 'idn' is not a valid culture (Indonesian never ships) and 'se' holds Swedish but builds as Northern Sami | Proposed | Rename Strings.idn.resx to Strings.id.resx and Strings.se.resx to Strings.sv.resx, update the langs list in utils/post-build.py, and add id and sv to the expected-satellite test. |
+| C468 | `VJoyFeeder/vJoyFeeder.cs:676` | vJoy feeder messages print literal '{DrvVer}' / '{vJoyID}' and the acquire check is inverted | Proposed | Add the `$` prefixes. Treat OWN, or FREE with a successful AcquireVJD, as success; treat BUSY, MISS and UNKN as failure with a plain-language message. |
+| C495 | `app.manifest:49` | app.manifest declares no dpiAwareness (PerMonitorV2) and lists Windows 7/8/8.1, which .NET 8 cannot run on | Proposed | Add `<dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>` with a `dpiAware true/pm` fallback, and drop the pre-Windows 10 supportedOS lines. |
+| C260 | `runtimeconfig.template.json:3` | Satellite-assembly probing path is relative to the working directory | Proposed | Leave the satellite folders in their default layout next to the exe, or add an AssemblyLoadContext.Default.Resolving handler that loads satellites from Path.Combine(AppContext.BaseDirectory, "Lang", culture). |
+| C493 | `ds4w.bat:44` | Legacy ds4w.bat at repo root downloads and installs upstream DS4Windows and deletes %LOCALAPPDATA%\DS4Windows | Proposed | Delete ds4w.bat before public release. |
+| C217 | `extras/install-viiper-backend.ps1:492` | A failed backend stop leaves viiper.exe.new and licenses.txt.new in the install folder | Proposed | Stop the processes before staging, or delete the .new files in the failure path. |
+| C512 | `utils/post-build.py:111` | post-build.py produces dead outputs and zips the whole parent folder | Proposed | Fix the comment (or drop the manifest until an updater exists), drop newest.txt, and zip from a temporary staging folder that contains only Thrum/. |
+| C101 | `DS4Control/AudioHapticsService.cs:108` | Warning logged on every profile load when a non-DualSense pad uses a profile with Audio Haptics enabled | Fixed (Phase 1) |  |
+| C050 | `DS4Control/DualSenseBluetoothSpeakerPassthrough.cs:886` | Multichannel loopback keeps only front L/R, so the centre (dialogue) channel is lost on the controller speaker | Fixed (Phase 4) |  |
+| C014 | `DS4Control/ScpUtil.cs:9657` | "LinkedProfiles.xml can't be found." is written to the log on every launch for users who have never linked a profile | Fixed (Phase 1) |  |
+| C158 | `DS4Control/Util.cs:285` | Faulted background tasks dump a full exception stack trace into the GUI log | Fixed (Phase 1) |  |
+| C056 | `DS4Control/Viiper/ViiperOutDevice.cs:774` | Gate refusal is logged twice as a warning per controller per connect | Fixed (Phase 1) |  |
+| C057 | `DS4Control/Viiper/ViiperOutDevice.cs:797` | Default configuration logs an alarming 'can crash Windows' line and a rate-cap line on every virtual-controller connect | Fixed (Phase 1) |  |
+| C354 | `DS4Forms/ViewModels/AutoProfilesViewModel.cs:248` | The program scan adds to the synchronized ProgramColl from a background thread without taking its lock | Fixed (Phase 2) |  |
+| C428 | `DS4Forms/ViewModels/LogViewModel.cs:212` | In-memory Log tab buffer has no size limit | Fixed (Phase 5) |  |
+| C273 | `DS4Library/InputDevices/DualSenseDevice.cs:2063` | Turning off a BT controller normally logs a warning with a raw Win32 error number | Fixed (Phase 1) |  |
+| C323 | `DS4Library/InputDevices/DualSenseHapticsStreamer.cs:634` | Streamer writes periodic diagnostic 'BT stream health' lines to the user log during normal use | Fixed (Phase 1) |  |
+| C497 | `NLog.config:8` | NLog file target has no size cap; one session's log can grow without limit | Fixed (Phase 5) |  |
+| C255 | `ProfileList.cs:61` | Importing a profile with an existing name adds a duplicate list entry | Fixed (Phase 2) |  |
+| C488 | `Thrum.csproj:16` | The zero-warning goal is not enforced: analyzers are off and CI never fails on warnings | Fixed (Phase 1) |  |
+| C486 | `USERGUIDE.md:293` | README/USERGUIDE have no privacy or network statement; the update check is on by default and never disclosed | Fixed (Phase 5) |  |
+
+</details>

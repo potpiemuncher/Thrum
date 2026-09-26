@@ -452,8 +452,9 @@ namespace DS4WinWPF.DS4Control.DTOXml
 
         /// <summary>
         /// Same shape, and the more important of the two: this one gates the
-        /// only feature class that reaches the confirmed usbip-win2 kernel
-        /// defect. Anything unparseable reads as off.
+        /// only feature class that reaches the usbip-win2 kernel defect. An
+        /// absent element reads as the default (on); anything unparseable
+        /// reads as off.
         /// </summary>
         [XmlIgnore]
         public bool AllowExperimentalAudioEndpoints
@@ -465,13 +466,8 @@ namespace DS4WinWPF.DS4Control.DTOXml
         public string AllowExperimentalAudioEndpointsString
         {
             get => AllowExperimentalAudioEndpoints.ToString();
-            set
-            {
-                if (bool.TryParse(value, out bool temp))
-                {
-                    AllowExperimentalAudioEndpoints = temp;
-                }
-            }
+            set => AllowExperimentalAudioEndpoints =
+                bool.TryParse(value, out bool temp) && temp;
         }
 
         [XmlIgnore]

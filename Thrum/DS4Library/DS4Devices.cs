@@ -68,27 +68,6 @@ namespace DS4Windows
         }
     }
 
-    public class RequestElevationArgs : EventArgs
-    {
-        public const int STATUS_SUCCESS = 0;
-        public const int STATUS_INIT_FAILURE = -1;
-        private int statusCode = STATUS_INIT_FAILURE;
-        private string instanceId;
-        public int StatusCode
-        {
-            get => statusCode;
-            set => statusCode = value;
-        }
-        public string InstanceId { get => instanceId; }
-
-        public RequestElevationArgs(string instanceId)
-        {
-            this.instanceId = instanceId;
-        }
-    }
-
-    public delegate void RequestElevationDelegate(RequestElevationArgs args);
-
     public class CheckVirtualInfo : EventArgs
     {
         private string deviceInstanceId;
@@ -122,7 +101,13 @@ namespace DS4Windows
         // Keep instance of opened exclusive mode devices not in use (Charging while using BT connection)
         private static List<HidDevice> DisabledDevices = new List<HidDevice>();
         private static Stopwatch sw = new Stopwatch();
-        public static event RequestElevationDelegate RequestElevation;
+        /// <summary>
+        /// An exclusive open failed because another program has the
+        /// controller open; the device path is passed. The device is then
+        /// opened in shared mode. This used to relaunch Thrum elevated (a UAC
+        /// prompt mid-game) to restart the device.
+        /// </summary>
+        public static event Action<string> ExclusiveOpenRefused;
         public static PrepareInitDelegate PrepareDS4Init = null;
         public static PrepareInitDelegate PostDS4Init = null;
         public static CheckPendingDevice PreparePendingDevice = null;
@@ -195,6 +180,13 @@ namespace DS4Windows
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static int pendingOwnVirtualSonyConnects;
         private static long pendingOwnVirtualSonyTimestamp;
+        // Sony HID paths that were present before every pending connect began.
+        // None of them can be the output that is arriving, so the pending guard
+        // lets them through. Without this a physical DualSense (same VID/PID as
+        // the virtual one) was ignored for up to 15 s after any Sony output was
+        // plugged in, e.g. when Native PS5 mode plugged one and restarted the
+        // service straight away.
+        private static HashSet<string> pendingOwnVirtualSonyPriorPaths;
 
         // Moonlight/Sunshine DS4 streams report the Sony VID with one of these PIDs.
         private static readonly int[] VirtualDS4Pids = { 0x05C4, 0x09CC };
@@ -237,10 +229,26 @@ namespace DS4Windows
             return before;
         }
 
-        public static void BeginOwnVirtualSonyConnect()
+        /// <param name="beforePaths">The snapshot taken just before the
+        /// connect (<see cref="SnapshotBeforeOwnVirtualSony"/>).</param>
+        public static void BeginOwnVirtualSonyConnect(HashSet<string> beforePaths)
         {
             lock (ownVirtualLock)
             {
+                IEnumerable<string> before = beforePaths ?? Enumerable.Empty<string>();
+                if (!IsPendingWindowOpen() || pendingOwnVirtualSonyPriorPaths == null)
+                {
+                    pendingOwnVirtualSonyPriorPaths =
+                        new HashSet<string>(before, StringComparer.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    // An earlier connect's output may have arrived after its
+                    // snapshot and be in this one; only paths in every
+                    // snapshot are known not to be arriving outputs.
+                    pendingOwnVirtualSonyPriorPaths.IntersectWith(before);
+                }
+
                 pendingOwnVirtualSonyConnects++;
                 pendingOwnVirtualSonyTimestamp = Stopwatch.GetTimestamp();
             }
@@ -254,24 +262,47 @@ namespace DS4Windows
                 {
                     pendingOwnVirtualSonyConnects--;
                 }
+
+                if (pendingOwnVirtualSonyConnects == 0)
+                {
+                    pendingOwnVirtualSonyPriorPaths = null;
+                }
             }
         }
 
-        private static bool IsOwnVirtualSonyConnectPending()
+        /// <summary>
+        /// True while <paramref name="devicePath"/> could be a VIIPER Sony
+        /// output that is still arriving: a connect is pending and the path was
+        /// not there before it began.
+        /// </summary>
+        internal static bool IsOwnVirtualSonyConnectPending(string devicePath)
         {
             lock (ownVirtualLock)
             {
-                if (pendingOwnVirtualSonyConnects <= 0)
+                if (!IsPendingWindowOpen())
                 {
                     return false;
                 }
 
-                long elapsed = Stopwatch.GetTimestamp() -
-                    pendingOwnVirtualSonyTimestamp;
-                long timeoutTicks = (long)(OwnVirtualSonyPendingTimeout.
-                    TotalSeconds * Stopwatch.Frequency);
-                return elapsed < timeoutTicks;
+                return pendingOwnVirtualSonyPriorPaths == null ||
+                    string.IsNullOrEmpty(devicePath) ||
+                    !pendingOwnVirtualSonyPriorPaths.Contains(devicePath);
             }
+        }
+
+        // Caller holds ownVirtualLock.
+        private static bool IsPendingWindowOpen()
+        {
+            if (pendingOwnVirtualSonyConnects <= 0)
+            {
+                return false;
+            }
+
+            long elapsed = Stopwatch.GetTimestamp() -
+                pendingOwnVirtualSonyTimestamp;
+            long timeoutTicks = (long)(OwnVirtualSonyPendingTimeout.
+                TotalSeconds * Stopwatch.Frequency);
+            return elapsed < timeoutTicks;
         }
 
         // VIIPER presents a complete USB composite device through USBIP. Windows can
@@ -431,7 +462,7 @@ namespace DS4Windows
 
             if (hDevice.Attributes.VendorId == SONY_VID &&
                 IsViiperSonyProductId(hDevice.Attributes.ProductId) &&
-                IsOwnVirtualSonyConnectPending())
+                IsOwnVirtualSonyConnectPending(devicePath))
             {
                 return false;
             }
@@ -497,7 +528,9 @@ namespace DS4Windows
 
                     if (!hDevice.IsOpen)
                     {
+                        ControlService.StartupDiag($"findControllers open begin exclusive={isExclusiveMode} path={hDevice.DevicePath}");
                         hDevice.OpenDevice(isExclusiveMode);
+                        ControlService.StartupDiag($"findControllers open end open={hDevice.IsOpen}");
                         if (!hDevice.IsOpen && isExclusiveMode)
                         {
                             try
@@ -506,30 +539,38 @@ namespace DS4Windows
                                 WindowsIdentity identity = WindowsIdentity.GetCurrent();
                                 WindowsPrincipal principal = new WindowsPrincipal(identity);
                                 bool elevated = principal.IsInRole(WindowsBuiltInRole.Administrator);
+                                if (Global.VerboseStartupLogging)
+                                {
+                                    ControlService.StartupDiag($"findControllers exclusive open refused elevated={elevated} " +
+                                        $"knownControllerPrograms=[{string.Join(", ", ControllerHolderHint.RunningKnownPrograms())}]");
+                                }
 
                                 if (!elevated)
                                 {
-                                    // Tell the client to launch routine to re-enable a device
-                                    RequestElevationArgs eleArgs =
-                                        new RequestElevationArgs(Global.GetInstanceIdFromDevicePath(hDevice.DevicePath));
-                                    RequestElevation?.Invoke(eleArgs);
-                                    if (eleArgs.StatusCode == RequestElevationArgs.STATUS_SUCCESS)
-                                    {
-                                        hDevice.OpenDevice(isExclusiveMode);
-                                    }
+                                    // No elevation at runtime: fall back to
+                                    // shared mode below and let the service
+                                    // tell the user.
+                                    ExclusiveOpenRefused?.Invoke(hDevice.DevicePath);
                                 }
                                 else
                                 {
                                     reEnableDevice(Global.GetInstanceIdFromDevicePath(hDevice.DevicePath));
                                     hDevice.OpenDevice(isExclusiveMode);
+                                    ControlService.StartupDiag($"findControllers exclusive open after device restart open={hDevice.IsOpen}");
                                 }
                             }
-                            catch (Exception) { }
+                            catch (Exception ex)
+                            {
+                                ControlService.StartupDiag($"findControllers device restart failed {ex.GetType().Name}: {ex.Message}");
+                            }
                         }
-                        
+
                         // TODO in exclusive mode, try to hold both open when both are connected
                         if (isExclusiveMode && !hDevice.IsOpen)
+                        {
                             hDevice.OpenDevice(false);
+                            ControlService.StartupDiag($"findControllers shared fallback open={hDevice.IsOpen}");
+                        }
                     }
 
                     if (hDevice.IsOpen)
@@ -555,6 +596,7 @@ namespace DS4Windows
                         {
                             serial = hDevice.ReadSerial(DS4Device.SERIAL_FEATURE_ID);
                         }
+                        ControlService.StartupDiag($"findControllers serial read valid={!serial.Equals(DS4Device.BLANK_SERIAL)}");
 
                         if (HasMoonlightVirtualDS4Identity(hDevice, serial) &&
                             !Global.UseMoonlight)
@@ -785,7 +827,9 @@ namespace DS4Windows
             {
                 throw new Exception("Error setting class install params, error code = " + Marshal.GetLastWin32Error());
             }
+            ControlService.StartupDiag($"reEnableDevice disable begin {deviceInstanceId}");
             success = NativeMethods.SetupDiCallClassInstaller(NativeMethods.DIF_PROPERTYCHANGE, deviceInfoSet, ref deviceInfoData);
+            ControlService.StartupDiag($"reEnableDevice disable end success={success}");
             // TEST: If previous SetupDiCallClassInstaller fails, just continue
             // otherwise device will likely get permanently disabled.
             /*if (!success)
@@ -810,7 +854,9 @@ namespace DS4Windows
             {
                 throw new Exception("Error setting class install params, error code = " + Marshal.GetLastWin32Error());
             }
+            ControlService.StartupDiag("reEnableDevice enable begin");
             success = NativeMethods.SetupDiCallClassInstaller(NativeMethods.DIF_PROPERTYCHANGE, deviceInfoSet, ref deviceInfoData);
+            ControlService.StartupDiag($"reEnableDevice enable end success={success}");
             if (!success)
             {
                 throw new Exception("Error enabling device, error code = " + Marshal.GetLastWin32Error());

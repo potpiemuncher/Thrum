@@ -169,7 +169,7 @@ keyboard/mouse handler in use.
 
 ## The workspace outside this repo
 
-The checkout lives in `C:\Users\patri\PS5Haptics`, which was reorganised on 2026-09-06 and
+The checkout lives in a `PS5Haptics` folder in the maintainer's user profile, which was reorganised on 2026-09-06 and
 has its own `README.md` describing the layout. The short version: `Thrum/` (this repo),
 `DS4Windows/` (the hbashton fork the BT haptics code came from), `upstream-hbashton-viiper/`,
 `usbip-win2-fix/` (the PR #182 tree), then `docs/` (the original phased plan, VM runbooks,

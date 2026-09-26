@@ -72,6 +72,7 @@ namespace DS4WinWPF.DS4Forms
             ds4.Interval = 10;
             DataContext = recordBoxVM;
             SetupLateEvents();
+            Unloaded += RecordBox_Unloaded;
         }
 
         private void Ds4_Tick(object sender, System.Timers.ElapsedEventArgs e)
@@ -96,16 +97,37 @@ namespace DS4WinWPF.DS4Forms
 
         private void RecordBox_Cancel(object sender, EventArgs e)
         {
-            recordBoxVM.RevertControlsSettings();
-            ds4.Stop();
-            ds4.Elapsed -= Ds4_Tick;
+            Teardown();
         }
 
         private void RecordBox_Save(object sender, EventArgs e)
         {
-            recordBoxVM.RevertControlsSettings();
+            Teardown();
+        }
+
+        private void RecordBox_Unloaded(object sender, RoutedEventArgs e)
+        {
+            Teardown();
+        }
+
+        // Save and Cancel used to be the only way out that restored the
+        // touchpad mode. Closing the window with X left the touchpad in
+        // Passthru (written into the profile on its next save) and, while
+        // recording, left remapping switched off for every controller.
+        private void Teardown()
+        {
+            if (recordBoxVM.Recording)
+            {
+                // Cleared before the timer stops so a tick in flight does not
+                // restart it.
+                recordBoxVM.Recording = false;
+                DS4Windows.Program.rootHub.recordingMacro = false;
+                recordBoxVM.Sw.Stop();
+            }
+
             ds4.Stop();
             ds4.Elapsed -= Ds4_Tick;
+            recordBoxVM.RevertControlsSettings();
         }
 
         private void MacroSteps_CollectionChanged(object sender,

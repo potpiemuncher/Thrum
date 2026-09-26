@@ -199,12 +199,6 @@ namespace DS4WinWPF.DS4Forms
 
             startMinimized = Global.StartMinimized || parser.Mini;
 
-            bool isElevated = Global.IsAdministrator();
-            if (isElevated)
-            {
-                uacImg.Visibility = Visibility.Collapsed;
-            }
-
             noContLb.Content = string.Format(Strings.NoControllersConnected,
                 ControlService.CURRENT_DS4_CONTROLLER_LIMIT);
 
@@ -275,7 +269,11 @@ namespace DS4WinWPF.DS4Forms
                 {
                     try
                     {
-                        if (Changelog.CheckNewerReleaseExists(out string releaseTag, false))
+                        // A release the person chose to skip is not offered
+                        // again by this unsolicited check; the manual Check
+                        // for updates button still shows it.
+                        if (Changelog.CheckNewerReleaseExists(out string releaseTag, false) &&
+                            !ReleaseChannelPolicy.IsSkippedRelease(releaseTag, Global.LastVersionChecked))
                         {
                             DisplayUpdaterWindow(releaseTag);
                         }
@@ -1417,12 +1415,6 @@ Suspend support not enabled.", true);
             exportProfBtn.IsEnabled = hasSelection;
         }
 
-        private void RunAtStartCk_Click(object sender, RoutedEventArgs e)
-        {
-            settingsWrapVM.ShowRunStartPanel = runAtStartCk.IsChecked == true ? Visibility.Visible :
-                Visibility.Collapsed;
-        }
-
         private void ContStatusImg_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             Image img = sender as Image;
@@ -1571,6 +1563,8 @@ Suspend support not enabled.", true);
             {
                 WindowPlacementHelper.ApplyPlacement(this, startMinimized);
             }
+
+            WindowFit.ClampToWorkArea(this);
 
             HwndSource source = PresentationSource.FromVisual(this) as HwndSource;
             HookWindowMessages(source);
@@ -2084,6 +2078,15 @@ Suspend support not enabled.", true);
         /// </summary>
         private async Task RestartServiceForExclusiveModeAsync()
         {
+            await RestartServiceAsync();
+        }
+
+        /// <summary>
+        /// Stops and starts the service once, in order, with Start/Stop and
+        /// Hide DS4 Controller disabled until it finishes.
+        /// </summary>
+        internal async Task RestartServiceAsync()
+        {
             StartStopBtn.IsEnabled = false;
             hideDS4ContCk.IsEnabled = false;
             Task serviceTask = Task.Run(() =>
@@ -2110,6 +2113,19 @@ Suspend support not enabled.", true);
 
         private void NativePs5_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Same guard as MainWinVM_SelectedControllerChanged: a refresh
+            // started off the UI thread must not read WPF state here.
+            if (!Dispatcher.CheckAccess())
+            {
+                if (!Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+                {
+                    Dispatcher.BeginInvoke(DispatcherPriority.DataBind,
+                        new Action(() => NativePs5_PropertyChanged(sender, e)));
+                }
+
+                return;
+            }
+
             if (NativePs5SheetOpen)
             {
                 RefreshNativePs5SheetInputs();
@@ -2215,7 +2231,7 @@ Suspend support not enabled.", true);
                 return;
             }
 
-            Util.StartProcessHelper("https://github.com/nefarius/HidHide/releases");
+            Util.StartProcessHelper(ProductInfo.HidHideDownloadPage);
         }
 
         private void OpenNativePs5Sheet()
@@ -2320,25 +2336,16 @@ Suspend support not enabled.", true);
         }
 
         /// <summary>
-        /// Step 4: the audio-class opt-in, with the disclosure on every
-        /// enablement exactly as the Settings checkbox shows it.
+        /// Step 4: the same switch as the Settings checkbox. On by default;
+        /// the gate still refuses audio on a release without the upstream fix.
         /// </summary>
         private void NativePs5Sheet_AudioConsentChanged(object sender,
             NativePs5ConsentEventArgs e)
         {
-            if (e.Requested && !ConfirmAudioClassEnablement())
-            {
-                AppLogger.LogToGui(
-                    "Virtual audio endpoints stay off: the kernel-crash risk " +
-                    "notice was declined.", false);
-                RefreshNativePs5SheetInputs();
-                return;
-            }
-
             settingsWrapVM.AllowExperimentalAudioEndpoints = e.Requested;
             AppLogger.LogToGui(e.Requested
-                ? "Virtual audio endpoints enabled; the kernel-crash risk notice was accepted. Applies to the next controller connection."
-                : "Virtual audio endpoints disabled. Endpoints that are already running are left alone.",
+                ? "Virtual audio endpoints turned on. Applies to the next controller connection."
+                : "Virtual audio endpoints turned off. Endpoints that are already running are left alone.",
                 false);
             slotManControl.RefreshGateBanner();
             mainWinVM.RefreshNativePs5();
@@ -2517,31 +2524,61 @@ Suspend support not enabled.", true);
 
         private async void DriverSetupBtn_Click(object sender, RoutedEventArgs e)
         {
+            // The setup window runs in a separate process, not elevated: it
+            // only opens download pages, and VIIPER setup asks for
+            // administrator rights itself. Running it elevated let it start the
+            // user-writable viiper.exe as administrator. Waiting for it used to
+            // block this window's message loop for as long as it stayed open
+            // ("Not Responding"), and the controller service stayed stopped
+            // afterwards.
+            driverSetupBtn.IsEnabled = false;
             StartStopBtn.IsEnabled = false;
-            await Task.Run(() =>
-            {
-                if (App.rootHub.running)
-                    App.rootHub.Stop();
-            });
-
-            StartStopBtn.IsEnabled = true;
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = Global.exelocation;
-            startInfo.Arguments = "-driverinstall";
-            startInfo.Verb = "runas";
-            startInfo.UseShellExecute = true;
+            bool wasRunning = App.rootHub.running;
             try
             {
-                using (Process temp = Process.Start(startInfo))
-                {
-                    temp.WaitForExit();
-                    Global.RefreshHidHideInfo();
-                    Global.RefreshFakerInputInfo();
+                ProcessStartInfo startInfo = new ProcessStartInfo();
+                startInfo.FileName = Global.exelocation;
+                startInfo.Arguments = "-driverinstall";
+                startInfo.UseShellExecute = true;
 
-                    settingsWrapVM.DriverCheckRefresh();
+                Process temp = Process.Start(startInfo);
+                if (temp == null)
+                {
+                    return;
+                }
+
+                using (temp)
+                {
+                    if (wasRunning)
+                    {
+                        await Task.Run(() => App.rootHub.Stop());
+                    }
+
+                    await temp.WaitForExitAsync();
+                }
+
+                Global.RefreshHidHideInfo();
+                Global.RefreshFakerInputInfo();
+                settingsWrapVM.DriverCheckRefresh();
+
+                if (wasRunning && !App.rootHub.running)
+                {
+                    Task restart = Task.Run(() => App.rootHub.Start());
+                    // A failed restart is logged by LogAssistBackgroundTask;
+                    // it is not a failure to start driver setup.
+                    Util.LogAssistBackgroundTask(restart);
+                    await restart.ContinueWith(_ => { }, TaskScheduler.Default);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogToGui("Driver setup could not be started: " + ex.Message, true);
+            }
+            finally
+            {
+                driverSetupBtn.IsEnabled = true;
+                StartStopBtn.IsEnabled = true;
+            }
         }
 
         private void ViiperSetupBtn_Click(object sender, RoutedEventArgs e)
@@ -2691,8 +2728,7 @@ Suspend support not enabled.", true);
             }
 
             viiperConsentIntroText.Text =
-                "Installed driver package: " +
-                ViiperExperimentalDisclosure.DescribeInstalled(readiness);
+                ViiperExperimentalDisclosure.InstalledPackageLine(readiness);
             viiperExperimentalAckText.Text =
                 ViiperExperimentalDisclosure.AcknowledgementSummary;
             viiperAudioEndpointsText.Text =
@@ -2736,9 +2772,9 @@ Suspend support not enabled.", true);
         }
 
         /// <summary>
-        /// The audio-class opt-in. The disclosure is shown on <b>every</b>
-        /// enablement, not once: the risk does not fade with familiarity, and
-        /// the installed package can have changed since the last time.
+        /// The audio-class switch. On by default; the gate still refuses audio
+        /// endpoints on a usbip-win2 release without the upstream fix, and the
+        /// one-time experimental notice says so.
         /// </summary>
         private void ViiperAudioEndpointsCk_Checked(object sender, RoutedEventArgs e)
         {
@@ -2749,19 +2785,10 @@ Suspend support not enabled.", true);
                 return;
             }
 
-            if (requested && !ConfirmAudioClassEnablement())
-            {
-                viiperAudioEndpointsCk.IsChecked = false;
-                AppLogger.LogToGui(
-                    "Virtual audio endpoints stay off: the kernel-crash risk " +
-                    "notice was declined.", false);
-                return;
-            }
-
             settingsWrapVM.AllowExperimentalAudioEndpoints = requested;
             AppLogger.LogToGui(requested
-                ? "Virtual audio endpoints enabled; the kernel-crash risk notice was accepted. Applies to the next controller connection."
-                : "Virtual audio endpoints disabled. Endpoints that are already running are left alone.",
+                ? "Virtual audio endpoints turned on. Applies to the next controller connection."
+                : "Virtual audio endpoints turned off. Endpoints that are already running are left alone.",
                 false);
             slotManControl.RefreshGateBanner();
         }
@@ -2793,19 +2820,6 @@ Suspend support not enabled.", true);
                 ViiperExperimentalDisclosure.AcknowledgementTitle,
                 MessageBoxButton.YesNo, MessageBoxImage.Warning,
                 MessageBoxResult.No) == MessageBoxResult.Yes;
-
-        private bool ConfirmAudioClassEnablement()
-        {
-            // Names the package that is installed right now, which is why the
-            // readiness is read here rather than captured when the card loaded.
-            string body = ViiperExperimentalDisclosure.BuildAudioClassBody(
-                ViiperSetupManager.DriverReadiness);
-
-            return MessageBox.Show(this, body,
-                ViiperExperimentalDisclosure.AudioClassTitle,
-                MessageBoxButton.YesNo, MessageBoxImage.Warning,
-                MessageBoxResult.No) == MessageBoxResult.Yes;
-        }
 
         private void ApplyViiperStatusText(ViiperPrerequisiteStatus status)
         {
@@ -2995,8 +3009,55 @@ Suspend support not enabled.", true);
                 {
                     string profilename = System.IO.Path.GetFileName(files[i]);
                     string basename = System.IO.Path.GetFileNameWithoutExtension(files[i]);
-                    File.Copy(dialog.FileNames[i], Global.appdatapath + "\\Profiles\\" + profilename, true);
+                    string destination = Path.Combine(Global.appdatapath, "Profiles", profilename);
+                    // The dialog opens in the Profiles folder; picking a file
+                    // there copied it onto itself and closed the app. An
+                    // existing profile was replaced without asking.
+                    if (string.Equals(Path.GetFullPath(files[i]), Path.GetFullPath(destination),
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show(this, $"\"{basename}\" is already one of your profiles.",
+                            "Import Profile", MessageBoxButton.OK, MessageBoxImage.Information);
+                        continue;
+                    }
+
+                    bool replacing = File.Exists(destination);
+                    if (replacing && MessageBox.Show(this,
+                            $"A profile named \"{basename}\" already exists. Replace it with the imported file?",
+                            "Import Profile", MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                            MessageBoxResult.No) != MessageBoxResult.Yes)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        File.Copy(files[i], destination, true);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        MessageBox.Show(this, $"Thrum could not import \"{basename}\": {ex.Message}",
+                            "Import Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        continue;
+                    }
+
                     profileListHolder.AddProfileSort(basename);
+                    if (replacing)
+                    {
+                        // Controllers using the replaced profile would otherwise
+                        // keep the old settings and save them back over it.
+                        for (int slot = 0; slot < ControlService.CURRENT_DS4_CONTROLLER_LIMIT; slot++)
+                        {
+                            int deviceIndex = slot;
+                            DS4Device device = App.rootHub.DS4Controllers[deviceIndex];
+                            if (device != null && !Global.useTempProfile[deviceIndex] &&
+                                string.Equals(Global.ProfilePath[deviceIndex], basename, StringComparison.OrdinalIgnoreCase))
+                            {
+                                device.HaltReportingRunAction(() =>
+                                    Global.LoadProfile(deviceIndex, false, App.rootHub));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -3010,15 +3071,20 @@ Suspend support not enabled.", true);
                 dialog.DefaultExt = ".xml";
                 dialog.Filter = $"{ProductInfo.ProductName} Profile (*.xml)|*.xml";
                 dialog.Title = "Select Profile to Export File";
-                Stream stream;
-                Stream profile = new StreamReader(Global.appdatapath + "\\Profiles\\" + entity.Name + ".xml").BaseStream;
+                dialog.FileName = entity.Name + ".xml";
+                // The profile used to be opened before the dialog and left open
+                // on Cancel, which blocked saving, renaming or deleting it.
                 if (dialog.ShowDialog() == true)
                 {
-                    if ((stream = dialog.OpenFile()) != null)
+                    try
                     {
-                        profile.CopyTo(stream);
-                        profile.Close();
-                        stream.Close();
+                        File.Copy(Path.Combine(Global.appdatapath, "Profiles", entity.Name + ".xml"),
+                            dialog.FileName, true);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        MessageBox.Show(this, $"Thrum could not export \"{entity.Name}\": {ex.Message}",
+                            "Export Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 }
             }

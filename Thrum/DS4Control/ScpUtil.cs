@@ -1742,11 +1742,11 @@ namespace DS4Windows
 
         /// <summary>
         /// Whether virtual USB audio and microphone endpoints may be created.
-        /// Default off. This is the switch that keeps ordinary use off the
-        /// kernel path the confirmed usbip-win2 defect lives on, so it is only
-        /// ever turned on from a flow that showed
-        /// <see cref="ViiperExperimentalDisclosure.BuildAudioClassBody"/>.
-        /// Turning it off never tears down an endpoint that is already live.
+        /// Default on. The gate still refuses them on a usbip-win2 release
+        /// without the upstream fix for the teardown defect, and
+        /// <see cref="ViiperExperimentalDisclosure.AcknowledgementBody"/> says
+        /// so before any virtual device is created. Turning it off never tears
+        /// down an endpoint that is already live.
         /// </summary>
         public static bool AllowExperimentalAudioEndpoints
         {
@@ -2037,7 +2037,10 @@ namespace DS4Windows
 
         public static void DebouncingMsHasChanged()
         {
-            DebouncingMsChanged.Invoke(typeof(Global), EventArgs.Empty);
+            // No subscribers until a controller has connected this session;
+            // the unconditional Invoke crashed a profile save with a changed
+            // debounce value before any pad was plugged in.
+            DebouncingMsChanged?.Invoke(typeof(Global), EventArgs.Empty);
         }
 
         public static event EventHandler DebouncingMsChanged;
@@ -3069,7 +3072,7 @@ namespace DS4Windows
                 : profileName;
         }
 
-        private static bool ProfileFileExists(string profileName)
+        internal static bool ProfileFileExists(string profileName)
         {
             if (string.IsNullOrWhiteSpace(profileName))
             {
@@ -3630,6 +3633,14 @@ namespace DS4Windows
             }
             catch (UnauthorizedAccessException)
             {
+            }
+
+            if (string.IsNullOrEmpty(installedReleaseTag) &&
+                selectedRelease != null &&
+                ReleaseChannelPolicy.IsSameRelease(Global.exeDisplayVersion,
+                    selectedRelease.TagName))
+            {
+                installedReleaseTag = selectedRelease.TagName;
             }
 
             bool updateAvailable = ReleaseChannelPolicy.ShouldUpdate(
@@ -4214,12 +4225,12 @@ namespace DS4Windows
         public bool viiperExperimentalAcknowledged =
             DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED;
 
-        // Whether virtual USB audio/microphone endpoints may be created at all.
-        // Default off, and it stays off until a Production-tier driver exists:
-        // this is the only feature class that reaches the confirmed usbip-win2
-        // request-lifetime defect (upstream issue #181), and it is not needed
-        // for any controller function.
-        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = false;
+        // Whether virtual USB audio/microphone endpoints (game haptics and the
+        // pad speaker in Native PS5 mode) may be created. On by default. This
+        // is the only feature class that reaches the usbip-win2 request-lifetime
+        // defect (upstream issue #181), so the gate also requires a release that
+        // carries the upstream fix (0.9.8.0 or later) whatever this says.
+        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = true;
         public bool allowExperimentalAudioEndpoints =
             DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS;
 
@@ -4779,8 +4790,7 @@ namespace DS4Windows
             string path = Path.Combine(Global.appdatapath, "Profiles",
                 $"{proName}{Global.XML_EXTENSION}");
             string testStr = string.Empty;
-            XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
-                ProfileDTO.GetAttributeOverrides());
+            XmlSerializer serializer = ProfileDTO.SharedSerializer;
             using (Utf8StringWriter strWriter = new Utf8StringWriter())
             {
                 using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
@@ -4814,12 +4824,9 @@ namespace DS4Windows
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(path, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(path, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + path, false);
                 saved = false;
@@ -5745,8 +5752,7 @@ namespace DS4Windows
                     dcs.Reset();
 
                 //XmlReader xmlReader = XmlReader.Create()
-                XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
-                    ProfileDTO.GetAttributeOverrides());
+                XmlSerializer serializer = ProfileDTO.SharedSerializer;
                 using StringReader sr = new StringReader(profileXml);
                 try
                 {
@@ -8531,20 +8537,10 @@ namespace DS4Windows
             bool loaded = true;
             if (File.Exists(m_Profile))
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
-                using StreamReader sr = new StreamReader(m_Profile);
-                try
-                {
-                    AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
-                    dto.MapTo(this);
-
-                    PostProcessLoad();
-                }
-                catch (InvalidOperationException e)
-                {
-                    AppLogger.LogToGui("Failed to load Profiles.xml.", false);
-                    loaded = false;
-                }
+                loaded = TryLoadAppSettings(m_Profile) ||
+                    SettingsFileRecovery.Recover(m_Profile,
+                        ProductInfo.ProductName + "'s settings file (Profiles.xml)",
+                        TryLoadAppSettings);
             }
             else
             {
@@ -8569,6 +8565,24 @@ namespace DS4Windows
             }
 
             return loaded;
+        }
+
+        private bool TryLoadAppSettings(string path)
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
+            try
+            {
+                using StreamReader sr = new StreamReader(path);
+                AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
+                dto.MapTo(this);
+
+                PostProcessLoad();
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         public bool LoadOld()
@@ -8915,12 +8929,9 @@ namespace DS4Windows
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(m_Profile, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(m_Profile, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_Profile, false);
                 saved = false;
@@ -9645,16 +9656,18 @@ namespace DS4Windows
                 }
                 catch (InvalidOperationException e)
                 {
-                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {e.InnerException.Message}", false);
+                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {(e.InnerException ?? e).Message}", false);
                 }
                 catch (XmlException e)
                 {
-                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {e.InnerException.Message}", false);
+                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {(e.InnerException ?? e).Message}", false);
                 }
             }
             else
             {
-                AppLogger.LogToGui("LinkedProfiles.xml can't be found.", false);
+                // No file is the normal state until a profile is linked to a
+                // controller; logging it put an error-sounding line in every
+                // launch's log.
                 loaded = false;
             }
 

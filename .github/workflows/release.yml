@@ -13,15 +13,15 @@ jobs:
     #this makes it not run if tests failed.
     #needs: test
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
            ref: ${{ github.event.release.tag_name }}
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 10.0.x
     - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v6
       with:
         python-version: "3.10"
     - name: Restore dependencies
@@ -46,6 +46,10 @@ jobs:
         echo "BINARY_VERSION=$BINARY_VERSION" >> $GITHUB_ENV
         echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
       shell: bash
+    # A release is built from the tagged commit, which may never have been
+    # through the CI workflow; publish nothing that fails its own tests.
+    - name: Run tests (x64)
+      run: dotnet test .\Thrum.Tests\Thrum.Tests.csproj -c Release -p:Platform=x64
     - name: Build X64
       run: dotnet publish .\Thrum\Thrum.csproj -c Release -r win-x64 --self-contained true /p:platform=x64 /p:AssemblyVersion=${{ env.BINARY_VERSION }} /p:FileVersion=${{ env.BINARY_VERSION }} /p:Version=${{ env.PACKAGE_VERSION }} /p:InformationalVersion=${{ env.VERSION }} -o .\bin\x64\Release\output
     - name: Post-Build script X64
@@ -66,7 +70,17 @@ jobs:
           Move-Item -LiteralPath $source -Destination $asset -Force
         }
         "RELEASE_ASSET=$asset" >> $env:GITHUB_ENV
+    - name: Build installer X64
+      shell: pwsh
+      run: |
+        $name = if ("${{ env.VERSION }}" -like "VIIPER*") {
+          "Thrum_VIIPER_x64_setup"
+        } else {
+          "Thrum_${{ env.VERSION }}_x64_setup"
+        }
+        .\utils\build-installer.ps1 -PackageDir .\bin\x64\Release\Thrum -Version "${{ env.VERSION }}" -BinaryVersion "${{ env.BINARY_VERSION }}" -OutputDir .\bin\x64\Release -OutputBaseFilename $name -InstallInnoSetup
+        "RELEASE_INSTALLER=.\bin\x64\Release\$name.exe" >> $env:GITHUB_ENV
     - name: Publish release Build X64
-      run: gh release upload ${{github.event.release.tag_name}} ${{ env.RELEASE_ASSET }} --clobber
+      run: gh release upload ${{github.event.release.tag_name}} ${{ env.RELEASE_ASSET }} ${{ env.RELEASE_INSTALLER }} --clobber
       env:
         GITHUB_TOKEN: ${{ github.TOKEN }}

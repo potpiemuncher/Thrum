@@ -260,15 +260,24 @@ namespace DS4WinWPF.DS4Forms
             {
                 specialActVM.SetAction(tempAct);
                 valid = CheckActionValid(tempAct, typeId);
+                if (!valid && typeId == DS4Windows.SpecialAction.ActionTypeId.Program &&
+                    string.IsNullOrEmpty(launchProgVM.Filepath))
+                {
+                    MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                        "Choose the program to launch with Browse, then save again.",
+                        "Special Action", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             else if (specialActVM.ExistingName)
             {
                 MessageBox.Show(Properties.Resources.ActionExists);
             }
 
-            UnregisterDataContext();
+            // Only unbind when the editor is about to close. Unbinding on a
+            // failed save left the still-open editor with dead controls.
             if (valid)
             {
+                UnregisterDataContext();
                 bool editMode = specialActVM.EditMode;
                 if (editMode && specialActVM.SavedAction.name != specialActVM.ActionName)
                 {

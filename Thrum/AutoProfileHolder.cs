@@ -114,12 +114,9 @@ namespace DS4WinWPF
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(output_path, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(output_path, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 saved = false;
             }

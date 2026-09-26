@@ -31,6 +31,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         void SaveConfiguration();
         ViiperPrerequisiteStatus ReadViiperStatus(bool refreshDriver);
         bool LaunchViiperInstaller(ViiperPrerequisiteStatus status);
+        bool ViiperExperimentalAcknowledged { get; }
+        void RecordViiperExperimentalAcknowledgement(bool acknowledged);
+        bool HidHideInstalled { get; }
+        void OpenHidHideDownloadPage();
     }
 
     public abstract class FirstRunStepViewModel : INotifyPropertyChanged
@@ -211,17 +215,78 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         }
 
         public ViiperDriverStatusViewModel DriverStatus { get; }
-        public string StatusText => status?.DisplayText ?? "Status unavailable";
+
+        /// <summary>
+        /// Everything is installed and only the server is stopped. This step
+        /// reads status without starting the server, so that is the normal
+        /// state of a set-up machine here; it used to read "VIIPER server not
+        /// running" and invite a needless repair.
+        /// </summary>
+        public bool InstalledNotRunning => status != null &&
+            status.ViiperInstalled && status.UsbipInstalled && !status.ServerRunning;
+
+        public string StatusText => InstalledNotRunning
+            ? "VIIPER is installed"
+            : status?.DisplayText ?? "Status unavailable";
 
         public string ComponentText => status == null
             ? "Thrum could not read the VIIPER prerequisites."
-            : status.ComponentSummary;
+            : InstalledNotRunning
+                ? status.ComponentSummary + ". The server starts when Thrum starts."
+                : status.ComponentSummary;
 
         public bool SetupAvailable => status?.SetupScriptFound == true;
 
         public string SetupButtonText => status?.Ready == true
             ? "VIIPER is ready"
-            : "Install / Repair VIIPER";
+            : InstalledNotRunning
+                ? "Repair VIIPER"
+                : "Install / Repair VIIPER";
+
+        /// <summary>
+        /// The experimental-driver notice, in full. Setup used to install the
+        /// backend without ever asking for this consent, so every virtual
+        /// controller was refused until the user found the switch in Settings.
+        /// </summary>
+        public string AcknowledgementBody =>
+            ViiperExperimentalDisclosure.AcknowledgementBody;
+
+        public string AcknowledgementLabel =>
+            "I have read this and accept that virtual controllers run on an " +
+            "experimental kernel driver";
+
+        /// <summary>
+        /// Starts unticked; only the user's tick records consent, and it is
+        /// saved at once. The same setting as "Use virtual controllers
+        /// (experimental kernel driver)" in Settings.
+        /// </summary>
+        public bool Acknowledged
+        {
+            get => effects.ViiperExperimentalAcknowledged;
+            set
+            {
+                if (value == effects.ViiperExperimentalAcknowledged)
+                {
+                    return;
+                }
+
+                effects.RecordViiperExperimentalAcknowledgement(value);
+                RaiseAllChanged();
+            }
+        }
+
+        /// <summary>
+        /// HidHide is optional, and setup used to never mention it: nothing in
+        /// the first run said how to stop games seeing the physical pad as well
+        /// as the virtual one.
+        /// </summary>
+        public bool ShowHidHideOffer => !effects.HidHideInstalled;
+
+        public void OpenHidHideDownloadPage() => effects.OpenHidHideDownloadPage();
+
+        public string AcknowledgementNote => Acknowledged
+            ? "Saved. Virtual controllers are allowed. Audio and microphone endpoints stay off; they are a separate choice in Settings."
+            : "Leave this unticked to keep virtual controllers off. You can change it later in Settings.";
 
         public void Refresh(bool refreshDriver = true)
         {

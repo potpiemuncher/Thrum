@@ -505,23 +505,8 @@
                         </StackPanel>
                         <CheckBox x:Name="runAtStartCk" Content="{lex:Loc RunAtStartup}" Margin="{StaticResource spaceMargin}"
                               IsChecked="{Binding RunAtStartup}"
-                              ToolTip="{lex:Loc Resources:RunAtStartup}" Click="RunAtStartCk_Click"
+                              ToolTip="{lex:Loc Resources:RunAtStartup}"
                               Style="{StaticResource BridgeDescribedCheckBoxStyle}" />
-                        <Border x:Name="runAsGroupBox" Style="{StaticResource BridgeCardStyle}" Visibility="{Binding ShowRunStartPanel}"
-                                Margin="{StaticResource spaceMargin}">
-                            <StackPanel>
-                                <TextBlock Text="{lex:Loc RunAs}" Style="{StaticResource BridgeSectionTitleStyle}" />
-                                <StackPanel Orientation="Horizontal">
-                                    <StackPanel>
-                                        <RadioButton Content="{lex:Loc Program}" GroupName="RunAsOpt" Margin="{StaticResource spaceMargin}" IsChecked="{Binding RunStartProg}" />
-                                        <RadioButton Content="{lex:Loc Task}" GroupName="RunAsOpt" Margin="{StaticResource spaceMargin}"
-                                                     IsChecked="{Binding RunStartTask}" IsEnabled="{Binding CanWriteTask}" />
-                                    </StackPanel>
-                                    <Image x:Name="uacImg" Source="{Binding UACSource, Mode=OneTime}" Width="30" Height="30"
-                                       ToolTip="{lex:Loc Resources:UACTask}" Margin="20,0,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
                         <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                             <Label Content="{lex:Loc ShowNotifications}" />
                             <ComboBox MinWidth="100" SelectedIndex="{Binding ShowNotificationsIndex}" Margin="8,0,0,0">

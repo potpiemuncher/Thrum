@@ -468,7 +468,6 @@ namespace DS4Windows.InputDevices
         private long bluetoothCombinedSpeakerReportsWritten;
         private long bluetoothCombinedSpeakerWriteFailures;
         private long bluetoothRealtimeWriterDroppedReports;
-        private long bluetoothCombinedSpeakerStaleHapticsSilenced;
         private readonly object bluetoothSpeakerClockClaimLock = new object();
         private long bluetoothSpeakerClockLeaseExpiryTimestamp;
         private long bluetoothSpeakerClockActiveClaim;
@@ -506,8 +505,6 @@ namespace DS4Windows.InputDevices
             Interlocked.Read(ref bluetoothCombinedSpeakerWriteFailures);
         public long BluetoothRealtimeWriterDroppedReports =>
             Interlocked.Read(ref bluetoothRealtimeWriterDroppedReports);
-        public long BluetoothCombinedSpeakerStaleHapticsSilenced =>
-            Interlocked.Read(ref bluetoothCombinedSpeakerStaleHapticsSilenced);
         public long BluetoothCombinedHapticsPairedWrites =>
             Interlocked.Read(ref bluetoothCombinedHapticsPairedWrites);
         public long BluetoothCombinedSpeakerFallbackWrites =>
@@ -2058,16 +2055,33 @@ namespace DS4Windows.InputDevices
                         }
                         else
                         {
+                            if (exitInputThread)
+                            {
+                                // StopUpdate cancelled the pending read. Stopping
+                                // is not a disconnect: no warning and no second
+                                // removal racing Stop's own teardown.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
+                            // Switched off, flat or out of range ends here with
+                            // a timeout or ERROR_DEVICE_NOT_CONNECTED (1167);
+                            // the removal handler tells the user in plain words.
+                            // Any other read error is unexpected: still a warning.
+                            const int ErrorDeviceNotConnected = 1167;
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to timeout", true);
+                                ControlService.StartupDiag(Mac.ToString() + " disconnected due to timeout");
                             }
                             else
                             {
                                 int winError = Marshal.GetLastWin32Error();
                                 Console.WriteLine($"{Mac} {DateTime.UtcNow.ToString("o")} > disconnect due to read failure: {winError.ToString("x8")}");
                                 //Log.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
+                                if (winError == ErrorDeviceNotConnected)
+                                    ControlService.StartupDiag(Mac.ToString() + " disconnected due to read failure: " + winError);
+                                else
+                                    AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
                             }
 
                             exitInputThread = true;
@@ -2087,9 +2101,16 @@ namespace DS4Windows.InputDevices
                         HidDevice.ReadStatus res = hDevice.ReadFile(inputReport);
                         if (res != HidDevice.ReadStatus.Success)
                         {
+                            if (exitInputThread)
+                            {
+                                // Cancelled by StopUpdate: not a disconnect.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to timeout", true);
+                                ControlService.StartupDiag(Mac.ToString() + " disconnected due to timeout");
                             }
                             else
                             {
@@ -2190,7 +2211,8 @@ namespace DS4Windows.InputDevices
                         // Bit 0 of the status byte flags a headset in the 3.5mm jack;
                         // used for automatic BT audio routing.
                         headsetPlugged = (tempByte & 0x01) != 0;
-                        tempCharging = (tempByte & 0x08) != 0;
+                        tempCharging = IsOnExternalPower(
+                            inputReport[53 + reportOffset], tempByte);
                         if (tempCharging != charging)
                         {
                             charging = tempCharging;
@@ -2198,7 +2220,7 @@ namespace DS4Windows.InputDevices
                         }
 
                         tempByte = inputReport[53 + reportOffset];
-                        tempFull = (tempByte & 0x20) != 0; // Check for Full status
+                        tempFull = IsFullyCharged(tempByte);
                         maxBatteryValue = BATTERY_MAX;
                         if (tempFull)
                         {
@@ -3187,6 +3209,33 @@ namespace DS4Windows.InputDevices
             }
         }
 
+        // Charge state, the high nibble of the battery byte (status[0] in the
+        // Linux hid-playstation driver): 0 discharging, 1 charging, 2 full;
+        // 0xA, 0xB and 0xF are error states.
+        private const int ChargeStateCharging = 0x1;
+        private const int ChargeStateFull = 0x2;
+
+        /// <summary>
+        /// Whether the pad is on external power, for "Charging" in the UI.
+        /// Reads the charge state, so a pad on a wall charger counts. Bit 3 of
+        /// the byte after it, which DS4Windows used on its own, is set only
+        /// with a USB data connection to the PC; it stays as a fallback.
+        /// </summary>
+        internal static bool IsOnExternalPower(byte batteryByte, byte plugByte)
+        {
+            int chargeState = batteryByte >> 4;
+            return chargeState == ChargeStateCharging ||
+                chargeState == ChargeStateFull ||
+                (plugByte & 0x08) != 0;
+        }
+
+        /// <summary>
+        /// Full only for charge state 2. The old bit-5 test also matched the
+        /// error states 0xA, 0xB and 0xF and showed them as 100 %.
+        /// </summary>
+        internal static bool IsFullyCharged(byte batteryByte) =>
+            batteryByte >> 4 == ChargeStateFull;
+
         internal static bool IsValidBluetoothHapticsStreamerReport(
             byte[] report)
         {
@@ -3555,15 +3604,24 @@ namespace DS4Windows.InputDevices
                 return;
             }
 
+            // Take the actions out under the lock, then run them without it.
+            // An action can unplug the virtual pad, and
+            // ViiperOutDevice.Disconnect waits for VIIPER's feedback callbacks
+            // to finish; a callback forwarding a game's output report calls
+            // queueEvent, which needs this lock. Running actions under the lock
+            // deadlocked the input thread and the feedback thread when a
+            // profile switch changed the output type mid-game.
+            Action[] actions;
             lock (eventQueueLock)
             {
-                for (int index = 0, count = eventQueue.Count;
-                    index < count; index++)
-                {
-                    eventQueue.Dequeue().Invoke();
-                }
-
+                actions = eventQueue.ToArray();
+                eventQueue.Clear();
                 hasInputEvts = false;
+            }
+
+            foreach (Action action in actions)
+            {
+                action.Invoke();
             }
         }
 

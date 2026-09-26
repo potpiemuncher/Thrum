@@ -1302,7 +1302,6 @@ namespace DS4Windows
 
         private readonly Stopwatch rumbleAutostopTimer = new Stopwatch(); // Autostop timer to stop rumble motors if those are stuck in a rumble state
 
-        private byte outputPendCount = 0;
         private const int OUTPUT_MIN_COUNT_BT = 3;
         private byte[] outputBTCrc32Head = new byte[] { 0xA2 };
         protected readonly Stopwatch standbySw = new Stopwatch();
@@ -1512,6 +1511,23 @@ namespace DS4Windows
                         }
                         else
                         {
+                            if (exitInputThread)
+                            {
+                                // StopUpdate cancelled the pending read. Stopping
+                                // is not a disconnect: no warning, no "kick"
+                                // output report, and no Removal racing Stop's
+                                // own teardown.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
+                            // A pad that is switched off, runs flat or leaves
+                            // range ends here with a timeout or
+                            // ERROR_DEVICE_NOT_CONNECTED (1167). On_DS4Removal
+                            // already tells the user in plain words, so those
+                            // details go to the diagnostic log; any other read
+                            // error is unexpected and stays a warning.
+                            const int ErrorDeviceNotConnected = 1167;
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
                                 long lastInputTick = Interlocked.Read(
@@ -1519,21 +1535,23 @@ namespace DS4Windows
                                 long lastInputAge = lastInputTick == 0 ? -1 :
                                     Math.Max(0, Environment.TickCount64 -
                                         lastInputTick);
-                                AppLogger.LogToGui(Mac.ToString() +
+                                ControlService.StartupDiag(Mac.ToString() +
                                     " disconnected due to timeout" +
                                     $" (lastValidInputAgeMs={lastInputAge}, " +
                                     $"speaker={BluetoothSpeakerStreaming}, " +
                                     $"microphone={BluetoothMicrophoneStreaming}, " +
                                     $"effectWrites={BluetoothEffectReportsDuringAudio}, " +
-                                    $"effectDeferred={BluetoothEffectReportsDeferredDuringAudio})",
-                                    true);
+                                    $"effectDeferred={BluetoothEffectReportsDeferredDuringAudio})");
                             }
                             else
                             {
                                 int winError = Marshal.GetLastWin32Error();
                                 Console.WriteLine($"{Mac} {DateTime.UtcNow.ToString("o")}> disconnect due to read failure: {winError.ToString("x8")}");
                                 //Log.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
+                                if (winError == ErrorDeviceNotConnected)
+                                    ControlService.StartupDiag(Mac.ToString() + " disconnected due to read failure: " + winError);
+                                else
+                                    AppLogger.LogToGui(Mac.ToString() + " disconnected due to read failure: " + winError, true);
                             }
 
                             readWaitEv.Reset();
@@ -1555,9 +1573,16 @@ namespace DS4Windows
                             conType == ConnectionType.BT ? READ_STREAM_TIMEOUT : uint.MaxValue);
                         if (res != HidDevice.ReadStatus.Success)
                         {
+                            if (exitInputThread)
+                            {
+                                // Cancelled by StopUpdate: not a disconnect.
+                                readWaitEv.Reset();
+                                break;
+                            }
+
                             if (res == HidDevice.ReadStatus.WaitTimedOut)
                             {
-                                AppLogger.LogToGui(Mac.ToString() + " disconnected due to timeout", true);
+                                ControlService.StartupDiag(Mac.ToString() + " disconnected due to timeout");
                             }
                             else
                             {
@@ -1938,12 +1963,39 @@ namespace DS4Windows
             debouncer.AddDebouncer(nameof(DS4State.DpadDown));
             debouncer.AddDebouncer(nameof(DS4State.DpadLeft));
             debouncer.AddDebouncer(nameof(DS4State.DpadRight));
-            Global.DebouncingMsChanged += (_, _) =>
+            // The event is static and outlives this device. Each connection
+            // used to add a closure over the device that was never removed, so
+            // every disconnected controller stayed reachable for the rest of
+            // the session. Now the handler holds the device weakly, replaces
+            // this device's previous subscription, and removes itself once the
+            // device has been collected.
+            if (debouncingMsChangedHandler != null)
             {
-                debouncer.SetDuration(TimeSpan.FromMilliseconds(Global.DebouncingMs[deviceSlotNumber]));
+                Global.DebouncingMsChanged -= debouncingMsChangedHandler;
+            }
+
+            WeakReference<Debouncer> weakDebouncer = new WeakReference<Debouncer>(debouncer);
+            WeakReference<DS4Device> weakDevice = new WeakReference<DS4Device>(this);
+            EventHandler handler = null;
+            handler = (_, _) =>
+            {
+                if (weakDebouncer.TryGetTarget(out Debouncer liveDebouncer) &&
+                    weakDevice.TryGetTarget(out DS4Device liveDevice))
+                {
+                    liveDebouncer.SetDuration(TimeSpan.FromMilliseconds(
+                        Global.DebouncingMs[liveDevice.deviceSlotNumber]));
+                }
+                else
+                {
+                    Global.DebouncingMsChanged -= handler;
+                }
             };
+            debouncingMsChangedHandler = handler;
+            Global.DebouncingMsChanged += handler;
             return debouncer;
         }
+
+        private EventHandler debouncingMsChangedHandler;
 
         private unsafe void PrepareOutputReportInner(ref bool change,
             ref bool haptime,
@@ -2056,7 +2108,6 @@ namespace DS4Windows
                 return;
             }
 
-            //bool output = outputPendCount > 0, change = force;
             bool change = force;
             // Speaker streaming writes an audio report every 4 ms. A
             // microphone-only stream is inbound, so it still needs an A1

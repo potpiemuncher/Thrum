@@ -4,3 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+  # Keeps workflow actions off deprecated runtimes; every CI run warned
+  # about Node 12/20 actions before the pre-release review bumped them.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

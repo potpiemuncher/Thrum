@@ -11,7 +11,7 @@ jobs:
   action:
     runs-on: ubuntu-latest
     steps:
-      - uses: dessant/support-requests@v2
+      - uses: dessant/support-requests@v5
         with:
           github-token: ${{ github.token }}
           support-label: 'out-of-scope'
@@ -19,5 +19,6 @@ jobs:
             :wave: @{issue-author}, unfortunately this topic is out of scope 
             of the projects' overall goals and will not be worked on.
           close-issue: true
+          issue-close-reason: 'completed'
           lock-issue: true
           issue-lock-reason: 'off-topic'

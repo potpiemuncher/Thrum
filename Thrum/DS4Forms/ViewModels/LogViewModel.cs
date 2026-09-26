@@ -46,6 +46,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         //private object _colLockobj = new object();
         private ReaderWriterLockSlim _logListLocker = new ReaderWriterLockSlim();
         private ObservableCollection<LogItem> logItems = new ObservableCollection<LogItem>();
+        // The Log tab kept every line for the life of the process. The full
+        // history is in the log file; the tab keeps the most recent lines.
+        private const int MaxLogItems = 10000;
         private readonly ObservableCollection<LogCategoryFilterOption>
             categoryOptions = new ObservableCollection<LogCategoryFilterOption>();
         private readonly HashSet<LogCategory> categoriesPresent =
@@ -217,6 +220,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             LogItem item = CreateLogItem(e.Time, e.Data, e.Warning);
             _logListLocker.EnterWriteLock();
             logItems.Add(item);
+            if (logItems.Count > MaxLogItems)
+            {
+                logItems.RemoveAt(0);
+            }
             _logListLocker.ExitWriteLock();
             //lock (_colLockobj)
             //{

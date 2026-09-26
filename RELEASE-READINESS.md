@@ -295,7 +295,7 @@ them. Tick each item; note the controller and connection.
 - [ ] C8 Trigger Lab: save a preset in the profile editor, then another on the main tab; both exist after restart.
 - [ ] C9 Hide DS4 Controller / Native PS5 mode with and without HidHide. With Steam (or another controller app) open first and HidHide not installed: no UAC prompt; the log says the controller is in shared mode and names Steam; the tray says so once; closing Steam and reconnecting hides it.
 - [ ] C10 Settings > Driver Setup: no UAC prompt; the HidHide and FakerInput buttons open their release pages; closing the window restarts the service if it was running.
-- [ ] C11 With a DualSense connected and Hide DS4 Controller off, turn on Native PS5 mode: the controller is back within about a second, not 25 s. With Verbose logging on, the log shows no pause after "Starting...".
+- [x] C11 With a DualSense connected and Hide DS4 Controller off, turn on Native PS5 mode: the controller is back within about a second, not 25 s. With Verbose logging on, the log shows no pause after "Starting...". *Passed on the owner's PC (2026-09-26, installed build 0b030b3): back in 1–2 s. The log was not checked.*
 
 **Audio**
 - [ ] A1 Audio Haptics on a Bluetooth DualSense, System audio: haptics follow game audio.

@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:DS4WinWPF.DS4Forms.ViewModels"
+        xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
         mc:Ignorable="d"
         Title="Set up Thrum"
         Width="760" Height="620" MinWidth="620" MinHeight="520"
@@ -183,8 +184,11 @@
                     <StackPanel>
                         <TextBlock Text="Experimental kernel driver"
                                    Style="{StaticResource BridgeSectionTitleStyle}" />
+                        <!-- PassAtEdges: the page scrolls when the wheel is over
+                             this box and the box has nothing left to scroll. -->
                         <ScrollViewer MaxHeight="200" Margin="0,8,0,10"
                                       VerticalScrollBarVisibility="Auto"
+                                      controls:NestedScrollWheel.PassAtEdges="True"
                                       Focusable="True" IsTabStop="True" TabIndex="32"
                                       AutomationProperties.Name="Experimental kernel driver notice">
                             <TextBlock Text="{Binding AcknowledgementBody}"

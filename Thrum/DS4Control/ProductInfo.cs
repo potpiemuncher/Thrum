@@ -149,6 +149,14 @@ namespace DS4Windows
             ProductName + "_IPCResultData_SingleTaskMtx";
 
         /// <summary>
+        /// Held for as long as the app runs, so the installer and uninstaller
+        /// (<c>installer/Thrum.iss</c>, <c>AppMutex</c>) can ask for Thrum to be
+        /// closed before they replace or remove its files. Installers already
+        /// published check this exact name; a test keeps the two in step.
+        /// </summary>
+        public const string InstallerAppMutexName = ProductName + "_AppRunning";
+
+        /// <summary>
         /// Name of the Task Scheduler task used for the "run at logon,
         /// elevated" startup option. Lookup, creation and deletion all use this
         /// exact string, so a change orphans any task an older build created:
@@ -294,6 +302,13 @@ namespace DS4Windows
         /// </summary>
         public const string InstalledReleaseFileName =
             ExeBaseName + ".release";
+
+        /// <summary>
+        /// Where users get HidHide (optional; hides the physical pad from
+        /// games). Thrum links to it and never downloads or runs it itself.
+        /// </summary>
+        public const string HidHideDownloadPage =
+            "https://github.com/nefarius/HidHide/releases/latest";
 
         /// <summary>
         /// <c>User-Agent</c> sent with GitHub API requests. GitHub rejects

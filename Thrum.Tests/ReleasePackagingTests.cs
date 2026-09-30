@@ -29,7 +29,7 @@ namespace DS4WindowsTests;
 /// GitHub Actions workflows ships a self-contained binary.
 ///
 /// <para>Thrum's CI and release workflows currently publish framework-dependent
-/// artifacts, so a machine without the .NET 8 Desktop Runtime cannot start
+/// artifacts, so a machine without the .NET Desktop Runtime cannot start
 /// <c>Thrum.exe</c> at all. Every publish step must carry <c>--self-contained
 /// true</c> and a runtime identifier such as <c>-r win-x64</c>.</para>
 /// </summary>

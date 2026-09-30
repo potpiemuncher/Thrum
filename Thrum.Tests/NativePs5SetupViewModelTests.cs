@@ -205,8 +205,27 @@ public class NativePs5SetupViewModelTests
         StringAssert.Contains(sheet.Step3HapticsNote, "USB");
     }
 
+    /// <summary>
+    /// With the endpoints on (the default), step 3 is where most users stop,
+    /// so it also says that Windows may move the default speaker and
+    /// microphone to the virtual pad, and where to put them back.
+    /// </summary>
     [TestMethod]
-    public void Step4_IsOptionalAndCarriesTheRiskSentenceAndTheTakeoverWarning()
+    public void Step3_WithAudioEndpointsOnSaysWhatWindowsDoes()
+    {
+        NativePs5SetupViewModel sheet = Opened(Inputs(driverKnown: true,
+            backendReady: true, acknowledged: true, isOn: true,
+            audioAllowed: true));
+
+        StringAssert.Contains(sheet.Step3HapticsNote, "over Bluetooth");
+        StringAssert.Contains(sheet.Step3HapticsNote, "on by default");
+        StringAssert.Contains(sheet.Step3HapticsNote, "Sound settings");
+        Assert.IsFalse(sheet.Step3HapticsNote.Contains("experimental",
+            StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void Step4_IsOnByDefaultAndCarriesTheSummaryAndTheTakeoverWarning()
     {
         NativePs5SetupViewModel sheet = Opened(Inputs(driverKnown: true,
             backendReady: true, acknowledged: true, isOn: true));
@@ -216,11 +235,11 @@ public class NativePs5SetupViewModelTests
         Assert.AreEqual(NativePs5SetupAction.Done, sheet.PrimaryAction);
         Assert.IsTrue(sheet.PrimaryEnabled);
         Assert.IsFalse(sheet.AudioEndpointsAllowed);
-        StringAssert.Contains(sheet.FooterHint, "Optional");
-        StringAssert.Contains(sheet.AudioConsentNote, "every time");
+        StringAssert.Contains(sheet.FooterHint, "On by default");
+        StringAssert.Contains(sheet.AudioConsentNote, "On by default");
+        StringAssert.Contains(sheet.Step4Intro, "on by default");
         Assert.AreEqual(ViiperExperimentalDisclosure.AudioClassSummary,
             sheet.AudioClassSummary);
-        Assert.AreEqual("Experimental, unverified", sheet.Step4Badge);
         StringAssert.Contains(NativePs5SetupViewModel.AudioDefaultTakeoverWarningText,
             ProductInfo.ProductName);
         StringAssert.Contains(NativePs5SetupViewModel.AudioDefaultTakeoverWarningText,

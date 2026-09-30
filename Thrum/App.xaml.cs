@@ -69,6 +69,8 @@ namespace DS4WinWPF
         private bool exitComThread = false;
         private const string SingleAppComEventName = DS4Windows.ProductInfo.SingleInstanceEventName;
         private EventWaitHandle threadComEvent = null;
+        // Checked by the installer and uninstaller; see ProductInfo.InstallerAppMutexName.
+        private static Mutex installerAppMutex;
         private Timer collectTimer;
         private static LoggerHolder logHolder;
 
@@ -171,6 +173,7 @@ namespace DS4WinWPF
 
             // Allow sleep time durations less than 16 ms
             DS4Windows.Util.timeBeginPeriod(1);
+            DS4Windows.Util.KeepTimerResolutionWhenHidden();
 
             // Create the Event handle
             try
@@ -183,6 +186,15 @@ namespace DS4WinWPF
                 runShutdown = false;
                 Current.Shutdown();
                 return;
+            }
+
+            try
+            {
+                installerAppMutex = new Mutex(false, DS4Windows.ProductInfo.InstallerAppMutexName);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is WaitHandleCannotBeOpenedException)
+            {
+                // Only the installer's "close Thrum first" check depends on it.
             }
 
             CreateTempWorkerThread();
@@ -301,10 +313,22 @@ namespace DS4WinWPF
                 logger.Info("No config found. Creating default config");
                 AttemptSave();
 
-                DS4Windows.Global.SaveAsNewProfile(0, "Default");
+                // First run is inferred from a marker file, so it can also be
+                // true over surviving settings (marker deleted, or present in
+                // both the portable and app-data folders). Create only what is
+                // missing: this used to overwrite an existing Default profile
+                // and point every controller back at it.
+                if (!BootstrapProfileExists("Default"))
+                {
+                    DS4Windows.Global.SaveAsNewProfile(0, "Default");
+                }
+
                 for (int i = 0; i < DS4Windows.ControlService.MAX_DS4_CONTROLLER_COUNT; i++)
                 {
-                    DS4Windows.Global.ProfilePath[i] = DS4Windows.Global.OlderProfilePath[i] = "Default";
+                    if (!BootstrapProfileExists(DS4Windows.Global.ProfilePath[i]))
+                    {
+                        DS4Windows.Global.ProfilePath[i] = DS4Windows.Global.OlderProfilePath[i] = "Default";
+                    }
                 }
 
                 logger.Info("Default config created");
@@ -352,6 +376,23 @@ namespace DS4WinWPF
             window.Show();
             StartupDiag(logger, "MainWindow.Show end");
             window.IsInitialShow = false;
+            DS4Windows.ViiperSetupManager.AllowRestartAfterSetup();
+            string settingsNotice = DS4Windows.SettingsFileRecovery.TakePendingNotice();
+            if (settingsNotice != null)
+            {
+                if (window.IsVisible)
+                {
+                    MessageBox.Show(window, settingsNotice,
+                        DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                else
+                {
+                    MessageBox.Show(settingsNotice,
+                        DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
 
             // Set up hooks for IPC command calls
             HwndSource source = PresentationSource.FromVisual(window) as HwndSource;
@@ -534,6 +575,7 @@ namespace DS4WinWPF
                     Dispatcher.Invoke(() =>
                     {
                         rootHub?.PrepareAbort();
+                        ShowCrashNotice();
                         CleanShutdown();
                     });
                 }
@@ -548,8 +590,38 @@ namespace DS4WinWPF
                     logger.Error(exp.ToString());
 
                     rootHub?.PrepareAbort();
+                    ShowCrashNotice();
                     CleanShutdown();
                 }
+            }
+        }
+
+        private static int crashNoticeShown;
+
+        // A crash used to close the app with no message at all, so users had
+        // nothing to report. Shown once, after the error is in the log.
+        private static void ShowCrashNotice()
+        {
+            if (Interlocked.Exchange(ref crashNoticeShown, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                LogManager.Flush(TimeSpan.FromSeconds(2));
+                string logFolder = System.IO.Path.Combine(
+                    DS4Windows.Global.appdatapath, "Logs");
+                MessageBox.Show(
+                    $"{DS4Windows.ProductInfo.ProductName} ran into a problem it could not recover from and has to close.\n\n" +
+                    $"The details were saved to the log file in:\n{logFolder}\n\n" +
+                    "If you report the problem, please attach that file.",
+                    DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            catch (Exception)
+            {
+                // Nothing more can be done while the process is going down.
             }
         }
 
@@ -604,6 +676,26 @@ namespace DS4WinWPF
 
 
             return result;
+        }
+
+        private static bool BootstrapProfileExists(string profileName)
+        {
+            if (string.IsNullOrWhiteSpace(profileName))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(Path.Combine(DS4Windows.Global.appdatapath,
+                    "Profiles", profileName + ".xml"));
+            }
+            catch (Exception)
+            {
+                // A remembered name with illegal path characters is not a
+                // profile that can be loaded; treat it as missing.
+                return false;
+            }
         }
 
         private void AttemptSave()
@@ -698,13 +790,6 @@ namespace DS4WinWPF
             else if (parser.ReenableDevice)
             {
                 DS4Windows.DS4Devices.reEnableDevice(parser.DeviceInstanceId);
-                runShutdown = false;
-                exitApp = true;
-                Current.Shutdown();
-            }
-            else if (parser.Runtask)
-            {
-                StartupMethods.LaunchOldTask();
                 runShutdown = false;
                 exitApp = true;
                 Current.Shutdown();
@@ -1131,6 +1216,7 @@ namespace DS4WinWPF
                 LaunchPendingRestart();
 
                 if (ipcClassNameMMF != null) ipcClassNameMMF.Dispose();
+                installerAppMutex?.Dispose();
 
                 LogManager.Flush();
                 LogManager.Shutdown();

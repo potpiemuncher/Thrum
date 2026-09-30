@@ -39,4 +39,16 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
+  <!--
+    Zero-warning gate. GitHub Actions sets CI=true, so any compiler, analyzer,
+    MSBuild or NuGet warning (including a newly published vulnerability in a
+    dependency) fails the CI and release builds instead of shipping quietly.
+    Local builds still report warnings without failing, so a work-in-progress
+    change is not blocked on its first compile.
+  -->
+  <PropertyGroup Condition="'$(CI)' == 'true'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
+  </PropertyGroup>
+
 </Project>

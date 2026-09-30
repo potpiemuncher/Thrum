@@ -36,9 +36,8 @@ namespace DS4WindowsTests;
 /// <para>The spelling matters because <c>Global.exedirpath</c> comes from
 /// <c>DirectoryInfo.FullName</c>, which keeps its trailing separator at a drive
 /// root. <c>$@"{dir}\task.bat"</c> and <c>Path.Combine(dir, "task.bat")</c>
-/// agree everywhere except there, and where they disagree
-/// <c>DeleteOldTaskEntry</c> compares the registered action against a string it
-/// can never match and deletes a healthy task on every settings load.</para>
+/// agree everywhere except there, and where they disagree the file the old
+/// logon task ran is never found, so removing the task leaves it behind.</para>
 /// </summary>
 [TestClass]
 public class StartupTaskBatTests
@@ -208,8 +207,8 @@ public class StartupTaskBatTests
         Assert.IsFalse(ContainsText(haystacks, @"\task.bat"),
             "something in the application composes the task.bat path with a " +
             "literal separator instead of Path.Combine. That reintroduces the " +
-            "drive-root mismatch in DeleteOldTaskEntry described on " +
-            "StartupMethods.TaskBatPath. Use StartupMethods.TaskBatPath.");
+            "drive-root mismatch described on StartupMethods.TaskBatPath. " +
+            "Use StartupMethods.TaskBatPath.");
 
         // Negative control: the scan has to be able to find the bare filename,
         // or its failure to find the prefixed form proves nothing.

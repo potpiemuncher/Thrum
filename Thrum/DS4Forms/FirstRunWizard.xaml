@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:DS4WinWPF.DS4Forms.ViewModels"
+        xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
         mc:Ignorable="d"
         Title="Set up Thrum"
         Width="760" Height="620" MinWidth="620" MinHeight="520"
@@ -83,9 +84,9 @@
         <DataTemplate DataType="{x:Type vm:FirstRunImportStepViewModel}">
             <Border Style="{StaticResource BridgeCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="Existing DS4Windows settings were found"
+                    <TextBlock Text="Settings from DS4Windows were found"
                                Style="{StaticResource BridgeSectionTitleStyle}" />
-                    <TextBlock Text="Next opens the existing import review. Import is the default action there; Start fresh or Escape declines the one-time offer. The importer skips every file already present and never changes the source."
+                    <TextBlock Text="DS4Windows, the program Thrum is based on, has settings on this PC (in %APPDATA%\DS4Windows). Thrum can copy them so you do not have to set them up again. Next shows what would be copied: choose Import, or Start fresh to skip. This is offered once. Files Thrum already has are kept, and the DS4Windows settings are not changed."
                                Style="{StaticResource BridgeSectionDescriptionStyle}"
                                Margin="0,4,0,10" />
                     <ItemsControl ItemsSource="{Binding SummaryLines}"
@@ -176,6 +177,49 @@
                                     Margin="8,0,0,0"
                                     Click="ViiperRefresh_Click"
                                     TabIndex="31" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource BridgeCardStyle}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Experimental kernel driver"
+                                   Style="{StaticResource BridgeSectionTitleStyle}" />
+                        <!-- PassAtEdges: the page scrolls when the wheel is over
+                             this box and the box has nothing left to scroll. -->
+                        <ScrollViewer MaxHeight="200" Margin="0,8,0,10"
+                                      VerticalScrollBarVisibility="Auto"
+                                      controls:NestedScrollWheel.PassAtEdges="True"
+                                      Focusable="True" IsTabStop="True" TabIndex="32"
+                                      AutomationProperties.Name="Experimental kernel driver notice">
+                            <TextBlock Text="{Binding AcknowledgementBody}"
+                                       Style="{StaticResource BridgeSectionDescriptionStyle}" />
+                        </ScrollViewer>
+                        <!-- Content is a string: this style's template shows
+                             Content as text, so an element here rendered as its
+                             type name. -->
+                        <CheckBox IsChecked="{Binding Acknowledged}"
+                                  Content="{Binding AcknowledgementLabel}"
+                                  Style="{StaticResource BridgeDescribedCheckBoxStyle}"
+                                  AutomationProperties.Name="{Binding AcknowledgementLabel}"
+                                  TabIndex="33" />
+                        <TextBlock Text="{Binding AcknowledgementNote}"
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="24,4,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource BridgeCardStyle}" Margin="0,12,0,0"
+                        Visibility="{Binding ShowHidHideOffer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Optional: HidHide"
+                                   Style="{StaticResource BridgeSectionTitleStyle}" />
+                        <TextBlock Text="HidHide hides the physical controller from games, so a game that sees the virtual controller does not also see the real one and get double input. Thrum works without it. Install it from its own release page, then restart Thrum."
+                                   Style="{StaticResource BridgeSectionDescriptionStyle}"
+                                   Margin="0,4,0,10" />
+                        <WrapPanel>
+                            <Button Content="Get HidHide"
+                                    Style="{StaticResource BridgeSecondaryButtonStyle}"
+                                    Click="HidHideDownload_Click"
+                                    TabIndex="34" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>

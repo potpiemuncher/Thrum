@@ -16,15 +16,33 @@ permissions:
   contents: read
 
 jobs:
+  lint-scripts:
+    # The setup script runs elevated on users' machines; the release and
+    # measurement scripts are part of the release procedure. Warnings here
+    # fail the build like compiler warnings do.
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint PowerShell scripts (PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force
+          $results = @(Get-ChildItem -Path extras, utils -Recurse -Filter *.ps1 |
+            ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Severity Warning, Error })
+          $results | Format-Table ScriptName, Line, RuleName, Message -AutoSize -Wrap | Out-String -Width 220 | Write-Host
+          if ($results.Count -gt 0) { throw "PSScriptAnalyzer reported $($results.Count) warning(s)." }
+
   test:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -40,15 +58,15 @@ jobs:
       matrix:
         platform: [ x64 ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
@@ -78,10 +96,22 @@ jobs:
 
       - name: Upload ${{ matrix.platform }} artifact
         id: upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Thrum_${{ env.VERSION }}_${{ matrix.platform }}
           path: .\bin\${{ matrix.platform }}\Release\artifact
+          if-no-files-found: error
+
+      - name: Build ${{ matrix.platform }} installer
+        shell: pwsh
+        run: .\utils\build-installer.ps1 -PackageDir .\bin\${{ matrix.platform }}\Release\Thrum -Version ${{ env.VERSION }} -OutputDir .\bin\${{ matrix.platform }}\Release\installer -InstallInnoSetup
+
+      - name: Upload ${{ matrix.platform }} installer
+        id: upload-installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: Thrum_${{ env.VERSION }}_${{ matrix.platform }}_setup
+          path: .\bin\${{ matrix.platform }}\Release\installer\*.exe
           if-no-files-found: error
 
       - name: Publish artifact link to run summary
@@ -92,4 +122,6 @@ jobs:
           echo "Version: \`${{ env.VERSION }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "[Download Thrum_${{ env.VERSION }}_${{ matrix.platform }} (contains Thrum folder)](${{ steps.upload.outputs.artifact-url }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Download Thrum_${{ env.VERSION }}_${{ matrix.platform }}_setup (installer)](${{ steps.upload-installer.outputs.artifact-url }})" >> "$GITHUB_STEP_SUMMARY"
 

@@ -117,6 +117,45 @@ namespace DS4Windows
                 currentVersion < selectedVersion;
         }
 
+        /// <summary>
+        /// True when the person chose "Skip this version" for exactly this
+        /// release. The tag is compared as text, not as a parsed number:
+        /// "v0.9.0-beta.2" and "v0.9.0-beta.3" parse to the same 0.9.0, and
+        /// skipping one beta must not hide the next.
+        /// </summary>
+        public static bool IsSkippedRelease(string offeredTag, string skippedTag)
+        {
+            return !string.IsNullOrWhiteSpace(offeredTag) &&
+                !string.IsNullOrWhiteSpace(skippedTag) &&
+                string.Equals(offeredTag.Trim(), skippedTag.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// True when the running build's display version is the release the
+        /// tag names, e.g. "0.9.0-beta.2 (base: ...)" and "v0.9.0-beta.2".
+        /// Builds made outside the release workflow (CI artifacts, local
+        /// builds) have no release marker file, and were offered the very
+        /// release they are as an update.
+        /// </summary>
+        public static bool IsSameRelease(string displayVersion, string tag)
+        {
+            if (string.IsNullOrWhiteSpace(displayVersion) ||
+                string.IsNullOrWhiteSpace(tag))
+            {
+                return false;
+            }
+
+            string current = displayVersion.Trim().Split(' ', '+')[0];
+            string released = tag.Trim();
+            if (released.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                released = released.Substring(1);
+            }
+
+            return string.Equals(current, released, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static bool TryParseReleaseVersion(string versionText, out Version version)
         {
             version = new Version(0, 0, 0);

@@ -53,6 +53,11 @@ namespace DS4Windows
         private readonly GameBarIntegration gameBarIntegration = new GameBarIntegration();
         private readonly object hidHideSessionLock = new object();
         private readonly HashSet<string> hidHideSessionManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Device paths whose exclusive open failed during the last scan, and
+        // the controllers already announced in the tray this session.
+        private readonly object exclusiveRefusalLock = new object();
+        private readonly HashSet<string> exclusiveOpenRefusedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> exclusiveRefusalTrayShown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> hidHidePersistentManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool? hidHideActiveStateBeforeManagedSession;
         // Might be useful for ScpVBus build
@@ -246,7 +251,7 @@ namespace DS4Windows
             //outputslotMan.SlotAssigned += OutputslotMan_SlotAssigned;
             deviceOptions = Global.DeviceOptions;
 
-            DS4Devices.RequestElevation += DS4Devices_RequestElevation;
+            DS4Devices.ExclusiveOpenRefused += DS4Devices_ExclusiveOpenRefused;
             DS4Devices.PrepareDS4Init = PrepareDS4DeviceInit;
             DS4Devices.PostDS4Init = PostDS4DeviceInit;
             DS4Devices.PreparePendingDevice = CheckForSupportedDevice;
@@ -303,7 +308,7 @@ namespace DS4Windows
         {
             oscCallback = delegate (OscPacket packet)
             {
-                var messageReceived = (OscMessage)packet;
+                var messageReceived = packet as OscMessage;
 
                 // If typecase fails, exit
                 if (messageReceived == null)
@@ -357,7 +362,7 @@ namespace DS4Windows
 
                 if (command[3] == "battery")
                 {
-                    if (!isUsingOSCSender())
+                    if (!isUsingOSCSender() || oscSender == null)
                     {
                         AppLogger.LogToGui("Battery level requested, but the OSC Sender isn't active. Turn it on in Settings.", false);
                     }
@@ -607,8 +612,10 @@ namespace DS4Windows
             {
                 stickMouseFakerInputMissingNoticeShown = true;
                 string helpURL = "https://github.com/Ryochan7/FakerInput/";
+                // Log line only. The tray toast that accompanied it returned on
+                // every launch (the "shown" flag is per session), which is a
+                // toast on a normal launch for an optional driver.
                 LogDebug($"Stick mouse profile detected, but FakerInput is not installed. Install FakerInput to expose a persistent virtual mouse and avoid hidden cursor behavior on couch/TV setups: {helpURL}");
-                AppLogger.LogToTray("Stick mouse works best with FakerInput installed for a persistent virtual mouse.");
             }
         }
 
@@ -755,29 +762,15 @@ namespace DS4Windows
             eventDispatchThread = null;
         }
 
-        private void DS4Devices_RequestElevation(RequestElevationArgs args)
+        private void DS4Devices_ExclusiveOpenRefused(string devicePath)
         {
-            // Launches an elevated child process to re-enable device
-            ProcessStartInfo startInfo =
-                new ProcessStartInfo(Global.exelocation);
-            startInfo.Verb = "runas";
-            startInfo.Arguments = "re-enabledevice " + args.InstanceId;
-            startInfo.UseShellExecute = true;
-
-            try
+            // Called during the device scan. The device is opened in shared
+            // mode; the warning is given once it is known which controller it
+            // is and whether HidHide hides it anyway.
+            lock (exclusiveRefusalLock)
             {
-                Process child = Process.Start(startInfo);
-                if (!child.WaitForExit(30000))
-                {
-                    child.Kill();
-                }
-                else
-                {
-                    args.StatusCode = child.ExitCode;
-                }
-                child.Dispose();
+                exclusiveOpenRefusedPaths.Add(devicePath);
             }
-            catch { }
         }
 
         public void CheckHidHidePresence(string ExePath = "", string ExeName = "Autoprofile Exe", bool AddExe = true) // Default value for D4W Startup
@@ -1185,8 +1178,10 @@ namespace DS4Windows
                 ChangeExclusiveStatus(device);
                 StartupDiag($"HidHide virtual-output containment ready index={index} type={contType}");
             }
-            else if (ViiperOutDevice.IsViiperType(contType))
+            else if (ViiperOutDevice.IsViiperType(contType) && !device.isExclusive())
             {
+                // An exclusive open already hides the pad from games; the
+                // warning used to fire on every connect in that case too.
                 LogDebug($"VIIPER {contType} output is active but the physical {device.DisplayName} could not be hidden with HidHide. Games may detect both the physical controller and the virtual controller.", true);
             }
         }
@@ -1326,11 +1321,28 @@ namespace DS4Windows
         {
             if (state)
             {
-                oscListener = new UDPListener(Global.getOSCServerPortNum(), callback: oscCallback);
+                // The callback runs on SharpOSC's listener thread, so an
+                // exception there ended the whole app: an OSC bundle failed the
+                // cast, and a short address, a missing argument or an
+                // out-of-range controller number indexed past an array -
+                // anything on the network can send those. An unreadable packet
+                // is now dropped and reported once per session. A port that is
+                // already taken no longer aborts the controller service start.
+                try
+                {
+                    oscListener = new UDPListener(Global.getOSCServerPortNum(),
+                        callback: GuardedOscCallback);
+                }
+                catch (Exception e)
+                {
+                    oscListener = null;
+                    AppLogger.LogToGui($"The OSC server could not start on port {Global.getOSCServerPortNum()}: {e.Message}", true);
+                    return;
+                }
 
                 AppLogger.LogToGui("OSC LISTENER STARTED AT PORT: " + Global.getOSCServerPortNum(), false);
             }
-            else
+            else if (oscListener != null)
             {
                 oscListener.Close();
                 oscListener = null;
@@ -1338,12 +1350,41 @@ namespace DS4Windows
             }
         }
 
+        private int oscUnreadablePacketLogged;
+
+        private void GuardedOscCallback(OscPacket packet)
+        {
+            try
+            {
+                oscCallback(packet);
+            }
+            catch (Exception e)
+            {
+                if (Interlocked.Exchange(ref oscUnreadablePacketLogged, 1) == 0)
+                {
+                    AppLogger.LogToGui("Ignored an OSC message that could not be read: " + e.Message, false);
+                }
+            }
+        }
+
         public void ChangeOSCSenderStatus(bool state)
         {
             if (state)
             {
+                // A bad address or port used to throw out of ControlService.Start
+                // and leave the Start/Stop button disabled.
+                try
+                {
+                    oscSender = new UDPSender(Global.getOSCSenderAddress(), Global.getOSCSenderPortNum());
+                }
+                catch (Exception e)
+                {
+                    oscSender = null;
+                    AppLogger.LogToGui($"The OSC sender could not start for {Global.getOSCSenderAddress()} port {Global.getOSCSenderPortNum()}: {e.Message}", true);
+                    return;
+                }
+
                 AppLogger.LogToGui("OSC SENDER STARTED AT IP: " + Global.getOSCSenderAddress() + " PORT: " + Global.getOSCSenderPortNum(), false);
-                oscSender = new UDPSender(Global.getOSCSenderAddress(), Global.getOSCSenderPortNum());
             }
             else
             {
@@ -1438,13 +1479,26 @@ namespace DS4Windows
             changingUDPPort = false;
         }
 
-        private void WarnExclusiveModeFailure(DS4Device device)
+        private void WarnExclusiveModeFailure(DS4Device device, bool hiddenByHidHide)
         {
-            if (DS4Devices.isExclusiveMode && !device.isExclusive())
+            bool firstTrayNotice;
+            lock (exclusiveRefusalLock)
             {
-                string message = DS4WinWPF.Properties.Resources.CouldNotOpenDS4.Replace("*Mac address*", device.getMacAddress()) + " " +
-                    DS4WinWPF.Properties.Resources.QuitOtherPrograms;
-                LogDebug(message, true);
+                if (!exclusiveOpenRefusedPaths.Remove(device.HidDevice.DevicePath) ||
+                    device.isExclusive() || hiddenByHidHide)
+                {
+                    return;
+                }
+
+                firstTrayNotice = exclusiveRefusalTrayShown.Add(device.getMacAddress());
+            }
+
+            string message = ControllerHolderHint.BuildMessage(
+                $"{device.DisplayName} ({device.getMacAddress()})",
+                ControllerHolderHint.RunningKnownPrograms());
+            LogDebug(message, true);
+            if (firstTrayNotice)
+            {
                 AppLogger.LogToTray(message, true);
             }
         }
@@ -1648,13 +1702,17 @@ namespace DS4Windows
                 if (showlog)
                     LogDebug(DS4WinWPF.Properties.Resources.Starting);
 
-                Thread.Sleep(2000);
-
                 bool runningAsAdmin = Global.IsAdministrator();
                 if (Global.outputKBMHandler.GetIdentifier() != FakerInputHandler.IDENTIFIER && !runningAsAdmin)
                 {
-                    string helpURL = @"https://ryochan7.github.io/ds4windows-site/troubleshooting/kb-mouse-issues/#windows-not-responding-to-ds4ws-kb-m-commands-in-some-situations";
-                    LogDebug($"Some applications may block controller inputs. (Windows UAC Conflictions). Please go to {helpURL} for more information and workarounds.");
+                    // Verbose diagnostics only. As a normal log line this
+                    // warned on every start for everyone who is not admin
+                    // (the required setup) and pointed at another product's
+                    // site. The explanation lives in USERGUIDE.md >
+                    // Troubleshooting ("Keyboard or mouse output does not
+                    // reach an app").
+                    StartupDiag("SendInput cannot reach apps running as administrator while " +
+                        ProductInfo.ProductName + " runs without admin rights (Windows UIPI).");
                 }
 
                 LogDebug($"Using output KB+M handler: {Global.outputKBMHandler.GetFullDisplayName()}");
@@ -1662,6 +1720,15 @@ namespace DS4Windows
                 // Probed, not proclaimed: this is the same status the Settings
                 // card reads, so the log cannot claim a backend the UI says is
                 // missing.
+                // DS4Windows paused 2 s here on every start, after connecting
+                // to ViGEmBus; with that gone it only delayed controllers,
+                // including on every restart. The one thing worth waiting for
+                // now is a backend Thrum launched moments ago (at startup),
+                // which virtual outputs plugged below need to be answering.
+                StartupDiag("Viiper recent-start wait begin");
+                bool waitedServerUp = ViiperSetupManager.WaitForRecentlyStartedServer(TimeSpan.FromSeconds(2));
+                StartupDiag($"Viiper recent-start wait end answered={waitedServerUp}");
+
                 StartupDiag("Viiper status probe begin");
                 ViiperPrerequisiteStatus viiperStatus = ViiperSetupManager.GetStatus();
                 StartupDiag($"Viiper status probe end ready={viiperStatus.Ready} helper={viiperStatus.ViiperInstalled} usbip={viiperStatus.UsbipInstalled} server={viiperStatus.ServerRunning}");
@@ -1755,8 +1822,11 @@ namespace DS4Windows
                     // instead: input discovery refuses any pad attached
                     // through the usbip-win2 controller
                     // (UsbipAttachedInputPolicy), which needs no memory of who
-                    // created it.
-                    ViiperUsbipPortManager.ObserveLocalImports();
+                    // created it. Without usbip-win2 there is nothing to
+                    // observe, and querying anyway logged a WARN on every
+                    // start for everyone who never installed it.
+                    if (viiperStatus.UsbipInstalled)
+                        ViiperUsbipPortManager.ObserveLocalImports();
 
                     StartupDiag("DS4Devices.findControllers dispatch begin");
                     eventDispatcher.Invoke(() =>
@@ -2251,7 +2321,7 @@ namespace DS4Windows
             StartupDiag($"CheckControllerNumDeviceSettings end index={index}");
 
             slotManager.AddController(device, index);
-            if (isUsingOSCSender())
+            if (isUsingOSCSender() && oscSender != null)
             {
                 oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/plug", 1));
             }
@@ -2394,17 +2464,19 @@ namespace DS4Windows
 
         private void BeginPrepareConnectedInputController(DS4Device device, bool showlog = false)
         {
+            bool hiddenByHidHide = false;
             if (DS4Devices.isExclusiveMode && EnsureHidHideSessionForDevice(device))
             {
                 ChangeExclusiveStatus(device);
+                hiddenByHidHide = true;
             }
             else if (hidDeviceHidingEnabled && CheckAffected(device))
             {
                 ChangeExclusiveStatus(device);
+                hiddenByHidHide = true;
             }
 
-            //Task task = new Task(() => { Thread.Sleep(5); WarnExclusiveModeFailure(device); });
-            //task.Start();
+            WarnExclusiveModeFailure(device, hiddenByHidHide);
 
             PrepareDS4DeviceSettingHooks(device);
         }
@@ -2603,9 +2675,17 @@ namespace DS4Windows
                 return;
             }
 
-            AppLogger.LogToGui(
-                $"Controller #{index + 1}: no PlayStation audio interface was created. " +
-                decision.Reason, false);
+            // Audio endpoints turned off is the user's own choice, so this
+            // used to print the full kernel-risk paragraph on every launch for
+            // nothing. The Settings card and the Output Slots note already
+            // explain the switch; only a refusal for any other reason (such
+            // as a driver release without the upstream fix) reaches the log.
+            if (decision.Block != ViiperVirtualDeviceBlock.AudioClassNotEnabled)
+            {
+                AppLogger.LogToGui(
+                    $"Controller #{index + 1}: no PlayStation audio interface was created. " +
+                    decision.Reason, false);
+            }
             StartupDiag(
                 $"PlayStation audio sidecar gated index={index} block={decision.Block}");
         }
@@ -3291,7 +3371,7 @@ namespace DS4Windows
                     //eventDispatcher.Invoke(() =>
                     //{
                     slotManager.RemoveController(device, ind);
-                    if (isUsingOSCSender())
+                    if (isUsingOSCSender() && oscSender != null)
                     {
                         oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + ind + "/plug", 0));
                     }
@@ -4128,7 +4208,7 @@ namespace DS4Windows
                     DS4State tempMapState = MappedState[ind];
                     DS4State oscMapState = oscState[ind];
 
-                    if (isUsingOSCSender())
+                    if (isUsingOSCSender() && oscSender != null)
                     {
                         OSCPreMappingStep(ind, cState, tempMapState, oscMapState);
                     }

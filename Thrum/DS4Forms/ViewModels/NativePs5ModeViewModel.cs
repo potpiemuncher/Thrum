@@ -45,17 +45,17 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         /// <summary>
         /// On, physical link is Bluetooth, Audio Haptics is enabled with a
-        /// source the Bluetooth streamer serves, and no virtual audio
-        /// endpoint is involved. The safe default configuration: green.
+        /// source the Bluetooth streamer serves, and the user has turned
+        /// virtual audio endpoints off. A fully working setup: green.
         /// </summary>
         OnHapticsBluetooth = 5,
 
         /// <summary>
-        /// On with virtual audio endpoints allowed, over Bluetooth or USB:
-        /// games drive the pad's own haptics and speaker through the virtual
-        /// pad. The only state that reaches the audio-class driver path;
-        /// exercised on hardware over Bluetooth on usbip-win2 0.9.8.0
-        /// (2026-09-09) but not yet at length, so still labelled unverified.
+        /// On with virtual audio endpoints allowed (the default), over
+        /// Bluetooth or USB: games drive the pad's own haptics and speaker
+        /// through the virtual pad. The only state that reaches the
+        /// audio-class driver path, which the gate opens only on usbip-win2
+        /// 0.9.8.0 or later. In daily use on hardware since 2026-09-09: green.
         /// </summary>
         OnHapticsVirtualPad = 6,
     }
@@ -105,8 +105,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
     /// Audio Haptics + no virtual audio endpoints = state 5 = green.</b> That
     /// configuration is a fully working setup and must never read as broken.
     /// The project already shipped and reverted a card that said "Needs
-    /// attention" for exactly it and trained users to enable the risky switch
-    /// to clear the warning.</para>
+    /// attention" for exactly it. Since 2026-09-26 the virtual audio endpoints
+    /// are on by default, and state 6 is green too.</para>
     /// </summary>
     public sealed class NativePs5ModeViewModel : INotifyPropertyChanged
     {
@@ -248,7 +248,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     case NativePs5ModeState.OnHapticsBluetooth:
                         return "On · haptics via Bluetooth";
                     default:
-                        return "Experimental, unverified";
+                        return "On · game haptics via the virtual pad";
                 }
             }
         }
@@ -269,10 +269,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                             ? "Danger"
                             : "Muted";
                     case NativePs5ModeState.NeedsConsent:
-                    case NativePs5ModeState.OnHapticsVirtualPad:
                         return "Warning";
                     case NativePs5ModeState.On:
                     case NativePs5ModeState.OnHapticsBluetooth:
+                    case NativePs5ModeState.OnHapticsVirtualPad:
                         return "Success";
                     default:
                         return "Muted";
@@ -289,9 +289,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 {
                     case NativePs5ModeState.On:
                     case NativePs5ModeState.OnHapticsBluetooth:
-                        return "Success";
                     case NativePs5ModeState.OnHapticsVirtualPad:
-                        return "Warning";
+                        return "Success";
                     default:
                         return "Neutral";
                 }
@@ -419,23 +418,17 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                   "may also see it. Make sure Hide DS4 Controller is on and " +
                   ProductInfo.ProductName + " is on the HidHide allow list.";
 
+        /// <summary>
+        /// The link opens the download page when HidHide is missing, so it
+        /// must not say it opens the client.
+        /// </summary>
+        public string HidHideLinkText =>
+            inputs.HidHide == NativePs5HidHideStatus.NotInstalled
+                ? "Get HidHide"
+                : "Open the HidHide client";
+
         public const string HidHideWorksWithoutNote =
             "Native PS5 mode works without it.";
-
-        /// <summary>
-        /// State 6 only: says the endpoints are on, that the path is
-        /// unverified, and carries the risk sentence verbatim.
-        /// </summary>
-        public bool ShowAudioEndpointsLine =>
-            State == NativePs5ModeState.OnHapticsVirtualPad;
-
-        public const string AudioEndpointsUnverifiedLine =
-            "Virtual audio endpoints are on. This path was first exercised " +
-            "on hardware over Bluetooth on usbip-win2 0.9.8.0 (2026-09-09) " +
-            "and is not yet verified at length (issue #65).";
-
-        public string AudioEndpointsRiskText =>
-            ViiperExperimentalDisclosure.AudioClassSummary;
 
         public bool ShowSetupButton =>
             State == NativePs5ModeState.NeedsSetup ||

@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Concentus;
 using Concentus.Enums;
 using NAudio.CoreAudioApi;
@@ -339,6 +340,7 @@ namespace DS4Windows.InputDevices
             SampleRing hapticsRing = captureForHaptics ? new SampleRing(profile.HapticsRingBytes) : null;
             ShortRing audioRing = audioEnabled ? new ShortRing(profile.AudioRingSamples) : null;
             WasapiLoopbackCapture capture = null;
+            StreamCaptureState captureState = new StreamCaptureState();
             IOpusEncoder opusEncoder = null;
             IntPtr mmcssHandle = IntPtr.Zero;
             IntPtr highResTimer = IntPtr.Zero;
@@ -360,7 +362,15 @@ namespace DS4Windows.InputDevices
 
                 if (needCapture)
                 {
-                    capture = CreateCapture(hapticsRing, audioRing);
+                    captureState.DefaultGeneration =
+                        DefaultRenderEndpointWatcher.Generation;
+                    capture = CreateCapture(hapticsRing, audioRing,
+                        out bool followsDefault);
+                    if (!followsDefault)
+                    {
+                        captureState.DefaultGeneration = -1;
+                    }
+                    WatchForStop(capture, captureState);
                     capture?.StartRecording();
                 }
 
@@ -629,7 +639,11 @@ namespace DS4Windows.InputDevices
                     if (tick - lastHealthLogTick > 2800) // ~30 s
                     {
                         long ringDrops = audioRing?.TakeDropCount() ?? 0;
-                        if (audioUnderruns > 0 || stallSkips > 0 || slowWrites > 0 || ringDrops > 0)
+                        // Diagnostic telemetry, gated like AudioHapticsService's:
+                        // one slow write on an ordinary link was enough to print
+                        // this every 30 s into the user's log.
+                        if (Global.VerboseStartupLogging &&
+                            (audioUnderruns > 0 || stallSkips > 0 || slowWrites > 0 || ringDrops > 0))
                         {
                             AppLogger.LogToGui($"{device.MacAddress}: BT stream health: " +
                                 $"underruns={audioUnderruns} drops={ringDrops} stallSkips={stallSkips} " +
@@ -645,6 +659,11 @@ namespace DS4Windows.InputDevices
                     }
 
                     tick++;
+                    if (needCapture)
+                    {
+                        capture = FollowCaptureSource(capture, captureState,
+                            hapticsRing, audioRing, cancellationToken);
+                    }
                 }
             }
             catch (Exception ex)
@@ -653,6 +672,7 @@ namespace DS4Windows.InputDevices
             }
             finally
             {
+                captureState.Closed = true;
                 if (capture != null)
                 {
                     try
@@ -662,6 +682,10 @@ namespace DS4Windows.InputDevices
                     }
                     catch (Exception) { }
                 }
+
+                WasapiLoopbackCapture unused =
+                    Interlocked.Exchange(ref captureState.Replacement, null);
+                unused?.Dispose();
 
                 (opusEncoder as IDisposable)?.Dispose();
 
@@ -1008,9 +1032,148 @@ namespace DS4Windows.InputDevices
             report[crcOffset + 3] = (byte)(calcCrc32 >> 24);
         }
 
-        private WasapiLoopbackCapture CreateCapture(SampleRing hapticsRing, ShortRing audioRing)
+        /// <summary>
+        /// Per-run state for reopening the loopback capture. The capture used
+        /// to stay on the device it opened on: after Windows switched the
+        /// default output the haptics and speaker went silent, and a capture
+        /// that stopped (device unplugged, audio service restart) was never
+        /// reopened. The replacement is built on a pool thread; the stream
+        /// thread only swaps it in.
+        /// </summary>
+        private sealed class StreamCaptureState
+        {
+            public int DefaultGeneration = -1;
+            public volatile bool Lost;
+            public volatile bool Closed;
+            public WasapiLoopbackCapture Current;
+            public WasapiLoopbackCapture Replacement;
+            public int ReopenRunning;
+            public long NextReopenTick;
+            public int ReopenFailures;
+        }
+
+        private static void WatchForStop(WasapiLoopbackCapture capture,
+            StreamCaptureState state)
+        {
+            state.Current = capture;
+            if (capture == null)
+            {
+                state.Lost = true;
+                return;
+            }
+
+            capture.RecordingStopped += (sender, e) =>
+            {
+                if (!state.Closed && ReferenceEquals(sender, state.Current))
+                {
+                    state.Lost = true;
+                }
+            };
+        }
+
+        private WasapiLoopbackCapture FollowCaptureSource(
+            WasapiLoopbackCapture capture, StreamCaptureState state,
+            SampleRing hapticsRing, ShortRing audioRing,
+            CancellationToken cancellationToken)
+        {
+            WasapiLoopbackCapture ready =
+                Interlocked.Exchange(ref state.Replacement, null);
+            if (ready != null)
+            {
+                WatchForStop(ready, state);
+                state.Lost = false;
+                WasapiLoopbackCapture old = capture;
+                if (old != null)
+                {
+                    try { old.StopRecording(); } catch (Exception) { }
+                }
+
+                try
+                {
+                    ready.StartRecording();
+                }
+                catch (Exception)
+                {
+                    state.Lost = true;
+                }
+
+                if (old != null)
+                {
+                    // Dispose joins the old capture thread; not on this one.
+                    Task.Run(() =>
+                    {
+                        try { old.Dispose(); } catch (Exception) { }
+                    });
+                }
+
+                return ready;
+            }
+
+            bool defaultMoved = state.DefaultGeneration >= 0 &&
+                state.DefaultGeneration != DefaultRenderEndpointWatcher.Generation;
+            if (!defaultMoved && !state.Lost)
+            {
+                return capture;
+            }
+
+            long now = Environment.TickCount64;
+            if (now < state.NextReopenTick ||
+                Interlocked.CompareExchange(ref state.ReopenRunning, 1, 0) != 0)
+            {
+                return capture;
+            }
+
+            state.NextReopenTick = now + 1000;
+            Task.Run(() =>
+            {
+                try
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    int generation = DefaultRenderEndpointWatcher.Generation;
+                    WasapiLoopbackCapture replacement = CreateCapture(
+                        hapticsRing, audioRing, out bool followsDefault);
+                    if (replacement == null)
+                    {
+                        // CreateCapture logs each failure: back off to a
+                        // minute between attempts.
+                        state.ReopenFailures = Math.Min(state.ReopenFailures + 1, 6);
+                        state.NextReopenTick = Environment.TickCount64 +
+                            (1000L << state.ReopenFailures);
+                        return;
+                    }
+
+                    state.ReopenFailures = 0;
+                    state.DefaultGeneration = followsDefault ? generation : -1;
+                    WasapiLoopbackCapture superseded =
+                        Interlocked.Exchange(ref state.Replacement, replacement);
+                    superseded?.Dispose();
+                    if (state.Closed)
+                    {
+                        Interlocked.Exchange(ref state.Replacement, null)
+                            ?.Dispose();
+                    }
+                }
+                catch (Exception)
+                {
+                }
+                finally
+                {
+                    Volatile.Write(ref state.ReopenRunning, 0);
+                }
+            });
+
+            return capture;
+        }
+
+        private WasapiLoopbackCapture CreateCapture(SampleRing hapticsRing,
+            ShortRing audioRing, out bool followsDefault)
         {
             WasapiLoopbackCapture capture = null;
+            followsDefault = false;
             try
             {
                 string endpointName = null;
@@ -1035,6 +1198,7 @@ namespace DS4Windows.InputDevices
                 if (capture == null)
                 {
                     capture = new WasapiLoopbackCapture();
+                    followsDefault = true;
                     try
                     {
                         using MMDeviceEnumerator enumerator = new MMDeviceEnumerator();

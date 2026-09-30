@@ -63,9 +63,12 @@ kernel heap and producing bugchecks `0xA` or `0x139`. Two contributing causes
 were identified in the driver source — inline URB completion at raised IRQL
 from receive, purge, and cancel stacks, where the UDE contract requires a DPC,
 and a partial MDL chained into a socket send without ownership of the parent
-pages. The issue is filed upstream as usbip-win2 issue #181. Controller-only
+pages. The issue is filed upstream as usbip-win2 issue #181, and usbip-win2
+0.9.8.0 is the first release that carries the upstream fixes. Controller-only
 emulation, with no audio, microphone, or advanced-haptics endpoints, does not
-exercise the affected path. Thrum ships a read-only, fail-closed driver
+exercise the affected path. Thrum turns virtual audio endpoints on by default
+and creates them only on 0.9.8.0 or later, never on an earlier release. It
+still classifies 0.9.8.0 as experimental. Thrum ships a read-only, fail-closed driver
 diagnostic (see the README) and treats any package its manifest does not list
 as unvalidated. Report driver defects to the usbip-win2 project; report
 Thrum's handling of them here.

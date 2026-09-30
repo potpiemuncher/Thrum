@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 using System;
-using System.Text;
 
 namespace DS4Windows
 {
@@ -27,8 +26,8 @@ namespace DS4Windows
     ///
     /// <para><b>This is policy text, not copy.</b> It lives in one place, as
     /// plain strings, so that it can be asserted by tests rather than reviewed
-    /// by eye, and so the same sentences appear in the dialog, in the Settings
-    /// card and in the log. Four rules, all enforced in
+    /// by eye, and so the same sentences appear in the consent notice, in the
+    /// Settings card and in the log. Four rules, all enforced in
     /// <c>ViiperExperimentalDisclosureTests</c>:</para>
     /// <list type="number">
     /// <item>Say what the risk actually is — a confirmed defect in somebody
@@ -86,9 +85,6 @@ namespace DS4Windows
         public const string AcknowledgementTitle =
             ProductInfo.ProductName + " - experimental virtual controller backend";
 
-        public const string AudioClassTitle =
-            ProductInfo.ProductName + " - virtual audio endpoints carry a kernel-crash risk";
-
         /// <summary>
         /// Shown once, the first time the user asks for any VIIPER virtual
         /// output. Covers the backend as a whole and says nothing about audio:
@@ -105,15 +101,21 @@ namespace DS4Windows
             " cannot catch that or recover from it.\n\n" +
             "Plain controller output - buttons, sticks, triggers, rumble, " +
             "lightbar - does not use the driver path that carries the known " +
-            "defect, and " + ProductInfo.ProductName +
-            " has run those lifecycles cleanly in testing. Virtual audio and " +
-            "microphone endpoints do use it, and stay switched off until you " +
-            "enable them separately.\n\n" +
+            "defect. The virtual pad's audio and microphone endpoints, which " +
+            "carry game haptics and the pad's speaker, do use it: usbip-win2 " +
+            "releases before " + FixedInReleaseLabel + " have a confirmed " +
+            "defect there (upstream issue #181, " + UpstreamIssueUrl + ") that " +
+            "can stop Windows when an endpoint is torn down. " +
+            FixedInReleaseLabel + " carries the upstream fixes, so " +
+            ProductInfo.ProductName + " turns these endpoints on by default " +
+            "with it and never creates them on an earlier release. You can " +
+            "turn them off in Settings.\n\n" +
             "Continue and use virtual controllers?";
 
         /// <summary>
         /// The line that has to survive every rewrite: a manifest match is
-        /// identity evidence, never approval.
+        /// identity evidence, never approval. Carried by
+        /// <see cref="InstalledPackageLine"/>, next to the package it is about.
         /// </summary>
         public const string NotApprovalLine =
             "Recognising a package is not approving it. " +
@@ -123,71 +125,12 @@ namespace DS4Windows
             "installs.";
 
         /// <summary>
-        /// The per-enablement confirmation for anything that creates or opens a
-        /// virtual USB audio or microphone endpoint. Shown every time the
-        /// setting is switched on, not once: the risk does not decrease with
-        /// familiarity, and the installed package can change between sessions.
+        /// The Settings card's line naming the installed package, with the
+        /// reminder that recognising it is not approving it.
         /// </summary>
-        /// <param name="readiness">
-        /// Session readiness, used only to name what is installed. Null renders
-        /// the "could not be identified" wording rather than omitting the fact.
-        /// </param>
-        public static string BuildAudioClassBody(ViiperDriverReadiness readiness)
-        {
-            StringBuilder text = new StringBuilder();
-
-            text.Append("You are about to let ").Append(ProductInfo.ProductName)
-                .Append(" create virtual USB audio and microphone endpoints ")
-                .Append("(controller speaker, headset jack and pad microphone) ")
-                .Append("through the usbip-win2 kernel driver.\n\n");
-
-            text.Append("The risk, plainly: usbip-win2 releases before ")
-                .Append(FixedInReleaseLabel)
-                .Append(" have a confirmed defect in how they retire in-flight ")
-                .Append("USB requests. When a virtual audio endpoint is torn ")
-                .Append("down - closing a game, switching profiles, unplugging ")
-                .Append("the pad, shutting down - an audio transfer that ")
-                .Append("completes at the same moment can corrupt kernel memory ")
-                .Append("and stop Windows with a blue screen. It has been ")
-                .Append("reproduced on this project's own hardware.\n\n");
-
-            text.Append("This is a defect in usbip-win2, not in ")
-                .Append(ProductInfo.ProductName)
-                .Append(". It is reported upstream as usbip-win2 issue #181 (")
-                .Append(UpstreamIssueUrl).Append("). ")
-                .Append(ProductInfo.ProductName)
-                .Append(" orders its own teardown as carefully as it can, but ")
-                .Append("the fault is inside the kernel driver and cannot be ")
-                .Append("fully prevented from outside it. usbip-win2 ")
-                .Append(FixedInReleaseLabel)
-                .Append(" carries the upstream fixes for it. ");
-
-            if (CarriesUpstreamFixes(readiness))
-            {
-                text.Append("The installed package is that release, and ")
-                    .Append(ProductInfo.ProductName)
-                    .Append(" has not yet exercised the audio teardown on it ")
-                    .Append("at length, so these endpoints stay opt-in.\n\n");
-            }
-            else
-            {
-                text.Append("The installed package is not that release, so ")
-                    .Append("the defect described above applies to it as far ")
-                    .Append("as this project knows.\n\n");
-            }
-
-            text.Append("Installed package: ").Append(DescribeInstalled(readiness))
-                .Append("\n").Append(NotApprovalLine).Append("\n\n");
-
-            text.Append("You do not need this for controller support. Buttons, ")
-                .Append("sticks, triggers, rumble, gyro, touchpad and lightbar ")
-                .Append("all work with these endpoints switched off, and that ")
-                .Append("configuration does not reach the defect.\n\n");
-
-            text.Append("Turn virtual audio endpoints on?");
-
-            return text.ToString();
-        }
+        public static string InstalledPackageLine(ViiperDriverReadiness readiness) =>
+            "Installed driver package: " + DescribeInstalled(readiness) + " " +
+            NotApprovalLine;
 
         /// <summary>
         /// What the machine actually has, in one clause. Deliberately never
@@ -221,17 +164,15 @@ namespace DS4Windows
         }
 
         /// <summary>
-        /// The short line the Settings checkbox carries next to itself, and the
-        /// one written to the log when audio-class output is refused.
+        /// The short line the Settings checkbox and step 4 of Native PS5 setup
+        /// carry next to the switch.
         /// </summary>
         public const string AudioClassSummary =
-            "Off by default. Virtual speaker and microphone endpoints use the " +
-            "driver path where usbip-win2 releases before " +
-            FixedInReleaseLabel + " have a confirmed kernel defect (upstream " +
-            "issue #181) that can stop Windows with a blue screen when an " +
-            "endpoint is torn down; " + FixedInReleaseLabel + " carries the " +
-            "upstream fixes and is still opt-in here. Controller input, rumble " +
-            "and adaptive triggers do not need them.";
+            "On by default. They carry game haptics and the pad's speaker and " +
+            "microphone in Native PS5 mode, and are created only on usbip-win2 " +
+            FixedInReleaseLabel + " or later, which fixes the kernel defect " +
+            "earlier releases have (upstream issue #181). Controller input, " +
+            "rumble and adaptive triggers do not need them.";
 
         /// <summary>
         /// The short line next to the experimental-backend checkbox.

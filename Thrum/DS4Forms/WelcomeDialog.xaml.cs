@@ -10,20 +10,20 @@ the Free Software Foundation, either version 3 of the License, or
 
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace DS4WinWPF.DS4Forms
 {
     public partial class WelcomeDialog : Window
     {
-        private const string HidHideInstaller =
-            "https://github.com/nefarius/HidHide/releases/download/v1.5.230.0/HidHide_1.5.230_x64.exe";
-        private const string FakerInputX64 =
-            "https://github.com/Ryochan7/FakerInput/releases/download/v0.1.0/FakerInput_0.1.0_x64.msi";
-        private const string FakerInputX86 =
-            "https://github.com/Ryochan7/FakerInput/releases/download/v0.1.0/FakerInput_0.1.0_x86.msi";
+        // The optional drivers come from their vendors' release pages. This
+        // dialog used to download the installers to %TEMP% and run them as
+        // administrator with no integrity check, which a same-user process
+        // could swap between download and launch (and which Defender flags).
+        private const string HidHideDownloadPage =
+            DS4Windows.ProductInfo.HidHideDownloadPage;
+        private const string FakerInputDownloadPage =
+            "https://github.com/Ryochan7/FakerInput/releases/latest";
 
         public WelcomeDialog(bool loadConfig = false)
         {
@@ -61,73 +61,19 @@ namespace DS4WinWPF.DS4Forms
                 : "VIIPER setup needs attention";
         }
 
-        private async void HidHideInstall_Click(object sender, RoutedEventArgs e)
-        {
-            await DownloadAndRunInstallerAsync(HidHideInstaller,
-                hidHideInstallBtn, "HidHide");
-        }
+        private void HidHideInstall_Click(object sender, RoutedEventArgs e) =>
+            OpenDownloadPage(HidHideDownloadPage, hidHideInstallBtn, "HidHide");
 
-        private async void FakerInputInstallBtn_Click(object sender, RoutedEventArgs e)
-        {
-            string url = Environment.Is64BitOperatingSystem ?
-                FakerInputX64 : FakerInputX86;
-            await DownloadAndRunInstallerAsync(url, fakerInputInstallBtn,
+        private void FakerInputInstallBtn_Click(object sender, RoutedEventArgs e) =>
+            OpenDownloadPage(FakerInputDownloadPage, fakerInputInstallBtn,
                 "FakerInput");
-        }
 
-        private async Task DownloadAndRunInstallerAsync(string url,
+        private static void OpenDownloadPage(string url,
             System.Windows.Controls.Button button, string componentName)
         {
-            string target = Path.Combine(Path.GetTempPath(),
-                Path.GetFileName(new Uri(url).AbsolutePath));
-            try
-            {
-                SetInstallerControlsEnabled(false);
-                button.Content = $"Downloading {componentName}…";
-                byte[] payload = await App.requestClient.GetByteArrayAsync(url);
-                await File.WriteAllBytesAsync(target, payload);
-
-                button.Content = $"Installing {componentName}…";
-                using Process process = Process.Start(new ProcessStartInfo
-                {
-                    FileName = target,
-                    UseShellExecute = true,
-                    Verb = "runas",
-                });
-                if (process != null)
-                {
-                    await process.WaitForExitAsync();
-                }
-
-                DS4Windows.Global.RefreshHidHideInfo();
-                button.Content = $"{componentName} setup complete";
-            }
-            catch (Exception ex)
-            {
-                button.Content = $"{componentName} setup failed";
-                MessageBox.Show(this,
-                    $"Could not install {componentName}: {ex.Message}",
-                    $"{componentName} setup", MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(target)) File.Delete(target);
-                }
-                catch { }
-
-                SetInstallerControlsEnabled(true);
-            }
-        }
-
-        private void SetInstallerControlsEnabled(bool enabled)
-        {
-            viiperInstallBtn.IsEnabled = enabled;
-            step4HidHidePanel.IsEnabled = enabled && IsHidHideCompatible();
-            step5FakerInputPanel.IsEnabled = enabled &&
-                DS4Windows.Global.IsWin8OrGreater();
+            DS4Windows.Util.StartProcessHelper(url);
+            button.Content =
+                $"{componentName} download page opened. Run its installer, then click Finished.";
         }
 
         private static bool IsHidHideCompatible() =>

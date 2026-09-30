@@ -272,20 +272,20 @@ namespace DS4Windows
                 }
 
                 if (!PInvoke.GetOverlappedResultEx(SafeReadHandle, ov, out _,
-                    timeout, true))
+                    timeout, false))
                 {
                     uint error = (uint)Marshal.GetLastWin32Error();
-                    if (error == NativeMethods.WAIT_TIMEOUT)
+                    if (ov.InternalLow == (IntPtr)NativeMethods.STATUS_PENDING)
                     {
                         // Both the buffer and OVERLAPPED stay pinned/alive until
                         // the exact pending IRP has been cancelled and drained.
                         NativeMethods.CancelIoEx(
                             SafeReadHandle.DangerousGetHandle(), (IntPtr)(&ov));
                         PInvoke.GetOverlappedResult(SafeReadHandle, ov, out _, true);
-                        return ReadStatus.WaitTimedOut;
                     }
 
-                    return ReadStatus.ReadError;
+                    return error == NativeMethods.WAIT_TIMEOUT ?
+                        ReadStatus.WaitTimedOut : ReadStatus.ReadError;
                 }
 
                 return ReadStatus.Success;
@@ -298,6 +298,9 @@ namespace DS4Windows
 
             return NativeMethods.HidD_SetOutputReport(SafeReadHandle, outputBuffer, outputBuffer.Length);
         }
+
+        // Bound for writes whose caller passes a timeout of 0; see below.
+        private const uint ZeroTimeoutWriteWaitMs = 500;
 
         public unsafe bool WriteOutputReportViaInterrupt(byte[] outputBuffer, int timeout)
         {
@@ -359,13 +362,20 @@ namespace DS4Windows
                     return false;
                 }
 
+                // The Switch Pro and Joy-Con drivers pass 0, which upstream
+                // treated as "wait for the write" (it ignored the timeout). A
+                // zero wait here returned while the write was still pending,
+                // so their setup commands were reported as failed.
                 uint waitMilliseconds = timeout < 0 ? uint.MaxValue :
-                    (uint)timeout;
+                    timeout == 0 ? ZeroTimeoutWriteWaitMs : (uint)timeout;
                 if (!PInvoke.GetOverlappedResultEx(SafeReadHandle, ov, out _,
-                    waitMilliseconds, true))
+                    waitMilliseconds, false))
                 {
                     uint error = (uint)Marshal.GetLastWin32Error();
-                    if (error == NativeMethods.WAIT_TIMEOUT)
+                    // Cancel and drain whenever the kernel still owns the
+                    // request, not only on WAIT_TIMEOUT: the OVERLAPPED and the
+                    // pinned buffer live on this stack frame.
+                    if (ov.InternalLow == (IntPtr)NativeMethods.STATUS_PENDING)
                     {
                         NativeMethods.CancelIoEx(
                             SafeReadHandle.DangerousGetHandle(), (IntPtr)(&ov));
@@ -508,7 +518,10 @@ namespace DS4Windows
             // as long the same device is always connected to the same usb port.
             if (serial == null)
             {
-                AppLogger.LogToGui($"WARNING: Failed to read serial# from a gamepad ({this._deviceAttributes.VendorHexId}/{this._deviceAttributes.ProductHexId}). Generating MAC address from a device path. From now on you should connect this gamepad always into the same USB port or BT pairing host to keep the same device path.", true);
+                // Expected for some controllers (the comment above), so this is
+                // information in plain words rather than a warning on every
+                // connect of those controllers.
+                AppLogger.LogToGui($"This controller ({this._deviceAttributes.VendorHexId}/{this._deviceAttributes.ProductHexId}) does not report a serial number, so it is recognised by the USB port or Bluetooth pairing it uses. Keep using the same port so a linked profile still finds it.", false);
                 serial = GenerateFakeHwSerial();
             }
 

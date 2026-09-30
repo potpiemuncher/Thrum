@@ -238,6 +238,13 @@ namespace DS4Windows
             int proposedProcessId = 0;
             int proposedCount = 0;
             int misses = 0;
+            // A game that refuses capture (a protected process, or a Windows
+            // build without per-process loopback) used to be retried and
+            // logged as a warning on every 500 ms scan for as long as it ran.
+            // Now it is reported once and retried with a growing delay.
+            int failedProcessId = 0;
+            int failedAttempts = 0;
+            long retryAfterTicks = 0;
             try
             {
                 while (Volatile.Read(ref disposed) == 0)
@@ -281,19 +288,34 @@ namespace DS4Windows
                         }
                         // Acquire the first game immediately. Require two
                         // consistent scans before changing an active stream.
-                        if (current == 0 || proposedCount >= 2)
+                        if ((current == 0 || proposedCount >= 2) &&
+                            (candidate.ProcessId != failedProcessId ||
+                                Environment.TickCount64 >= retryAfterTicks))
                         {
                             try
                             {
                                 SwitchToProcess(candidate.ProcessId,
                                     candidate.DisplayName,
                                     candidate.EvidenceDescription);
+                                failedProcessId = 0;
+                                failedAttempts = 0;
                             }
                             catch (Exception exception)
                             {
-                                AppLogger.LogToGui(
-                                    $"Automatic game audio could not attach to '{candidate.DisplayName}': {exception.Message}",
-                                    true);
+                                if (candidate.ProcessId != failedProcessId)
+                                {
+                                    failedProcessId = candidate.ProcessId;
+                                    failedAttempts = 0;
+                                    AppLogger.LogToGui(
+                                        $"Automatic game audio could not attach to '{candidate.DisplayName}': {exception.Message}",
+                                        true);
+                                }
+
+                                failedAttempts++;
+                                // 5 s, 10 s, 20 s ... capped at 5 minutes.
+                                long delayMs = Math.Min(300_000L,
+                                    5_000L << Math.Min(failedAttempts - 1, 6));
+                                retryAfterTicks = Environment.TickCount64 + delayMs;
                             }
                             proposedProcessId = 0;
                             proposedCount = 0;
@@ -309,11 +331,18 @@ namespace DS4Windows
                     if (stopped.WaitOne(DetectionIntervalMilliseconds)) break;
                 }
             }
-            catch (Exception exception) when (
-                Volatile.Read(ref disposed) == 0)
+            catch (Exception exception)
             {
-                RecordingStopped?.Invoke(this,
-                    new StoppedEventArgs(exception));
+                // Dispose waits only 1.2 s for this thread and then disposes
+                // what it uses, so a slow detection pass can fail afterwards.
+                // The old "when (not disposed)" filter let that exception
+                // escape the thread and end the whole process; after Dispose
+                // it is expected teardown and is dropped.
+                if (Volatile.Read(ref disposed) == 0)
+                {
+                    RecordingStopped?.Invoke(this,
+                        new StoppedEventArgs(exception));
+                }
             }
         }
 
@@ -513,10 +542,15 @@ namespace DS4Windows
                         if (signaled == 1) DrainCapture();
                     }
                 }
-                catch (Exception exception) when (
-                    Volatile.Read(ref disposed) == 0)
+                catch (Exception exception)
                 {
-                    stoppedWith = exception;
+                    // Same rule as the monitor loop: an exception after
+                    // Dispose (bounded join, then the client and handles are
+                    // disposed) must not escape the thread and end the app.
+                    if (Volatile.Read(ref disposed) == 0)
+                    {
+                        stoppedWith = exception;
+                    }
                 }
                 finally
                 {

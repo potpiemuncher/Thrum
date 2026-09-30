@@ -107,6 +107,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         /// Needed to revert output control to Touchpad later
         /// </summary>
         private TouchpadOutMode oldTouchpadMode = TouchpadOutMode.None;
+        private bool controlsReverted;
 
 
         public RecordBoxViewModel(int deviceNum, DS4ControlSettings controlSettings, bool shift, bool repeatable = true)
@@ -424,6 +425,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         /// </summary>
         public void RevertControlsSettings()
         {
+            // Runs from Save, Cancel and the recorder unloading; a second run
+            // would overwrite the restored mode with TouchpadOutMode.None.
+            if (controlsReverted)
+            {
+                return;
+            }
+
+            controlsReverted = true;
             Global.TouchOutMode[deviceNum] = oldTouchpadMode;
             oldTouchpadMode = TouchpadOutMode.None;
         }

@@ -25,16 +25,20 @@ using Task = Microsoft.Win32.TaskScheduler.Task;
 namespace DS4WinWPF
 {
     /// <summary>
-    /// Creates, repairs and removes this product's two Windows startup
-    /// entries: the elevated logon scheduled task and the Startup-folder
-    /// shortcut.
+    /// Creates, repairs and removes this product's Windows startup entry, the
+    /// Startup-folder shortcut, and removes the elevated logon scheduled task
+    /// that the former "Task" startup mode created.
+    ///
+    /// <para>That mode was removed: it started the app with administrator
+    /// rights at every sign-in from a batch file in the program folder, which
+    /// the user (and anything running as the user) can edit.</para>
     ///
     /// <para><b>Every name here comes from <c>ProductInfo</c>, and that is a
     /// safety property, not tidiness.</b> A user of this product very likely
     /// also has a real DS4Windows install with its own <c>RunDS4Windows</c>
     /// task and <c>DS4Windows.lnk</c> shortcut. Several paths below delete
-    /// startup entries — switching between task and shortcut, repairing a
-    /// moved executable, turning the option off — and none of them may be able
+    /// startup entries — removing the old task, repairing a moved executable,
+    /// turning the option off — and none of them may be able
     /// to name an entry we did not create. <c>StartupEntryIdentityTests</c>
     /// asserts that the inherited names appear nowhere in the compiled
     /// application at all.</para>
@@ -45,22 +49,14 @@ namespace DS4WinWPF
         public static string lnkpath = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\" + DS4Windows.ProductInfo.StartupShortcutName;
 
         /// <summary>
-        /// The one spelling of the helper batch file's path — used by the
-        /// writer, the deleter, the scheduled task's action, and the
-        /// moved-executable check.
+        /// The one spelling of the path of the helper batch file the old logon
+        /// task ran, so removing the task removes the file too.
         ///
-        /// <para>It used to be spelled three ways: this field, and
-        /// <c>$@"{dir}\task.bat"</c> in both <see cref="WriteTaskEntry"/> and
-        /// <see cref="RefreshTaskBat"/>. They agree for every ordinary install
-        /// path, but not for all of them —
-        /// <see cref="DS4Windows.Global.exedirpath"/> comes from
+        /// <para>It used to be spelled three ways, which disagree at a drive
+        /// root: <see cref="DS4Windows.Global.exedirpath"/> comes from
         /// <c>DirectoryInfo.FullName</c>, which keeps its trailing separator
-        /// when the directory is a drive root. At <c>C:\</c> the interpolated
-        /// form yields <c>C:\\task.bat</c> while <see cref="Path.Combine"/>
-        /// yields <c>C:\task.bat</c>, so <see cref="DeleteOldTaskEntry"/> would
-        /// compare the registered action against a string it could never match
-        /// and delete a healthy task on every settings load. That is the same
-        /// class of bug the shortcut path already carries a warning about.</para>
+        /// there, so <c>$@"{dir}\task.bat"</c> yields <c>C:\\task.bat</c> where
+        /// <see cref="Path.Combine"/> yields <c>C:\task.bat</c>.</para>
         /// </summary>
         internal static string TaskBatPath { get; } =
             Path.Combine(DS4Windows.Global.exedirpath, "task.bat");
@@ -122,35 +118,6 @@ namespace DS4WinWPF
             }
         }
 
-        /// <summary>
-        /// Repairs <b>our own</b> logon task when it points somewhere other
-        /// than the current <c>task.bat</c> — typically after the application
-        /// was moved. "Old" refers to a stale task of ours, not to a task
-        /// belonging to the product this one was forked from: the lookup is
-        /// <see cref="DS4Windows.ProductInfo.StartupTaskName"/> and must stay
-        /// that way.
-        /// </summary>
-        public static void DeleteOldTaskEntry()
-        {
-            TaskService ts = new TaskService();
-            Task tasker = ts.FindTask(DS4Windows.ProductInfo.StartupTaskName);
-            if (tasker != null)
-            {
-                foreach(Microsoft.Win32.TaskScheduler.Action act in tasker.Definition.Actions)
-                {
-                    if (act.ActionType == TaskActionType.Execute)
-                    {
-                        ExecAction temp = act as ExecAction;
-                        if (temp.Path != TaskBatPath)
-                        {
-                            ts.RootFolder.DeleteTask(DS4Windows.ProductInfo.StartupTaskName);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
         public static bool CanWriteStartEntry()
         {
             bool result = false;
@@ -162,35 +129,12 @@ namespace DS4WinWPF
             return result;
         }
 
-        public static void WriteTaskEntry()
-        {
-            DeleteTaskEntry();
-
-            // Create new version of task.bat file using current exe
-            // filename. Allow dynamic file
-            RefreshTaskBat();
-
-            TaskService ts = new TaskService();
-            TaskDefinition td = ts.NewTask();
-            td.Triggers.Add(new LogonTrigger());
-            string dir = DS4Windows.Global.exedirpath;
-            td.Actions.Add(new ExecAction(TaskBatPath,
-                "",
-                dir));
-
-            td.Principal.RunLevel = TaskRunLevel.Highest;
-            td.Settings.StopIfGoingOnBatteries = false;
-            td.Settings.DisallowStartIfOnBatteries = false;
-            ts.RootFolder.RegisterTaskDefinition(DS4Windows.ProductInfo.StartupTaskName, td);
-        }
-
         /// <summary>
         /// Removes the logon task <i>and</i> the helper batch file it ran.
         ///
-        /// <para>The batch file is ours — <see cref="RefreshTaskBat"/> writes
-        /// it and nothing else creates it — so leaving it behind after the user
-        /// has turned the option off leaves an executable launcher in the
-        /// install folder that no longer belongs to any setting. It also
+        /// <para>The batch file is ours — older versions wrote it and nothing
+        /// else creates it — so leaving it behind leaves an executable launcher
+        /// in the install folder that no longer belongs to any setting. It also
         /// becomes residue the uninstall audit would have to explain.</para>
         /// </summary>
         public static void DeleteTaskEntry()
@@ -203,6 +147,28 @@ namespace DS4WinWPF
             }
 
             DeleteTaskBat(TaskBatPath);
+        }
+
+        /// <summary>
+        /// <see cref="DeleteTaskEntry"/>, reporting failure instead of
+        /// throwing. The task was registered with administrator rights, so a
+        /// Thrum that is not elevated usually cannot delete it.
+        /// </summary>
+        public static bool TryDeleteTaskEntry()
+        {
+            try
+            {
+                DeleteTaskEntry();
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (COMException)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -265,16 +231,6 @@ namespace DS4WinWPF
             return lnkprogpath != DS4Windows.Global.exelocation;
         }
 
-        public static void LaunchOldTask()
-        {
-            TaskService ts = new TaskService();
-            Task tasker = ts.FindTask(DS4Windows.ProductInfo.StartupTaskName);
-            if (tasker != null)
-            {
-                tasker.Run("");
-            }
-        }
-
         private static string ResolveShortcut(string filePath)
         {
             Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8")); // Windows Script Host Shell Object
@@ -298,20 +254,6 @@ namespace DS4WinWPF
             }
 
             return result;
-        }
-
-        private static void RefreshTaskBat()
-        {
-            FileStream fileStream = new FileStream(TaskBatPath, FileMode.Create, FileAccess.Write);
-            using (StreamWriter w = new StreamWriter(fileStream))
-            {
-                string temp = string.Empty;
-                w.WriteLine("@echo off"); // Turn off echo
-                w.WriteLine("SET mypath=\"%~dp0\"");
-                temp = $"cmd.exe /c start \"{DS4Windows.ProductInfo.StartupTaskName}\" %mypath%\\{DS4Windows.Global.exeFileName} -m";
-                w.WriteLine(temp);
-                w.WriteLine("exit");
-            }
         }
     }
 }

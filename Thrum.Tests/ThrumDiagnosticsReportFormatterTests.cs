@@ -82,24 +82,24 @@ public class ThrumDiagnosticsReportFormatterTests
             TimestampUtc = DateTimeOffset.UnixEpoch,
             Backend = new DiagnosticsBackendSection
             {
-                Detail = @"failed reading C:\Users\patrick\AppData\Local\VIIPER\viiper.exe",
+                Detail = @"failed reading C:\Users\somebody\AppData\Local\VIIPER\viiper.exe",
             },
             HidHide = new DiagnosticsHidHideSection
             {
                 Installed = true,
-                ReadFailure = @"denied for C:\Users\patrick\Games\thing.exe",
+                ReadFailure = @"denied for C:\Users\somebody\Games\thing.exe",
             },
             Driver = new DiagnosticsDriverSection
             {
                 State = "Missing",
-                Reasons = new[] { @"probe failed at C:\Users\patrick\x" },
+                Reasons = new[] { @"probe failed at C:\Users\somebody\x" },
             },
-            CollectionFailures = new[] { @"slots: C:\Users\patrick\y unreadable" },
+            CollectionFailures = new[] { @"slots: C:\Users\somebody\y unreadable" },
         };
 
         string report = ThrumDiagnosticsReportFormatter.Format(snapshot);
 
-        Assert.IsFalse(report.Contains("patrick", StringComparison.OrdinalIgnoreCase),
+        Assert.IsFalse(report.Contains("somebody", StringComparison.OrdinalIgnoreCase),
             "an account name reached the report:\n" + report);
         StringAssert.Contains(report, @"\Users\<user>\");
     }

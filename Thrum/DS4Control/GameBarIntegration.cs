@@ -50,6 +50,16 @@ namespace DS4Windows
         private const int MaxAutomationDepth = 5;
         private const int MaxDiagnosticTextLength = 160;
         private const int LiveGameBarApiPollMs = 150;
+        // Each API poll starts a hidden copy of Thrum.exe. Polling every 150 ms
+        // for the whole session meant thousands of process launches an hour
+        // (CPU, battery, and a pattern antivirus products flag). The fast rate
+        // is kept while the overlay is visible and for a few seconds after
+        // Thrum opens it; otherwise the API is polled once a second, and
+        // window enumeration (in-process, every call) still runs as before.
+        private const int IdleGameBarApiPollMs = 1000;
+        private static readonly TimeSpan FastGameBarApiPollWindow = TimeSpan.FromSeconds(10);
+        private static DateTime gameBarApiFastPollUntilUtc = DateTime.MinValue;
+        private static bool gameBarApiNotPresent;
         private const int LiveGameBarApiProbeTimeoutMs = 1500;
         private const int LiveGameBarApiHangMs = 2500;
         private const int LiveAutomationPollMs = 1000;
@@ -237,6 +247,11 @@ namespace DS4Windows
                 return "Game Bar not opened: ms-gamebar protocol is not registered";
             }
 
+            lock (gameBarApiPollLock)
+            {
+                gameBarApiFastPollUntilUtc = DateTime.UtcNow + FastGameBarApiPollWindow;
+            }
+
             keybd_event(VK_LWIN, 0, 0, UIntPtr.Zero);
             keybd_event(VK_G, 0, 0, UIntPtr.Zero);
             keybd_event(VK_G, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
@@ -390,9 +405,14 @@ namespace DS4Windows
 
                 bool pollIsStale = gameBarApiPollRunning &&
                     now - gameBarApiPollLastStartedUtc > TimeSpan.FromMilliseconds(LiveGameBarApiHangMs);
+                int pollIntervalMs = gameBarApiPollCachedVisible ||
+                    now < gameBarApiFastPollUntilUtc
+                        ? LiveGameBarApiPollMs
+                        : IdleGameBarApiPollMs;
 
-                if ((!gameBarApiPollRunning || pollIsStale) &&
-                    now - gameBarApiPollLastStartedUtc >= TimeSpan.FromMilliseconds(LiveGameBarApiPollMs))
+                if (!gameBarApiNotPresent &&
+                    (!gameBarApiPollRunning || pollIsStale) &&
+                    now - gameBarApiPollLastStartedUtc >= TimeSpan.FromMilliseconds(pollIntervalMs))
                 {
                     gameBarApiPollRunning = true;
                     gameBarApiPollLastStartedUtc = now;
@@ -427,6 +447,12 @@ namespace DS4Windows
                                 gameBarApiPollLastInputRedirected = apiInputRedirected;
                                 gameBarApiPollLastElapsedMs = stopwatch.ElapsedMilliseconds;
                                 gameBarApiPollLastStatus = apiStatus;
+                                // The GameBar API type is part of the OS; if it
+                                // is missing it will not appear this session.
+                                if (!supported && apiStatus == "not present")
+                                {
+                                    gameBarApiNotPresent = true;
+                                }
 
                                 if (pollGeneration == gameBarApiPollGeneration || visible)
                                 {

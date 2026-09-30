@@ -295,6 +295,11 @@ namespace DS4Windows
             new StereoPcm16DownsamplerByTwo();
         private readonly DualShock4SbcEncoder encoder =
             new DualShock4SbcEncoder(SpeakerSampleRate);
+        // One tick of loopback source audio. sourceSamples is larger because
+        // the direct lane shares it; reading the whole buffer took up to 1024
+        // frames per 8 ms tick but encoded only these 384, discarding the rest
+        // and padding other ticks with silence (choppy speaker audio).
+        private const int LoopbackTickSamples = SourceFramesPerTick * Channels;
         private readonly float[] sourceSamples = new float[
             Math.Max(SourceFramesPerTick, DirectPcmMaximumSourceFrames) *
                 Channels];
@@ -352,6 +357,14 @@ namespace DS4Windows
 
         private WasapiCapture capture;
         private BufferedWaveProvider captureBuffer;
+        // DefaultRenderEndpointWatcher.Generation when the capture is on the
+        // default playback device, else -1; and a capture that stopped on its
+        // own. Either reopens the source from a pool thread.
+        private int boundDefaultGeneration = -1;
+        private int captureSourceLost;
+        private int captureLossReported;
+        private int captureReopenScheduled;
+        private long nextCaptureReopenTimestamp;
         private ISampleProvider sampleProvider;
         private Thread worker;
         private NativeOverlappedWritePool speakerWritePool;
@@ -559,20 +572,18 @@ namespace DS4Windows
 
             try
             {
+                int defaultGeneration = DefaultRenderEndpointWatcher.Generation;
                 capture = CreateCapture(sourceEndpointId, sourceEndpointKind,
                     out string sourceName);
-                captureBuffer = new BufferedWaveProvider(capture.WaveFormat)
+                if (UsesSystemDefault(sourceEndpointId, sourceEndpointKind))
                 {
-                    BufferDuration = TimeSpan.FromMilliseconds(CaptureBufferMs),
-                    DiscardOnBufferOverflow = true,
-                    ReadFully = false,
-                };
+                    boundDefaultGeneration = defaultGeneration;
+                }
+                captureBuffer = CreateCaptureBuffer(capture);
                 capture.DataAvailable += Capture_DataAvailable;
                 capture.RecordingStopped += Capture_RecordingStopped;
 
-                ISampleProvider source = ToStereo(captureBuffer.ToSampleProvider());
-                sampleProvider = source.WaveFormat.SampleRate == CaptureSampleRate ? source :
-                    new WdlResamplingSampleProvider(source, CaptureSampleRate);
+                sampleProvider = CreateLoopbackSource(captureBuffer);
                 worker = new Thread(StreamLoop)
                 {
                     IsBackground = true,
@@ -600,15 +611,39 @@ namespace DS4Windows
             }
         }
 
-        private static WasapiCapture CreateCapture(string endpointId,
-            ControllerAudioEndpointKind endpointKind, out string sourceName)
+        private static BufferedWaveProvider CreateCaptureBuffer(
+            WasapiCapture source)
         {
-            bool useSystemDefault = string.Equals(endpointId,
+            return new BufferedWaveProvider(source.WaveFormat)
+            {
+                BufferDuration = TimeSpan.FromMilliseconds(CaptureBufferMs),
+                DiscardOnBufferOverflow = true,
+                ReadFully = false,
+            };
+        }
+
+        private static ISampleProvider CreateLoopbackSource(
+            BufferedWaveProvider buffer)
+        {
+            ISampleProvider source = ToStereo(buffer.ToSampleProvider());
+            return source.WaveFormat.SampleRate == CaptureSampleRate ? source :
+                new WdlResamplingSampleProvider(source, CaptureSampleRate);
+        }
+
+        private static bool UsesSystemDefault(string endpointId,
+            ControllerAudioEndpointKind endpointKind)
+        {
+            return string.Equals(endpointId,
                 DualSenseAudioPassthrough.DefaultSystemAudioEndpointId,
                 StringComparison.Ordinal) ||
                 (string.IsNullOrEmpty(endpointId) &&
                     endpointKind == ControllerAudioEndpointKind.Any);
-            if (useSystemDefault)
+        }
+
+        private static WasapiCapture CreateCapture(string endpointId,
+            ControllerAudioEndpointKind endpointKind, out string sourceName)
+        {
+            if (UsesSystemDefault(endpointId, endpointKind))
             {
                 sourceName = "Default audio endpoint";
                 return new WasapiLoopbackCapture();
@@ -664,6 +699,13 @@ namespace DS4Windows
             if (source.WaveFormat.Channels == 1)
             {
                 return new MonoToStereoSampleProvider(source);
+            }
+
+            // Quad, 5.1 and 7.1 keep their centre (dialogue) and surrounds;
+            // only front left and right used to reach the speaker.
+            if (SurroundDownmixSampleProvider.CanDownmix(source.WaveFormat.Channels))
+            {
+                return new SurroundDownmixSampleProvider(source);
             }
 
             var mux = new MultiplexingSampleProvider(new[] { source }, Channels);
@@ -2386,17 +2428,138 @@ namespace DS4Windows
                 {
                     captureBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
                     captureAvailable.Set();
+                    if (Volatile.Read(ref captureLossReported) != 0)
+                    {
+                        Volatile.Write(ref captureLossReported, 0);
+                    }
                 }
             }
         }
 
         private void Capture_RecordingStopped(object sender, StoppedEventArgs e)
         {
-            if (!stopping && e.Exception != null)
+            if (!stopping && ReferenceEquals(sender, capture))
+            {
+                // Reopened from a pool thread; nothing is disposed here,
+                // because disposing joins the thread raising this event.
+                Volatile.Write(ref captureSourceLost, 1);
+                if (e.Exception != null &&
+                    Interlocked.Exchange(ref captureLossReported, 1) == 0)
+                {
+                    AppLogger.LogToGui(
+                        $"The audio source for the DualShock 4 Bluetooth speaker stopped ({e.Exception.Message}). Thrum reconnects when it is available again.",
+                        true);
+                }
+            }
+        }
+
+        // The capture used to stay bound to the device it opened on: after
+        // Windows switched the default output the controller speaker looped
+        // back a device nothing played to, and a source that went away was
+        // never reopened. Checked every tick by the encoder; the reopen itself
+        // (COM work) runs on a pool thread, at most once a second.
+        private void ScheduleCaptureReopenIfNeeded()
+        {
+            int bound = Volatile.Read(ref boundDefaultGeneration);
+            bool defaultMoved = bound >= 0 &&
+                bound != DefaultRenderEndpointWatcher.Generation;
+            if (!defaultMoved && Volatile.Read(ref captureSourceLost) == 0)
+            {
+                return;
+            }
+
+            long now = Stopwatch.GetTimestamp();
+            if (now < Volatile.Read(ref nextCaptureReopenTimestamp) ||
+                Interlocked.CompareExchange(ref captureReopenScheduled, 1, 0) != 0)
+            {
+                return;
+            }
+
+            Volatile.Write(ref nextCaptureReopenTimestamp,
+                now + Stopwatch.Frequency);
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    ReopenCapture(defaultMoved);
+                }
+                catch (Exception)
+                {
+                }
+                finally
+                {
+                    Volatile.Write(ref captureReopenScheduled, 0);
+                }
+            });
+        }
+
+        private void ReopenCapture(bool defaultMoved)
+        {
+            int defaultGeneration = DefaultRenderEndpointWatcher.Generation;
+            WasapiCapture replacement;
+            string sourceName;
+            try
+            {
+                replacement = CreateCapture(sourceEndpointId,
+                    sourceEndpointKind, out sourceName);
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            BufferedWaveProvider replacementBuffer =
+                CreateCaptureBuffer(replacement);
+            ISampleProvider replacementSource =
+                CreateLoopbackSource(replacementBuffer);
+            WasapiCapture previous;
+            lock (syncRoot)
+            {
+                if (stopping)
+                {
+                    replacement.Dispose();
+                    return;
+                }
+
+                previous = capture;
+                if (previous != null)
+                {
+                    previous.DataAvailable -= Capture_DataAvailable;
+                    previous.RecordingStopped -= Capture_RecordingStopped;
+                }
+
+                capture = replacement;
+                captureBuffer = replacementBuffer;
+                sampleProvider = replacementSource;
+                capture.DataAvailable += Capture_DataAvailable;
+                capture.RecordingStopped += Capture_RecordingStopped;
+                Volatile.Write(ref boundDefaultGeneration,
+                    UsesSystemDefault(sourceEndpointId, sourceEndpointKind) ?
+                        defaultGeneration : -1);
+                Volatile.Write(ref captureSourceLost, 0);
+            }
+
+            if (previous != null)
+            {
+                try { previous.StopRecording(); } catch { }
+                previous.Dispose();
+            }
+
+            try
+            {
+                replacement.StartRecording();
+            }
+            catch (Exception)
+            {
+                Volatile.Write(ref captureSourceLost, 1);
+                return;
+            }
+
+            if (defaultMoved)
             {
                 AppLogger.LogToGui(
-                    $"DualShock 4 Bluetooth speaker capture stopped: {e.Exception.Message}",
-                    true);
+                    $"DualShock 4 Bluetooth speaker now plays audio from {sourceName}.",
+                    false);
             }
         }
 
@@ -2421,12 +2584,12 @@ namespace DS4Windows
                             CaptureLoopbackStartupBufferedFrames && !stopping;
                         prime++)
                 {
-                    Array.Clear(sourceSamples, 0, sourceSamples.Length);
+                    Array.Clear(sourceSamples, 0, LoopbackTickSamples);
                     int samplesRead;
                     lock (syncRoot)
                     {
                         samplesRead = stopping || sampleProvider == null ? 0 :
-                            sampleProvider.Read(sourceSamples, 0, sourceSamples.Length);
+                            sampleProvider.Read(sourceSamples, 0, LoopbackTickSamples);
                     }
 
                     if (HasAudibleSamples(sourceSamples, samplesRead))
@@ -2450,13 +2613,13 @@ namespace DS4Windows
                 {
                     WaitForNextTick(ref nextTick, cadenceTicks,
                         highResolutionTimer);
-                    Array.Clear(sourceSamples, 0, sourceSamples.Length);
+                    Array.Clear(sourceSamples, 0, LoopbackTickSamples);
                     int samplesRead;
                     lock (syncRoot)
                     {
                         samplesRead = stopping || sampleProvider == null ? 0 :
                             sampleProvider.Read(sourceSamples, 0,
-                                sourceSamples.Length);
+                                LoopbackTickSamples);
                     }
                     if (HasAudibleSamples(sourceSamples, samplesRead))
                     {
@@ -2466,6 +2629,7 @@ namespace DS4Windows
                     ResampleAndEncode(SourceFramesPerTick);
                     DrainEncodedFrames();
                     TraceDirectStreamStatus();
+                    ScheduleCaptureReopenIfNeeded();
                 }
             }
             finally

@@ -19,6 +19,7 @@ namespace DS4WinWPF.DS4Forms
         internal ControllerTesterWindow(CompositeDeviceModel controller)
         {
             InitializeComponent();
+            SourceInitialized += (_, _) => WindowFit.ClampToWorkArea(this);
             TesterControl.UseController(controller ??
                 throw new ArgumentNullException(nameof(controller)));
         }

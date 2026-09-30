@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:DS4WinWPF.DS4Forms.ViewModels"
+             xmlns:controls="clr-namespace:DS4WinWPF.DS4Forms.Controls"
              mc:Ignorable="d"
              d:DesignHeight="720" d:DesignWidth="560"
              d:DataContext="{d:DesignInstance Type=vm:NativePs5SetupViewModel}"
@@ -347,6 +348,7 @@
                             <TextBlock Text="{Binding Step2Intro}" Style="{StaticResource SheetMutedTextStyle}" Margin="0,0,0,12" />
                             <ScrollViewer x:Name="AcknowledgementScroller" MaxHeight="260" MinHeight="120"
                                           VerticalScrollBarVisibility="Auto" Focusable="True" IsTabStop="True"
+                                          controls:NestedScrollWheel.PassAtEdges="True"
                                           Background="{DynamicResource RaisedBackgroundColor}"
                                           BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                           Padding="12,10" Margin="0,0,0,12"
@@ -429,14 +431,11 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <!-- step 4: haptics over the virtual pad (optional) -->
+                        <!-- step 4: haptics over the virtual pad (on by default) -->
                         <StackPanel x:Name="Step4Panel"
                                     Visibility="{Binding IsStep4, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <TextBlock Text="{Binding Step4Title}" Style="{StaticResource SheetStepTitleStyle}" VerticalAlignment="Center" />
-                                <Border Style="{StaticResource SheetWarningBadgeStyle}" Margin="10,0,0,0">
-                                    <TextBlock Text="{Binding Step4Badge}" Style="{StaticResource SheetWarningBadgeTextStyle}" />
-                                </Border>
                             </StackPanel>
                             <TextBlock Text="{Binding Step4Intro}" Style="{StaticResource SheetBodyTextStyle}" Margin="0,0,0,12" />
 
@@ -454,8 +453,8 @@
                                 </StackPanel>
                             </CheckBox>
 
-                            <TextBlock Text="{Binding AudioClassSummary}" Style="{StaticResource SheetBodyTextStyle}"
-                                       Foreground="{DynamicResource WarningColor}" Margin="0,0,0,12" />
+                            <TextBlock Text="{Binding AudioClassSummary}" Style="{StaticResource SheetMutedTextStyle}"
+                                       Margin="0,0,0,12" />
 
                             <Border Style="{StaticResource SheetNoteBoxStyle}" Margin="0,0,0,12">
                                 <StackPanel>

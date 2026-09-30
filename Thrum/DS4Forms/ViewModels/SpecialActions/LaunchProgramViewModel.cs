@@ -34,7 +34,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels.SpecialActions
 {
     public class LaunchProgramViewModel : NotifyDataErrorBase
     {
-        private string filepath;
+        private string filepath = string.Empty;
         private double delay;
         private string arguments;
 
@@ -101,7 +101,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels.SpecialActions
 
         public void LoadAction(SpecialAction action)
         {
-            filepath = action.details;
+            filepath = action.details ?? string.Empty;
             delay = action.delayTime;
             arguments = action.extra;
         }
@@ -118,8 +118,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels.SpecialActions
             bool valid = true;
             List<string> filepathErrors = new List<string>();
 
-            if (filepath.Length == 0)
+            if (string.IsNullOrEmpty(filepath))
             {
+                // Saving with no program chosen stored "?0" as the path, and
+                // before that crashed the app on a null path.
+                valid = false;
                 filepathErrors.Add("Filepath empty");
             }
             else if (!File.Exists(filepath))

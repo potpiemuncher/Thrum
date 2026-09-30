@@ -253,6 +253,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public bool ShowEmulatedDeviceChoice => !ShowNativePs5Mode;
 
         private ViiperDriverReadinessState? nativePs5DriverState;
+        private bool nativePs5DriverCarriesFixes;
         private bool nativePs5BackendReady;
 
         /// <summary>
@@ -265,6 +266,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             bool backendReady)
         {
             nativePs5DriverState = readiness?.State;
+            nativePs5DriverCarriesFixes =
+                ViiperExperimentalDisclosure.CarriesUpstreamFixes(readiness);
             nativePs5BackendReady = backendReady;
             RefreshNativePs5();
         }
@@ -293,17 +296,21 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     : null;
 
             NativePs5HidHideStatus hidHide;
-            if (!Global.hidHideInstalled)
+            if (device.CurrentExclusiveStatus != DS4Device.ExclusiveStatus.Shared)
+            {
+                // Exclusive access hides the pad from games on its own, so the
+                // "HidHide is not installed" warning was false here and showed
+                // on every launch (the status enum documents Hiding as
+                // "HidHide (or exclusive access)").
+                hidHide = NativePs5HidHideStatus.Hiding;
+            }
+            else if (!Global.hidHideInstalled)
             {
                 hidHide = NativePs5HidHideStatus.NotInstalled;
             }
-            else if (device.CurrentExclusiveStatus == DS4Device.ExclusiveStatus.Shared)
-            {
-                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
-            }
             else
             {
-                hidHide = NativePs5HidHideStatus.Hiding;
+                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
             }
 
             return new NativePs5ModeInputs(
@@ -313,7 +320,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 DriverState: nativePs5DriverState,
                 BackendReady: nativePs5BackendReady,
                 ExperimentalAcknowledged: Global.ViiperExperimentalAcknowledged,
-                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints,
+                // What the gate will actually do: the setting, and a release
+                // with the upstream fix (earlier ones never get audio).
+                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints &&
+                    nativePs5DriverCarriesFixes,
                 IsWireless: selectedController.IsWireless,
                 AudioHapticsEnabled: haptics?.Enabled == true,
                 AudioHapticsSource: haptics?.Source ?? AudioHapticsSourceKind.SystemAudio,
@@ -719,28 +729,23 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         {
             if (controller == null) return;
 
+            // Battery and ID changes are raised on the controller's input
+            // thread. Refreshing from there raced the UI timer and could throw
+            // on WPF objects; the 250 ms runtime timer already picks up battery
+            // and charging changes, and IdText binds through its own event.
             if (hook)
             {
                 controller.SelectedProfileChanged += SelectedController_ProfileChanged;
-                controller.BatteryStateChanged += SelectedController_StatusChanged;
-                controller.IdTextChanged += SelectedController_StatusChanged;
             }
             else
             {
                 controller.SelectedProfileChanged -= SelectedController_ProfileChanged;
-                controller.BatteryStateChanged -= SelectedController_StatusChanged;
-                controller.IdTextChanged -= SelectedController_StatusChanged;
             }
         }
 
         private void SelectedController_ProfileChanged(object sender, EventArgs e)
         {
             RefreshSelectedControllerProperties();
-        }
-
-        private void SelectedController_StatusChanged(object sender, EventArgs e)
-        {
-            RefreshRuntimeState(App.rootHub);
         }
 
         private void CaptureRuntimeSnapshot(ControlService controlService)
@@ -975,11 +980,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public void CheckDrivers()
         {
-            ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus(tryStartServer: true);
-            if (!status.Ready)
-            {
-                ViiperSetupManager.EnsureReadyWithPrompt(null, forcePrompt: true);
-            }
+            // Starts an installed backend so the service-start status line
+            // sees it. Never prompts: a launch is not a request for virtual
+            // output, and this used to open a modal install offer on every
+            // start without VIIPER, holding back controller detection until it
+            // was answered. The install offers are the first-run wizard, the
+            // output-type choice (EnsureReadyWithPrompt) and the plain refusal
+            // when a virtual output is actually plugged.
+            ViiperSetupManager.GetStatus(tryStartServer: true);
         }
 
         public bool IsNET8Available()

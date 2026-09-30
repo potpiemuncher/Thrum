@@ -42,7 +42,6 @@ namespace DS4WinWPF.DS4Forms
             captionTextBlock.Text = Properties.Resources.DownloadVersion.Replace("*number*",
                 newversion);
             updaterWinVM = new UpdaterWindowViewModel(newversion);
-            updaterWinVM.BlankSkippedVersion();
 
             DataContext = updaterWinVM;
 
@@ -55,6 +54,10 @@ namespace DS4WinWPF.DS4Forms
         private void YesBtn_Click(object sender, RoutedEventArgs e)
         {
             result = MessageBoxResult.Yes;
+            // Choosing to update withdraws an earlier "skip". Opening the
+            // dialog no longer does: that erased the skip every time the
+            // dialog appeared, so it came back at every check.
+            updaterWinVM.BlankSkippedVersion();
             Close();
         }
 

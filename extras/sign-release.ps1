@@ -14,6 +14,8 @@
 # or a verification failure all stop it with the reason, and it never leaves a
 # half-signed archive in place of the original.
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
+    Justification = 'Interactive console script: its status text is for the person running it, not pipeline output.')]
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     # Release archive produced by the release workflow.
@@ -27,22 +29,31 @@ param(
     # every signature stops validating the day the certificate expires.
     [string]$TimestampUrl = "http://timestamp.digicert.com",
 
-    # Only these are signed. Satellite resource assemblies and the .NET runtime
-    # files are Microsoft's and already carry their own signatures; re-signing
-    # them would be both pointless and wrong.
-    [string[]]$SignPatterns = @("Thrum.exe", "Thrum.dll"),
+    # Everything this project builds: the app, its satellite resource
+    # assemblies (Thrum.resources.dll in each language folder - these are
+    # Thrum's own, not Microsoft's) and the setup script, which runs elevated.
+    # The .NET runtime files are Microsoft's and already carry signatures;
+    # re-signing them would be wrong.
+    [string[]]$SignPatterns = @("Thrum.exe", "Thrum.dll", "Thrum.resources.dll", "*.ps1"),
+
+    # Also sign bundled third-party binaries that have no signature at all
+    # (for example rnnoise.dll, FakerInputDll.dll, SharpOSC.dll). Signing them
+    # vouches that this release shipped them unmodified, which is what
+    # Defender and application-control policies look for; files that are
+    # already signed by their publisher are never touched.
+    [switch]$IncludeUnsignedThirdParty,
 
     [string]$SignToolPath
 )
 
 $ErrorActionPreference = "Stop"
 
-function Find-SignTool {
-    if ($SignToolPath) {
-        if (-not (Test-Path -LiteralPath $SignToolPath)) {
-            throw "signtool.exe not found at the path given: $SignToolPath"
+function Find-SignTool([string]$explicitPath) {
+    if ($explicitPath) {
+        if (-not (Test-Path -LiteralPath $explicitPath)) {
+            throw "signtool.exe not found at the path given: $explicitPath"
         }
-        return $SignToolPath
+        return $explicitPath
     }
 
     $roots = @(
@@ -94,7 +105,7 @@ function Assert-Certificate([string]$thumb) {
     return $cert
 }
 
-$signtool = Find-SignTool
+$signtool = Find-SignTool -explicitPath $SignToolPath
 Write-Host "signtool:    $signtool"
 Assert-Certificate -thumb $Thumbprint | Out-Null
 
@@ -110,6 +121,10 @@ try {
     $targets = foreach ($pattern in $SignPatterns) {
         Get-ChildItem -LiteralPath $extract -Recurse -Filter $pattern -File `
             -ErrorAction SilentlyContinue
+    }
+    if ($IncludeUnsignedThirdParty) {
+        $targets += Get-ChildItem -LiteralPath $extract -Recurse -File -Include *.dll, *.exe |
+            Where-Object { (Get-AuthenticodeSignature -LiteralPath $_.FullName).Status -eq "NotSigned" }
     }
     $targets = $targets | Sort-Object FullName -Unique
     if (-not $targets) {

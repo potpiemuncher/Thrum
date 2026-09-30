@@ -21,6 +21,8 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
+using ContextMenu = System.Windows.Controls.ContextMenu;
+using MenuItem = System.Windows.Controls.MenuItem;
 using MessageBox = System.Windows.MessageBox;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
@@ -57,6 +59,7 @@ namespace DS4WinWPF.DS4Forms
 
         private ControllerDiagramKind controllerDiagramKind;
         private bool controllerDiagramSelectorReady;
+        private bool applyingEditorBindings;
         private double controllerCoordinateScale = 1.0;
         private double controllerCoordinateOffsetX;
         private bool usingDualSenseDiagram =>
@@ -1773,7 +1776,7 @@ namespace DS4WinWPF.DS4Forms
 
         public void Reload(int device, ProfileEntity profile = null, bool profileAlreadyLoaded = false)
         {
-            profileSettingsTabCon.DataContext = null;
+            ClearProfileSettingsBinding();
             mappingListBox.DataContext = null;
             specialActionsTab.DataContext = null;
             lightbarRect.DataContext = null;
@@ -1840,7 +1843,18 @@ namespace DS4WinWPF.DS4Forms
             profileSettingsVM.PopulateGyroMouseStickTrig(gyroMouseStickTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroSwipeTrig(gyroSwipeTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroControlsTrig(gyroControlsTrigBtn.ContextMenu);
-            profileSettingsTabCon.DataContext = profileSettingsVM;
+            // Binding the tab moves outConTypeCombo from its fallback index to
+            // the profile's output, which raises SelectionChanged. That is the
+            // editor loading, not the user choosing an output.
+            applyingEditorBindings = true;
+            try
+            {
+                profileSettingsTabCon.DataContext = profileSettingsVM;
+            }
+            finally
+            {
+                applyingEditorBindings = false;
+            }
             mappingListBox.DataContext = mappingListVM;
             specialActionsTab.DataContext = specialActionsVM;
             lightbarRect.DataContext = profileSettingsVM;
@@ -1896,9 +1910,24 @@ namespace DS4WinWPF.DS4Forms
             }
         }
 
+        // Unbinding drops the output combo to its fallback index, which is a
+        // selection change too; it must not prompt like a user's choice.
+        private void ClearProfileSettingsBinding()
+        {
+            applyingEditorBindings = true;
+            try
+            {
+                profileSettingsTabCon.DataContext = null;
+            }
+            finally
+            {
+                applyingEditorBindings = false;
+            }
+        }
+
         private void StopEditorBindings()
         {
-            profileSettingsTabCon.DataContext = null;
+            ClearProfileSettingsBinding();
             mappingListBox.DataContext = null;
             specialActionsTab.DataContext = null;
             lightbarRect.DataContext = null;
@@ -1918,7 +1947,18 @@ namespace DS4WinWPF.DS4Forms
             profileSettingsVM.PopulateGyroMouseStickTrig(gyroMouseStickTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroSwipeTrig(gyroSwipeTrigBtn.ContextMenu);
             profileSettingsVM.PopulateGyroControlsTrig(gyroControlsTrigBtn.ContextMenu);
-            profileSettingsTabCon.DataContext = profileSettingsVM;
+            // Binding the tab moves outConTypeCombo from its fallback index to
+            // the profile's output, which raises SelectionChanged. That is the
+            // editor loading, not the user choosing an output.
+            applyingEditorBindings = true;
+            try
+            {
+                profileSettingsTabCon.DataContext = profileSettingsVM;
+            }
+            finally
+            {
+                applyingEditorBindings = false;
+            }
             mappingListBox.DataContext = mappingListVM;
             specialActionsTab.DataContext = specialActionsVM;
             lightbarRect.DataContext = profileSettingsVM;
@@ -2114,27 +2154,37 @@ namespace DS4WinWPF.DS4Forms
                 profileSettingsVM.TempControllerIndex = 1;
             }
 
-            if (profileSettingsVM.HasUseDs3PitchRollSimChanged)
-            {
-                var mainWindow = (MainWindow)Application.Current.MainWindow;
-                if (mainWindow is not null)
-                {
-                    var changeServiceTask = Task.Run(() => Dispatcher.InvokeAsync(mainWindow.ChangeService));
-                    changeServiceTask.ContinueWith(_ => Dispatcher.InvokeAsync(() => mainWindow.ChangeService()));
-
-                }
-                else
-                {
-                    MessageBox.Show("The app has to be restarted for DS3 gyro simulation to work.",
-                        ProductInfo.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-            }
-
+            bool ds3PitchRollSimChanged = profileSettingsVM.HasUseDs3PitchRollSimChanged;
             bool saved = ApplyProfileStep(false);
             if (saved)
             {
+                if (ds3PitchRollSimChanged)
+                {
+                    RestartServiceForDs3PitchRollSim();
+                }
+
                 profileTriggerLabControl.RestorePhysicalProfileEffects();
                 Closed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        // The DS3 pitch/roll simulation is read when the service starts. This
+        // used to queue two ChangeService toggles back to back, which could run
+        // two Stops (leaving the service off) or a Start during a Stop, and did
+        // so even when the save was then rejected.
+        private static void RestartServiceForDs3PitchRollSim()
+        {
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                if (App.rootHub.running)
+                {
+                    Util.LogAssistBackgroundTask(mainWindow.RestartServiceAsync());
+                }
+            }
+            else
+            {
+                MessageBox.Show("The app has to be restarted for DS3 gyro simulation to work.",
+                    ProductInfo.ProductName, MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -2546,7 +2596,12 @@ namespace DS4WinWPF.DS4Forms
             int index = outConTypeCombo.SelectedIndex;
             if (index >= 0)
             {
-                if (ViiperSetupManager.IsViiperOutputType(profileSettingsVM.TempConType))
+                // Only a choice the user makes prompts. Every profile's output
+                // is a VIIPER type, so opening the editor used to run the
+                // backend probe on the UI thread (and could show the
+                // experimental-driver notice) each time it opened.
+                if (!applyingEditorBindings &&
+                    ViiperSetupManager.IsViiperOutputType(profileSettingsVM.TempConType))
                 {
                     // Transport first (is the backend installed at all), then
                     // the experimental-driver acknowledgement. Asking for
@@ -2936,6 +2991,14 @@ namespace DS4WinWPF.DS4Forms
             if (deviceNum < ControlService.CURRENT_DS4_CONTROLLER_LIMIT)
             {
                 DS4Device d = App.rootHub.DS4Controllers[deviceNum];
+                if (d == null)
+                {
+                    MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                        "Connect the controller you want to calibrate, then try again.",
+                        "Gyro Calibration", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
                 d.SixAxis.ResetContinuousCalibration();
                 if (d.JointDeviceSlotNumber != DS4Device.DEFAULT_JOINT_SLOT_NUMBER)
                 {

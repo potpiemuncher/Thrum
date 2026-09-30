@@ -378,8 +378,15 @@ namespace DS4Windows
             image = MessageBoxImage.Information;
             if (!status.SetupScriptFound)
             {
+                // Antivirus software can quarantine this script (it downloads a
+                // driver and runs elevated), which is the usual reason it is
+                // missing from an otherwise complete copy.
                 message =
-                    ProductInfo.ProductName + " could not find the bundled VIIPER setup script.\n\n" +
+                    ProductInfo.ProductName + " could not find its VIIPER setup script (extras\\" +
+                    InstallerScriptName + " next to " + ProductInfo.ExeBaseName + ".exe).\n\n" +
+                    "Antivirus software may have removed it: check Windows Security > " +
+                    "Virus & threat protection > Protection history, or download " +
+                    ProductInfo.ProductName + " again.\n\n" +
                     "Opening the VIIPER and usbip-win2 release pages instead.";
                 image = MessageBoxImage.Warning;
                 Util.StartProcessHelper(ViiperReleasesUrl);
@@ -394,12 +401,27 @@ namespace DS4Windows
                 return true;
             }
 
+            var verifier = new WinTrustAuthenticodeVerifier();
+            ViiperSetupScriptPolicy.Decision decision =
+                ViiperSetupScriptPolicy.Decide(
+                    verifier.VerifyFile(Global.exelocation),
+                    verifier.VerifyFile(status.SetupScriptPath));
+            if (!decision.Launch)
+            {
+                Interlocked.Exchange(ref installerRunning, 0);
+                message = decision.Refusal;
+                image = MessageBoxImage.Warning;
+                AppLogger.LogToGui(decision.Refusal, true);
+                return false;
+            }
+
             try
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{status.SetupScriptPath}\" -NoPause",
+                    Arguments = ViiperSetupScriptPolicy.Arguments(
+                        decision, status.SetupScriptPath),
                     UseShellExecute = true,
                     Verb = "runas",
                 };
@@ -429,6 +451,17 @@ namespace DS4Windows
                 image = MessageBoxImage.Error;
                 return false;
             }
+        }
+
+        private static int restartAllowed;
+
+        /// <summary>
+        /// Called once the main window is shown. Until then a successful setup
+        /// does not restart the app (see <see cref="InstallerProcess_Exited"/>).
+        /// </summary>
+        public static void AllowRestartAfterSetup()
+        {
+            Interlocked.Exchange(ref restartAllowed, 1);
         }
 
         private static void InstallerProcess_Exited(Process process,
@@ -464,14 +497,33 @@ namespace DS4Windows
                     Interlocked.Exchange(ref promptShownThisSession, 0);
                 }
 
+                // Setup launched from the first-run wizard finishes before the
+                // main window exists. Restarting then shut the app down under
+                // the open wizard, before the first-run marker was written, so
+                // the replacement process showed the wizard again while the
+                // old one carried on starting up. Nothing needs a restart yet:
+                // the controller service has not started, and it starts with
+                // the refreshed status once the wizard closes.
+                bool restartNow = report.RestartApplication &&
+                    Volatile.Read(ref restartAllowed) == 1;
+                string logMessage = report.Message;
+                string restartSentence = "Restarting " + ProductInfo.ProductName + ".";
+                if (report.RestartApplication && !restartNow &&
+                    logMessage.EndsWith(restartSentence, StringComparison.Ordinal))
+                {
+                    logMessage = logMessage.Substring(0,
+                        logMessage.Length - restartSentence.Length) +
+                        "It will be used when setup finishes.";
+                }
+
                 AppLogger.LogToGui((report.Succeeded ? "SUCCESSFUL: " : string.Empty) +
-                    report.Message.Replace("\n", " "), report.IsError, false);
+                    logMessage.Replace("\n", " "), report.IsError, false);
 
                 InstallerFinished?.Invoke(null,
                     new ViiperInstallerFinishedEventArgs(report.Succeeded,
-                        report.Message, refreshed));
+                        logMessage, refreshed));
 
-                if (report.RestartApplication && RequestRestart())
+                if (restartNow && RequestRestart())
                 {
                     return;
                 }
@@ -567,6 +619,55 @@ namespace DS4Windows
         private static string GetSetupScriptPath()
         {
             return Path.Combine(Global.exedirpath, "extras", InstallerScriptName);
+        }
+
+        /// <summary>How long after launching the backend a service start
+        /// still waits for it to answer.</summary>
+        internal static readonly TimeSpan RecentServerStartWindow = TimeSpan.FromSeconds(10);
+
+        /// <summary>
+        /// Whether a service start should wait for the backend: only when this
+        /// session launched it within <see cref="RecentServerStartWindow"/>.
+        /// </summary>
+        internal static bool ShouldWaitForServer(DateTime lastStartAttemptUtc, DateTime nowUtc)
+        {
+            TimeSpan sinceStart = nowUtc - lastStartAttemptUtc;
+            return sinceStart >= TimeSpan.Zero && sinceStart < RecentServerStartWindow;
+        }
+
+        /// <summary>
+        /// Waits up to <paramref name="timeout"/> for a backend this session
+        /// launched moments ago to answer, so the service start that follows
+        /// can plug in virtual outputs. Returns at once, without a request,
+        /// when no launch is that recent: a backend that is already up, not
+        /// installed, or not ours is never waited for.
+        /// </summary>
+        /// <returns>True if the backend answered.</returns>
+        internal static bool WaitForRecentlyStartedServer(TimeSpan timeout)
+        {
+            DateTime lastAttempt;
+            lock (serverStartLock)
+            {
+                lastAttempt = lastServerStartAttemptUtc;
+            }
+
+            if (!ShouldWaitForServer(lastAttempt, DateTime.UtcNow))
+            {
+                return false;
+            }
+
+            Stopwatch waited = Stopwatch.StartNew();
+            while (!CanPingServer())
+            {
+                if (waited.Elapsed >= timeout)
+                {
+                    return false;
+                }
+
+                Thread.Sleep(100);
+            }
+
+            return true;
         }
 
         private static bool TryStartServerOnce(string viiperPath)

@@ -472,10 +472,21 @@ namespace DS4Windows.InputDevices
             return true;
         }
 
+        // Both listening lanes carry paced Opus audio: the speaker (0x93) and,
+        // with "headset only" audio, the headphone jack (0x96). Matching only
+        // 0x93 sent headset audio down the unpaced control path, bypassing the
+        // prime gate and the 10.667 ms schedule. Same test as
+        // DualSenseDevice.HasBluetoothHapticsStreamerSpeakerFrame.
         internal static bool IsSpeakerAudioReport(byte[] report)
         {
-            return report != null && report.Length == ReportLength &&
-                report[142] == 0x93 && report[143] == 200;
+            if (report == null || report.Length != ReportLength ||
+                report[143] != 200)
+            {
+                return false;
+            }
+
+            byte packetId = (byte)(report[142] & 0x7F);
+            return packetId == 0x13 || packetId == 0x16;
         }
 
         internal static bool CanPresentFromPrimeGate(bool primeRequired,

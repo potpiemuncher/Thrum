@@ -54,6 +54,18 @@ namespace DS4Windows
         private string captureEndpointId = string.Empty;
         private ControllerAudioEndpointKind captureEndpointKind;
         private bool disposed;
+        // The last capture request, so a capture that stopped on its own, or
+        // one on the default playback device after Windows switched it, can
+        // be reopened by captureWatchTimer.
+        private string lastRequestedCaptureEndpointId = string.Empty;
+        private string lastSpeakerEndpointId = string.Empty;
+        private ControllerAudioEndpointKind lastRequestedEndpointKind;
+        private int captureDefaultGeneration = -1;
+        private volatile bool captureLost;
+        private int captureReopenFailures;
+        private long nextCaptureReopenTick;
+        private int captureCheckRunning;
+        private Timer captureWatchTimer;
 
         public ControllerRuntimeLaneState GetStatus(int slot)
         {
@@ -305,6 +317,8 @@ namespace DS4Windows
                 }
 
                 disposed = true;
+                captureWatchTimer?.Dispose();
+                captureWatchTimer = null;
                 for (int i = 0; i < slots.Length; i++)
                 {
                     playbacks[i] = slots[i];
@@ -526,6 +540,11 @@ namespace DS4Windows
         {
             requestedCaptureEndpointId ??= string.Empty;
             speakerEndpointId ??= string.Empty;
+            lastRequestedCaptureEndpointId = requestedCaptureEndpointId;
+            lastSpeakerEndpointId = speakerEndpointId;
+            lastRequestedEndpointKind = endpointKind;
+            captureWatchTimer ??= new Timer(_ => CheckCaptureSource(), null,
+                1000, 1000);
 
             if (capture != null && captureEndpointKind == endpointKind &&
                 string.Equals(captureEndpointId, requestedCaptureEndpointId, StringComparison.Ordinal))
@@ -534,6 +553,7 @@ namespace DS4Windows
             }
 
             StopCapture();
+            captureLost = false;
 
             if (ProcessLoopbackWaveCapture.TryParseAutomaticEndpointId(
                     requestedCaptureEndpointId, out int automaticSlot))
@@ -596,7 +616,9 @@ namespace DS4Windows
                 return;
             }
 
+            int defaultGeneration = DefaultRenderEndpointWatcher.Generation;
             capture = sourceEndpoint != null ? new WasapiLoopbackCapture(sourceEndpoint) : new WasapiLoopbackCapture();
+            captureDefaultGeneration = sourceEndpoint == null ? defaultGeneration : -1;
             captureEndpointId = requestedCaptureEndpointId;
             captureEndpointKind = endpointKind;
             captureFormat = capture.WaveFormat;
@@ -613,6 +635,7 @@ namespace DS4Windows
             IWaveIn oldCapture = capture;
             capture = null;
             captureFormat = null;
+            captureDefaultGeneration = -1;
             captureEndpointId = string.Empty;
             captureEndpointKind = ControllerAudioEndpointKind.Any;
 
@@ -630,14 +653,91 @@ namespace DS4Windows
             }
             catch { }
 
-            oldCapture.Dispose();
+            // Every caller holds syncRoot, and Dispose joins the capture
+            // thread, which can be blocked on syncRoot inside
+            // Capture_DataAvailable: disposing here deadlocked both threads
+            // (a speaker-passthrough restart or profile change hung for good).
+            // Dispose once the caller has released the lock.
+            Task.Run(() =>
+            {
+                try { oldCapture.Dispose(); } catch { }
+            });
         }
 
         private void Capture_RecordingStopped(object sender, StoppedEventArgs e)
         {
+            // App (process) captures end with their app and have their own
+            // detection; a device capture that stops is reopened.
+            if (ReferenceEquals(sender, capture) &&
+                sender is not ProcessLoopbackWaveCapture)
+            {
+                captureLost = true;
+            }
+
             if (e.Exception != null)
             {
-                AppLogger.LogToGui($"DualSense audio passthrough capture stopped: {e.Exception.Message}", true);
+                AppLogger.LogToGui($"The audio source for the DualSense speaker stopped ({e.Exception.Message}). Thrum reconnects when it is available again.", true);
+            }
+        }
+
+        // The capture used to stay on the device it opened on: after Windows
+        // switched the default output the controller speaker looped back a
+        // device nothing played to, and a source that went away (unplugged,
+        // audio service restart) was never reopened. Runs on a timer thread
+        // once a second; failed reopens back off up to a minute.
+        private void CheckCaptureSource()
+        {
+            int bound = Volatile.Read(ref captureDefaultGeneration);
+            bool defaultMoved = bound >= 0 &&
+                bound != DefaultRenderEndpointWatcher.Generation;
+            if (!defaultMoved && !captureLost)
+            {
+                return;
+            }
+
+            long now = Environment.TickCount64;
+            if (now < Volatile.Read(ref nextCaptureReopenTick) ||
+                Interlocked.Exchange(ref captureCheckRunning, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                lock (syncRoot)
+                {
+                    if (disposed || !slots.Any(item => item != null))
+                    {
+                        captureLost = false;
+                        return;
+                    }
+
+                    StopCapture();
+                    try
+                    {
+                        EnsureCaptureStarted(lastRequestedCaptureEndpointId,
+                            lastSpeakerEndpointId, lastRequestedEndpointKind);
+                    }
+                    catch (Exception)
+                    {
+                    }
+
+                    if (capture == null)
+                    {
+                        captureLost = true;
+                        captureReopenFailures = Math.Min(captureReopenFailures + 1, 6);
+                        Volatile.Write(ref nextCaptureReopenTick,
+                            now + (1000L << captureReopenFailures));
+                    }
+                    else
+                    {
+                        captureReopenFailures = 0;
+                    }
+                }
+            }
+            finally
+            {
+                Volatile.Write(ref captureCheckRunning, 0);
             }
         }
 
@@ -645,7 +745,10 @@ namespace DS4Windows
         {
             lock (syncRoot)
             {
-                if (captureFormat == null || captureFormat.Channels < 1)
+                // A capture that was replaced while this buffer waited for the
+                // lock may deliver once more; its data is in the old format.
+                if (!ReferenceEquals(sender, capture) ||
+                    captureFormat == null || captureFormat.Channels < 1)
                 {
                     return;
                 }
@@ -1350,6 +1453,12 @@ namespace DS4Windows
             private readonly WasapiOut output;
             private readonly BufferedWaveProvider provider;
             private readonly WaveFormat outputFormat;
+            // outputFormat is the endpoint's WAVE_FORMAT_EXTENSIBLE mix format,
+            // whose Encoding is Extensible, so no WriteSample branch matched it
+            // and wired USB speaker passthrough wrote pure silence. Samples are
+            // encoded in the standard form of the same format; the provider
+            // keeps the extensible one (and its channel mask).
+            private readonly WaveFormat sampleFormat;
             private readonly byte[] outputBuffer;
 
             public string EndpointId { get; }
@@ -1362,6 +1471,7 @@ namespace DS4Windows
                 this.output = output;
                 this.provider = provider;
                 this.outputFormat = outputFormat;
+                sampleFormat = outputFormat.AsStandardWaveFormat();
                 SpeakerVolume = speakerVolume;
                 outputBuffer = new byte[4096 * outputFormat.BlockAlign];
             }
@@ -1383,7 +1493,7 @@ namespace DS4Windows
                     int outputOffset = frame * outputFormat.BlockAlign;
                     int speakerChannel = outputFormat.Channels >= 4 ? 1 : 0;
                     WriteSample(outputBuffer, outputOffset + speakerChannel * BytesPerSample(outputFormat),
-                        outputFormat, mono);
+                        sampleFormat, mono);
                 }
 
                 provider.AddSamples(outputBuffer, 0, framesToWrite * outputFormat.BlockAlign);
@@ -1449,12 +1559,12 @@ namespace DS4Windows
                 value = Math.Clamp(value, -1.0f, 1.0f);
                 if (format.Encoding == WaveFormatEncoding.IeeeFloat && format.BitsPerSample == 32)
                 {
-                    Buffer.BlockCopy(BitConverter.GetBytes(value), 0, buffer, offset, sizeof(float));
+                    BitConverter.TryWriteBytes(buffer.AsSpan(offset, sizeof(float)), value);
                 }
                 else if (format.Encoding == WaveFormatEncoding.Pcm && format.BitsPerSample == 16)
                 {
                     short sample = (short)Math.Clamp(value * short.MaxValue, (float)short.MinValue, short.MaxValue);
-                    Buffer.BlockCopy(BitConverter.GetBytes(sample), 0, buffer, offset, sizeof(short));
+                    BitConverter.TryWriteBytes(buffer.AsSpan(offset, sizeof(short)), sample);
                 }
                 else if (format.Encoding == WaveFormatEncoding.Pcm && format.BitsPerSample == 24)
                 {
@@ -1466,7 +1576,7 @@ namespace DS4Windows
                 else if (format.Encoding == WaveFormatEncoding.Pcm && format.BitsPerSample == 32)
                 {
                     int sample = (int)Math.Clamp(value * int.MaxValue, (float)int.MinValue, int.MaxValue);
-                    Buffer.BlockCopy(BitConverter.GetBytes(sample), 0, buffer, offset, sizeof(int));
+                    BitConverter.TryWriteBytes(buffer.AsSpan(offset, sizeof(int)), sample);
                 }
             }
 

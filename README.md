@@ -20,12 +20,140 @@ release falls short of it in two known ways:
   and this project's build of VIIPER v0.1.2 for it — see
   `docs/viiper-backend-upgrade-path.md` for why a fork build and what was
   validated.
-- **The full "plugged-in" DualSense feel is opt-in.** Native PS5 mode gives
-  games a virtual DualSense with adaptive triggers and rumble out of the box.
-  Game-authored haptics and the pad's speaker additionally need the virtual
-  audio endpoints switch (setup step 4), which stays off by default. With it on
-  they are relayed to the pad over Bluetooth or USB. Bluetooth has had daily
-  use on real hardware; USB has not (issue #65).
+- **Native PS5 mode gives the full "plugged-in" DualSense feel.** Games see a
+  virtual DualSense with adaptive triggers and rumble, and, through the virtual
+  pad's audio endpoints, game-authored haptics and the pad's speaker, relayed to
+  the pad over Bluetooth or USB. The endpoints are on by default with usbip-win2
+  0.9.8.0 and can be turned off in setup step 4 or Settings. Bluetooth has had
+  daily use on real hardware; USB has not (issue #65).
+
+## Using Thrum
+
+### What you need
+
+- **Windows 10 version 2004 or later, or Windows 11, 64-bit.** Thrum is
+  x64-only.
+- A supported controller, connected by USB or Bluetooth.
+- Administrator rights **only while installing**: once for an installation
+  for all users, and to approve the driver installers. Thrum itself runs as a
+  normal user.
+- Do not run DS4Windows at the same time. Both apps claim the same controller.
+
+### Install
+
+Each release has two downloads with the same program in them:
+
+- **`Thrum_<version>_x64_setup.exe`, the installer (recommended).** By default
+  it installs for all users in `C:\Program Files\Thrum`, which asks for
+  administrator rights once, while installing. On its first page, **Install
+  for me only** installs to `%LOCALAPPDATA%\Programs\Thrum` instead, without
+  administrator rights. Either way Thrum appears in the Start menu and in
+  Windows **Settings > Apps**.
+- **`Thrum_<version>_x64.zip`, the portable copy.** Extract it to a folder you
+  own, for example `%LOCALAPPDATA%\Programs\Thrum`.
+
+Releases up to v0.9.0-beta.2 have the zip only.
+
+1. Download one of them from the
+   [Releases](https://github.com/potpiemuncher/Thrum/releases) page.
+2. Check it against the SHA-256 on the release page. In PowerShell:
+   `Get-FileHash .\Thrum_<version>_x64_setup.exe`
+3. Run the installer, or extract the zip and run `Thrum.exe`. The build is not
+   code-signed yet, so Windows may show "Windows protected your PC". Choose
+   **More info > Run anyway** only after the hash matches. When the installer
+   finishes, it starts Thrum as you, not as administrator.
+4. The first-run wizard walks you through the rest: where settings are kept,
+   which controller types to support, and the optional virtual-controller
+   backend. The [User Guide](USERGUIDE.md#first-run-setup) explains each step.
+
+Two features write into Thrum's own folder, so an installation for all users
+(in Program Files) cannot use them: portable data (settings beside `Thrum.exe`)
+and **Settings > Custom exe name**. If you need either, choose **Install for
+me only** or use the zip.
+
+Virtual controllers (the Xbox 360, DualShock 4 or DualSense that games see) use
+an experimental kernel driver. Thrum creates one only after you accept its
+notice: tick the box under it in the wizard's backend step, or later turn on
+**Settings > VIIPER Virtual Controller Support > Use virtual controllers
+(experimental kernel driver)**. Reading your physical controller does not need
+any of this.
+
+### What setup may install
+
+| Component | Needed for | Where it comes from |
+| --- | --- | --- |
+| usbip-win2 (kernel driver) | Virtual controllers | Its signed upstream installer, checked by Thrum before it runs |
+| VIIPER backend | Virtual controllers | A pinned release, downloaded to `%LOCALAPPDATA%\VIIPER` |
+| HidHide (optional) | Hiding the physical controller from games | Its own installer |
+| FakerInput (optional) | Keyboard and mouse output that works in more apps | Its own installer |
+| DsHidMini | DualShock 3 only | Its own installer |
+| VB-CABLE (optional) | The USB/legacy microphone route only | [vb-audio.com](https://vb-audio.com/Cable/); Thrum does not include it |
+| Microsoft Visual C++ Redistributable (optional) | FakerInput output and microphone noise suppression | [Microsoft](https://aka.ms/vs/17/release/vc_redist.x64.exe); most PCs already have it |
+
+Nothing else is needed. The installer and the zip both include the .NET
+runtime.
+
+### Updating
+
+Thrum checks for a new release once a day and, if there is one, offers to open
+the release page. It never downloads or installs anything by itself.
+
+To update:
+
+- **Installed:** run the new installer. It finds the existing installation and
+  replaces it, and asks you to close Thrum first if it is running.
+- **Zip:** exit Thrum (tray icon > **Exit**), then extract the new zip **over
+  the same folder**. If you chose portable data during setup, your settings
+  are in that folder, so extract over it rather than into a new folder.
+
+Settings in `%APPDATA%\Thrum` are kept either way.
+
+To move from the zip to the installer: if **Settings > Run at startup** is on,
+turn it off; exit Thrum; install; turn it back on in the installed Thrum; then
+delete the old folder. Settings in `%APPDATA%\Thrum` carry over. Portable data
+does not: it stays in the old folder.
+
+### Uninstalling
+
+- **Installed:** uninstall Thrum from **Settings > Apps** in Windows. This also
+  removes the Run at startup shortcut, and asks whether to delete your
+  settings and profiles in `%APPDATA%\Thrum` too.
+- **Zip:** turn off **Settings > Run at startup** if you turned it on, exit
+  Thrum and delete its folder. To remove your settings and profiles too,
+  delete `%APPDATA%\Thrum` (or the portable data next to `Thrum.exe`).
+
+Either way, remove the drivers you no longer want from **Settings > Apps** in
+Windows: usbip-win2, HidHide, FakerInput. Delete `%LOCALAPPDATA%\VIIPER` to
+remove the backend.
+
+### Privacy
+
+Thrum does not send your audio, microphone, controller input or settings
+anywhere. Audio Haptics, speaker and microphone passthrough are processed on
+your PC and go only to your controller or to the virtual controller on your PC.
+
+The only thing Thrum fetches from the internet is the list of releases from
+GitHub, once a day, to tell you about updates. The network features you can
+turn on yourself (OSC, the DSU motion server, OpenRGB) send controller state,
+never audio.
+
+One exception to be aware of in the current backend: the VIIPER process
+listens for local virtual-USB connections on all network interfaces, and the
+first time it starts Windows Firewall asks whether to allow it. **Choose
+Cancel (don't allow).** Thrum works the same, because it only uses the
+connection on your own PC, and blocking it keeps other computers on your
+network from reaching the virtual controller.
+
+### Getting help
+
+- The [User Guide](USERGUIDE.md) covers every page and has a troubleshooting
+  section.
+- Logs are in `%APPDATA%\Thrum\Logs` (or `Logs` next to `Thrum.exe` in
+  portable mode). **Settings > Advanced settings > Utils > Open data folder**
+  opens the right place.
+- When reporting a problem, include the log, your controller model, USB or
+  Bluetooth, and the steps. Read [SECURITY.md](SECURITY.md) first if Windows
+  crashed.
 
 ## Status
 
@@ -46,10 +174,11 @@ shares the VIIPER and usbip-win2 installs with Thrum while requiring a
 different usbip-win2 release, so after Thrum's setup its virtual controllers
 stop working.
 
-**Releases are pre-releases**, currently `v0.9.0-beta.2`. Each is a
-self-contained win-x64 zip, so it does **not** need the .NET 8 Desktop Runtime
-installed. There is still **no installer**: unzip, run `Thrum.exe`, and let its
-setup install the two driver-side components.
+**Releases are pre-releases**, currently `v0.9.0-beta.2`. Each is
+self-contained win-x64, so it does **not** need the .NET Desktop Runtime
+installed. Up to v0.9.0-beta.2 there is **no installer**: unzip, run
+`Thrum.exe`, and let its setup install the two driver-side components. Later
+releases add an installer beside the zip (see [Install](#install)).
 
 The build is **unsigned**, so Windows shows "Windows protected your PC". Verify
 what you downloaded against the SHA-256 published with the release rather than
@@ -138,7 +267,7 @@ to a public issue.
 ## Building
 
 Requirements: Windows, the
-[.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), and Python
+[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), and Python
 3.10+ only if you also want the packaging step. **x64 is the canonical
 platform**; VIIPER is x64-only.
 

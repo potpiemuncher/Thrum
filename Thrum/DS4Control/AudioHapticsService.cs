@@ -16,7 +16,9 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DS4Windows
 {
@@ -31,6 +33,7 @@ namespace DS4Windows
         private readonly object[] slotLocks = Enumerable.Range(0,
             ControllerCount).Select(_ => new object()).ToArray();
         private readonly SlotRuntime[] slots = new SlotRuntime[ControllerCount];
+        private readonly int[] nonDualSenseNoticeShown = new int[ControllerCount];
         private readonly AudioHapticsRuntimeStatus[] slotStatuses =
             Enumerable.Range(0, ControllerCount)
                 .Select(_ => AudioHapticsRuntimeStatus.Inactive).ToArray();
@@ -42,6 +45,12 @@ namespace DS4Windows
         /// Status shown while a profile has Audio Haptics enabled but the
         /// virtual DualSense's own haptics path is live (issue #87).
         /// </summary>
+        /// <summary>
+        /// Automatic game detection is armed and no game is running yet. A
+        /// normal state, not a failure: the lane reports it as ready.
+        /// </summary>
+        public const string WaitingForGameMessage = "Waiting for a detected game";
+
         public const string NativeHapticsSuspendedMessage =
             "Audio Haptics is off: the game drives haptics through the " +
             "virtual DualSense.";
@@ -105,11 +114,15 @@ namespace DS4Windows
             if (!settings.Enabled || device is not DualSenseDevice dualSense)
             {
                 Stop(slot);
-                if (settings.Enabled && device != null)
+                // Sharing an Audio Haptics profile with a non-DualSense pad is
+                // a valid setup. Say so once per slot per session, as
+                // information; it used to be a warning on every profile load.
+                if (settings.Enabled && device != null &&
+                    Interlocked.Exchange(ref nonDualSenseNoticeShown[slot], 1) == 0)
                 {
                     AppLogger.LogToGui(
                         "Audio Haptics requires a physical DualSense or DualSense Edge controller.",
-                        true);
+                        false);
                 }
                 return;
             }
@@ -245,6 +258,45 @@ namespace DS4Windows
             }
         }
 
+        private const uint CreateWaitableTimerHighResolution = 0x00000002;
+        private const uint TimerAccess = 0x00000002 | 0x00100000;
+
+        private static IntPtr CreateHighResolutionTimer()
+        {
+            try
+            {
+                IntPtr timer = CreateWaitableTimerExW(IntPtr.Zero, null,
+                    CreateWaitableTimerHighResolution, TimerAccess);
+                return timer != IntPtr.Zero ? timer :
+                    CreateWaitableTimerExW(IntPtr.Zero, null, 0, TimerAccess);
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return IntPtr.Zero;
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true,
+            CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateWaitableTimerExW(
+            IntPtr timerAttributes, string timerName, uint flags,
+            uint desiredAccess);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWaitableTimer(IntPtr timer,
+            ref long dueTime, int period, IntPtr completionRoutine,
+            IntPtr completionArgument,
+            [MarshalAs(UnmanagedType.Bool)] bool resume);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern uint WaitForSingleObject(IntPtr handle,
+            uint milliseconds);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr handle);
+
         internal sealed class SlotRuntime : IDisposable
         {
             internal const int TargetSampleRate = 3000;
@@ -296,6 +348,13 @@ namespace DS4Windows
             private MMDevice usbOutputEndpoint;
             private WasapiOut usbOutput;
             private BufferedWaveProvider usbProvider;
+            // The format samples are encoded in. The endpoint's mix format is
+            // WAVE_FORMAT_EXTENSIBLE, whose Encoding is Extensible rather than
+            // IeeeFloat, so encoding against it wrote int32 PCM into a
+            // float32 stream (inaudible or full-scale spikes and NaN). The
+            // provider and WasapiOut keep the extensible format and its
+            // channel mask; only the encoding uses the standard form.
+            private WaveFormat usbSampleFormat;
             private IDisposable usbAudioHapticsOwnershipLease;
             private byte[] usbScratch = Array.Empty<byte>();
             private int captureFramePosition;
@@ -322,6 +381,9 @@ namespace DS4Windows
             private AudioHapticsRuntimeStatus status =
                 AudioHapticsRuntimeStatus.Starting;
             private long nextCaptureRetryTimestamp;
+            // DefaultRenderEndpointWatcher.Generation when the capture was
+            // opened on the default playback device; -1 for any other source.
+            private int boundDefaultGeneration = -1;
             private long nextBluetoothTransportRetryTimestamp;
             private int bluetoothTransportReady;
             private int usbTransportReady;
@@ -513,8 +575,11 @@ namespace DS4Windows
                 }
                 else
                 {
+                    int defaultGeneration =
+                        DefaultRenderEndpointWatcher.Generation;
                     endpoint = enumerator.GetDefaultAudioEndpoint(DataFlow.Render,
                         Role.Multimedia);
+                    boundDefaultGeneration = defaultGeneration;
                 }
 
                 captureEndpoint = endpoint;
@@ -540,7 +605,7 @@ namespace DS4Windows
                         .CreateAutomatic(slot);
                     sourceDisplayName = "Waiting for a detected game";
                     status = new AudioHapticsRuntimeStatus(false,
-                        "Waiting for a game");
+                        WaitingForGameMessage);
                 }
                 else
                 {
@@ -587,6 +652,8 @@ namespace DS4Windows
                 {
                     return;
                 }
+
+                FollowDefaultDeviceChange();
 
                 AudioHapticsProfileSettings activeSettings =
                     Volatile.Read(ref settings);
@@ -693,7 +760,7 @@ namespace DS4Windows
                     processCapture?.CurrentProcessId <= 0)
                 {
                     status = new AudioHapticsRuntimeStatus(false,
-                        "Waiting for a detected game");
+                        WaitingForGameMessage);
                     return;
                 }
 
@@ -887,10 +954,54 @@ namespace DS4Windows
                 }
             }
 
+            // "System audio" loops back the default playback device. When
+            // Windows switches the default (a headset connects, the user picks
+            // another output) the old device usually stays present, so the
+            // capture neither fails nor rebinds and the haptics went silent
+            // while the status still read active. Reopen on the new default.
+            private void FollowDefaultDeviceChange()
+            {
+                int bound = Volatile.Read(ref boundDefaultGeneration);
+                if (bound < 0 || bound == DefaultRenderEndpointWatcher.Generation)
+                {
+                    return;
+                }
+
+                WasapiCapture stale;
+                MMDevice staleEndpoint;
+                lock (captureLifecycleLock)
+                {
+                    if (boundDefaultGeneration != bound || capture == null)
+                    {
+                        return;
+                    }
+
+                    // Detached under the lock, stopped outside it: disposing
+                    // joins the capture thread, whose stop handler takes
+                    // this lock.
+                    stale = capture;
+                    staleEndpoint = captureEndpoint;
+                    stale.DataAvailable -= Capture_DataAvailable;
+                    stale.RecordingStopped -= Capture_RecordingStopped;
+                    capture = null;
+                    captureEndpoint = null;
+                    captureFormat = null;
+                    boundDefaultGeneration = -1;
+                    inputLevelMeter.Reset();
+                    ResetCapturedFrames();
+                    Volatile.Write(ref nextCaptureRetryTimestamp, 0);
+                }
+
+                try { stale.StopRecording(); } catch { }
+                stale.Dispose();
+                staleEndpoint?.Dispose();
+            }
+
             private void RetireCapture(bool stopRecording)
             {
                 WasapiCapture current = capture;
                 MMDevice endpoint = captureEndpoint;
+                boundDefaultGeneration = -1;
                 capture = null;
                 captureEndpoint = null;
                 captureFormat = null;
@@ -940,7 +1051,7 @@ namespace DS4Windows
                     ? CreateRunningStatus(
                         $"Active · {eventArgs.DisplayName}")
                     : new AudioHapticsRuntimeStatus(false,
-                        "Waiting for a detected game");
+                        WaitingForGameMessage);
                 status = PreferUsbFailureStatus(device.ConnectionType,
                     Volatile.Read(ref usbOutputFailureMessage), status);
             }
@@ -1052,6 +1163,7 @@ namespace DS4Windows
 
             private void WriterLoop()
             {
+                IntPtr waitTimer = CreateHighResolutionTimer();
                 Stopwatch clock = Stopwatch.StartNew();
                 long nextPacketTicks = clock.ElapsedTicks;
                 long packetIntervalTicks = Stopwatch.Frequency *
@@ -1064,7 +1176,7 @@ namespace DS4Windows
                 {
                     EnsureCapture();
                     EnsureBluetoothTransport();
-                    WaitUntil(clock, nextPacketTicks);
+                    WaitUntil(clock, nextPacketTicks, waitTimer);
                     nextPacketTicks += packetIntervalTicks;
                     if (clock.ElapsedTicks - nextPacketTicks >
                         packetIntervalTicks * 3)
@@ -1174,6 +1286,11 @@ namespace DS4Windows
                             Stopwatch.Frequency *
                                 TelemetryIntervalMilliseconds / 1000;
                     }
+                }
+
+                if (waitTimer != IntPtr.Zero)
+                {
+                    CloseHandle(waitTimer);
                 }
             }
 
@@ -1309,6 +1426,7 @@ namespace DS4Windows
                     Volatile.Write(ref usbOutputFailureMessage, null);
                     usbOutputEndpoint = endpoint;
                     WaveFormat format = endpoint.AudioClient.MixFormat;
+                    usbSampleFormat = format.AsStandardWaveFormat();
                     usbProvider = new BufferedWaveProvider(format)
                     {
                         BufferDuration = TimeSpan.FromMilliseconds(250),
@@ -1350,11 +1468,19 @@ namespace DS4Windows
                 }
 
                 string reason = eventArgs?.Exception?.Message;
-                FailUsbHapticsOutput(output, expectedProvider: null,
-                    string.IsNullOrWhiteSpace(reason)
-                        ? "Wired USB haptics output stopped."
-                        : $"Wired USB haptics output stopped: {reason}",
-                    stopPlayback: false);
+                string message = string.IsNullOrWhiteSpace(reason)
+                    ? "Wired USB haptics output stopped."
+                    : $"Wired USB haptics output stopped: {reason}";
+
+                // With no SynchronizationContext, NAudio raises PlaybackStopped
+                // on its own playback thread, and after a device error it
+                // leaves the state at Playing, so WasapiOut.Dispose -> Stop
+                // joins that same thread. Retiring the output from here made
+                // the thread join itself and hang forever while holding
+                // usbOutputLifecycleLock. Retire it from the thread pool: by
+                // then this handler has returned and the join completes.
+                Task.Run(() => FailUsbHapticsOutput(output,
+                    expectedProvider: null, message, stopPlayback: false));
             }
 
             private void FailUsbHapticsOutput(WasapiOut expectedOutput,
@@ -1394,6 +1520,7 @@ namespace DS4Windows
                 usbOutput = null;
                 usbOutputEndpoint = null;
                 usbProvider = null;
+                usbSampleFormat = null;
                 usbAudioHapticsOwnershipLease = null;
                 Volatile.Write(ref usbTransportReady, 0);
 
@@ -1444,6 +1571,7 @@ namespace DS4Windows
             private void WriteUsbFrameLocked(byte[] frame)
             {
                 BufferedWaveProvider provider;
+                WaveFormat sampleFormat;
                 lock (usbOutputLifecycleLock)
                 {
                     if (Volatile.Read(ref usbTransportReady) == 0)
@@ -1451,9 +1579,10 @@ namespace DS4Windows
                         return;
                     }
                     provider = usbProvider;
+                    sampleFormat = usbSampleFormat;
                 }
                 WaveFormat format = provider?.WaveFormat;
-                if (format == null)
+                if (format == null || sampleFormat == null)
                 {
                     return;
                 }
@@ -1489,9 +1618,9 @@ namespace DS4Windows
                             127.0f, fraction);
                     int outputOffset = outputFrame * format.BlockAlign;
                     WriteSample(usbScratch,
-                        outputOffset + bytesPerSample * 2, format, left);
+                        outputOffset + bytesPerSample * 2, sampleFormat, left);
                     WriteSample(usbScratch,
-                        outputOffset + bytesPerSample * 3, format, right);
+                        outputOffset + bytesPerSample * 3, sampleFormat, right);
                 }
                 TryWriteUsbSamples(provider.AddSamples, usbScratch,
                     bytesNeeded, exception => FailUsbHapticsOutput(
@@ -1535,7 +1664,7 @@ namespace DS4Windows
                     value | unchecked((int)0xFF000000);
             }
 
-            private static void WriteSample(byte[] buffer, int offset,
+            internal static void WriteSample(byte[] buffer, int offset,
                 WaveFormat format, float sample)
             {
                 sample = Math.Clamp(sample, -1.0f, 1.0f);
@@ -1570,7 +1699,13 @@ namespace DS4Windows
             private static float Lerp(float left, float right,
                 float amount) => left + (right - left) * amount;
 
-            private static void WaitUntil(Stopwatch clock, long targetTicks)
+            // Sleeps on a high-resolution waitable timer until about 0.5 ms
+            // before the deadline, then spins briefly, as the Bluetooth audio
+            // pacer does. The old wait yielded in a loop for the last 1.5 ms
+            // of every 10.667 ms packet, which kept about 12-14% of a core
+            // busy per controller for as long as Audio Haptics was on.
+            private static void WaitUntil(Stopwatch clock, long targetTicks,
+                IntPtr timer)
             {
                 while (true)
                 {
@@ -1581,6 +1716,25 @@ namespace DS4Windows
                     }
                     double remainingMs = remaining * 1000.0 /
                         Stopwatch.Frequency;
+                    if (remainingMs <= 0.75)
+                    {
+                        Thread.SpinWait(80);
+                        continue;
+                    }
+
+                    if (timer != IntPtr.Zero)
+                    {
+                        long relativeHundredNanoseconds = -Math.Max(1,
+                            (long)((remainingMs - 0.5) * 10000.0));
+                        if (SetWaitableTimer(timer,
+                            ref relativeHundredNanoseconds, 0, IntPtr.Zero,
+                            IntPtr.Zero, false))
+                        {
+                            WaitForSingleObject(timer, 20);
+                            continue;
+                        }
+                    }
+
                     if (remainingMs > 1.5)
                     {
                         Thread.Sleep(1);

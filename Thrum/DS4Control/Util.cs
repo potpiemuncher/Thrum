@@ -342,14 +342,37 @@ namespace DS4Windows
         public static string GetOSProductName()
         {
             string productName =
-                Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ProductName", "").ToString();
+                Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ProductName", "")?.ToString() ?? "";
+            // Windows 11 still reports "Windows 10 ..." here; the build number
+            // is the reliable signal (Windows 11 starts at 22000).
+            if (Environment.OSVersion.Version.Build >= 22000 &&
+                productName.StartsWith("Windows 10", StringComparison.OrdinalIgnoreCase))
+            {
+                productName = "Windows 11" + productName.Substring("Windows 10".Length);
+            }
+
             return productName;
         }
 
         public static string GetOSReleaseId()
         {
-            string releaseId =
-                Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ReleaseId", "").ToString();
+            // ReleaseId stopped changing at "2009" (20H2); DisplayVersion
+            // ("23H2", "24H2") replaced it. The build and revision make a
+            // stranger's log unambiguous.
+            const string key = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion";
+            string releaseId = Registry.GetValue(key, "DisplayVersion", null)?.ToString();
+            if (string.IsNullOrEmpty(releaseId))
+            {
+                releaseId = Registry.GetValue(key, "ReleaseId", "")?.ToString() ?? "";
+            }
+
+            string build = Registry.GetValue(key, "CurrentBuild", null)?.ToString();
+            object ubr = Registry.GetValue(key, "UBR", null);
+            if (!string.IsNullOrEmpty(build))
+            {
+                releaseId += ubr != null ? $" (build {build}.{ubr})" : $" (build {build})";
+            }
+
             return releaseId;
         }
 

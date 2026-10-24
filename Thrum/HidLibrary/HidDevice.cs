@@ -248,55 +248,113 @@ namespace DS4Windows
             }
         }
 
+        /// <summary>
+        /// Takes a reference on the open handle for one read or write. These
+        /// used to re-read <see cref="SafeReadHandle"/> several times and, once
+        /// another thread had closed the device, quietly reopen it exclusively
+        /// (a handle nobody owned, so the pad could not be opened again until
+        /// restart) or dereference null on the input thread, which ended the
+        /// process. With the reference held, CloseDevice's CancelIoEx still
+        /// cancels the pending request and the real close waits for the release.
+        /// </summary>
+        private bool TryAcquireHandle(out SafeFileHandle handle)
+        {
+            lock (handleLock)
+            {
+                handle = safeReadHandle;
+                if (handle == null || handle.IsClosed || handle.IsInvalid)
+                {
+                    handle = null;
+                    return false;
+                }
+
+                bool added = false;
+                handle.DangerousAddRef(ref added);
+                if (!added)
+                {
+                    handle = null;
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        private const int ErrorDeviceNotConnected = 1167;
+
         public unsafe ReadStatus ReadFile(Span<byte> inputBuffer, uint timeout = uint.MaxValue)
         {
-            SafeReadHandle ??= OpenHandle(_devicePath, true, false);
-
-            using AutoResetEvent wait = new(false);
-
-            var ov = new NativeOverlapped { EventHandle = wait.SafeWaitHandle.DangerousGetHandle() };
-
-            fixed (byte* buffer = inputBuffer)
+            if (!TryAcquireHandle(out SafeFileHandle handle))
             {
-                if (NativeMethods.ReadFilePinned(
-                    SafeReadHandle.DangerousGetHandle(), buffer,
-                    (uint)inputBuffer.Length, null, &ov))
-                {
-                    return ReadStatus.Success;
-                }
+                // Callers read the last error to tell a disconnect from a fault.
+                Marshal.SetLastPInvokeError(ErrorDeviceNotConnected);
+                return ReadStatus.NotConnected;
+            }
 
-                if (Marshal.GetLastWin32Error() !=
-                    (uint)WIN32_ERROR.ERROR_IO_PENDING)
-                {
-                    return ReadStatus.ReadError;
-                }
+            try
+            {
+                using AutoResetEvent wait = new(false);
 
-                if (!PInvoke.GetOverlappedResultEx(SafeReadHandle, ov, out _,
-                    timeout, false))
+                var ov = new NativeOverlapped { EventHandle = wait.SafeWaitHandle.DangerousGetHandle() };
+
+                fixed (byte* buffer = inputBuffer)
                 {
-                    uint error = (uint)Marshal.GetLastWin32Error();
-                    if (ov.InternalLow == (IntPtr)NativeMethods.STATUS_PENDING)
+                    if (NativeMethods.ReadFilePinned(
+                        handle.DangerousGetHandle(), buffer,
+                        (uint)inputBuffer.Length, null, &ov))
                     {
-                        // Both the buffer and OVERLAPPED stay pinned/alive until
-                        // the exact pending IRP has been cancelled and drained.
-                        NativeMethods.CancelIoEx(
-                            SafeReadHandle.DangerousGetHandle(), (IntPtr)(&ov));
-                        PInvoke.GetOverlappedResult(SafeReadHandle, ov, out _, true);
+                        return ReadStatus.Success;
                     }
 
-                    return error == NativeMethods.WAIT_TIMEOUT ?
-                        ReadStatus.WaitTimedOut : ReadStatus.ReadError;
-                }
+                    if (Marshal.GetLastWin32Error() !=
+                        (uint)WIN32_ERROR.ERROR_IO_PENDING)
+                    {
+                        return ReadStatus.ReadError;
+                    }
 
-                return ReadStatus.Success;
+                    if (!PInvoke.GetOverlappedResultEx(handle, ov, out _,
+                        timeout, false))
+                    {
+                        uint error = (uint)Marshal.GetLastWin32Error();
+                        if (ov.InternalLow == (IntPtr)NativeMethods.STATUS_PENDING)
+                        {
+                            // Both the buffer and OVERLAPPED stay pinned/alive until
+                            // the exact pending IRP has been cancelled and drained.
+                            NativeMethods.CancelIoEx(
+                                handle.DangerousGetHandle(), (IntPtr)(&ov));
+                            PInvoke.GetOverlappedResult(handle, ov, out _, true);
+                        }
+
+                        // The drain above can overwrite the error the caller reads.
+                        Marshal.SetLastPInvokeError((int)error);
+                        return error == NativeMethods.WAIT_TIMEOUT ?
+                            ReadStatus.WaitTimedOut : ReadStatus.ReadError;
+                    }
+
+                    return ReadStatus.Success;
+                }
+            }
+            finally
+            {
+                handle.DangerousRelease();
             }
         }
 
         public bool WriteOutputReportViaControl(byte[] outputBuffer)
         {
-            SafeReadHandle ??= OpenHandle(_devicePath, true, enumerate: false);
+            if (!TryAcquireHandle(out SafeFileHandle handle))
+            {
+                return false;
+            }
 
-            return NativeMethods.HidD_SetOutputReport(SafeReadHandle, outputBuffer, outputBuffer.Length);
+            try
+            {
+                return NativeMethods.HidD_SetOutputReport(handle, outputBuffer, outputBuffer.Length);
+            }
+            finally
+            {
+                handle.DangerousRelease();
+            }
         }
 
         // Bound for writes whose caller passes a timeout of 0; see below.
@@ -341,14 +399,33 @@ namespace DS4Windows
                 win32Error = (int)WIN32_ERROR.ERROR_INVALID_PARAMETER;
                 return false;
             }
-            SafeReadHandle ??= OpenHandle(_devicePath, true, false);
+            if (!TryAcquireHandle(out SafeFileHandle handle))
+            {
+                win32Error = ErrorDeviceNotConnected;
+                return false;
+            }
+
+            try
+            {
+                return WriteOutputReportViaInterrupt(handle, outputBuffer,
+                    reportLength, timeout, out win32Error);
+            }
+            finally
+            {
+                handle.DangerousRelease();
+            }
+        }
+
+        private unsafe bool WriteOutputReportViaInterrupt(SafeFileHandle handle,
+            byte[] outputBuffer, int reportLength, int timeout, out int win32Error)
+        {
             using AutoResetEvent wait = new(false);
             var ov = new NativeOverlapped { EventHandle = wait.SafeWaitHandle.DangerousGetHandle() };
 
             fixed (byte* buffer = outputBuffer)
             {
                 if (NativeMethods.WriteFilePinned(
-                    SafeReadHandle.DangerousGetHandle(), buffer,
+                    handle.DangerousGetHandle(), buffer,
                     (uint)reportLength, null, &ov))
                 {
                     win32Error = 0;
@@ -368,7 +445,7 @@ namespace DS4Windows
                 // so their setup commands were reported as failed.
                 uint waitMilliseconds = timeout < 0 ? uint.MaxValue :
                     timeout == 0 ? ZeroTimeoutWriteWaitMs : (uint)timeout;
-                if (!PInvoke.GetOverlappedResultEx(SafeReadHandle, ov, out _,
+                if (!PInvoke.GetOverlappedResultEx(handle, ov, out _,
                     waitMilliseconds, false))
                 {
                     uint error = (uint)Marshal.GetLastWin32Error();
@@ -378,8 +455,8 @@ namespace DS4Windows
                     if (ov.InternalLow == (IntPtr)NativeMethods.STATUS_PENDING)
                     {
                         NativeMethods.CancelIoEx(
-                            SafeReadHandle.DangerousGetHandle(), (IntPtr)(&ov));
-                        PInvoke.GetOverlappedResult(SafeReadHandle, ov, out _, true);
+                            handle.DangerousGetHandle(), (IntPtr)(&ov));
+                        PInvoke.GetOverlappedResult(handle, ov, out _, true);
                     }
 
                     win32Error = (int)error;
@@ -468,7 +545,14 @@ namespace DS4Windows
 
         public bool readFeatureData(byte[] inputBuffer)
         {
-            return NativeMethods.HidD_GetFeature(SafeReadHandle.DangerousGetHandle(), inputBuffer, inputBuffer.Length);
+            // CloseDevice can null the handle from another thread.
+            SafeFileHandle handle = SafeReadHandle;
+            if (handle == null || handle.IsClosed || handle.IsInvalid)
+            {
+                return false;
+            }
+
+            return NativeMethods.HidD_GetFeature(handle.DangerousGetHandle(), inputBuffer, inputBuffer.Length);
         }
 
         public void resetSerial()

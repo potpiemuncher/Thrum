@@ -65,15 +65,40 @@ namespace DS4WinWPF
             if (!File.Exists(configFile))
                 return;
 
+            // A file that could not be read used to load as an empty list with no
+            // message, and the next rule edit saved the empty list over it.
+            if (!TryLoadFrom(configFile, out string error) &&
+                !SettingsFileRecovery.TryRestoreFromBackup(configFile,
+                    "The Auto Profiles list (Auto Profiles.xml)",
+                    backup => TryLoadFrom(backup, out _)))
+            {
+                AppLogger.LogToGui($"Auto Profiles.xml could not be read, so no auto-profile rules were loaded: {error}", true);
+            }
+        }
+
+        private bool TryLoadFrom(string path, out string error)
+        {
+            error = null;
             XmlSerializer serializer = new XmlSerializer(typeof(AutoProfilesDTO));
-            using StreamReader sr = new StreamReader(configFile);
             try
             {
+                using StreamReader sr = new StreamReader(path);
                 AutoProfilesDTO dto = serializer.Deserialize(sr) as AutoProfilesDTO;
+                lock (_colLockobj)
+                {
+                    autoProfileColl.Clear();
+                }
+
                 dto.MapTo(this);
+                return true;
             }
-            catch (InvalidOperationException) {}
-            catch (XmlException) {}
+            catch (Exception ex) when (ex is InvalidOperationException ||
+                ex is XmlException || ex is IOException ||
+                ex is UnauthorizedAccessException)
+            {
+                error = ex.InnerException?.Message ?? ex.Message;
+                return false;
+            }
         }
 
         public bool Save(string m_Profile)

@@ -120,13 +120,15 @@ namespace DS4WinWPF
 
         public static bool CanWriteStartEntry()
         {
-            bool result = false;
-            if (!new FileInfo(lnkpath).IsReadOnly)
-            {
-                result = true;
-            }
+            // FileInfo.IsReadOnly is true for a file that does not exist, so a
+            // missing shortcut read as "cannot write" and the migration from the
+            // old startup task never created one: Run at startup was lost.
+            return CanWriteStartEntry(lnkpath);
+        }
 
-            return result;
+        internal static bool CanWriteStartEntry(string path)
+        {
+            return !File.Exists(path) || !new FileInfo(path).IsReadOnly;
         }
 
         /// <summary>

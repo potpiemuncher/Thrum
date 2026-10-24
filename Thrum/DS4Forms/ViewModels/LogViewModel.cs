@@ -44,7 +44,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
     public class LogViewModel : INotifyPropertyChanged
     {
         //private object _colLockobj = new object();
-        private ReaderWriterLockSlim _logListLocker = new ReaderWriterLockSlim();
+        // Recursion is allowed so the UI thread can hold the write lock in
+        // Clear while WPF's collection synchronization takes a read lock for
+        // the change notification it raises on that same thread.
+        private ReaderWriterLockSlim _logListLocker =
+            new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         private ObservableCollection<LogItem> logItems = new ObservableCollection<LogItem>();
         // The Log tab kept every line for the life of the process. The full
         // history is in the log file; the tab keeps the most recent lines.
@@ -168,7 +172,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             Interlocked.Increment(ref bufferGeneration);
             try
             {
-                logItems.Clear();
+                // Under the lock: an append racing an unlocked Clear could throw
+                // inside AddLogMessage while it held the write lock.
+                using (WriteLocker locker = new WriteLocker(_logListLocker))
+                {
+                    logItems.Clear();
+                }
             }
             finally
             {
@@ -219,12 +228,20 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             // ICollectionView filtering only reads this cached enum.
             LogItem item = CreateLogItem(e.Time, e.Data, e.Warning);
             _logListLocker.EnterWriteLock();
-            logItems.Add(item);
-            if (logItems.Count > MaxLogItems)
+            try
             {
-                logItems.RemoveAt(0);
+                logItems.Add(item);
+                if (logItems.Count > MaxLogItems)
+                {
+                    logItems.RemoveAt(0);
+                }
             }
-            _logListLocker.ExitWriteLock();
+            finally
+            {
+                // A throw here used to leave the lock held, and every later
+                // log line (from any thread) then waited for it forever.
+                _logListLocker.ExitWriteLock();
+            }
             //lock (_colLockobj)
             //{
             //    logItems.Add(item);

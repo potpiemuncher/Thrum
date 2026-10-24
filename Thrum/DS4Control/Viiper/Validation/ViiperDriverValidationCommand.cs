@@ -157,6 +157,14 @@ namespace DS4Windows
             string writeError = TryWriteReport(reportPath, text);
             if (writeError != null)
             {
+                // The IO error text embeds the full path, account name
+                // included; the report says it contains no user paths.
+                writeError = ViiperDriverReportFormatter.RedactUserPathsInText(
+                    writeError);
+            }
+
+            if (writeError != null)
+            {
                 text += Environment.NewLine +
                     "  The report could not be saved to " + displayPath + ": " +
                     writeError + Environment.NewLine;

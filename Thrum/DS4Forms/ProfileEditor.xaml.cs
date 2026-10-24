@@ -2205,6 +2205,23 @@ namespace DS4WinWPF.DS4Forms
             if (!string.IsNullOrWhiteSpace(temp) &&
                 temp.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) == -1)
             {
+                // The controller is pointed at the name only once the save is
+                // certain. It used to be assigned first, so a refused name (one
+                // that already exists) followed by Cancel silently switched the
+                // controller to that other profile.
+                string tempprof = Global.appdatapath + @"\Profiles\" + temp + ".xml";
+                bool nameTaken = File.Exists(tempprof) &&
+                    (currentProfile == null || !string.Equals(temp,
+                        currentProfile.Name, StringComparison.OrdinalIgnoreCase));
+                if (nameTaken)
+                {
+                    // Also covers renaming onto another existing profile, which
+                    // used to delete this profile's file and overwrite that one.
+                    MessageBox.Show(Properties.Resources.ValidName, Properties.Resources.NotValid,
+                        MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                    return false;
+                }
+
                 SetLateProperties(false);
                 DS4Windows.Global.ProfilePath[deviceNum] =
                     DS4Windows.Global.OlderProfilePath[deviceNum] = temp;
@@ -2227,18 +2244,9 @@ namespace DS4WinWPF.DS4Forms
                 }
                 else
                 {
-                    string tempprof = Global.appdatapath + @"\Profiles\" + temp + ".xml";
-                    if (!File.Exists(tempprof))
-                    {
-                        Global.SaveProfile(deviceNum, temp);
-                        CreatedProfile?.Invoke(this, temp);
-                        result = true;
-                    }
-                    else
-                    {
-                        MessageBox.Show(Properties.Resources.ValidName, Properties.Resources.NotValid,
-                            MessageBoxButton.OK, MessageBoxImage.Exclamation);
-                    }
+                    Global.SaveProfile(deviceNum, temp);
+                    CreatedProfile?.Invoke(this, temp);
+                    result = true;
                 }
             }
             else

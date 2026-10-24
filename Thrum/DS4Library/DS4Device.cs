@@ -2615,11 +2615,18 @@ namespace DS4Windows
                 // Flag is set. Allow input thread to resume
                 readWaitEv.Set();
 
-                // Invoke main desired action
-                act?.Invoke();
-
-                // Start firing reports again
-                fireReport = true;
+                try
+                {
+                    // Invoke main desired action
+                    act?.Invoke();
+                }
+                finally
+                {
+                    // Start firing reports again. Without the finally a throwing
+                    // action (a profile that fails to load) left the controller's
+                    // input frozen for the rest of the session.
+                    fireReport = true;
+                }
             }
         }
 

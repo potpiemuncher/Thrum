@@ -193,8 +193,8 @@ namespace DS4Windows
 
             AppendField(builder, "virtual endpoints",
                 audio.VirtualAudioEndpointsAllowed
-                    ? "allowed by consent"
-                    : "disabled (default)");
+                    ? "allowed (default)"
+                    : "turned off in Settings");
             AppendField(builder, "controller endpoint",
                 YesNo(audio.ControllerRenderEndpointPresent));
             // Stated as a fact about the product, not as a fault.

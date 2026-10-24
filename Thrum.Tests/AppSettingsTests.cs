@@ -58,7 +58,7 @@ namespace DS4WindowsTests
   <Controller6>Default</Controller6>
   <Controller7>Default</Controller7>
   <Controller8>Default</Controller8>
-  <LastChecked>12/05/2023 00:24:15</LastChecked>
+  <LastChecked>2023-12-05T00:24:15</LastChecked>
   <CheckWhen>24</CheckWhen>
   <Notifications>2</Notifications>
   <ProfileChangedNotification>False</ProfileChangedNotification>

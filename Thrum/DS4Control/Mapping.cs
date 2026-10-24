@@ -909,9 +909,31 @@ namespace DS4Windows
                 bool loaded = false;
                 try
                 {
-                    loaded = tempProfile ?
-                        LoadTempProfile(device, profileName, launchProgram, ctrl) :
-                        LoadProfile(device, launchProgram, ctrl);
+                    // Pause this pad's reports while the profile loads, as every
+                    // other profile-switch path does. Without it the pad was
+                    // mapped with reset (default) bindings for the length of the
+                    // load, so held keys and buttons dropped for a moment. If the
+                    // pause cannot be taken, load anyway as before.
+                    bool ran = false;
+                    DS4Device pad = device < ctrl.DS4Controllers.Length ?
+                        ctrl.DS4Controllers[device] : null;
+                    if (pad != null)
+                    {
+                        pad.HaltReportingRunAction(() =>
+                        {
+                            ran = true;
+                            loaded = tempProfile ?
+                                LoadTempProfile(device, profileName, launchProgram, ctrl) :
+                                LoadProfile(device, launchProgram, ctrl);
+                        });
+                    }
+
+                    if (!ran)
+                    {
+                        loaded = tempProfile ?
+                            LoadTempProfile(device, profileName, launchProgram, ctrl) :
+                            LoadProfile(device, launchProgram, ctrl);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1142,6 +1164,156 @@ namespace DS4Windows
             // Send possible virtual events to system. Only used for FakerInput atm.
             // SendInput version does nothing
             outputKBMHandler.Sync();
+        }
+
+        /// <summary>
+        /// Releases every key and mouse button this controller's mapping holds,
+        /// including ones a Toggle binding left switched on, and forgets the
+        /// toggles. Called on a profile switch, a disconnect and a service stop.
+        /// A toggled key used to stay held across all of those (under FakerInput
+        /// it auto-repeated into whatever window had focus), and Stop never
+        /// released ordinary held keys under SendInput. Other controllers' holds
+        /// on the same key are left alone.
+        /// </summary>
+        public static void ReleaseSyntheticState(int device)
+        {
+            // Profiles also load before the service has an output handler;
+            // nothing can be held then.
+            if (device < 0 || device >= deviceState.Length ||
+                outputKBMHandler == null || outputKBMMapping == null)
+            {
+                return;
+            }
+
+            SyntheticState state = deviceState[device];
+            syncStateLock.EnterWriteLock();
+            try
+            {
+                KeyValuePair<ushort, SyntheticState.KeyPresses>[] keys;
+                try
+                {
+                    keys = state.keyPresses.ToArray();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Mapping is still running on the input thread; the next
+                    // switch or stop releases what is left.
+                    return;
+                }
+
+                foreach (KeyValuePair<ushort, SyntheticState.KeyPresses> entry in keys)
+                {
+                    SyntheticState.KeyPresses mine = entry.Value;
+                    bool scanCode = mine.previous.scanCodeCount != 0 ||
+                        mine.current.scanCodeCount != 0;
+                    bool toggledOn = mine.current.toggle || mine.previous.toggle;
+                    bool counted = mine.previous.vkCount + mine.previous.scanCodeCount != 0;
+                    if (!toggledOn && !counted)
+                    {
+                        continue;
+                    }
+
+                    bool stillHeldElsewhere = false;
+                    if (globalState.keyPresses.TryGetValue(entry.Key,
+                        out SyntheticState.KeyPresses all))
+                    {
+                        all.current.vkCount = Math.Max(0,
+                            all.current.vkCount - mine.previous.vkCount);
+                        all.current.scanCodeCount = Math.Max(0,
+                            all.current.scanCodeCount - mine.previous.scanCodeCount);
+                        all.current.repeatCount = Math.Max(0,
+                            all.current.repeatCount - mine.previous.repeatCount);
+                        all.current.toggleCount = Math.Max(0,
+                            all.current.toggleCount - mine.previous.toggleCount);
+                        all.current.toggle = false;
+                        stillHeldElsewhere =
+                            all.current.vkCount + all.current.scanCodeCount != 0;
+                        all.previous = all.current;
+                    }
+
+                    if (!stillHeldElsewhere &&
+                        state.nativeKeyAlias.TryGetValue(entry.Key, out uint nativeKey))
+                    {
+                        if (scanCode)
+                        {
+                            outputKBMHandler.PerformKeyReleaseAlt(nativeKey);
+                        }
+                        else
+                        {
+                            outputKBMHandler.PerformKeyRelease(nativeKey);
+                        }
+                    }
+
+                    mine.current = default;
+                    mine.previous = default;
+                    pressedonce[entry.Key] = false;
+                }
+
+                if (keyshelddown != 0 && keys.Any(entry => entry.Key == keyshelddown))
+                {
+                    keyshelddown = 0;
+                    pressagain = false;
+                }
+
+                SyntheticState.MouseClick myClicks = state.previousClicks;
+                bool clicksToggledOn = state.currentClicks.toggle ||
+                    state.previousClicks.toggle;
+                ReleaseClick(ref globalState.currentClicks.leftCount, myClicks.leftCount,
+                    clicksToggledOn, outputKBMMapping.MOUSEEVENTF_LEFTUP, 0);
+                ReleaseClick(ref globalState.currentClicks.rightCount, myClicks.rightCount,
+                    clicksToggledOn, outputKBMMapping.MOUSEEVENTF_RIGHTUP, 0);
+                ReleaseClick(ref globalState.currentClicks.middleCount, myClicks.middleCount,
+                    clicksToggledOn, outputKBMMapping.MOUSEEVENTF_MIDDLEUP, 0);
+                ReleaseClick(ref globalState.currentClicks.fourthCount, myClicks.fourthCount,
+                    clicksToggledOn, outputKBMMapping.MOUSEEVENTF_XBUTTONUP, 1);
+                ReleaseClick(ref globalState.currentClicks.fifthCount, myClicks.fifthCount,
+                    clicksToggledOn, outputKBMMapping.MOUSEEVENTF_XBUTTONUP, 2);
+                globalState.currentClicks.wUpCount = Math.Max(0,
+                    globalState.currentClicks.wUpCount - myClicks.wUpCount);
+                globalState.currentClicks.wDownCount = Math.Max(0,
+                    globalState.currentClicks.wDownCount - myClicks.wDownCount);
+                globalState.currentClicks.toggleCount = Math.Max(0,
+                    globalState.currentClicks.toggleCount - myClicks.toggleCount);
+                if (globalState.currentClicks.wUpCount == 0 &&
+                    globalState.currentClicks.wDownCount == 0)
+                {
+                    wheel = 0;
+                }
+
+                globalState.currentClicks.toggle = false;
+                globalState.previousClicks = globalState.currentClicks;
+                state.currentClicks = default;
+                state.previousClicks = default;
+            }
+            finally
+            {
+                syncStateLock.ExitWriteLock();
+            }
+
+            outputKBMHandler.Sync();
+        }
+
+        private static void ReleaseClick(ref int globalCount, int myCount,
+            bool toggledOn, uint upEvent, int extraButton)
+        {
+            if (myCount == 0 && !toggledOn)
+            {
+                return;
+            }
+
+            bool wasDown = globalCount != 0 || toggledOn;
+            globalCount = Math.Max(0, globalCount - myCount);
+            if (wasDown && globalCount == 0 && (myCount != 0 || toggledOn))
+            {
+                if (extraButton == 0)
+                {
+                    outputKBMHandler.PerformMouseButtonEvent(upEvent);
+                }
+                else
+                {
+                    outputKBMHandler.PerformMouseButtonEventAlt(upEvent, extraButton);
+                }
+            }
         }
 
         public enum Click { None, Left, Middle, Right, Fourth, Fifth, WUP, WDOWN };
@@ -2175,7 +2347,9 @@ namespace DS4Windows
                 {
                     double inner = Math.Abs(temp) - 1.0;
                     double output = inner * inner * inner + 1.0;
-                    dState.L2 = (byte)(-1.0 * output * 255.0);
+                    // Ease-out cubic is already positive here; the sign flip
+                    // copied from ease-out quad made the trigger read 0.
+                    dState.L2 = (byte)(output * 255.0);
                 }
                 else if (l2OutCurveMode == 6)
                 {
@@ -2218,7 +2392,9 @@ namespace DS4Windows
                 {
                     double inner = Math.Abs(temp) - 1.0;
                     double output = inner * inner * inner + 1.0;
-                    dState.R2 = (byte)(-1.0 * output * 255.0);
+                    // Ease-out cubic is already positive here; the sign flip
+                    // copied from ease-out quad made the trigger read 0.
+                    dState.R2 = (byte)(output * 255.0);
                 }
                 else if (r2OutCurveMode == 6)
                 {
@@ -3675,6 +3851,12 @@ namespace DS4Windows
                                 catch (OperationCanceledException)
                                 {
                                 }
+                                catch (AggregateException)
+                                {
+                                    // A faulted or cancelled macro task surfaces here
+                                    // (Wait wraps it); escaping the input thread
+                                    // would end the process.
+                                }
                                 finally
                                 {
                                     threadCts.Dispose();
@@ -4728,6 +4910,14 @@ namespace DS4Windows
             {
                 SpecialAction action = untriggeraction[device];
                 int index = untriggerindex[device];
+                // A Key special action's untrigger resets the shared index to -1
+                // while a profile untrigger is still pending; actionDone[-1]
+                // here escaped this async void method and ended the process.
+                if (index < 0 || index >= actionDone.Count)
+                {
+                    return;
+                }
+
                 bool utriggeractivated;
 
                 if (!action.automaticUntrigger)

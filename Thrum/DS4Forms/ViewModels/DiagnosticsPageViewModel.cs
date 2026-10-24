@@ -262,8 +262,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             {
                 "Virtual audio endpoints: " +
                     (audio.VirtualAudioEndpointsAllowed
-                        ? "allowed by consent"
-                        : "disabled (default)"),
+                        ? "allowed (default)"
+                        : "turned off in Settings"),
                 "Controller render endpoint present: " +
                     YesNo(audio.ControllerRenderEndpointPresent),
             };

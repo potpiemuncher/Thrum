@@ -93,15 +93,20 @@ namespace DS4WinWPF.DS4Control
                 //Trace.WriteLine(testStr);
             }
 
+            // Written at every exit, including sign-out: an in-place truncating
+            // write cut short there left an empty file and every Permanent slot
+            // reservation was silently dropped at the next start.
             try
             {
-                using (StreamWriter sw = new StreamWriter(output_path, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(output_path, testStr);
+                result = true;
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception ex) when (ex is UnauthorizedAccessException ||
+                ex is IOException)
             {
+                AppLogger.LogToGui(
+                    $"Could not save the output slot settings to {output_path}: {ex.Message}",
+                    true);
                 result = false;
             }
 

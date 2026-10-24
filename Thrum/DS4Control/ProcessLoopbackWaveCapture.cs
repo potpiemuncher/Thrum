@@ -3,6 +3,7 @@ using NAudio.CoreAudioApi.Interfaces;
 using NAudio.Wave;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -41,7 +42,7 @@ namespace DS4Windows
             }
 
             fixedProcessId = processId;
-            WaveFormat = new WaveFormat(44100, 16, 2);
+            WaveFormat = new WaveFormat(CaptureSampleRate, 16, 2);
         }
 
         private ProcessLoopbackWaveCapture(int automaticSlot,
@@ -56,8 +57,17 @@ namespace DS4Windows
             automaticSettings = (settings ??
                 new AudioHapticsProfileSettings()).Clone();
             automaticDetector = new AutomaticGameAudioDetector();
-            WaveFormat = new WaveFormat(44100, 16, 2);
+            WaveFormat = new WaveFormat(CaptureSampleRate, 16, 2);
         }
+
+        /// <summary>
+        /// 48 kHz, the rate of the DualSense's own audio endpoint and of almost
+        /// every Windows mix. At 44.1 kHz the wired speaker lane, which copies
+        /// frames 1:1 into the controller's 48 kHz endpoint, played app audio
+        /// about 9 % fast and high-pitched; AutoConvertPcm below makes Windows
+        /// do the conversion for every consumer.
+        /// </summary>
+        internal const int CaptureSampleRate = 48000;
 
         public WaveFormat WaveFormat { get; set; }
         // Process-loopback activation is a virtual render endpoint. Windows'
@@ -189,18 +199,36 @@ namespace DS4Windows
                 return 0;
             }
 
+            string targetName = !string.IsNullOrWhiteSpace(settings.ExecutableName)
+                ? settings.ExecutableName
+                : string.IsNullOrWhiteSpace(settings.ProcessPath)
+                    ? null
+                    : Path.GetFileNameWithoutExtension(settings.ProcessPath);
+
             if (settings.ProcessId > 0)
             {
                 try
                 {
                     using Process process = Process.GetProcessById(
                         settings.ProcessId);
-                    if (!process.HasExited)
+                    // A saved PID can belong to another program after a reboot;
+                    // its audio was captured under the game's name.
+                    if (!process.HasExited && (targetName == null ||
+                        string.Equals(process.ProcessName, targetName,
+                            StringComparison.OrdinalIgnoreCase)))
                     {
                         return process.Id;
                     }
                 }
                 catch { }
+            }
+
+            // Nothing to match by: the scan below could never succeed, and it
+            // ran several times a second on the haptics writer and the
+            // automatic-detection monitors.
+            if (targetName == null)
+            {
+                return 0;
             }
 
             foreach (Process process in Process.GetProcesses())
@@ -209,19 +237,37 @@ namespace DS4Windows
                 {
                     try
                     {
-                        string path = process.MainModule?.FileName ??
-                            string.Empty;
-                        if (!string.IsNullOrWhiteSpace(settings.ProcessPath) &&
-                            string.Equals(path, settings.ProcessPath,
-                                StringComparison.OrdinalIgnoreCase))
+                        // The name comes with the snapshot and never throws.
+                        // MainModule is read only for a candidate: for every
+                        // process it cost tens of ms and an exception per
+                        // protected process each scan, and for an elevated
+                        // game it threw before the name was ever compared.
+                        if (!string.Equals(process.ProcessName, targetName,
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(settings.ProcessPath))
                         {
                             return process.Id;
                         }
-                        if (!string.IsNullOrWhiteSpace(
-                                settings.ExecutableName) &&
-                            string.Equals(process.ProcessName,
-                                settings.ExecutableName,
-                                StringComparison.OrdinalIgnoreCase))
+
+                        string path;
+                        try
+                        {
+                            path = process.MainModule?.FileName;
+                        }
+                        catch
+                        {
+                            // Elevated or protected: the name match stands.
+                            return process.Id;
+                        }
+
+                        if (path == null || string.Equals(path,
+                                settings.ProcessPath,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            !string.IsNullOrWhiteSpace(settings.ExecutableName))
                         {
                             return process.Id;
                         }

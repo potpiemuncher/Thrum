@@ -70,8 +70,14 @@ namespace DS4Windows
                     {
                         // ReplaceFile is not available on every volume (some
                         // network shares and non-NTFS drives used for portable
-                        // copies). Same result in two steps.
-                        File.Copy(fullPath, fullPath + ".bak", overwrite: true);
+                        // copies). Same result in two steps. ReplaceFile can
+                        // also fail after it has already moved the target to
+                        // the backup name; then there is nothing left to copy.
+                        if (File.Exists(fullPath))
+                        {
+                            File.Copy(fullPath, fullPath + ".bak", overwrite: true);
+                        }
+
                         File.Move(temporaryPath, fullPath, overwrite: true);
                     }
                 }
@@ -155,6 +161,59 @@ namespace DS4Windows
             Interlocked.Exchange(ref pendingNotice,
                 pendingNotice == null ? message : pendingNotice + "\n\n" + message);
             return restored;
+        }
+
+        /// <summary>
+        /// For files where using defaults would lose data the user can still
+        /// fix by hand (a profile, the Auto Profiles list): restore the backup
+        /// only if it loads, and otherwise leave the damaged file where it is.
+        /// Profile files and Auto Profiles.xml used to load empty, and the next
+        /// save rotated the damaged file into .bak, destroying the good copy.
+        /// </summary>
+        /// <returns>True if the backup was loaded and put back.</returns>
+        public static bool TryRestoreFromBackup(string path, string description,
+            Func<string, bool> tryLoad)
+        {
+            string backupPath = path + ".bak";
+            if (!File.Exists(backupPath))
+            {
+                return false;
+            }
+
+            bool loaded;
+            try
+            {
+                loaded = tryLoad(backupPath);
+            }
+            catch (Exception ex) when (ex is IOException ||
+                ex is UnauthorizedAccessException)
+            {
+                loaded = false;
+            }
+
+            if (!loaded)
+            {
+                return false;
+            }
+
+            string keptAs = SetAside(path);
+            try
+            {
+                File.Copy(backupPath, path, overwrite: true);
+            }
+            catch (Exception ex) when (ex is IOException ||
+                ex is UnauthorizedAccessException)
+            {
+            }
+
+            string kept = keptAs != null
+                ? $" The damaged file was kept as {Path.GetFileName(keptAs)}."
+                : string.Empty;
+            string message = $"{description} could not be read, so the previous copy was restored. Changes made since the last save may be missing.{kept}";
+            AppLogger.LogToGui(message, true);
+            Interlocked.Exchange(ref pendingNotice,
+                pendingNotice == null ? message : pendingNotice + "\n\n" + message);
+            return true;
         }
 
         private static string SetAside(string path)

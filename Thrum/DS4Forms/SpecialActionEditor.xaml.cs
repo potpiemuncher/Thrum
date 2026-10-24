@@ -267,6 +267,14 @@ namespace DS4WinWPF.DS4Forms
                         "Choose the program to launch with Browse, then save again.",
                         "Special Action", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
+                else if (!valid && typeId == DS4Windows.SpecialAction.ActionTypeId.Macro &&
+                    (macroActVM.Macro == null || macroActVM.Macro.Count == 0))
+                {
+                    // Save used to do nothing at all here, with no reason given.
+                    MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                        "Record a macro first, then save again.",
+                        "Special Action", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             else if (specialActVM.ExistingName)
             {

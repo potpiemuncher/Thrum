@@ -584,14 +584,37 @@ namespace DS4Windows
 
                 captureEndpoint = endpoint;
                 sourceDisplayName = endpoint.FriendlyName;
-                capture = new LowLatencyLoopbackCapture(endpoint,
-                    CaptureBufferMilliseconds);
-                captureFormat = capture.WaveFormat;
-                processor = new AudioHapticsProcessor(activeSettings,
-                    captureFormat.SampleRate);
-                capture.DataAvailable += Capture_DataAvailable;
-                capture.RecordingStopped += Capture_RecordingStopped;
-                capture.StartRecording();
+                try
+                {
+                    capture = new LowLatencyLoopbackCapture(endpoint,
+                        CaptureBufferMilliseconds);
+                    captureFormat = capture.WaveFormat;
+                    processor = new AudioHapticsProcessor(activeSettings,
+                        captureFormat.SampleRate);
+                    capture.DataAvailable += Capture_DataAvailable;
+                    capture.RecordingStopped += Capture_RecordingStopped;
+                    capture.StartRecording();
+                }
+                catch
+                {
+                    // A capture that failed to start (device taken in exclusive
+                    // mode, audio service restarting) used to stay installed, so
+                    // EnsureCapture never retried and the status later read
+                    // "active" with nothing captured.
+                    WasapiCapture failed = capture;
+                    capture = null;
+                    captureEndpoint = null;
+                    if (failed != null)
+                    {
+                        failed.DataAvailable -= Capture_DataAvailable;
+                        failed.RecordingStopped -= Capture_RecordingStopped;
+                        try { failed.Dispose(); } catch { }
+                    }
+
+                    try { endpoint.Dispose(); } catch { }
+                    throw;
+                }
+
                 UpdateRuntimeStatus();
             }
 
@@ -621,13 +644,33 @@ namespace DS4Windows
                         activeSettings.DisplayName) ? $"process {processId}" :
                         activeSettings.DisplayName;
                 }
-                captureFormat = processCapture.WaveFormat;
-                processor = new AudioHapticsProcessor(activeSettings,
-                    captureFormat.SampleRate);
-                processCapture.DataAvailable += Capture_DataAvailable;
-                processCapture.RecordingStopped += Capture_RecordingStopped;
-                processCapture.SourceChanged += ProcessCapture_SourceChanged;
-                processCapture.StartRecording();
+                try
+                {
+                    captureFormat = processCapture.WaveFormat;
+                    processor = new AudioHapticsProcessor(activeSettings,
+                        captureFormat.SampleRate);
+                    processCapture.DataAvailable += Capture_DataAvailable;
+                    processCapture.RecordingStopped += Capture_RecordingStopped;
+                    processCapture.SourceChanged += ProcessCapture_SourceChanged;
+                    processCapture.StartRecording();
+                }
+                catch
+                {
+                    // Same as the endpoint capture: do not keep a capture that
+                    // never started, or the retry never happens.
+                    ProcessLoopbackWaveCapture failed = processCapture;
+                    processCapture = null;
+                    if (failed != null)
+                    {
+                        failed.DataAvailable -= Capture_DataAvailable;
+                        failed.RecordingStopped -= Capture_RecordingStopped;
+                        failed.SourceChanged -= ProcessCapture_SourceChanged;
+                        try { failed.Dispose(); } catch { }
+                    }
+
+                    throw;
+                }
+
                 UpdateRuntimeStatus();
             }
 

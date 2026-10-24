@@ -4159,11 +4159,27 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             return result;
         }
 
+        internal static string NormalizeCurveDefinitionForEditor(string customDefinition)
+        {
+            string normalized = System.Text.RegularExpressions.Regex.Replace(
+                customDefinition ?? string.Empty, @"\s", string.Empty);
+            return System.Text.RegularExpressions.Regex.IsMatch(normalized,
+                @"^-?\d{1,6}(\.\d{1,6})?(,-?\d{1,6}(\.\d{1,6})?){3}$")
+                ? normalized : string.Empty;
+        }
+
         public void LaunchCurveEditor(string customDefinition)
         {
             // Custom curve editor web link clicked. Open the bezier curve editor web app usign the default browser app and pass on current custom definition as a query string parameter.
             // The Process.Start command using HTML page doesn't support query parameters, so if there is a custom curve definition then lookup the default browser executable name from a sysreg.
             string defaultBrowserCmd = String.Empty;
+            // The definition comes straight from the profile file and lands on
+            // the browser's command line: a quote plus a tab in an imported
+            // profile could add browser switches (some run programs). Only four
+            // comma-separated numbers are a curve; anything else opens the
+            // editor without one.
+            customDefinition = NormalizeCurveDefinitionForEditor(customDefinition);
+
             try
             {
                 if (!String.IsNullOrEmpty(customDefinition))
@@ -4200,7 +4216,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
                 // Launch custom bezier editor webapp using a default browser executable command or via a default shell command. The default shell exeution doesn't support query parameters.
                 if (!String.IsNullOrEmpty(defaultBrowserCmd))
-                    System.Diagnostics.Process.Start(defaultBrowserCmd, $"\"file:///{Global.exedirpath}\\BezierCurveEditor\\index.html?curve={customDefinition.Replace(" ", "")}\"");
+                    System.Diagnostics.Process.Start(defaultBrowserCmd, $"\"file:///{Global.exedirpath}\\BezierCurveEditor\\index.html?curve={customDefinition}\"");
                 else
                 {
                     System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo($"{Global.exedirpath}\\BezierCurveEditor\\index.html");

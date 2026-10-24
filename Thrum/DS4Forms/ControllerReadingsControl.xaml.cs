@@ -323,19 +323,34 @@ namespace DS4WinWPF.DS4Forms
                 DS4State tmpinterState = Program.rootHub.getDS4StateTemp(deviceNum);
                 long cntCalibrating = ds.SixAxis.CntCalibrating;
 
-                // Wait for controller to be in a wait period
-                ds.ReadWaitEv.Wait();
+                // Wait for controller to be in a wait period. Bounded: a pad that
+                // disconnects leaves the gate reset, and the unbounded wait froze
+                // this tab and leaked the timer thread.
+                if (ds.IsRemoving || !ds.ReadWaitEv.Wait(millisecondsTimeout: 250))
+                {
+                    if (useTimer)
+                    {
+                        readingTimer.Start();
+                    }
+
+                    return;
+                }
+
                 ds.ReadWaitEv.Reset();
+                try
+                {
+                    // Make copy of current state values for UI thread
+                    tmpbaseState.CopyTo(baseState);
+                    tmpinterState.CopyTo(interState);
 
-                // Make copy of current state values for UI thread
-                tmpbaseState.CopyTo(baseState);
-                tmpinterState.CopyTo(interState);
-
-                if (deviceNum != profileDeviceNum)
-                    Mapping.SetCurveAndDeadzone(profileDeviceNum, baseState, interState);
-
-                // Done with copying. Allow input thread to resume
-                ds.ReadWaitEv.Set();
+                    if (deviceNum != profileDeviceNum)
+                        Mapping.SetCurveAndDeadzone(profileDeviceNum, baseState, interState);
+                }
+                finally
+                {
+                    // Done with copying. Allow input thread to resume
+                    ds.ReadWaitEv.Set();
+                }
 
                 Dispatcher.Invoke(() =>
                 {

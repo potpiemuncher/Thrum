@@ -40,16 +40,13 @@ namespace DS4WinWPF
                 outputLines.Add($"{item.Datetime}: {item.Message}");
             }
 
-            try
+            // Errors reach the caller: a tester exporting to a locked or
+            // read-only place used to get nothing written and no message.
+            using StreamWriter stream = new StreamWriter(filename);
+            foreach(string line in outputLines)
             {
-                StreamWriter stream = new StreamWriter(filename);
-                foreach(string line in outputLines)
-                {
-                    stream.WriteLine(line);
-                }
-                stream.Close();
+                stream.WriteLine(line);
             }
-            catch { }
         }
     }
 }

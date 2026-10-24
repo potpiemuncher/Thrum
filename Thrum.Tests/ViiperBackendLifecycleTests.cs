@@ -67,8 +67,26 @@ public class ViiperBackendLifecycleTests
             ViiperBackendSpawn.BuildServerStartInfo(@"C:\somewhere\viiper.exe");
 
         CollectionAssert.AreEqual(
-            new[] { "--update-notify", "none", "server" },
+            new[] { "--update-notify", "none", "server",
+                "--usb.addr=127.0.0.1:3241", "--api.addr=127.0.0.1:3242" },
             startInfo.ArgumentList.ToArray());
+    }
+
+    /// <summary>
+    /// The listen addresses are server-subcommand flags, so they follow
+    /// "server". Loopback only: the backend used to listen on every interface.
+    /// </summary>
+    [TestMethod]
+    public void TheBackendListensOnLoopbackOnly()
+    {
+        ProcessStartInfo startInfo =
+            ViiperBackendSpawn.BuildServerStartInfo(@"C:\somewhere\viiper.exe");
+        int server = startInfo.ArgumentList.IndexOf("server");
+
+        int usb = startInfo.ArgumentList.IndexOf("--usb.addr=127.0.0.1:3241");
+        int api = startInfo.ArgumentList.IndexOf("--api.addr=127.0.0.1:3242");
+        Assert.IsTrue(usb > server, "USB-IP must listen on 127.0.0.1 only");
+        Assert.IsTrue(api > server, "The API must listen on 127.0.0.1 only");
     }
 
     /// <summary>

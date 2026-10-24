@@ -104,44 +104,75 @@ namespace DS4WinWPF.DS4Control
 
         public List<string> GetBlacklist()
         {
-            List<string> instances = new List<string>();
+            TryGetBlacklist(out List<string> instances);
+            return instances;
+        }
 
-            int bytesReturned = 0;
-            bool result = NativeMethods.DeviceIoControl(hidHideHandle.DangerousGetHandle(),
-                HidHideAPIDevice.IOCTL_GET_BLACKLIST,
-                IntPtr.Zero,
-                0,
-                IntPtr.Zero,
-                0,
-                ref bytesReturned,
-                IntPtr.Zero);
-
-            if (bytesReturned > 0)
+        /// <summary>
+        /// Reads HidHide's hidden-device list, telling a failed read from an
+        /// empty one. The old read ignored both IOCTL results and copied the
+        /// size of the first answer: if the list changed in between (the HidHide
+        /// client or another mapper editing it), it parsed uninitialised memory
+        /// or returned nothing, and callers wrote that back with SetBlacklist,
+        /// un-hiding every device the user had hidden. Callers that write the
+        /// list back must skip the write when this returns false.
+        /// </summary>
+        internal bool TryGetBlacklist(out List<string> instances)
+        {
+            instances = new List<string>();
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                byte[] dataBuffer = new byte[bytesReturned];
-                int requiredBytes = bytesReturned;
-                bytesReturned = 0;
-
-                IntPtr buffer = Marshal.AllocHGlobal(requiredBytes);
-
-                result = NativeMethods.DeviceIoControl(hidHideHandle.DangerousGetHandle(),
-                    HidHideAPIDevice.IOCTL_GET_BLACKLIST,
-                    IntPtr.Zero,
-                    0,
-                    buffer,
-                    requiredBytes,
-                    ref bytesReturned,
+                int bytesReturned = 0;
+                bool firstResult = NativeMethods.DeviceIoControl(
+                    hidHideHandle.DangerousGetHandle(), IOCTL_GET_BLACKLIST,
+                    IntPtr.Zero, 0, IntPtr.Zero, 0, ref bytesReturned,
                     IntPtr.Zero);
+                if (bytesReturned <= 0)
+                {
+                    // True with no bytes is the legitimate empty list.
+                    return firstResult;
+                }
 
-                //int error = Marshal.GetLastWin32Error();
-                Marshal.Copy(buffer, dataBuffer, 0, requiredBytes);
-                string tempstring = Encoding.Unicode.GetString(dataBuffer).TrimEnd(char.MinValue);
-                instances = tempstring.Split(char.MinValue).ToList();
+                int requiredBytes = bytesReturned;
+                IntPtr buffer = Marshal.AllocHGlobal(requiredBytes);
+                try
+                {
+                    bytesReturned = 0;
+                    bool result = NativeMethods.DeviceIoControl(
+                        hidHideHandle.DangerousGetHandle(), IOCTL_GET_BLACKLIST,
+                        IntPtr.Zero, 0, buffer, requiredBytes, ref bytesReturned,
+                        IntPtr.Zero);
+                    if (!result)
+                    {
+                        // ERROR_INSUFFICIENT_BUFFER: the list grew since the size
+                        // probe. Ask again once.
+                        if (Marshal.GetLastWin32Error() == 122)
+                        {
+                            continue;
+                        }
 
-                Marshal.FreeHGlobal(buffer);
+                        return false;
+                    }
+
+                    int length = Math.Min(bytesReturned, requiredBytes);
+                    byte[] dataBuffer = new byte[length];
+                    Marshal.Copy(buffer, dataBuffer, 0, length);
+                    string multiString = Encoding.Unicode.GetString(dataBuffer)
+                        .TrimEnd(char.MinValue);
+                    if (!string.IsNullOrEmpty(multiString))
+                    {
+                        instances = multiString.Split(char.MinValue).ToList();
+                    }
+
+                    return true;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
             }
 
-            return instances;
+            return false;
         }
 
         public bool SetBlacklist(List<string> instances)

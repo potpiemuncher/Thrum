@@ -203,7 +203,7 @@ public class ThrumDiagnosticsReportFormatterTests
 
         StringAssert.Contains(report, "default-endpoint guard");
         StringAssert.Contains(report, "not installed");
-        StringAssert.Contains(report, "disabled (default)");
+        StringAssert.Contains(report, "turned off in Settings");
     }
 
     [TestMethod]

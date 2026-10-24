@@ -285,7 +285,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public void OpenHidHideDownloadPage() => effects.OpenHidHideDownloadPage();
 
         public string AcknowledgementNote => Acknowledged
-            ? "Saved. Virtual controllers are allowed. Audio and microphone endpoints stay off; they are a separate choice in Settings."
+            ? "Saved. Virtual controllers are allowed. The virtual pad's audio and microphone endpoints are on by default; you can turn them off in Settings."
             : "Leave this unticked to keep virtual controllers off. You can change it later in Settings.";
 
         public void Refresh(bool refreshDriver = true)

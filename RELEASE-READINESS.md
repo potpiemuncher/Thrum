@@ -4,6 +4,96 @@ Pre-release review, 2026-09-24. Every change made is listed with its reason in
 [CHANGES-REVIEW.md](CHANGES-REVIEW.md); this file is the summary, the open
 items and the test plan.
 
+## Second review (2026-10-18 to 2026-10-24)
+
+**Verdict: ready for the wider beta (beta.3) once the release-process items
+below are done. Not ready for a general release** (unchanged: signing,
+licences, screen-reader pass).
+
+A second full read of every file (13 reviewers), then live checks on the
+owner's PC (Bluetooth and USB DualSense, Native PS5 mode, Steam running): a
+1 h 25 min play session on the installed build, a recheck on the fixed build,
+and a live check of game feedback with virtual audio endpoints off. About 40
+bugs fixed (listed in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#second-review-2026-10-18)),
+11 behaviour changes made on the owner's decision. Tests: 1,208 passing, build
+0 warnings with the CI settings.
+
+### Decisions (2026-10-18)
+
+| # | Change | Verified |
+| --- | --- | --- |
+| 11 | VIIPER listens on 127.0.0.1 only (USB-IP 3241, API 3242); no firewall prompt any more | Live: the virtual pad attaches over 127.0.0.1 |
+| 12 | Edits made while an auto profile is active save to that profile, not over the assigned one | Unit test |
+| 13 | A damaged profile or Auto Profiles.xml is restored from its .bak (only when the backup loads) | Unit tests |
+| 14 | HidHide: Thrum records the entries it adds, releases them after a crash at the next Stop, and never removes the user's own | Unit test; live: entries released on exit |
+| 15 | Importing a profile with a Launch Program shows the path and asks whether to keep it | Code |
+| 16 | Toggled keys and mouse buttons are released on a profile switch, a disconnect and Stop | Code |
+| 17 | The pad is paused while a special-action profile switch (or the profile editor) reloads its profile | Code |
+| 18 | Warning when another program (Steam) had the pad first, even though HidHide hid it | Live: fires with Steam running |
+| 19 | The service restarts after an automatic wake (no user input), not only after a manual one | Code |
+| 20 | App audio is captured at 48 kHz (wired "Play app through controller" played about 9 % fast) | Unit test |
+| 21 | RealTime process priority removed (it needs admin); a saved RealTime runs as High | Unit test |
+| 22 | DualSense battery percentage uses the 0–10 scale (80–89 % no longer reads 100 %) | Unit test; live: 85 % / 95 % / 100 % |
+
+Declined: showing beta release notes in the Changelog window.
+
+### Live results on the owner's PC
+
+- Bluetooth DualSense, Native PS5 mode: input, virtual DualSense, game rumble
+  and adaptive triggers through the virtual pad (2,027 feedback frames, none
+  dropped); power off and on (back in 9 s); USB plug-in (switched to USB in
+  2 s) and unplug (back on Bluetooth in 4 s).
+- Virtual audio endpoints off (the blocker fix): the gamepad-only persona
+  delivered the game's rumble and triggers (counters and owner both
+  confirmed), with Thrum holding the pad exclusively.
+- No controller attached: Thrum 0.5 % of one core, VIIPER 0 %, no log lines
+  for 30 minutes.
+- Pad connected, idle and in play over 1 h 25 min: Thrum about 4.3 % of one
+  core, VIIPER about 11 %; private memory 147–153 MB with no trend; handles,
+  threads and GDI objects flat.
+- Clean exit: service stop, pad unplug, HidHide release, backend stop and
+  settings save in under 0.8 s, in that order. The old build's
+  `-command shutdown` was seen leaving the backend running because its
+  shutdown overlapped the Stop; fixed, and seen working on the fixed build.
+
+Not exercised live: other controller types (none on hand), Audio Haptics,
+speaker and microphone, Auto Profiles, OSC/UDP, first-run wizard, VIIPER
+setup, installer, sleep/resume, sign-out.
+
+### Before the beta.3 release
+
+1. Merge this branch: `main` has none of the review commits (PR #100 is a draft).
+2. Bump `Directory.Build.props` to 0.9.0-beta.3; update the README License tag
+   (still beta.1).
+3. `release.yml`: create the release as a draft, build, upload, then publish
+   (today it is visible before its assets exist); publish SHA-256 sums (the
+   README tells users to check them); keep the base commit in
+   InformationalVersion (the `/p:InformationalVersion` override drops it).
+4. Release notes: existing installs keep any "Allow" firewall rule for
+   viiper.exe; with loopback binding it no longer exposes anything, but users
+   can remove it. Users who ran beta.1 with the DS4 speaker may have USB
+   selective suspend still off.
+5. Run the clean-PC checklist above (installer, wizard consent, VIIPER setup:
+   confirm no firewall prompt now).
+
+### Still open (not fixed in this review)
+
+Should-fix:
+- Start, Stop and hot-plug are not serialised (double-click Stop/Start, Stop during a connect) (S02-1).
+- Bluetooth Audio Haptics streamer overwrites the lightbar, player LEDs, triggers and mic level (C316; needs Bluetooth Audio Haptics on hardware).
+- After a VIIPER backend crash the pad freezes for about 40 s, then is removed and not re-created (S07-3, C069).
+- Any local process can drive the VIIPER API on localhost without authentication (S08-1); setup leaves an elevated backend running (C204/C219).
+- Special actions whose editor reports an error still save (data loss on rename) (S12-6, C465); a damaged Actions.xml rewrites every profile at each launch (S10-6, C002).
+- A pad held exclusively by another mapper (DS4Windows "Hide") disappears with no message (S03-3).
+- Thrum opens a new API connection to the backend about 5 times a second (C058), part of VIIPER's idle CPU.
+- Two wired DualSense pads share one haptics endpoint (S05-6); the microphone relay is global (S05-7); 4-channel controller endpoints mix haptics into the speaker (S05-5).
+- DS4 Bluetooth audio: selective-suspend changes are kept only in memory (S06-1); input stalls while the speaker streams (S06-3).
+- Uninstall leaves the VIIPER folder, its firewall rules and any HidHide allow entries; the installer accepts ARM64 Windows, where the driver cannot load.
+
+Nice-to-have: listed per area in the review reports (theme switching, contrast,
+Trigger Lab clipping in the editor, DS4 Bluetooth exclusive status, Joy-Con
+calibration matching, and others).
+
 ## Verdict
 
 **Ready for a wider beta once the build is signed and the

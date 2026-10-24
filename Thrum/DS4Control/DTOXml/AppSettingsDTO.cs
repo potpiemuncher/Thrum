@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Globalization;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -239,10 +240,22 @@ namespace DS4WinWPF.DS4Control.DTOXml
         [XmlElement("LastChecked")]
         public string LastCheckString
         {
-            get => LastChecked.ToString("MM/dd/yyyy HH:mm:ss");
+            // Culture-invariant both ways. "MM/dd/yyyy" with the current
+            // culture's separator, read back with the current culture, failed or
+            // swapped day and month in en-GB, de-DE and most other locales, so
+            // the daily update check ran (and could prompt) at every launch.
+            // Files written by earlier builds in the user's own locale still read.
+            get => LastChecked.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
             set
             {
-                if (DateTime.TryParse(value, out DateTime temp))
+                if (DateTime.TryParseExact(value, "yyyy-MM-ddTHH:mm:ss",
+                        CultureInfo.InvariantCulture, DateTimeStyles.None,
+                        out DateTime temp) ||
+                    DateTime.TryParseExact(value, "MM/dd/yyyy HH:mm:ss",
+                        CultureInfo.InvariantCulture, DateTimeStyles.None,
+                        out temp) ||
+                    DateTime.TryParse(value, CultureInfo.CurrentCulture,
+                        DateTimeStyles.None, out temp))
                 {
                     LastChecked = temp;
                 }

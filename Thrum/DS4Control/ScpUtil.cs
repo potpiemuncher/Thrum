@@ -3105,6 +3105,21 @@ namespace DS4Windows
             return result;
         }
 
+        /// <summary>
+        /// The profile a controller is running right now: the auto or
+        /// special-action (temporary) profile while one is active, otherwise the
+        /// assigned one. Edits saved from the main window go here; they used to
+        /// go to the assigned profile and overwrite it with the temporary
+        /// profile's settings.
+        /// </summary>
+        public static string ActiveProfileName(int device, out bool temporary)
+        {
+            temporary = device >= 0 && device < useTempProfile.Length &&
+                useTempProfile[device] &&
+                !string.IsNullOrWhiteSpace(tempprofilename[device]);
+            return temporary ? tempprofilename[device] : ProfilePath[device];
+        }
+
         public static bool LoadTempProfile(int device, string name, bool launchprogram,
             ControlService control, bool xinputChange = true)
         {
@@ -5686,6 +5701,25 @@ namespace DS4Windows
         public bool LoadProfileNew(int device, bool launchprogram, ControlService control,
             string propath = "", bool xinputChange = true, bool postLoad = true)
         {
+            string profilepath = propath == "" ?
+                Path.Combine(Global.appdatapath, "Profiles", $"{profilePath[device]}.xml") :
+                propath;
+            bool loaded = LoadProfileFile(device, launchprogram, control, profilepath,
+                xinputChange, postLoad);
+            if (!loaded && File.Exists(profilepath))
+            {
+                loaded = SettingsFileRecovery.TryRestoreFromBackup(profilepath,
+                    $"The profile \"{Path.GetFileNameWithoutExtension(profilepath)}\"",
+                    backup => LoadProfileFile(device, launchprogram, control, backup,
+                        xinputChange, postLoad));
+            }
+
+            return loaded;
+        }
+
+        private bool LoadProfileFile(int device, bool launchprogram, ControlService control,
+            string propath, bool xinputChange, bool postLoad)
+        {
             bool loaded = true;
 
             bool migratePerformed = false;
@@ -5700,7 +5734,11 @@ namespace DS4Windows
             {
                 string profileXml = string.Empty;
 
-                // Run migrations
+                // Run migrations. A malformed old-format profile threw out of
+                // here uncaught; callers holding the controller's input paused
+                // (profile dropdown, auto profiles) then froze it and the app
+                // closed. Fail the load before anything has been reset.
+                try
                 {
                     XmlDocument migrationDoc = new XmlDocument();
 
@@ -5725,6 +5763,13 @@ namespace DS4Windows
                     }
 
                     tmpMigration.Close();
+                }
+                catch (Exception e) when (e is XmlException || e is IOException ||
+                    e is UnauthorizedAccessException || e is FormatException ||
+                    e is ArgumentException || e is InvalidOperationException)
+                {
+                    AppLogger.LogToGui($"Failed to load {profilepath}. {e.Message}", false);
+                    return false;
                 }
 
                 if (device < Global.MAX_DS4_CONTROLLER_COUNT)
@@ -5768,6 +5813,15 @@ namespace DS4Windows
                 catch (XmlException e)
                 {
                     AppLogger.LogToGui($"Failed to load {profilepath}. Invalid XML. {e.InnerException?.Message ?? e.Message}", false);
+                    loaded = false;
+                }
+                catch (Exception e) when (e is FormatException ||
+                    e is OverflowException || e is ArgumentException ||
+                    e is IndexOutOfRangeException)
+                {
+                    // A bad value (a colour of "256,0,0", a macro step that is not
+                    // a number) in a hand-edited or shared profile.
+                    AppLogger.LogToGui($"Failed to load {profilepath}. Invalid value: {e.Message}", false);
                     loaded = false;
                 }
 
@@ -9123,9 +9177,16 @@ namespace DS4Windows
             // Compile shortcut version number if lastVersionChecked is populated
             if (!string.IsNullOrEmpty(lastVersionChecked))
             {
+                // The skipped release is stored as its tag ("v0.9.0-beta.3"),
+                // which System.Version cannot parse. Clearing it when the number
+                // came out 0 erased every "Skip this version" at the next launch,
+                // so the update dialog came back; the skip is a tag comparison
+                // (ReleaseChannelPolicy.IsSkippedRelease) and needs no number.
                 lastVersionCheckedNum = Global.CompileVersionNumberFromString(lastVersionChecked);
-                if (lastVersionCheckedNum == 0) lastVersionChecked = string.Empty;
             }
+
+            // Normal, AboveNormal, High. RealTime (3) is no longer offered.
+            processPriority = Math.Clamp(processPriority, 0, 2);
 
             oscServPort = Math.Clamp(oscServPort, 1024, 65535);
             oscSendPort = Math.Clamp(oscSendPort, 1024, 65535);
@@ -9857,9 +9918,10 @@ namespace DS4Windows
                     loaded = true;
                 }
             }
-            catch
+            catch (Exception e)
             {
-                AppLogger.LogToGui("ControllerConfigs.xml can't be found.", false);
+                // Was always "can't be found", whatever the actual problem was.
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be read: {e.Message}", false);
                 loaded = false;
             }
 
@@ -9867,6 +9929,11 @@ namespace DS4Windows
         }
 
         public bool SaveControllerConfigsForDevice(DS4Device device)
+        {
+            return SaveControllerConfigsForDevice(device, retryAfterReset: true);
+        }
+
+        private bool SaveControllerConfigsForDevice(DS4Device device, bool retryAfterReset)
         {
             bool saved = true;
 
@@ -9881,6 +9948,11 @@ namespace DS4Windows
 
                 XmlNode node = xmlDoc.SelectSingleNode("/Controllers/Controller[@Mac=\"" + device.getMacAddress() + "\"]");
                 XmlNode xmlControllersNode = xmlDoc.SelectSingleNode("/Controllers");
+                if (xmlControllersNode == null)
+                {
+                    throw new XmlException("The file has no Controllers element.");
+                }
+
                 if (node == null)
                 {
                     XmlElement el = xmlDoc.CreateElement("Controller");
@@ -9938,6 +10010,36 @@ namespace DS4Windows
             catch (UnauthorizedAccessException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_controllerConfigs, false);
+                saved = false;
+            }
+            catch (IOException e)
+            {
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be saved: {e.Message}", true);
+                saved = false;
+            }
+            catch (XmlException e) when (retryAfterReset)
+            {
+                // A truncated or hand-edited file used to make every save throw:
+                // closing the Controller options window then closed the app, and
+                // finishing a wheel calibration ended the process from the input
+                // thread. Keep the damaged copy and start a fresh file.
+                string aside = m_controllerConfigs + ".damaged-" +
+                    DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+                try
+                {
+                    File.Move(m_controllerConfigs, aside, overwrite: true);
+                }
+                catch (Exception)
+                {
+                }
+
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be read ({e.Message}). It was kept as {Path.GetFileName(aside)} and a new file was started.", true);
+                createControllerConfigs();
+                return SaveControllerConfigsForDevice(device, retryAfterReset: false);
+            }
+            catch (XmlException e)
+            {
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be saved: {e.Message}", true);
                 saved = false;
             }
 

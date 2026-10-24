@@ -80,10 +80,24 @@ namespace DS4Windows
         public const string UpdateNotifyEnvironmentVariable = "VIIPER_UPDATE_NOTIFY";
 
         /// <summary>
-        /// The exact argument vector used to start the backend, in order.
+        /// Loopback-only listen addresses for the server subcommand. Without
+        /// them the backend listened on every interface: USB-IP (no
+        /// authentication, and it carries the virtual pad's input, speaker and
+        /// microphone) and the API were reachable from the network once the
+        /// firewall prompt was answered with Allow, and the prompt itself
+        /// appeared on the backend's first start. Thrum and usbip-win2 attach
+        /// over 127.0.0.1 (checked on hardware, 2026-10-18).
+        /// </summary>
+        public const string UsbListenFlag = "--usb.addr=127.0.0.1:3241";
+        public const string ApiListenFlag = "--api.addr=127.0.0.1:3242";
+
+        /// <summary>
+        /// The exact argument vector used to start the backend, in order. The
+        /// setup script starts its verification backend from this same list.
         /// </summary>
         public static IReadOnlyList<string> ServerArguments { get; } =
-            new[] { UpdateNotifyFlag, UpdateNotifyDisabled, ServerCommand };
+            new[] { UpdateNotifyFlag, UpdateNotifyDisabled, ServerCommand,
+                UsbListenFlag, ApiListenFlag };
 
         /// <summary>
         /// Builds the start info for <c>viiper.exe server</c>.

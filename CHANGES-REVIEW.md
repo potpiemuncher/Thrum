@@ -179,3 +179,82 @@ Found by the owner running the CI build on their PC.
 - Slow Native PS5 turn-on (diagnostics only, no behaviour change): the owner's log showed 22.7 s between "Using Exclusive Mode" and "Found Controller" in a session running as administrator. With Verbose logging on, the log now marks each step of opening a controller: the exclusive open, whether it was refused and which known controller programs were running, the device disable and enable an administrator session does to take the controller back, and the fallback to shared mode.
 - First-run import step (Low, owner report 2026-09-26): after a reinstall that deleted Thrum's settings, the step read "Existing DS4Windows settings were found" with no hint where from, so it looked like leftover Thrum settings. It now says the settings belong to DS4Windows (`%APPDATA%\DS4Windows`, which Thrum's uninstaller never touches), that Thrum can copy them, and how to skip. Wording only.
 - DualSense charging (Low, owner report 2026-09-26, inherited from DS4Windows): a DualSense on Bluetooth plugged into a wall charger showed "On battery". "Charging" came from bit 3 of the status byte, which is set only with a USB data connection to the PC. It now comes from the charge state in the battery byte (1 charging, 2 full, as the Linux hid-playstation driver reads it), with the old bit kept as a fallback. The same byte's "full" test matched the charge-error states too and showed them as 100 %; it now matches only "full". The owner confirmed "Charging" on a wall charger with the installed build (e519f79), and the green Native PS5 card (decision #10).
+
+## Second review (2026-10-18)
+
+A second full read of every file (13 reviewers, one per area), with each
+finding traced by hand before a fix. Only clear bugs were changed: crashes,
+hangs, leaks, wrong logic, unhandled errors. Anything that changes how a
+feature behaves is listed in `RELEASE-READINESS.md` for a decision instead.
+Tests: 1,199 passing (11 new in `ReleaseReviewRegressionTests`); build 0
+warnings with the CI settings.
+
+### Blockers
+
+- Virtual DualSense / Edge with virtual audio endpoints off (`ViiperOutDevice`): the game's rumble, adaptive triggers and lightbar never reached the pad. The gamepad-only V5 persona queues its output state for the control dispatcher, and the dispatcher was started only for personas with a speaker. Endpoints are off for every existing install that saved "off", after the user turns them off, and on usbip-win2 older than 0.9.8.0. Tested (the dispatch decision).
+- Keyboard/mouse output (`VirtualKBMFactory`): with the FakerInput driver installed but no Visual C++ runtime, creating the FakerInput handler threw out of `ControlService.Start`, so the service never started and no controller worked. It now falls back to SendInput with one warning, as the docs already said it did.
+- Sign-out (`App.xaml.cs`, `ControlService.ShutDown`): the shutdown ran twice (SessionEnding, then Exit); the second run threw and the crash notice appeared during every sign-out with Thrum running. It now runs once, a failed controller-service stop no longer skips the rest of the shutdown (backend, settings save, single-instance release, log flush), and `ShutDown` tolerates a second call.
+- Custom curve editor (`ProfileSettingsViewModel`): the curve text from a profile file went unchecked onto the browser's command line, so an imported profile could add browser switches (some run programs). Only four comma-separated numbers are passed now. Tested.
+
+### Crashes and hangs
+
+- Crash handling (`App.xaml.cs`): the handlers are attached at the start of startup (a crash while building the controller service or in the first wizard steps left no log and no notice; those now go to `%TEMP%\Thrum-startup-crash.txt`); virtual pads are unplugged before the crash notice is shown (a game kept the last stick/trigger state behind the modal box); a background-thread crash waits at most 10 s for a blocked UI thread instead of hanging.
+- Bluetooth DualSense disconnect (`DualSenseDevice`, `HidDevice.readFeatureData`): the timeout watchdog could read the HID handle after removal had closed it and end the process. It is stopped before removal and the read tolerates a closed handle.
+- HID reads and writes (`HidDevice`): after another thread closed the device, a read or write silently reopened it exclusively (a handle nobody owned, so the pad could not be opened again until restart) or dereferenced null on the input thread. They now hold a reference to the open handle and fail cleanly when there is none.
+- Malformed profiles (`ScpUtil.LoadProfileNew`, `DS4Device.HaltReportingRunAction`): a bad value or an old-format profile that failed to migrate escaped the loader; from the profile list that froze the controller's input and closed the app, from Auto Profiles it froze input and stopped switching. The load now fails with a log line, and input resumes even if the action throws.
+- DSU/UDP motion server (`ControlService`, `UdpServer`): turning it on at runtime bound motion to the enumeration index; with slot 1 empty the first report threw on the input thread. A listen address `Dns` rejects (`::`, `0`) escaped Start and left the service half started.
+- OSC sender (`ControlService`): sends from the input thread could hit a sender being closed by the Settings switch, or a network error to a LAN target; both ended the process. Sends go through one guarded helper.
+- Special actions (`Mapping`): a Key action's untrigger could leave a shared index at -1 and `actionDone[-1]` ended the process from an `async void`; a faulted lightbar macro task threw `AggregateException` out of the input thread.
+- Input tester and profile-editor readings (`ControllerTesterControl`, `ControllerReadingsControl`): an unbounded wait froze the panel when the pad disconnected, and could freeze the whole app when the tester opened during a removal. Bounded to 250 ms.
+- Log buffer (`LogViewModel`): Clear racing an append could leave the log lock held, and every later log line from any thread then hung. The lock is exception-safe and Clear takes it.
+- Controller list (`ControllerListViewModel`): removal waited on the UI thread while holding the list lock the UI also takes. Settings are now saved asynchronously after the lock is released.
+- `ControllerConfigs.xml` (`ScpUtil`): a damaged file made every save throw, which closed the app from the Controller options window and ended it from a wheel calibration. The damaged file is kept aside and a fresh one started.
+- Switch Pro / Joy-Con (`SwitchProDevice`, `JoyConDevice`): any initialisation error other than `IOException` escaped HotPlug and left a slot holding a controller with no input thread; every service Stop was reported as a lost controller.
+- Missing `Profiles` folder (`ProfileList`): crashed every launch.
+
+### Leaks and silent failures
+
+- Disconnected controllers (`ControllerListViewModel`): each kept its view model and device alive through the profile's Saved/Deleted events; every later profile Save then waited 500 ms per stale entry on the UI thread.
+- Timers (`MainWindow`): one exception stopped auto-profile switching or touchpad-swipe profile switching for the session with no log. Each tick is guarded and the timer always restarts; the swipe check enumerates a snapshot of the controller list.
+- "Skip this version" (`ScpUtil.PostProcessLoad`): the skipped tag was erased at every launch because `System.Version` cannot parse a beta tag, so the update dialog kept returning. Tested.
+- Update check date (`AppSettingsDTO.LastCheckString`): written and read in the user's locale; in en-GB, de-DE and most others the daily check ran at every launch. Now culture-invariant; old files still read. Tested.
+- `OutputSlots.xml` (`OutputSlotPersist`): written at every exit with a truncating write; now atomic with a backup, and IO errors are reported instead of escaping the shutdown.
+- `SafeFileWriter`: the two-step fallback no longer fails when the replace already moved the target.
+- HidHide hidden-device list (`HidHideAPIDevice`, `ControlService`): a failed or racing read returned garbage or nothing, and the callers wrote it back, un-hiding devices the user had hidden. Writes are skipped when the read fails.
+- Audio capture that failed to start (`AudioHapticsService`, `DualSenseAudioPassthrough`): the half-built capture stayed installed, so it was never retried and the status could read active with nothing captured.
+- App audio capture (`ProcessLoopbackWaveCapture.ResolveProcessId`): with nothing saved to match it still read `MainModule` for every process several times a second (tens of ms of CPU and an exception per protected process each scan); an elevated game was never found by name; a saved PID reused by another program was accepted. Tested.
+- Run at startup migration (`StartupMethods.CanWriteStartEntry`): `FileInfo.IsReadOnly` is true for a missing file, so moving from the old startup task never created the shortcut. Tested.
+- WinVerifyTrust (`ViiperDriverInspectors`): the marshalled path string leaked on every signature check.
+- VIIPER setup (`ViiperSetupManager`): an installer that exited before its Exited handler was attached left "setup is already running" stuck for the session.
+- Profile editor (`ProfileEditor.ApplyProfileStep`): a refused new name (one already in use) followed by Cancel switched the controller to that other profile; renaming onto an existing profile deleted this one's file and overwrote the other.
+- Export Log (`LogWriter`, `MainWindow`): failures were swallowed; they now show a message, and the export snapshots the buffer under its lock.
+- Macro special action (`SpecialActionEditor`): Save with nothing recorded did nothing and said nothing (the error indicator was bound to a property that does not exist).
+- Ease-out cubic L2/R2 output curve (`Mapping`): the sign was flipped, so the trigger always read 0.
+
+### Logging and text
+
+- Sign-out log (`ViiperOutDevice`): the stream reader logs the exception behind "feedback reader stopped", does not try to reopen a stream while the app or service is stopping, and a usbip detach failure that printed nothing logs the exit code instead of an empty reason.
+- With Verbose logging: which VIIPER persona each virtual pad was created with, and shutdown phase timings.
+- The startup log names Windows 11 on Windows 11 and records the display version and build.
+- The first-run consent note and the Diagnostics card no longer say virtual audio endpoints are off by default (decision #10 made them on).
+- `Thrum.sln`: the Release|x64 solution build includes the test project.
+
+### Found in the live recheck
+
+- Shutdown overlapping a Stop (`App.xaml.cs`): `-command shutdown` (and Stop followed at once by Exit) starts a Stop and closes the app; the final shutdown ran alongside it, and the owner's installed build was seen leaving the VIIPER backend running because the pad had not been unplugged yet. The final shutdown now waits (up to 5 s) for a Stop already under way. Seen working on the fixed build.
+- The new "another program had it open" warning (decision #18) was suppressed by the exclusive-status check, which also reads true once HidHide has hidden the pad. It now checks the HID handle's own mode. Seen firing with Steam running.
+
+### Owner decisions (2026-10-18, numbers as in RELEASE-READINESS)
+
+- #11 VIIPER backend (`ViiperBackendLifecycle.ServerArguments`): `--usb.addr=127.0.0.1:3241 --api.addr=127.0.0.1:3242` on every start, including the setup script's verification start. It listened on every interface; with the firewall prompt answered Allow (as on the owner's PC, on Public networks) the unauthenticated USB-IP port carrying the virtual pad's input, speaker and microphone was reachable from the network. Verified on hardware: the virtual pad attaches over 127.0.0.1. Tested.
+- #12 Auto profiles (`MainWindow.FlushOverviewQuickSettings`, `ControllerTesterControl`, `Global.ActiveProfileName`): Overview, Audio Haptics and Trigger Lab edits and stick calibration save to the auto (temporary) profile while one is active, and the reload keeps it active. They overwrote the assigned profile with the auto profile's settings. Tested.
+- #13 Backups (`SettingsFileRecovery.TryRestoreFromBackup`, `ScpUtil.LoadProfileNew`, `AutoProfileHolder`): a profile or Auto Profiles.xml that cannot be read is restored from its `.bak` when the backup loads, with the existing one-time notice; otherwise it is left in place (Auto Profiles.xml is also the first-run marker). An unreadable Auto Profiles.xml is now logged. Tested.
+- #14 HidHide (`HidHideOwnershipRecord`, `ControlService`): `HidHideOwnership.txt` in the data folder records the hidden devices and allowed applications Thrum added and the cloaking state it changed. Recorded entries left by a crash are released at the next Stop; entries the user added are never taken over or removed (Stop used to delete them, and saving an auto profile could remove the user's allowed applications, C030, C355). Entries from builds that kept no record are adopted once, as before. Tested.
+- #15 Profile import (`MainWindow.ImportProfBtn_Click`): a profile with a Launch Program shows the path and asks whether to keep it; No imports it without.
+- #16 Toggled keys (`Mapping.ReleaseSyntheticState`): keys and mouse buttons a Toggle binding left on, and held keys at Stop, are released on a profile switch, a disconnect and Stop; other controllers' holds on the same key are kept.
+- #17 Profile reloads pause the pad (`Mapping.RunProfileSwitchRequests`, `MainWindow` editor open): as every other reload path does; the pad was mapped with reset bindings while the profile loaded.
+- #18 Shared-mode warning with HidHide (`ControllerHolderHint.BuildHidHideMessage`): says the program that already had the pad open still sees it next to the virtual controller, and names it. Tested.
+- #19 Resume (`MainWindow.PowerEventArrive`): PBT_APMRESUMEAUTOMATIC (18) restarts the service too, and the delayed start skips a service the user already started.
+- #20 App audio capture (`ProcessLoopbackWaveCapture`): 48 kHz. Tested.
+- #21 Process priority (`MainWindow.ProcessPriorityClasses`): RealTime removed; saved values are clamped (an out-of-range one threw at every Start). Tested.
+- #22 DualSense battery (`DualSenseDevice.DualSenseBatteryPercent`): the 0–10 scale. Tested.

@@ -267,6 +267,11 @@ namespace DS4Windows.InputDevices
         protected const int TOUCHPAD_DATA_OFFSET = 33;
         private new const int BATTERY_MAX = 8;
 
+        internal static int DualSenseBatteryPercent(byte batteryByte)
+        {
+            return Math.Min((batteryByte & 0x0F) * 10 + 5, 100);
+        }
+
         public new const byte SERIAL_FEATURE_ID = 9;
         public override byte SerialReportID { get => SERIAL_FEATURE_ID; }
 
@@ -1850,7 +1855,15 @@ namespace DS4Windows.InputDevices
                     // device.
                     byte[] tmpFeatureData = new byte[64];
                     tmpFeatureData[0] = SERIAL_FEATURE_ID;
-                    hDevice.readFeatureData(tmpFeatureData); // Kick Windows into noticing the disconnection.
+                    try
+                    {
+                        hDevice?.readFeatureData(tmpFeatureData); // Kick Windows into noticing the disconnection.
+                    }
+                    catch (Exception)
+                    {
+                        // The device is already gone; an exception on this
+                        // thread would end the process.
+                    }
                 }
                 else
                 {
@@ -1941,7 +1954,6 @@ namespace DS4Windows.InputDevices
                 bool syncWriteReport = conType != ConnectionType.BT;
                 //bool forceWrite = false;
 
-                int maxBatteryValue = 0;
                 int tempBattery = 0;
                 bool tempCharging = charging;
                 bool tempFull = false;
@@ -2029,6 +2041,8 @@ namespace DS4Windows.InputDevices
                                 if (this.inputReportErrorCount >= 10)
                                 {
                                     exitInputThread = true;
+                                    // Stop the watchdog before removal closes the HID handle it reads.
+                                    timeoutExecuted = true;
 
                                     AppLogger.LogToGui(DS4WinWPF.Translations.Strings.CRC32Fail, true);
                                     readWaitEv.Reset();
@@ -2085,6 +2099,10 @@ namespace DS4Windows.InputDevices
                             }
 
                             exitInputThread = true;
+                            // Stop the watchdog before removal closes the HID handle
+                            // it reads; it used to fire into a null handle and end
+                            // the process when removal took more than 3 s.
+                            timeoutExecuted = true;
                             readWaitEv.Reset();
                             //SendEmptyOutputReport();
                             //sendOutputReport(true, true); // Kick Windows into noticing the disconnection.
@@ -2120,6 +2138,10 @@ namespace DS4Windows.InputDevices
                             }
 
                             exitInputThread = true;
+                            // Stop the watchdog before removal closes the HID handle
+                            // it reads; it used to fire into a null handle and end
+                            // the process when removal took more than 3 s.
+                            timeoutExecuted = true;
                             readWaitEv.Reset();
                             StopOutputUpdate();
                             isDisconnecting = true;
@@ -2221,7 +2243,6 @@ namespace DS4Windows.InputDevices
 
                         tempByte = inputReport[53 + reportOffset];
                         tempFull = IsFullyCharged(tempByte);
-                        maxBatteryValue = BATTERY_MAX;
                         if (tempFull)
                         {
                             // Full Charge flag found
@@ -2230,8 +2251,10 @@ namespace DS4Windows.InputDevices
                         else
                         {
                             // Partial charge
-                            tempBattery = (tempByte & 0x0F) * 100 / maxBatteryValue;
-                            tempBattery = Math.Min(tempBattery, 100);
+                            // The low nibble is the charge in tenths (0-10), as the
+                            // Linux hid-playstation driver and SDL read it. Scaling
+                            // by 8 showed 80-89 % as 100 % and 60-69 % as 75 %.
+                            tempBattery = DualSenseBatteryPercent(tempByte);
                         }
 
                         if (tempBattery != battery)

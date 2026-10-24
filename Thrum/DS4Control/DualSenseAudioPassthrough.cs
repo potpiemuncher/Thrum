@@ -565,7 +565,7 @@ namespace DS4Windows
                 captureFormat = capture.WaveFormat;
                 capture.DataAvailable += Capture_DataAvailable;
                 capture.RecordingStopped += Capture_RecordingStopped;
-                capture.StartRecording();
+                StartCaptureOrDiscard();
                 AppLogger.LogToGui(
                     "DualSense audio passthrough capture source: automatic game detection",
                     false);
@@ -581,7 +581,7 @@ namespace DS4Windows
                 captureFormat = capture.WaveFormat;
                 capture.DataAvailable += Capture_DataAvailable;
                 capture.RecordingStopped += Capture_RecordingStopped;
-                capture.StartRecording();
+                StartCaptureOrDiscard();
                 AppLogger.LogToGui(
                     $"DualSense audio passthrough capture source: selected app (process {processId})",
                     false);
@@ -624,10 +624,26 @@ namespace DS4Windows
             captureFormat = capture.WaveFormat;
             capture.DataAvailable += Capture_DataAvailable;
             capture.RecordingStopped += Capture_RecordingStopped;
-            capture.StartRecording();
+            StartCaptureOrDiscard();
 
             string sourceName = sourceEndpoint?.FriendlyName ?? "Default";
             AppLogger.LogToGui($"DualSense audio passthrough capture source: {sourceName}", false);
+        }
+
+        // A capture that failed to start (device in exclusive use, audio
+        // service restarting) used to stay installed: the reopen check saw it
+        // as running and never retried, and the lane read Ready with silence.
+        private void StartCaptureOrDiscard()
+        {
+            try
+            {
+                capture.StartRecording();
+            }
+            catch
+            {
+                StopCapture();
+                throw;
+            }
         }
 
         private void StopCapture()

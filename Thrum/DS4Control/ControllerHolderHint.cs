@@ -85,6 +85,27 @@ namespace DS4Windows
                 $"{running}, then reconnect the controller.";
         }
 
+        /// <summary>
+        /// The same situation when HidHide did hide the pad: it hides a device
+        /// only from programs that open it afterwards, so the program that
+        /// already had it open still sees the physical pad next to the virtual
+        /// one. The old warning was skipped in this case, so the user was told
+        /// the pad was hidden while that program had double input.
+        /// </summary>
+        internal static string BuildHidHideMessage(string controllerName,
+            IReadOnlyList<string> runningPrograms)
+        {
+            string running = runningPrograms.Count switch
+            {
+                0 => "Close the program that had it open (for example Steam)",
+                1 => $"{runningPrograms[0]} is running and probably has it open. Close it",
+                _ => $"{string.Join(", ", runningPrograms.Take(runningPrograms.Count - 1))} and {runningPrograms[^1]} are running and may have it open. Close them",
+            };
+            return $"{controllerName} was already open in another program. HidHide now hides it from " +
+                "programs that open it from here on, but the one that had it open still sees it next to " +
+                $"the virtual controller. {running}, then reconnect the controller.";
+        }
+
         internal static IReadOnlyList<string> RunningKnownPrograms()
         {
             List<string> names = new List<string>();

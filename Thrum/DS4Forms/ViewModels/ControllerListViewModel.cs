@@ -50,6 +50,24 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public ObservableCollection<CompositeDeviceModel> ControllerCol
         { get => controllerCol; set => controllerCol = value; }
 
+        /// <summary>
+        /// A copy of the controller list for code running off the UI thread.
+        /// Enumerating <see cref="ControllerCol"/> there while a hot-plug changes
+        /// it threw, and the timer doing so stopped for the rest of the session.
+        /// </summary>
+        public CompositeDeviceModel[] SnapshotControllers()
+        {
+            _colListLocker.EnterReadLock();
+            try
+            {
+                return controllerCol.ToArray();
+            }
+            finally
+            {
+                _colListLocker.ExitReadLock();
+            }
+        }
+
         private ProfileList profileListHolder;
         private ControlService controlService;
         private int currentIndex;
@@ -136,6 +154,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             foreach (CompositeDeviceModel temp in controllerCol)
             {
                 temp.Device.Removal -= Controller_Removal;
+                temp.Detach();
             }
             _colListLocker.ExitReadLock();
 
@@ -202,12 +221,17 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 _colListLocker.EnterWriteLock();
                 controllerCol.Remove(found);
                 controllerDict.Remove(found.DevIndex);
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Global.linkedProfileCheck[found.DevIndex] = false;
+                _colListLocker.ExitWriteLock();
+                found.Detach();
+
+                // After the lock is released, and without waiting: the UI thread
+                // takes this lock for the bound collection, and the controller's
+                // input thread used to wait on the UI while holding it.
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 {
                     Global.Save();
                 });
-                Global.linkedProfileCheck[found.DevIndex] = false;
-                _colListLocker.ExitWriteLock();
             }
         }
     }
@@ -610,6 +634,22 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             {
                 IsSynchronizingRuntimeProfile = false;
             }
+        }
+
+        /// <summary>
+        /// Called when the controller is gone. The profile's Saved/Deleted
+        /// events otherwise kept every disconnected controller's model (and its
+        /// device) alive for the session, and each later Save of that profile
+        /// waited 500 ms per stale model on the UI thread.
+        /// </summary>
+        internal void Detach()
+        {
+            if (selectedEntity != null)
+            {
+                HookEvents(false);
+            }
+
+            selectedEntity = null;
         }
 
         private void HookEvents(bool state)

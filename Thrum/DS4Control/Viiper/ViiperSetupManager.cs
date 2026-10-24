@@ -432,9 +432,12 @@ namespace DS4Windows
                         "Windows did not start the setup process.");
                 }
 
-                process.EnableRaisingEvents = true;
+                // Subscribe before enabling: an Exited raised in between was
+                // missed, and the "already running" latch then refused every
+                // later Install/Repair for the rest of the session.
                 process.Exited += (_, _) => InstallerProcess_Exited(process,
                     owner);
+                process.EnableRaisingEvents = true;
                 message = null;
                 return true;
             }

@@ -60,6 +60,39 @@ namespace DS4Windows
         private readonly HashSet<string> exclusiveRefusalTrayShown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> hidHidePersistentManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool? hidHideActiveStateBeforeManagedSession;
+        private HidHideOwnershipRecord hidHideOwnership;
+
+        /// <summary>The on-disk record of HidHide entries Thrum added. Call
+        /// under <see cref="hidHideSessionLock"/>.</summary>
+        private HidHideOwnershipRecord HidHideOwnershipLocked()
+        {
+            if (hidHideOwnership == null)
+            {
+                hidHideOwnership = HidHideOwnershipRecord.Load(Global.appdatapath);
+                // Cloaking an earlier session turned on and could not turn off
+                // again (crash, forced exit) is put back at the next Stop.
+                if (hidHideOwnership.CloakingBefore.HasValue)
+                {
+                    hidHideActiveStateBeforeManagedSession ??=
+                        hidHideOwnership.CloakingBefore;
+                }
+            }
+
+            return hidHideOwnership;
+        }
+
+        /// <summary>
+        /// Whether an entry already in HidHide's hidden-device list is Thrum's.
+        /// Entries this build recorded are; with no record yet (an older build
+        /// added it, and kept no record) it is treated as Thrum's once, as
+        /// before. Anything else was added by the user and is left alone.
+        /// Call under <see cref="hidHideSessionLock"/>.
+        /// </summary>
+        private bool HidHideEntryIsOursLocked(string instanceId)
+        {
+            HidHideOwnershipRecord record = HidHideOwnershipLocked();
+            return record.OwnsHiddenDevice(instanceId) || !record.Existed;
+        }
         // Might be useful for ScpVBus build
         public const int EXPANDED_CONTROLLER_COUNT = 8;
         public const int MAX_DS4_CONTROLLER_COUNT = Global.MAX_DS4_CONTROLLER_COUNT;
@@ -368,7 +401,7 @@ namespace DS4Windows
                     }
                     else
                     {
-                        oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + stateInd + "/battery", oscState[stateInd].Battery));
+                        SendOsc(new SharpOSC.OscMessage("/ds4windows/monitor/" + stateInd + "/battery", oscState[stateInd].Battery));
                     }
                     return;
                 }
@@ -755,10 +788,11 @@ namespace DS4Windows
             outputslotMan.ShutDown();
             OutputSlotPersist.WriteConfig(outputslotMan);
 
-            eventDispatcher.InvokeShutdown();
+            // Tolerates a second call (the app's shutdown path can reach this twice).
+            eventDispatcher?.InvokeShutdown();
             eventDispatcher = null;
 
-            eventDispatchThread.Join();
+            eventDispatchThread?.Join();
             eventDispatchThread = null;
         }
 
@@ -829,17 +863,46 @@ namespace DS4Windows
                     // treat it as an absolute path and only return path2
                     string realPath = Path.Combine(dosDrivePath, partial.TrimStart('\\'));
                     bool exists = dosPaths.Contains(realPath);
+                    bool ownExe = string.Equals(ExePath, Global.exelocation,
+                        StringComparison.OrdinalIgnoreCase);
                     if (!exists && AddExe)
                     {
                         LogDebug($"{ExeName} not found in HidHide whitelist. Adding to list");
                         dosPaths.Add(realPath);
-                        hidHideDevice.SetWhitelist(dosPaths);
+                        if (hidHideDevice.SetWhitelist(dosPaths) && !ownExe)
+                        {
+                            lock (hidHideSessionLock)
+                            {
+                                HidHideOwnershipLocked().AddAllowedApplication(realPath);
+                            }
+                        }
                     }
                     if (exists && !AddExe)
                     {
-                        LogDebug($"{ExeName} found in HidHide whitelist. Removing from list");
-                        dosPaths.Remove(realPath);
-                        hidHideDevice.SetWhitelist(dosPaths);
+                        bool ours;
+                        lock (hidHideSessionLock)
+                        {
+                            ours = HidHideOwnershipLocked().OwnsAllowedApplication(realPath);
+                        }
+
+                        if (!ours)
+                        {
+                            // Allowed by the user in the HidHide client (for example
+                            // Steam). Saving an auto profile used to remove it.
+                            StartupDiag($"{ExeName} is allowed in HidHide by the user; left as is");
+                        }
+                        else
+                        {
+                            LogDebug($"{ExeName} found in HidHide whitelist. Removing from list");
+                            dosPaths.Remove(realPath);
+                            if (hidHideDevice.SetWhitelist(dosPaths))
+                            {
+                                lock (hidHideSessionLock)
+                                {
+                                    HidHideOwnershipLocked().RemoveAllowedApplication(realPath);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -963,6 +1026,7 @@ namespace DS4Windows
             bool alreadyManaged;
             lock (hidHideSessionLock)
             {
+                HidHideOwnershipLocked();
                 alreadyManaged = hidHideSessionManagedInstanceIds.Contains(instanceId) ||
                     hidHidePersistentManagedInstanceIds.Contains(instanceId);
             }
@@ -985,6 +1049,11 @@ namespace DS4Windows
                         {
                             StartupDiag($"HidHide failed to enable cloaking for {dev.DisplayName} ({instanceId})");
                             return false;
+                        }
+
+                        lock (hidHideSessionLock)
+                        {
+                            HidHideOwnershipLocked().SetCloakingBefore(false);
                         }
                     }
 
@@ -1025,7 +1094,17 @@ namespace DS4Windows
 
             lock (hidHideSessionLock)
             {
+                if (!HidHideEntryIsOursLocked(instanceId))
+                {
+                    // The user hid it in the HidHide client: it is hidden, and
+                    // stays hidden after Thrum stops. Thrum used to take such an
+                    // entry over and delete it at Stop.
+                    StartupDiag($"HidHide entry for {dev.DisplayName} ({instanceId}) was added outside Thrum; left as is");
+                    return true;
+                }
+
                 hidHidePersistentManagedInstanceIds.Add(instanceId);
+                HidHideOwnershipLocked().AddHiddenDevice(instanceId);
             }
 
             StartupDiag($"HidHide adopted existing blacklist entry for {dev.DisplayName} ({instanceId})");
@@ -1034,7 +1113,15 @@ namespace DS4Windows
 
         private bool EnsurePersistentHidHideBlacklist(HidHideAPIDevice hidHideDevice, string instanceId, DS4Device dev)
         {
-            List<string> instances = hidHideDevice.GetBlacklist()
+            if (!hidHideDevice.TryGetBlacklist(out List<string> current))
+            {
+                // Writing back a list that was not read would drop every other
+                // hidden device.
+                StartupDiag($"HidHide blacklist could not be read; not adding {instanceId}");
+                return false;
+            }
+
+            List<string> instances = current
                 .Where(item => !string.IsNullOrWhiteSpace(item))
                 .ToList();
 
@@ -1042,17 +1129,33 @@ namespace DS4Windows
             {
                 lock (hidHideSessionLock)
                 {
-                    hidHidePersistentManagedInstanceIds.Add(instanceId);
+                    if (HidHideEntryIsOursLocked(instanceId))
+                    {
+                        hidHidePersistentManagedInstanceIds.Add(instanceId);
+                        HidHideOwnershipLocked().AddHiddenDevice(instanceId);
+                    }
                 }
 
                 StartupDiag($"HidHide persistent blacklist already contains {instanceId}");
                 return true;
             }
 
+            // Recorded before the write: if Thrum dies right after it, the next
+            // session knows the entry is its own and releases it.
+            lock (hidHideSessionLock)
+            {
+                HidHideOwnershipLocked().AddHiddenDevice(instanceId);
+            }
+
             instances.Add(instanceId);
             if (!hidHideDevice.SetBlacklist(instances))
             {
                 StartupDiag($"HidHide persistent blacklist fallback failed for {dev.DisplayName} ({instanceId})");
+                lock (hidHideSessionLock)
+                {
+                    HidHideOwnershipLocked().RemoveHiddenDevices(new[] { instanceId });
+                }
+
                 return false;
             }
 
@@ -1075,7 +1178,12 @@ namespace DS4Windows
             lock (hidHideSessionLock)
             {
                 sessionIds = hidHideSessionManagedInstanceIds.ToList();
-                persistentIds = hidHidePersistentManagedInstanceIds.ToList();
+                // Plus entries an earlier session left (a crash), even for a
+                // controller that has not connected this time.
+                persistentIds = hidHidePersistentManagedInstanceIds
+                    .Union(HidHideOwnershipLocked().HiddenDevices,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 restoreActiveState = hidHideActiveStateBeforeManagedSession;
             }
 
@@ -1101,9 +1209,15 @@ namespace DS4Windows
                     }
 
                     bool persistentReleased = persistentIds.Count == 0;
-                    if (persistentIds.Count > 0)
+                    List<string> current = null;
+                    if (persistentIds.Count > 0 &&
+                        !hidHideDevice.TryGetBlacklist(out current))
                     {
-                        List<string> instances = hidHideDevice.GetBlacklist()
+                        StartupDiag("HidHide blacklist could not be read; cleanup will be retried");
+                    }
+                    else if (persistentIds.Count > 0)
+                    {
+                        List<string> instances = current
                             .Where(item => !string.IsNullOrWhiteSpace(item))
                             .ToList();
 
@@ -1141,6 +1255,12 @@ namespace DS4Windows
                         if (persistentReleased)
                         {
                             hidHidePersistentManagedInstanceIds.ExceptWith(persistentIds);
+                            HidHideOwnershipLocked().RemoveHiddenDevices(persistentIds);
+                        }
+
+                        if (activeStateRestored)
+                        {
+                            HidHideOwnershipLocked().SetCloakingBefore(null);
                         }
 
                         if (activeStateRestored &&
@@ -1222,7 +1342,14 @@ namespace DS4Windows
                         return;
                     }
 
-                    List<string> blacklist = hidHideDevice.GetBlacklist()
+                    if (!hidHideDevice.TryGetBlacklist(out List<string> current))
+                    {
+                        StartupDiag(
+                            "HidHide blacklist could not be read while exempting a VIIPER virtual Sony output");
+                        return;
+                    }
+
+                    List<string> blacklist = current
                         .Where(item => !string.IsNullOrWhiteSpace(item))
                         .ToList();
                     int removed = blacklist.RemoveAll(item =>
@@ -1242,6 +1369,7 @@ namespace DS4Windows
                     lock (hidHideSessionLock)
                     {
                         hidHidePersistentManagedInstanceIds.ExceptWith(instanceIds);
+                        HidHideOwnershipLocked().RemoveHiddenDevices(instanceIds);
                     }
 
                     StartupDiag(
@@ -1389,9 +1517,40 @@ namespace DS4Windows
             else
             {
                 AppLogger.LogToGui("OSC SENDER STOPPED", false);
-                if (oscSender == null) { return; }
-                oscSender.Close();
+                // Clear the field first: controller input threads send through it.
+                UDPSender sender = oscSender;
                 oscSender = null;
+                sender?.Close();
+            }
+        }
+
+        private int oscSendFailureLogged;
+
+        /// <summary>
+        /// Sends from controller input threads. A sender closed by the Settings
+        /// switch mid-report, or a network error to a LAN target (Wi-Fi drop),
+        /// used to throw on the input thread and end the process.
+        /// </summary>
+        private void SendOsc(OscMessage message)
+        {
+            UDPSender sender = oscSender;
+            if (sender == null)
+            {
+                return;
+            }
+
+            try
+            {
+                sender.Send(message);
+            }
+            catch (Exception ex) when (ex is System.Net.Sockets.SocketException ||
+                ex is ObjectDisposedException || ex is NullReferenceException ||
+                ex is InvalidOperationException)
+            {
+                if (Interlocked.Exchange(ref oscSendFailureLogged, 1) == 0)
+                {
+                    AppLogger.LogToGui($"OSC send to {Global.getOSCSenderAddress()} failed: {ex.Message}. Later failures are not logged.", true);
+                }
             }
         }
 
@@ -1400,19 +1559,20 @@ namespace DS4Windows
             IEnumerable<DS4Device> devices = DS4Devices.getDS4Controllers();
             if (state)
             {
-                int i = 0;
                 foreach (DS4Device dev in devices)
                 {
-                    int tempIdx = i;
+                    // Bind to the controller's slot, as the connect path does. The
+                    // enumeration position used here pointed at an empty slot when
+                    // slot 1 was free, and the first motion report then threw on
+                    // the controller's input thread.
+                    int slot = dev.DeviceSlotNumber;
                     dev.queueEvent(() =>
                     {
-                        if (i < UdpServer.NUMBER_SLOTS)
+                        if (slot >= 0 && slot < UdpServer.NUMBER_SLOTS)
                         {
-                            PrepareDevUDPMotion(dev, tempIdx);
+                            PrepareDevUDPMotion(dev, slot);
                         }
                     });
-
-                    i++;
                 }
             }
             else
@@ -1484,8 +1644,12 @@ namespace DS4Windows
             bool firstTrayNotice;
             lock (exclusiveRefusalLock)
             {
+                // The HID handle's own mode: device.isExclusive() also reads true
+                // once HidHide has hidden the pad (status HidHideAffected, set just
+                // before this runs), which suppressed the warning in exactly the
+                // case where another program still had the pad open.
                 if (!exclusiveOpenRefusedPaths.Remove(device.HidDevice.DevicePath) ||
-                    device.isExclusive() || hiddenByHidHide)
+                    device.HidDevice.IsExclusive)
                 {
                     return;
                 }
@@ -1493,9 +1657,11 @@ namespace DS4Windows
                 firstTrayNotice = exclusiveRefusalTrayShown.Add(device.getMacAddress());
             }
 
-            string message = ControllerHolderHint.BuildMessage(
-                $"{device.DisplayName} ({device.getMacAddress()})",
-                ControllerHolderHint.RunningKnownPrograms());
+            string controllerName = $"{device.DisplayName} ({device.getMacAddress()})";
+            IReadOnlyList<string> running = ControllerHolderHint.RunningKnownPrograms();
+            string message = hiddenByHidHide
+                ? ControllerHolderHint.BuildHidHideMessage(controllerName, running)
+                : ControllerHolderHint.BuildMessage(controllerName, running);
             LogDebug(message, true);
             if (firstTrayNotice)
             {
@@ -1935,7 +2101,9 @@ namespace DS4Windows
             RunningChanged?.Invoke(this, EventArgs.Empty);
             StartupDiag("ControlService.Start after RunningChanged");
             using var process = Process.GetCurrentProcess();
-            process.PriorityClass = MainWindow.ProcessPriorityClasses[Global.ProcessPriority];
+            // Clamped: an out-of-range saved value threw here after the service
+            // had already reported itself started.
+            process.PriorityClass = MainWindow.PriorityForSetting(Global.ProcessPriority);
             StartupDiag($"ControlService.Start exit priority={process.PriorityClass}");
             return true;
         }
@@ -2153,6 +2321,21 @@ namespace DS4Windows
                     Thread.Sleep(OutputSlotManager.DELAY_TIME);
                 }
 
+                // The input threads are stopped by now: release what their
+                // mappings held before the output handler goes away (Stop never
+                // ran the final commit the removal path runs).
+                for (int i = 0; i < MAX_DS4_CONTROLLER_COUNT; i++)
+                {
+                    try
+                    {
+                        Mapping.ReleaseSyntheticState(i);
+                    }
+                    catch (Exception ex)
+                    {
+                        StartupDiag($"ControlService.Stop release synthetic input {i} failed: {ex.Message}");
+                    }
+                }
+
                 // Disconnect from KBM system when stopping ControlService
                 StartupDiag($"ControlService.Stop outputKBM Disconnect begin handler={outputKBMHandler?.GetFullDisplayName()}");
                 LogDebug($"Closing connection to output handler {outputKBMHandler.GetDisplayName()}");
@@ -2323,7 +2506,7 @@ namespace DS4Windows
             slotManager.AddController(device, index);
             if (isUsingOSCSender() && oscSender != null)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/plug", 1));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/plug", 1));
             }
             device.Removal += this.On_DS4Removal;
             device.Removal += DS4Devices.On_Removal;
@@ -3189,6 +3372,10 @@ namespace DS4Windows
 
             // Reset some elements of current Mouse instance
             touchPad[ind]?.Reset();
+
+            // Keys and buttons the old profile was holding (toggles included)
+            // must not outlive it.
+            Mapping.ReleaseSyntheticState(ind);
         }
 
         public void TouchPadOn(int ind, DS4Device device)
@@ -3337,6 +3524,8 @@ namespace DS4Windows
                     Task.Run(() =>
                     {
                         Mapping.Commit(ind);
+                        // Commit releases ordinary holds; toggled keys stayed on.
+                        Mapping.ReleaseSyntheticState(ind);
                     }).Wait();
 
                     string removed = DS4WinWPF.Properties.Resources.ControllerWasRemoved.Replace("*Mac address*", (ind + 1).ToString());
@@ -3373,7 +3562,7 @@ namespace DS4Windows
                     slotManager.RemoveController(device, ind);
                     if (isUsingOSCSender() && oscSender != null)
                     {
-                        oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + ind + "/plug", 0));
+                        SendOsc(new SharpOSC.OscMessage("/ds4windows/monitor/" + ind + "/plug", 0));
                     }
                     //});
 
@@ -4388,7 +4577,7 @@ namespace DS4Windows
         {
             if (cState.Battery != oscMapState.Battery)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + ind + "/battery", Convert.ToInt32(cState.Battery)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + ind + "/battery", Convert.ToInt32(cState.Battery)));
                 oscMapState.Battery = cState.Battery;
             }
             cState.Cross |= oscMapState.Cross;
@@ -4421,115 +4610,115 @@ namespace DS4Windows
             // Buttons 
             if (oldState.Square != newState.Square)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/square", newState.Square == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/square", newState.Square == true ? 1 : 0));
             }
 
             if (oldState.Triangle != newState.Triangle)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/triangle", newState.Triangle == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/triangle", newState.Triangle == true ? 1 : 0));
             }
 
             if (oldState.Circle != newState.Circle)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/circle", newState.Circle == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/circle", newState.Circle == true ? 1 : 0));
             }
 
             if (oldState.Cross != newState.Cross)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/cross", newState.Cross == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/cross", newState.Cross == true ? 1 : 0));
             }
 
             if (oldState.DpadUp != newState.DpadUp)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpadup", newState.DpadUp == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpadup", newState.DpadUp == true ? 1 : 0));
             }
 
             if (oldState.DpadDown != newState.DpadDown)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpaddown", newState.DpadDown == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpaddown", newState.DpadDown == true ? 1 : 0));
             }
 
             if (oldState.DpadLeft != newState.DpadLeft)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpadleft", newState.DpadLeft == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpadleft", newState.DpadLeft == true ? 1 : 0));
             }
 
             if (oldState.DpadRight != newState.DpadRight)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpadright", newState.DpadRight == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpadright", newState.DpadRight == true ? 1 : 0));
             }
 
             if (oldState.L1 != newState.L1)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/l1", newState.L1 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/l1", newState.L1 == true ? 1 : 0));
             }
 
             if (oldState.L3 != newState.L3)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/l3", newState.L3 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/l3", newState.L3 == true ? 1 : 0));
             }
 
             if (oldState.R1 != newState.R1)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/r1", newState.R1 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/r1", newState.R1 == true ? 1 : 0));
             }
 
             if (oldState.R3 != newState.R3)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/r3", newState.R3 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/r3", newState.R3 == true ? 1 : 0));
             }
 
             if (oldState.Options != newState.Options)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/options", newState.Options == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/options", newState.Options == true ? 1 : 0));
             }
 
             if (oldState.Share != newState.Share)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/share", newState.Share == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/share", newState.Share == true ? 1 : 0));
             }
 
             if (oldState.PS != newState.PS)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ps", newState.PS == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/ps", newState.PS == true ? 1 : 0));
             }
 
             // Sticks
             if (oldState.LX != newState.LX)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/lx", Convert.ToInt32(newState.LX)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/lx", Convert.ToInt32(newState.LX)));
             }
 
             if (oldState.LY != newState.LY)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ly", Convert.ToInt32(newState.LY)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/ly", Convert.ToInt32(newState.LY)));
             }
 
             if (oldState.RX != newState.RX)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/rx", Convert.ToInt32(newState.RX)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/rx", Convert.ToInt32(newState.RX)));
             }
 
             if (oldState.RY != newState.RY)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ry", Convert.ToInt32(newState.RY)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/ry", Convert.ToInt32(newState.RY)));
             }
 
             // Triggers
             if (oldState.L2 != newState.L2)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/l2", Convert.ToInt32(newState.L2)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/l2", Convert.ToInt32(newState.L2)));
             }
 
             if (oldState.R2 != newState.R2)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/r2", Convert.ToInt32(newState.R2)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/r2", Convert.ToInt32(newState.R2)));
             }
 
             // if (oldState.Battery != newState.Battery)
             // {
             //     AppLogger.LogToGui("BATTERY " + oldState.Battery + " : " + newState.Battery, false);
-            //     oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + index + "/battery", Convert.ToInt32(newState.Battery)));
+            //     SendOsc(new SharpOSC.OscMessage("/ds4windows/monitor/" + index + "/battery", Convert.ToInt32(newState.Battery)));
             // }
         }
 

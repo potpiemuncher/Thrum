@@ -107,6 +107,14 @@ namespace DS4WinWPF
                 return;
             }
 
+            // Attached before anything that can throw on a stranger's first
+            // launch (ControlService construction, the wizard's early steps,
+            // logger setup); they used to be attached only once the logger
+            // existed, so those crashes left neither a log line nor a notice.
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException +=
+                CurrentDomain_UnhandledException;
+
             ArgumentParser parser = new ArgumentParser();
             parser.Parse(e.Args);
             CheckOptions(parser);
@@ -423,9 +431,6 @@ namespace DS4WinWPF
         private Logger InitializeStartupLogger(bool firstRun)
         {
             logHolder = new LoggerHolder(rootHub);
-            DispatcherUnhandledException += App_DispatcherUnhandledException;
-            AppDomain.CurrentDomain.UnhandledException +=
-                CurrentDomain_UnhandledException;
             Logger logger = logHolder.Logger;
             string version = DS4Windows.Global.exeDisplayVersion;
             logger.Info($"{DS4Windows.ProductInfo.ProductName} version {version}");
@@ -562,37 +567,83 @@ namespace DS4WinWPF
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            if (!Current.Dispatcher.CheckAccess())
+            bool onUiThread = Current?.Dispatcher?.CheckAccess() ?? false;
+            Exception exp = e.ExceptionObject as Exception;
+            string crashFile = LogCrash(
+                onUiThread ? "Thread Crashed" : "Thread App Crashed", exp,
+                e.ExceptionObject);
+
+            if (!e.IsTerminating)
             {
-                Logger logger = logHolder.Logger;
-                Exception exp = e.ExceptionObject as Exception;
-                logger.Error($"Thread App Crashed with message {exp.Message}");
-                logger.Error(exp.ToString());
-                //LogManager.Flush();
-                //LogManager.Shutdown();
-                if (e.IsTerminating)
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        rootHub?.PrepareAbort();
-                        ShowCrashNotice();
-                        CleanShutdown();
-                    });
-                }
+                return;
+            }
+
+            if (onUiThread)
+            {
+                HandleTerminatingCrash(crashFile);
             }
             else
             {
-                Logger logger = logHolder.Logger;
-                Exception exp = e.ExceptionObject as Exception;
-                if (e.IsTerminating)
+                try
                 {
-                    logger.Error($"Thread Crashed with message {exp.Message}");
-                    logger.Error(exp.ToString());
-
-                    rootHub?.PrepareAbort();
-                    ShowCrashNotice();
-                    CleanShutdown();
+                    // Bounded: if the UI thread is itself blocked (for example
+                    // waiting on the thread that crashed), give up after a while
+                    // and let the runtime end the process instead of hanging.
+                    Current?.Dispatcher?.Invoke(
+                        () => HandleTerminatingCrash(crashFile),
+                        System.Windows.Threading.DispatcherPriority.Send,
+                        CancellationToken.None, TimeSpan.FromSeconds(10));
                 }
+                catch (Exception)
+                {
+                    // The process is going down either way.
+                }
+            }
+        }
+
+        // Releases the controllers and virtual pads first, then tells the user.
+        // The notice used to come first: a game kept seeing the virtual pad's
+        // last report (a held stick or trigger) behind the modal box until it
+        // was dismissed.
+        private void HandleTerminatingCrash(string crashFile)
+        {
+            try
+            {
+                rootHub?.PrepareAbort();
+            }
+            catch (Exception)
+            {
+            }
+
+            CleanShutdown(exitIfTimedOut: false);
+            ShowCrashNotice(crashFile);
+        }
+
+        // Writes to the normal log once it exists. Before that (a crash while
+        // building the ControlService or in the first wizard steps) the details
+        // go to a file in %TEMP% so the notice still points at something.
+        private static string LogCrash(string prefix, Exception exp, object exceptionObject)
+        {
+            string text = exp?.ToString() ?? exceptionObject?.ToString() ?? "(no exception object)";
+            Logger logger = logHolder?.Logger;
+            if (logger != null)
+            {
+                logger.Error($"{prefix} with message {exp?.Message ?? text}");
+                logger.Error(text);
+                return null;
+            }
+
+            try
+            {
+                string path = Path.Combine(Path.GetTempPath(),
+                    DS4Windows.ProductInfo.ProductName + "-startup-crash.txt");
+                File.AppendAllText(path,
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {prefix}{Environment.NewLine}{text}{Environment.NewLine}");
+                return path;
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 
@@ -600,7 +651,7 @@ namespace DS4WinWPF
 
         // A crash used to close the app with no message at all, so users had
         // nothing to report. Shown once, after the error is in the log.
-        private static void ShowCrashNotice()
+        private static void ShowCrashNotice(string crashFile = null)
         {
             if (Interlocked.Exchange(ref crashNoticeShown, 1) != 0)
             {
@@ -610,12 +661,21 @@ namespace DS4WinWPF
             try
             {
                 LogManager.Flush(TimeSpan.FromSeconds(2));
-                string logFolder = System.IO.Path.Combine(
-                    DS4Windows.Global.appdatapath, "Logs");
+                string where = crashFile;
+                if (where == null)
+                {
+                    where = string.IsNullOrEmpty(DS4Windows.Global.appdatapath)
+                        ? null
+                        : System.IO.Path.Combine(DS4Windows.Global.appdatapath, "Logs");
+                }
+
+                string details = where != null
+                    ? $"The details were saved to:\n{where}\n\n" +
+                        "If you report the problem, please attach that file."
+                    : "If you report the problem, please describe what you were doing.";
                 MessageBox.Show(
                     $"{DS4Windows.ProductInfo.ProductName} ran into a problem it could not recover from and has to close.\n\n" +
-                    $"The details were saved to the log file in:\n{logFolder}\n\n" +
-                    "If you report the problem, please attach that file.",
+                    details,
                     DS4Windows.ProductInfo.ProductName, MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
@@ -652,9 +712,9 @@ namespace DS4WinWPF
         {
             //Debug.WriteLine("App Crashed");
             //Debug.WriteLine(e.Exception.StackTrace);
-            Logger logger = logHolder.Logger;
-            logger.Error($"Thread Crashed with message {e.Exception.Message}");
-            logger.Error(e.Exception.ToString());
+            // Not handled: the exception continues to CurrentDomain_UnhandledException,
+            // which releases the controllers and shows the notice.
+            LogCrash("Thread Crashed", e.Exception, e.Exception);
             //LogManager.Flush();
             //LogManager.Shutdown();
         }
@@ -1020,7 +1080,10 @@ namespace DS4WinWPF
                     {
                         int strNullCharIdx;
                         byte[] buffer = new byte[256];
-                        MemoryMappedViewAccessor ipcResultDataMMA = ipcClassNameMMF.CreateViewAccessor(0, buffer.Length);
+                        // The result file, not the class-name file: that one is
+                        // never created in this client process, so every
+                        // "-command Query.*" used to print an empty line.
+                        using MemoryMappedViewAccessor ipcResultDataMMA = ipcResultDataMMF.CreateViewAccessor(0, buffer.Length);
                         ipcResultDataMMA.ReadArray(0, buffer, 0, buffer.Length);
                         strNullCharIdx = Array.FindIndex(buffer, byteVal => byteVal == 0);
                         return ASCIIEncoding.ASCII.GetString(buffer, 0, (strNullCharIdx <= 1 ? 1 : strNullCharIdx));
@@ -1121,30 +1184,50 @@ namespace DS4WinWPF
 
         private void Application_Exit(object sender, ExitEventArgs e)
         {
-            if (runShutdown)
+            if (runShutdown && Volatile.Read(ref cleanShutdownStarted) == 0)
             {
-                Logger logger = logHolder.Logger;
-                logger.Info("Request App Shutdown");
+                logHolder?.Logger?.Info("Request App Shutdown");
                 CleanShutdown();
             }
         }
 
         private void Application_SessionEnding(object sender, SessionEndingCancelEventArgs e)
         {
-            Logger logger = logHolder.Logger;
-            logger.Info("User Session Ending");
+            DS4Windows.ViiperOutDevice.ShutdownInProgress = true;
+            logHolder?.Logger?.Info($"User Session Ending ({e.ReasonSessionEnding})");
             CleanShutdown();
         }
 
-        private void CleanShutdown()
+        // SessionEnding runs the shutdown and WPF then raises Exit, which ran it
+        // a second time at every sign-out: the second ControlService.ShutDown
+        // threw, and the crash notice appeared while Windows was signing out.
+        private int cleanShutdownStarted;
+
+        private void CleanShutdown(bool exitIfTimedOut = true)
         {
-            if (runShutdown)
+            if (runShutdown &&
+                Interlocked.Exchange(ref cleanShutdownStarted, 1) == 0)
             {
+                // Virtual pads are about to go; a stream that drops now is not
+                // to be reopened.
+                DS4Windows.ViiperOutDevice.ShutdownInProgress = true;
                 bool shutdownTimedOut = false;
+                // Phase timings (verbose logging only) for slow sign-outs.
+                Stopwatch shutdownWatch = Stopwatch.StartNew();
                 if (rootHub != null)
                 {
                     Task shutdownTask = Task.Run(() =>
                     {
+                        // A Stop already under way (the "-command shutdown" path
+                        // starts one and closes at once; Stop then Exit) cleared
+                        // running first, so ShutDown used to run alongside it.
+                        Stopwatch pendingStop = Stopwatch.StartNew();
+                        while (rootHub.inServiceTask &&
+                            pendingStop.ElapsedMilliseconds < 5000)
+                        {
+                            Thread.Sleep(20);
+                        }
+
                         if (rootHub.running)
                         {
                             rootHub.Stop(immediateUnplug: true);
@@ -1153,17 +1236,39 @@ namespace DS4WinWPF
                         rootHub.ShutDown();
                     });
 
-                    if (!shutdownTask.Wait(TimeSpan.FromSeconds(8)))
+                    bool finished;
+                    try
+                    {
+                        finished = shutdownTask.Wait(TimeSpan.FromSeconds(8));
+                    }
+                    catch (AggregateException ex)
+                    {
+                        // The rest of the shutdown (backend stop decision, settings
+                        // save, single-instance release, log flush) must still run.
+                        logHolder?.Logger?.Error(
+                            "Stopping the controller service failed during shutdown: " +
+                            ex.GetBaseException());
+                        finished = false;
+                    }
+
+                    if (!finished)
                     {
                         shutdownTimedOut = true;
                         try
                         {
-                            logHolder?.Logger?.Warn("Timed out while stopping controller service during shutdown. Forcing process exit to avoid a stale single-instance lock.");
+                            if (!shutdownTask.IsFaulted)
+                            {
+                                logHolder?.Logger?.Warn("Timed out while stopping controller service during shutdown. Forcing process exit to avoid a stale single-instance lock.");
+                            }
+
                             rootHub.PrepareAbort();
                         }
                         catch { }
                     }
                 }
+
+                DS4Windows.ControlService.StartupDiag(
+                    $"Shutdown: controller service stopped after {shutdownWatch.ElapsedMilliseconds} ms (timedOut={shutdownTimedOut})");
 
                 // Only now: rootHub.Stop unplugged every virtual pad, which is
                 // what detached the usbip ports and removed the devices from
@@ -1185,10 +1290,16 @@ namespace DS4WinWPF
                     }
                 }
 
+                DS4Windows.ControlService.StartupDiag(
+                    $"Shutdown: backend handled after {shutdownWatch.ElapsedMilliseconds} ms");
+
                 if (!skipSave)
                 {
                     DS4Windows.Global.Save();
                 }
+
+                DS4Windows.ControlService.StartupDiag(
+                    $"Shutdown: settings saved after {shutdownWatch.ElapsedMilliseconds} ms");
 
                 // Reset timer
                 DS4Windows.Util.timeEndPeriod(1);
@@ -1221,7 +1332,7 @@ namespace DS4WinWPF
                 LogManager.Flush();
                 LogManager.Shutdown();
 
-                if (shutdownTimedOut)
+                if (shutdownTimedOut && exitIfTimedOut)
                 {
                     Environment.Exit(0);
                 }

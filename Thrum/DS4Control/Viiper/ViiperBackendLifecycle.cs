@@ -32,15 +32,20 @@ namespace DS4Windows
     /// How the managed VIIPER backend is launched.
     ///
     /// <para>The command line lives here, on its own, because one of its
-    /// arguments is a security control rather than a preference. hbashton's
-    /// VIIPER fork still points its built-in updater at the upstream project it
-    /// was forked from (<c>internal/updater/updater.go</c> queries
-    /// <c>api.github.com/repos/Alia5/VIIPER</c>), whose version line is
-    /// permanently ahead of the fork's own. The check therefore reports an
-    /// update every time, forever, and accepting it runs a remote install
-    /// script through an <b>elevated</b> PowerShell with no pinned digest and
-    /// no Authenticode check — a script that also installs the usbip-win2
-    /// kernel driver, entirely outside this application's driver gate.</para>
+    /// arguments is a security control rather than a preference. The pinned
+    /// hbashton/VIIPER build (<see cref="ViiperInstallerPins.ViiperBackend"/>)
+    /// has a built-in updater that queries the fork's own releases,
+    /// <c>api.github.com/repos/hbashton/VIIPER/releases/latest</c>; the
+    /// executable contains no other GitHub API URL (checked against the pinned
+    /// digest, 2026-10-23; earlier notes saying it polled
+    /// <c>Alia5/VIIPER</c> do not describe this build). So an update is offered
+    /// as soon as the fork publishes a release newer than the pinned one, and
+    /// accepting it runs the fork's <c>main</c>-branch
+    /// <c>scripts/install.ps1</c> through an <b>elevated</b> PowerShell
+    /// (<c>iwr | iex</c>, <c>-Verb RunAs</c>) with no pinned digest and no
+    /// Authenticode check — a script that also installs the usbip-win2 kernel
+    /// driver, entirely outside this application's driver gate, and replaces
+    /// the backend with a build this application has not pinned.</para>
     ///
     /// <para>So a backend we start is always started with update notifications
     /// off. Version and update policy for the backend belong to this

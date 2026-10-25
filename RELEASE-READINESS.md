@@ -15,7 +15,7 @@ owner's PC (Bluetooth and USB DualSense, Native PS5 mode, Steam running): a
 1 h 25 min play session on the installed build, a recheck on the fixed build,
 and a live check of game feedback with virtual audio endpoints off. About 40
 bugs fixed (listed in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#second-review-2026-10-18)),
-11 behaviour changes made on the owner's decision. Tests: 1,208 passing, build
+13 behaviour changes made on the owner's decision. Tests: 1,208 passing, build
 0 warnings with the CI settings.
 
 ### Decisions (2026-10-18)
@@ -23,17 +23,19 @@ bugs fixed (listed in [CHANGES-REVIEW.md](CHANGES-REVIEW.md#second-review-2026-1
 | # | Change | Verified |
 | --- | --- | --- |
 | 11 | VIIPER listens on 127.0.0.1 only (USB-IP 3241, API 3242); no firewall prompt any more | Live: the virtual pad attaches over 127.0.0.1 |
-| 12 | Edits made while an auto profile is active save to that profile, not over the assigned one | Unit test |
+| 12 | Edits made while an auto profile is active save to that profile, not over the assigned one | Unit test; live: only the auto profile's file changed |
 | 13 | A damaged profile or Auto Profiles.xml is restored from its .bak (only when the backup loads) | Unit tests |
 | 14 | HidHide: Thrum records the entries it adds, releases them after a crash at the next Stop, and never removes the user's own | Unit test; live: entries released on exit |
 | 15 | Importing a profile with a Launch Program shows the path and asks whether to keep it | Code |
 | 16 | Toggled keys and mouse buttons are released on a profile switch, a disconnect and Stop | Code |
 | 17 | The pad is paused while a special-action profile switch (or the profile editor) reloads its profile | Code |
 | 18 | Warning when another program (Steam) had the pad first, even though HidHide hid it | Live: fires with Steam running |
-| 19 | The service restarts after an automatic wake (no user input), not only after a manual one | Code |
+| 19 | The service restarts after an automatic wake (no user input), not only after a manual one | Code; live: one restart after a manual wake |
 | 20 | App audio is captured at 48 kHz (wired "Play app through controller" played about 9 % fast) | Unit test |
 | 21 | RealTime process priority removed (it needs admin); a saved RealTime runs as High | Unit test |
 | 22 | DualSense battery percentage uses the 0–10 scale (80–89 % no longer reads 100 %) | Unit test; live: 85 % / 95 % / 100 % |
+| 23 | Native PS5 mode: Audio Haptics really stays off; the Bluetooth streamer no longer vibrates the pad from PC audio while the page says off (2026-10-25) | Live: no vibration |
+| 24 | DualSense haptic strength is an evenly spaced Level 1–8 scale (its eight hardware levels); speaker, microphone and Audio Haptics gain sliders move in 5 % steps (2026-10-25) | Live |
 
 Declined: showing beta release notes in the Changelog window.
 
@@ -56,9 +58,20 @@ Declined: showing beta release notes in the Changelog window.
   `-command shutdown` was seen leaving the backend running because its
   shutdown overlapped the Stop; fixed, and seen working on the fixed build.
 
-Not exercised live: other controller types (none on hand), Audio Haptics,
-speaker and microphone, Auto Profiles, OSC/UDP, first-run wizard, VIIPER
-setup, installer, sleep/resume, sign-out.
+- Live pass (2026-10-25, see
+  [CHANGES-REVIEW.md](CHANGES-REVIEW.md#live-pass-2026-10-25)): Auto Profiles
+  (switch, revert, #12), speaker and microphone, Audio Haptics, sleep and
+  resume, and a controller power cycle during haptics all passed. It found
+  one more blocker, now fixed: in Native PS5 mode over Bluetooth the game's
+  speaker and haptics audio reached the pad only with "Stream audio to
+  controller" on (1,032 packets queued, 0 delivered). The speaker now plays
+  with it off.
+
+Not exercised live: other controller types (none on hand), game audio
+haptics over Bluetooth (needs a game that drives DualSense haptics; the
+Windows test tone cannot show it), "Play app through controller" (Audio
+Haptics stands aside in Native PS5 mode), an automatic (no-input) wake,
+OSC/UDP, first-run wizard, VIIPER setup, installer, sign-out.
 
 ### Before the beta.3 release
 
@@ -94,10 +107,12 @@ Should-fix:
 - Two wired DualSense pads share one haptics endpoint (S05-6); the microphone relay is global (S05-7); 4-channel controller endpoints mix haptics into the speaker (S05-5).
 - DS4 Bluetooth audio: selective-suspend changes are kept only in memory (S06-1); input stalls while the speaker streams (S06-3).
 - Uninstall leaves the VIIPER folder, its firewall rules and any HidHide allow entries; the installer accepts ARM64 Windows, where the driver cannot load.
+- After a wake or a Thrum restart Steam opens the pad in the gap before Thrum starts, so Thrum runs in shared mode with the #18 warning until the pad is reconnected (Steam listed only the virtual pad; no double input seen). Possible fix: keep Thrum's HidHide entry across sleep.
 
 Nice-to-have: listed per area in the review reports (theme switching, contrast,
 Trigger Lab clipping in the editor, DS4 Bluetooth exclusive status, Joy-Con
-calibration matching, and others).
+calibration matching, a stuck Overview tooltip over the Native PS5 card, and
+others).
 
 ## Verdict
 

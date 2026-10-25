@@ -547,12 +547,28 @@
 
                             <TextBlock Text="{Binding SelectedController.FeedbackControlLabel}"
                                        FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1" Text="{Binding HapticStrengthPercent, StringFormat={}{0}%}"
+                            <TextBlock Grid.Column="1" Text="{Binding HapticStrengthText}"
                                        FontWeight="SemiBold" Foreground="{DynamicResource AccentColor}" />
+                             <!-- A DualSense stores one of eight hardware power levels, so it
+                                  gets an evenly spaced 1-8 scale; other controllers a percentage. -->
                              <Slider Grid.Row="1" Grid.ColumnSpan="2" Margin="0,9,0,0"
                                      Style="{StaticResource OverviewQuickSliderStyle}"
-                                    Minimum="0" Maximum="100" TickFrequency="1"
-                                    Value="{Binding HapticStrengthPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=220}" />
+                                    Minimum="1" Maximum="8" TickFrequency="1" IsSnapToTickEnabled="True"
+                                    Visibility="{Binding SelectedController.UsesDualSenseHapticPowerLevels, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Value="{Binding HapticStrengthLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=220}" />
+                             <Slider Grid.Row="1" Grid.ColumnSpan="2" Margin="0,9,0,0"
+                                    Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                                    Value="{Binding HapticStrengthPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=220}">
+                                <Slider.Style>
+                                    <Style TargetType="Slider" BasedOn="{StaticResource OverviewQuickSliderStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedController.UsesDualSenseHapticPowerLevels}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Slider.Style>
+                            </Slider>
                         </Grid>
 
                         <!-- A DualSense gets the Native PS5 mode card instead of this combo. -->
@@ -621,7 +637,7 @@
                                            Foreground="{DynamicResource AccentColor}" />
                                  <Slider Grid.Row="3" Grid.ColumnSpan="2" Margin="0,7,0,14"
                                          Style="{StaticResource OverviewQuickSliderStyle}"
-                                        Minimum="0" Maximum="100" TickFrequency="1"
+                                        Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
                                         Value="{Binding SpeakerVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=220}" />
                             </Grid>
 
@@ -654,7 +670,7 @@
                                                Foreground="{DynamicResource AccentColor}" />
                                      <Slider Grid.Row="1" Grid.ColumnSpan="2" Margin="0,7,0,0"
                                              Style="{StaticResource OverviewQuickSliderStyle}"
-                                            Minimum="0" Maximum="100" TickFrequency="1"
+                                            Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
                                             Value="{Binding MicrophoneVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=220}" />
                                 </Grid>
                             </StackPanel>

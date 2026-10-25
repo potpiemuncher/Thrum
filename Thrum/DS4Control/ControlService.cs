@@ -2911,6 +2911,8 @@ namespace DS4Windows
                 EnsurePlayStationFeatureOutput(ind, device);
             OutContType playStationFeatureOutputType =
                 playStationFeatureOutput?.OutputType ?? OutContType.None;
+            bool nativeAudioPath = NativeAudioPathOwnsControllerAudio(ind,
+                playStationFeatureOutput);
 
             device.ModifyFeatureSetFlag(VidPidFeatureSet.NoOutputData, !getEnableOutputDataToDS4(ind));
             if (!getEnableOutputDataToDS4(ind))
@@ -2978,9 +2980,16 @@ namespace DS4Windows
                         break;
                 }
                 dualsense.HapticPowerLevel = DualSenseHapticPowerLevel[ind];
-                bool speakerEnabled = IsControllerSpeakerEnabled(ind);
-                string speakerCaptureEndpointId =
-                    GetControllerSpeakerCaptureEndpointId(ind);
+                // "Stream audio to controller" streams the chosen source. In
+                // Native PS5 mode the game's own speaker and haptics audio on
+                // the virtual pad is relayed with it off too, from the virtual
+                // endpoint only. Over Bluetooth that audio and the haptics
+                // share one carrier, so without the relay the game got neither.
+                bool streamAudioToController = IsControllerSpeakerEnabled(ind);
+                bool speakerEnabled = streamAudioToController || nativeAudioPath;
+                string speakerCaptureEndpointId = streamAudioToController
+                    ? GetControllerSpeakerCaptureEndpointId(ind)
+                    : DualSenseAudioPassthrough.AutoDetectGameAudioEndpointId;
                 dualsense.EnableSpeakerOutput = speakerEnabled;
                 dualsense.SpeakerVolume = DualSenseSpeakerVolume[ind];
                 dualsense.HeadphoneVolume = DualSenseHeadphoneVolume[ind];
@@ -3077,21 +3086,12 @@ namespace DS4Windows
                 dualSenseMicrophonePassthrough.Stop();
             }
 
-            // Issue #87: a virtual DualSense/Edge with audio interfaces makes
-            // the game the haptics source (channels 3/4 relayed to the pad), so
-            // Audio Haptics is switched off for that profile rather than
-            // stacking a second source onto the same Bluetooth stream. The
-            // same gate the persona ladder asked decides whether the audio
-            // class is actually permitted.
-            bool nativeHapticsPath = !getDInputOnly(ind) &&
-                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
-                    Global.OutContType[ind],
-                    ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio,
-                        alreadyAttached: playStationFeatureOutput?
-                            .SupportsAtomicAudioHaptics == true).Allowed);
+            // Issue #87: with the game as the haptics source, Audio Haptics is
+            // switched off for that profile rather than stacking a second
+            // source onto the same Bluetooth stream.
             AudioHapticsProfileSettings audioHapticsSettings =
                 Global.store.audioHapticsSettings[ind];
-            if (nativeHapticsPath && audioHapticsSettings?.Enabled == true)
+            if (nativeAudioPath && audioHapticsSettings?.Enabled == true)
             {
                 if (audioHapticsService.SuspendForNativeHaptics(ind))
                 {
@@ -3164,9 +3164,17 @@ namespace DS4Windows
                 InputDevices.DualSenseDevice;
             if (ds?.NativeOptionsStore == null) return;
 
+            // While the game owns haptics (issue #87) Audio Haptics is
+            // suspended, and the Bluetooth streamer has to stand down with it:
+            // it kept vibrating the pad from system audio while the Audio
+            // Haptics page said it was off.
+            AudioHapticsProfileSettings settings =
+                NativeAudioPathOwnsControllerAudio(deviceIndex,
+                    GetPlayStationFeatureOutput(deviceIndex))
+                    ? null
+                    : Global.store.audioHapticsSettings[deviceIndex];
             AudioHapticsStreamerMapping.BTHapticsOptions opts =
-                AudioHapticsStreamerMapping.Map(
-                    Global.store.audioHapticsSettings[deviceIndex]);
+                AudioHapticsStreamerMapping.Map(settings);
 
             ds.NativeOptionsStore.ApplyBTHapticsOptions(opts.Mode, opts.Gain,
                 opts.LowPassHz, opts.HFTexture, opts.EndpointId);
@@ -3175,6 +3183,21 @@ namespace DS4Windows
         private static bool IsControllerSpeakerEnabled(int index) =>
             Global.DualSenseEnableSpeakerOutput[index] ||
             IsAudioHapticsSpeakerOverrideActive(index);
+
+        // Issue #87: a virtual DualSense/Edge with audio interfaces makes the
+        // game the source of the pad's speaker and haptics (channels 1/2 and
+        // 3/4 of the virtual endpoint). Asks the same gate the persona ladder
+        // asked to decide whether the audio class is actually permitted.
+        private bool NativeAudioPathOwnsControllerAudio(int index,
+            ViiperOutDevice playStationFeatureOutput)
+        {
+            return !getDInputOnly(index) &&
+                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
+                    Global.OutContType[index],
+                    ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio,
+                        alreadyAttached: playStationFeatureOutput?
+                            .SupportsAtomicAudioHaptics == true).Allowed);
+        }
 
         private static bool IsControllerHeadsetOnlyAudio(int index)
         {
@@ -3652,8 +3675,15 @@ namespace DS4Windows
                     virtualRequired, personaCarriesAdvancedHaptics,
                     audioClassPermitted, laneLive, virtualConnected);
 
+            bool nativeHapticsPath = virtualRequired &&
+                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
+                    desiredType, audioClassPermitted);
+            // The Native PS5 relay runs for a DualSense with the toggle off
+            // too (CheckProfileOptions), so its lane is reported as well.
             bool speakerRequired = physicalPresent &&
-                IsControllerSpeakerEnabled(index);
+                (IsControllerSpeakerEnabled(index) ||
+                    (nativeHapticsPath &&
+                        device is InputDevices.DualSenseDevice));
             ControllerRuntimeLaneState speaker =
                 ControllerRuntimeLaneState.NotRequired;
             if (speakerRequired)
@@ -3698,9 +3728,6 @@ namespace DS4Windows
 
             bool audioHapticsEnabled = physicalPresent &&
                 Global.store.audioHapticsSettings[index]?.Enabled == true;
-            bool nativeHapticsPath = virtualRequired &&
-                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
-                    desiredType, audioClassPermitted);
             AudioHapticsRuntimeStatus audioHapticsStatus =
                 audioHapticsService.GetStatus(index);
             ControllerRuntimeLaneState audioHaptics =

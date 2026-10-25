@@ -146,6 +146,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         /// </summary>
         public event EventHandler OutputControllerChosen;
         public event EventHandler HapticStrengthPercentChanged;
+        public event EventHandler HapticStrengthLevelChanged;
+        public event EventHandler HapticStrengthTextChanged;
         public event EventHandler SpeakerOutputEnabledChanged;
         public event EventHandler HeadsetOnlyAudioChanged;
         public event EventHandler MicrophoneInputEnabledChanged;
@@ -457,9 +459,51 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     Global.RumbleBoost[deviceIndex] = (byte)requested;
                 }
 
-                HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+                RaiseHapticStrengthChanged();
                 RaiseQuickProfileSettingChanged(deviceIndex);
             }
+        }
+
+        /// <summary>
+        /// DualSense haptic strength as the controller's eight hardware power
+        /// levels, 1 (weakest) to 8 (full). The Overview shows this evenly
+        /// spaced scale instead of percentages the hardware cannot hold.
+        /// </summary>
+        public int HapticStrengthLevel
+        {
+            get
+            {
+                int levelCount = dualSenseHapticPercentages.Length;
+                if (!HasValidSelectedDevice ||
+                    !selectedController.UsesDualSenseHapticPowerLevels)
+                {
+                    return levelCount;
+                }
+
+                int levelIndex = Math.Clamp(
+                    Global.DualSenseHapticPowerLevel[selectedController.DevIndex],
+                    0, levelCount - 1);
+                return levelCount - levelIndex;
+            }
+            set
+            {
+                int levelCount = dualSenseHapticPercentages.Length;
+                int level = Math.Clamp(value, 1, levelCount);
+                HapticStrengthPercent = dualSenseHapticPercentages[levelCount - level];
+            }
+        }
+
+        public string HapticStrengthText =>
+            HasValidSelectedDevice &&
+                selectedController.UsesDualSenseHapticPowerLevels
+                ? $"Level {HapticStrengthLevel}"
+                : $"{HapticStrengthPercent}%";
+
+        private void RaiseHapticStrengthChanged()
+        {
+            HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+            HapticStrengthLevelChanged?.Invoke(this, EventArgs.Empty);
+            HapticStrengthTextChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public bool SpeakerOutputEnabled
@@ -570,7 +614,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             SelectedControllerIsWirelessChanged?.Invoke(this, EventArgs.Empty);
             SelectedOutputControllerChanged?.Invoke(this, EventArgs.Empty);
             SelectedOutputControllerNameChanged?.Invoke(this, EventArgs.Empty);
-            HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+            RaiseHapticStrengthChanged();
             SpeakerOutputEnabledChanged?.Invoke(this, EventArgs.Empty);
             HeadsetOnlyAudioChanged?.Invoke(this, EventArgs.Empty);
             MicrophoneInputEnabledChanged?.Invoke(this, EventArgs.Empty);
@@ -662,7 +706,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
             if (previous.HapticStrength != snapshot.HapticStrength)
             {
-                HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+                RaiseHapticStrengthChanged();
             }
             if (previous.SpeakerEnabled != snapshot.SpeakerEnabled)
             {

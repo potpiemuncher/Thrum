@@ -180,7 +180,7 @@
                                     <TextBlock Text="0%" VerticalAlignment="Center" FontWeight="SemiBold"
                                                Foreground="{DynamicResource MutedForegroundColor}" />
                                     <Slider x:Name="gainSlider" Grid.Column="1" Style="{StaticResource HapticsSlider}"
-                                            Minimum="0" Maximum="200" TickFrequency="5"
+                                            Minimum="0" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True"
                                             ValueChanged="GainSlider_ValueChanged" />
                                     <TextBlock x:Name="gainValueText" Grid.Column="2" HorizontalAlignment="Right"
                                                VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" />

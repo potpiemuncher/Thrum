@@ -1,7 +1,7 @@
 name: CI Build
 
 # Autobuild that runs on every push and pull request, plus manual triggers.
-# Complements release.yml (which only runs when a GitHub Release is published).
+# Complements release.yml (which runs when a release tag is pushed).
 # Produces a runnable x64 package as a downloadable build artifact.
 
 on:

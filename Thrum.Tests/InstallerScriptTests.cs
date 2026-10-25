@@ -45,7 +45,8 @@ namespace DS4WindowsTests
         {
             string workflow = File.ReadAllText(Path.Combine(RepositoryRoot(), ".github", "workflows", "release.yml"));
             StringAssert.Contains(workflow, @"utils\build-installer.ps1");
-            StringAssert.Contains(workflow, "${{ env.RELEASE_INSTALLER }}");
+            StringAssert.Contains(workflow,
+                "assets=(\"$RELEASE_ASSET\" \"$RELEASE_INSTALLER\" \"$RELEASE_SUMS\")");
         }
 
         private static string Script() =>

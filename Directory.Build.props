@@ -22,9 +22,10 @@
       * Support triage - "which upstream fix is in this build" is otherwise
         unanswerable from the binary alone.
 
-    Note for the release workflow: release.yml reads AssemblyVersion and Version
-    out of this file by XPath. If either element is renamed or moved, that step
-    has to move with it.
+    Note for the release workflow: release.yml reads AssemblyVersion, Version
+    and InformationalVersion out of this file by XPath, and keeps the
+    "(base: ...)" part of InformationalVersion after the release's own version.
+    If any of these elements is renamed or moved, that step has to move with it.
   -->
 
   <PropertyGroup>

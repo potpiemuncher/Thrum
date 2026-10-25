@@ -62,13 +62,18 @@ setup, installer, sleep/resume, sign-out.
 
 ### Before the beta.3 release
 
-1. Merge this branch: `main` has none of the review commits (PR #100 is a draft).
+1. Merge this branch: `main` has none of the review commits (draft PR #101
+   carries them, including all of PR #100).
 2. Bump `Directory.Build.props` to 0.9.0-beta.3; update the README License tag
    (still beta.1).
-3. `release.yml`: create the release as a draft, build, upload, then publish
-   (today it is visible before its assets exist); publish SHA-256 sums (the
-   README tells users to check them); keep the base commit in
-   InformationalVersion (the `/p:InformationalVersion` override drops it).
+3. Release with the new procedure. `release.yml` now runs when the tag is
+   pushed, attaches the zip, installer and `SHA256SUMS.txt`, adds the SHA-256
+   table to the notes, keeps the "(base: ...)" text, and only then publishes
+   (b0a8d71; see [CHANGES-REVIEW.md](CHANGES-REVIEW.md#release-workflow-2026-10-24)).
+   Save the release as a draft for `v0.9.0-beta.3` first (title, notes,
+   Pre-release), then push the tag. beta.3 is the workflow's first run on
+   GitHub: watch it, and check the published page has both downloads and the
+   checksums.
 4. Release notes: existing installs keep any "Allow" firewall rule for
    viiper.exe; with loopback binding it no longer exposes anything, but users
    can remove it. Users who ran beta.1 with the DS4 speaker may have USB
@@ -426,8 +431,8 @@ is in the review workflow output.
 | Critical | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 4 |
 | High | 32 | 1 | 0 | 2 | 1 | 0 | 0 | 36 |
 | Medium | 51 | 7 | 0 | 3 | 0 | 2 | 169 | 232 |
-| Low | 15 | 2 | 0 | 0 | 0 | 1 | 223 | 241 |
-| **All** | 102 | 10 | 0 | 5 | 1 | 3 | 392 | 513 |
+| Low | 16 | 3 | 0 | 0 | 0 | 1 | 221 | 241 |
+| **All** | 103 | 11 | 0 | 5 | 1 | 3 | 390 | 513 |
 
 Paths are relative to `Thrum/` unless they start with another top-level folder.
 
@@ -726,8 +731,8 @@ Paths are relative to `Thrum/` unless they start with another top-level folder.
 | C507 | `NOTICE.txt:121` | NOTICE misattributes the Bezier editor bundle (React 0.13.1 is BSD+PATENTS, the package says ISC, it is browserify) and uses stale paths | Manual step | Licence items; see NOTICE.txt UNRESOLVED |
 | C278 | `DS4Forms/MainWindow.xaml.cs:274` | Update check contacts api.github.com on the very first launch with no disclosure or opt-in | Mitigated (Phase 5) | README now discloses the daily update check; no opt-out on first launch yet |
 | C430 | `DS4Forms/ViewModels/LogViewModel.cs:219` | GUI log buffer is unbounded, and each search keystroke re-filters the whole buffer on the UI thread under the read lock | Mitigated (Phase 5) | Buffer capped at 10,000 lines; search still re-filters on the UI thread |
-| C510 | `.github/workflows/release.yml:31` | Workflow hygiene: deprecated setup-python@v3, tag name interpolated into shell, third-party action on a mutable tag | Proposed | Use setup-python@v5. Pass the tag through `env:` and reference it as "$TAG". |
-| C511 | `.github/workflows/release.yml:50` | Release builds override InformationalVersion and drop the base-commit text that Directory.Build.props says must be kept | Proposed | Pass `/p:InformationalVersion="${VERSION} (base: ...)"` built from the props value, or stop overriding it and derive the suffix in the props from $(Version). |
+| C510 | `.github/workflows/release.yml:32` | Workflow hygiene: deprecated setup-python@v3, tag name interpolated into shell, third-party action on a mutable tag | Mitigated (2026-10-24) | setup-python is on v6. The tag reaches the scripts through `env:` and is refused unless it is letters, digits and `. _ + -` (b0a8d71). Still open: actions are referenced by version tags, not commit SHAs. |
+| C511 | `.github/workflows/release.yml:58` | Release builds override InformationalVersion and drop the base-commit text that Directory.Build.props says must be kept | Fixed (2026-10-24) | The "(base: ...)" text is read from Directory.Build.props and put after the tag's version; the run stops if it is missing, and a step checks the product version of the built Thrum.exe and Thrum.dll (b0a8d71). |
 | C239 | `App.xaml.cs:296` | Stray '$' in the settings-not-read log message | Proposed | Drop the literal '$', raise the line to Warn, and word it plainly. |
 | C241 | `App.xaml.cs:575` | Single-instance check has a check-then-create race; createdNew is discarded | Proposed | Check `out bool createdNew` from Create; if it is false, Set() the event and exit like the TryOpenExisting branch does. |
 | C244 | `App.xaml.cs:797` | Forced GC every 30 s on top of Server GC in a tray app | Proposed | Switch to workstation (concurrent) GC for the desktop app, or enable DATAS/GCConserveMemory, and remove the forced-collection timer. |

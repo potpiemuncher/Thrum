@@ -127,7 +127,7 @@ with open(newest_txt, 'w') as file:
     file.write(version)
 
 
-# rename target dir (net8.0-windows) to Thrum
+# rename target dir (net10.0-windows) to Thrum
 renamed_dir = target_dir.parent / "Thrum"
 if renamed_dir.exists():
     shutil.rmtree(renamed_dir)

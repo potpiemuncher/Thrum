@@ -211,6 +211,17 @@ namespace DS4Windows
 
         private void RunDeviceProbe(ViiperVirtualDeviceType type, CancellationToken cancellationToken)
         {
+            // The same driver-safety gate ViiperOutDevice.Connect uses. The
+            // probes create and tear down real virtual devices, so they must
+            // not run on a driver the product itself would refuse.
+            ViiperVirtualDeviceDecision gate =
+                ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.ControllerOnly);
+            if (!gate.Allowed)
+            {
+                Log($"[SKIP] {type} virtual output: the virtual-device gate refused it ({gate.Block}). {gate.Reason}");
+                return;
+            }
+
             RunStep($"{type} virtual output", () =>
             {
                 ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus(tryStartServer: true);

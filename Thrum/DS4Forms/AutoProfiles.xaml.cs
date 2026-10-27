@@ -103,6 +103,7 @@ namespace DS4WinWPF.DS4Forms
             revertDefaultProfileOnUnknownCk.DataContext = autoProfVM;
 
             autoProfVM.SearchFinished += AutoProfVM_SearchFinished;
+            autoProfVM.ScanProblem += AutoProfVM_ScanProblem;
             autoProfVM.CurrentItemChange += AutoProfVM_CurrentItemChange;
 
             //autoProfilesGrid.DataContext = autoProfVM;
@@ -264,6 +265,19 @@ namespace DS4WinWPF.DS4Forms
         private void AutoProfVM_SearchFinished(object sender, EventArgs e)
         {
             IsEnabled = true;
+        }
+
+        private void AutoProfVM_ScanProblem(object sender, string message)
+        {
+            Window owner = Window.GetWindow(this);
+            if (owner != null)
+            {
+                MessageBox.Show(owner, message, "Auto Profiles", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show(message, "Auto Profiles", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         private void SteamMenuItem_Click(object sender, RoutedEventArgs e)

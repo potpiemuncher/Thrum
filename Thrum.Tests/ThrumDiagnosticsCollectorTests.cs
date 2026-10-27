@@ -115,14 +115,14 @@ public class ThrumDiagnosticsCollectorTests
     {
         ThrumDiagnosticsCollector collector = new ThrumDiagnosticsCollector(
             readBackend: () => throw new InvalidOperationException(
-                @"cannot open C:\Users\patrick\AppData\Local\VIIPER\viiper.exe"),
+                @"cannot open C:\Users\somebody\AppData\Local\VIIPER\viiper.exe"),
             clock: () => FixedNow);
 
         ThrumDiagnosticsSnapshot snapshot = collector.Collect(Env());
 
         Assert.AreEqual(1, snapshot.CollectionFailures.Count);
         Assert.IsFalse(
-            snapshot.CollectionFailures[0].Contains("patrick",
+            snapshot.CollectionFailures[0].Contains("somebody",
                 StringComparison.OrdinalIgnoreCase),
             "an account name survived into a failure line: " +
             snapshot.CollectionFailures[0]);

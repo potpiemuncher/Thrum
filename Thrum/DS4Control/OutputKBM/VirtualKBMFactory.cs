@@ -33,7 +33,7 @@ namespace DS4Windows.DS4Control
                 // Run through event handler discovery routine
                 if (Global.fakerInputInstalled)
                 {
-                    handler = new FakerInputHandler();
+                    handler = CreateFakerInputHandlerOrFallback();
                 }
                 else
                 {
@@ -47,7 +47,7 @@ namespace DS4Windows.DS4Control
             }
             else if (identifier == FakerInputHandler.IDENTIFIER)
             {
-                handler = new FakerInputHandler();
+                handler = CreateFakerInputHandlerOrFallback();
             }
             else
             {
@@ -84,6 +84,30 @@ namespace DS4Windows.DS4Control
         public static VirtualKBMBase GetFallbackHandler()
         {
             return new SendInputHandler();
+        }
+
+        // FakerInputDll.dll needs the Visual C++ runtime, which Thrum does not
+        // ship. Its constructor used to throw out of ControlService.Start on a
+        // PC with the FakerInput driver but no runtime, so the service never
+        // started and no controller worked.
+        private static VirtualKBMBase CreateFakerInputHandlerOrFallback()
+        {
+            try
+            {
+                return new FakerInputHandler();
+            }
+            catch (Exception ex) when (ex is DllNotFoundException ||
+                ex is BadImageFormatException ||
+                ex is EntryPointNotFoundException ||
+                ex is TypeInitializationException)
+            {
+                AppLogger.LogToGui(
+                    "FakerInput is installed but its helper DLL could not be loaded " +
+                    "(the Microsoft Visual C++ Redistributable may be missing). " +
+                    $"Using SendInput for keyboard and mouse output. {ex.GetType().Name}: {ex.Message}",
+                    true);
+                return GetFallbackHandler();
+            }
         }
 
         public static VirtualKBMMapping GetFallbackMapping()

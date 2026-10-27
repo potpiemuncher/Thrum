@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -20,6 +21,13 @@ namespace DS4Windows
         private const uint ErrorSuccess = 0;
         private static int changedLogWritten;
         private static int failureLogWritten;
+
+        // The values this app replaced, per power plan, so they can be put
+        // back. The setting used to stay disabled for good, on battery too,
+        // for every USB device.
+        private static readonly object originalsLock = new object();
+        private static readonly Dictionary<Guid, (uint Ac, uint Dc)> originals =
+            new Dictionary<Guid, (uint Ac, uint Dc)>();
 
         internal static bool EnsureDisabledForActivePowerScheme()
         {
@@ -74,6 +82,14 @@ namespace DS4Windows
                     return false;
                 }
 
+                lock (originalsLock)
+                {
+                    if (!originals.ContainsKey(scheme))
+                    {
+                        originals[scheme] = (acValue, dcValue);
+                    }
+                }
+
                 result = PowerSetActiveScheme(IntPtr.Zero, ref scheme);
                 if (result != ErrorSuccess)
                 {
@@ -84,7 +100,7 @@ namespace DS4Windows
                 if (Interlocked.Exchange(ref changedLogWritten, 1) == 0)
                 {
                     AppLogger.LogToGui(
-                        "Disabled USB selective suspend for the active power plan to keep DualShock 4 Bluetooth audio uninterrupted.",
+                        "Turned off USB selective suspend in the active power plan while DualShock 4 Bluetooth audio plays. It is turned back on when the audio stops.",
                         false);
                 }
                 return true;
@@ -100,6 +116,75 @@ namespace DS4Windows
                 {
                     LocalFree(schemePointer);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Puts back the selective-suspend values this app replaced. Called
+        /// when no DualShock 4 audio lane is running any more and when the
+        /// service stops. A crash leaves the setting off, as before.
+        /// </summary>
+        internal static void RestoreIfChanged()
+        {
+            KeyValuePair<Guid, (uint Ac, uint Dc)>[] toRestore;
+            lock (originalsLock)
+            {
+                if (originals.Count == 0)
+                {
+                    return;
+                }
+
+                toRestore = new KeyValuePair<Guid, (uint Ac, uint Dc)>[originals.Count];
+                ((ICollection<KeyValuePair<Guid, (uint Ac, uint Dc)>>)originals).CopyTo(toRestore, 0);
+                originals.Clear();
+            }
+
+            IntPtr activePointer = IntPtr.Zero;
+            try
+            {
+                Guid active = Guid.Empty;
+                if (PowerGetActiveScheme(IntPtr.Zero, out activePointer) == ErrorSuccess &&
+                    activePointer != IntPtr.Zero)
+                {
+                    active = Marshal.PtrToStructure<Guid>(activePointer);
+                }
+
+                foreach (KeyValuePair<Guid, (uint Ac, uint Dc)> entry in toRestore)
+                {
+                    Guid scheme = entry.Key;
+                    Guid subgroup = UsbSettingsSubgroup;
+                    Guid setting = UsbSelectiveSuspendSetting;
+                    uint acResult = PowerWriteACValueIndex(IntPtr.Zero, ref scheme,
+                        ref subgroup, ref setting, entry.Value.Ac);
+                    uint dcResult = PowerWriteDCValueIndex(IntPtr.Zero, ref scheme,
+                        ref subgroup, ref setting, entry.Value.Dc);
+                    if (scheme == active)
+                    {
+                        PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+                    }
+
+                    if (acResult != ErrorSuccess || dcResult != ErrorSuccess)
+                    {
+                        AppLogger.LogToGui(
+                            $"Could not turn USB selective suspend back on in the power plan (error {(acResult != ErrorSuccess ? acResult : dcResult)}). It can be turned on again in Power Options > USB settings.",
+                            true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogToGui(
+                    $"Could not turn USB selective suspend back on in the power plan ({ex.Message}). It can be turned on again in Power Options > USB settings.",
+                    true);
+            }
+            finally
+            {
+                if (activePointer != IntPtr.Zero)
+                {
+                    LocalFree(activePointer);
+                }
+
+                Interlocked.Exchange(ref changedLogWritten, 0);
             }
         }
 

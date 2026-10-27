@@ -185,6 +185,18 @@ namespace DS4Windows
                 return ControllerRuntimeLaneState.Ready;
             }
 
+            // Armed and waiting for a game to start is how automatic game
+            // detection spends most of its time, not a fault. Reporting it as
+            // "Needs attention" put a warning on the Overview card on every
+            // launch until a game ran. Real capture failures ("Waiting for
+            // audio source: <error>") still surface below.
+            if (string.Equals(statusMessage,
+                    AudioHapticsService.WaitingForGameMessage,
+                    StringComparison.Ordinal))
+            {
+                return ControllerRuntimeLaneState.Ready;
+            }
+
             return (statusMessage ?? string.Empty).IndexOf("starting",
                     StringComparison.OrdinalIgnoreCase) >= 0
                 ? ControllerRuntimeLaneState.Starting

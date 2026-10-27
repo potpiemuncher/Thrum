@@ -34,7 +34,8 @@ defaults stage.
 2. **Choose where Thrum stores its data** defaults to **App data
    (recommended)**, under `%APPDATA%\Thrum`. Expand **Advanced: portable data
    location** only when you intentionally want settings beside `Thrum.exe`.
-   Portable mode is unavailable when the program folder is not writable.
+   Portable mode is unavailable when the program folder is not writable, as
+   in an installation for all users in Program Files.
 3. **Import existing settings** reviews any compatible DS4Windows configuration
    found in the legacy data folder. Import skips files already present and does
    not modify the source. Choose **Start fresh** in the review dialog to decline.
@@ -44,6 +45,9 @@ defaults stage.
    options**.
 5. **Backend and driver status** checks VIIPER and usbip-win2. **Install / Repair
    VIIPER** runs the guided setup; **Recheck status** reads the state again.
+   Below it is the experimental-driver notice with an unticked box. Tick it to
+   allow virtual controllers; it is the same setting as **Use virtual
+   controllers (experimental kernel driver)** in Settings, and is saved at once.
    Skipping this stage is safe, and Thrum offers setup again if a profile later
    requests virtual output.
 6. **Connect a controller** reminds you to use USB or Bluetooth. Detection begins
@@ -90,16 +94,22 @@ Setup and consent are separate:
    the one-time disclosure. No currently listed usbip-win2 release is treated as
    production-approved. A kernel-driver fault can stop Windows, and Thrum cannot
    catch or recover from it.
-3. **Allow virtual audio and microphone endpoints** is a separate, default-off
-   switch. Enabling it shows a second disclosure every time because those virtual
-   endpoints reach a confirmed usbip-win2 teardown defect that can corrupt kernel
-   memory and crash Windows. The upstream report is
-   [usbip-win2 #181](https://github.com/vadimgrn/usbip-win2/issues/181).
+3. **Allow virtual audio and microphone endpoints** is on by default. These
+   endpoints carry game-authored haptics and the pad's speaker and microphone in
+   Native PS5 mode. usbip-win2 releases before 0.9.8.0 have a confirmed teardown
+   defect on this path that can corrupt kernel memory and crash Windows
+   ([usbip-win2 #181](https://github.com/vadimgrn/usbip-win2/issues/181)).
+   0.9.8.0, the release Thrum installs, carries the upstream fixes, and Thrum
+   never creates these endpoints on an earlier release.
+
+When the virtual pad connects with its audio endpoints, Windows may make it your
+default speaker and microphone. If game sound moves to the controller, set your
+usual devices back in Windows Sound settings.
 
 You do not need virtual audio endpoints for buttons, sticks, triggers, rumble,
-gyro, touchpad, or lightbar output. Do not enable them merely to get ordinary
-controller emulation working. Turning either setting off does not tear down a
-device that is already running; the new policy applies on the next connection.
+gyro, touchpad, or lightbar output; turning them off loses only game haptics and
+the pad's speaker and microphone. Turning either setting off does not tear down
+a device that is already running; the new policy applies on the next connection.
 
 Driver-free Audio Haptics is a different path. A physical DualSense or DualSense
 Edge connected over Bluetooth can receive the Windows mix or a selected render
@@ -264,7 +274,9 @@ Read the banner above the table before pressing **Plug**:
 - **New virtual controllers are blocked** means the driver is missing,
   unvalidated, or not yet acknowledged. The banner gives the exact remedy.
 - **Virtual audio endpoints are off** means ordinary controller output remains
-  available but the separate audio-class opt-in is disabled.
+  available but no audio endpoints are created: either the audio switch is off,
+  or the installed usbip-win2 release is older than 0.9.8.0 (the banner says
+  which, and Install / Repair VIIPER fixes the second).
 
 Existing attached devices continue running when the policy changes. The gate is
 authoritative for every new allocation, even if a button remains clickable.
@@ -299,7 +311,7 @@ appearance, and update checks.
 - backend ownership and holdings, with a guarded stop action only when Thrum can
   prove it is safe to offer;
 - the virtual-controller acknowledgement; and
-- the separate virtual audio/microphone opt-in.
+- the virtual audio/microphone switch (on by default).
 
 Expand **Advanced settings** for OSC, UDP motion data, language, compatibility,
 process, monitor, device-registration, and maintenance controls. The **Utils**
@@ -335,6 +347,12 @@ This is double input. Install/configure HidHide, enable **Hide DS4 Controller** 
 Settings, and make sure Thrum is present in HidHide's application whitelist. Do
 not disable the physical HID device in Device Manager as a routine workaround.
 
+If the log says a controller "is open in another program", another program had
+it open before Thrum, so Thrum is using it in shared mode. The message names
+any well-known controller program it saw running (Steam, DS4Windows and so on).
+Close that program and reconnect the controller. Thrum does not ask for
+administrator rights to take the controller over.
+
 ### A virtual controller is blocked
 
 Open **Output Slots** and read the banner, then open the VIIPER section in
@@ -357,6 +375,15 @@ endpoints and accept their separate risk.
    output exists in **Output Slots**.
 4. Open **Log** and search for audio/haptics stream start, source resolution, or
    health messages.
+
+### Keyboard or mouse output does not reach an app
+
+Windows does not let a program running with normal rights send keystrokes or
+mouse input to a program running as administrator. If a profile maps buttons
+to keys or the mouse and one particular app ignores them, check whether that
+app runs as administrator (Task Manager > Details > "Elevated" column). Run
+that app normally if it allows it. Thrum itself is designed to run without
+administrator rights and does not need them for anything else.
 
 ### Reporting a problem
 

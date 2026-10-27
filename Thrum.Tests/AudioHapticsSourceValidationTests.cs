@@ -54,10 +54,61 @@ namespace DS4WindowsTests
                     Array.Empty<string>(),
                     defaultRenderEndpointAvailable: true,
                     controllerAudioEndpointAvailable: false,
-                    _ => false);
+                    _ => false,
+                    processLoopbackSupported: true);
 
             Assert.IsFalse(result.Valid);
             StringAssert.Contains(result.Message, "not running");
+        }
+
+        [TestMethod]
+        public void AnAppKnownByNameIsWaitedForNotRejected()
+        {
+            AudioHapticsProfileSettings settings =
+                new AudioHapticsProfileSettings
+                {
+                    Source = AudioHapticsSourceKind.AppSession,
+                    ProcessId = 4242,
+                    ExecutableName = "SomeGame",
+                    DisplayName = "Some Game",
+                };
+
+            AudioHapticsSourceValidationResult result =
+                AudioHapticsSourceValidator.Validate(settings,
+                    Array.Empty<string>(),
+                    defaultRenderEndpointAvailable: true,
+                    controllerAudioEndpointAvailable: false,
+                    _ => false,
+                    processLoopbackSupported: true);
+
+            Assert.IsTrue(result.Valid, result.Message);
+            StringAssert.Contains(result.Message, "start");
+        }
+
+        [TestMethod]
+        public void AppSourcesAreRefusedWhereWindowsCannotCaptureOneApp()
+        {
+            foreach (bool automatic in new[] { false, true })
+            {
+                AudioHapticsProfileSettings settings =
+                    new AudioHapticsProfileSettings
+                    {
+                        Source = AudioHapticsSourceKind.AppSession,
+                        AutomaticGameDetection = automatic,
+                        ExecutableName = "SomeGame",
+                    };
+
+                AudioHapticsSourceValidationResult result =
+                    AudioHapticsSourceValidator.Validate(settings,
+                        Array.Empty<string>(),
+                        defaultRenderEndpointAvailable: true,
+                        controllerAudioEndpointAvailable: false,
+                        _ => true,
+                        processLoopbackSupported: false);
+
+                Assert.IsFalse(result.Valid, "automatic=" + automatic);
+                StringAssert.Contains(result.Message, "Windows 11");
+            }
         }
 
         private static AudioHapticsProfileSettings EndpointSettings(

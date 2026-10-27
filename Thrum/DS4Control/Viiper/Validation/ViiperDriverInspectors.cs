@@ -535,9 +535,11 @@ namespace DS4Windows
             IntPtr fileInfoPtr = Marshal.AllocHGlobal(
                 Marshal.SizeOf<WINTRUST_FILE_INFO>());
             IntPtr dataPtr = IntPtr.Zero;
+            bool fileInfoMarshalled = false;
             try
             {
                 Marshal.StructureToPtr(fileInfo, fileInfoPtr, false);
+                fileInfoMarshalled = true;
 
                 var data = new WINTRUST_DATA
                 {
@@ -591,7 +593,16 @@ namespace DS4Windows
                 }
 
                 if (fileInfoPtr != IntPtr.Zero)
+                {
+                    // Frees the native copy of the path string the marshaller
+                    // allocated; FreeHGlobal alone leaked it on every check.
+                    if (fileInfoMarshalled)
+                    {
+                        Marshal.DestroyStructure<WINTRUST_FILE_INFO>(fileInfoPtr);
+                    }
+
                     Marshal.FreeHGlobal(fileInfoPtr);
+                }
             }
         }
 

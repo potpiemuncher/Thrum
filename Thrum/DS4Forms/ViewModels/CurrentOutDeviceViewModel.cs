@@ -484,6 +484,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             BoundInputChanged?.Invoke(this, EventArgs.Empty);
             XInputSlotNumChanged?.Invoke(this, EventArgs.Empty);
             DisplayXInputSlotNumChanged?.Invoke(this, EventArgs.Empty);
+            InputSlotNumChanged?.Invoke(this, EventArgs.Empty);
             InputSlotDisplayStringChanged?.Invoke(this, EventArgs.Empty);
             Dirty = false;
         }

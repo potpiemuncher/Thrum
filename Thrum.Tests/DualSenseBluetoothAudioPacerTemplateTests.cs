@@ -262,6 +262,21 @@ namespace DS4Windows.Tests
         }
 
         [TestMethod]
+        public void HeadsetAudioIsPacedLikeSpeakerAudio()
+        {
+            byte[] headset = CreateReport(0x52);
+            headset[142] = 0x96;
+
+            Assert.IsTrue(
+                DualSenseBluetoothAudioPacer.IsSpeakerAudioReport(headset),
+                "Headset-only audio (0x96) must go through the paced audio lane.");
+            Assert.IsFalse(
+                DualSenseBluetoothAudioPacer.CanPresentFromPrimeGate(
+                    primeRequired: true, speakerReportCount: 0,
+                    nextReport: headset));
+        }
+
+        [TestMethod]
         public void SpeakerAudioStillRequiresCompletePrimeReservoir()
         {
             byte[] speaker = CreateReport(0x52);

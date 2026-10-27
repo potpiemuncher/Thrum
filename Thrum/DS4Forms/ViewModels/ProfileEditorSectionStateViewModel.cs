@@ -14,8 +14,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
     public sealed class ProfileEditorSectionSnapshot
     {
         private static readonly XmlSerializer ProfileSerializer =
-            new XmlSerializer(typeof(ProfileDTO),
-                ProfileDTO.GetAttributeOverrides());
+            ProfileDTO.SharedSerializer;
 
         private static readonly string[] AxisElements =
         {

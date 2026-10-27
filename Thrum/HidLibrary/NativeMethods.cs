@@ -54,6 +54,8 @@ namespace DS4Windows
         internal const int INVALID_HANDLE_VALUE = -1;
         internal const short OPEN_EXISTING = 3;
         internal const int WAIT_TIMEOUT = 0x102;
+        // OVERLAPPED.Internal while the kernel still owns the request.
+        internal const int STATUS_PENDING = 0x103;
         internal const uint WAIT_OBJECT_0 = 0;
         internal const uint WAIT_FAILED = 0xffffffff;
 

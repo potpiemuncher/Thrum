@@ -106,6 +106,9 @@ namespace DS4WinWPF
 
                         break;
 
+                    // Used to run the elevated logon task. That startup
+                    // mode was removed; the flag is still accepted so an old
+                    // shortcut starts the app normally.
                     case "runtask":
                     case "-runtask":
                         runtask = true;

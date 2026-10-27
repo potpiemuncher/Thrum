@@ -11,7 +11,7 @@ jobs:
   action:
     runs-on: ubuntu-latest
     steps:
-      - uses: dessant/support-requests@v2
+      - uses: dessant/support-requests@v5
         with:
           github-token: ${{ github.token }}
           support-label: 'fix-shipped'
@@ -19,5 +19,6 @@ jobs:
             This issues' topic has been resolved and an update has been published. 
             Please check out the Releases page for a new version.
           close-issue: true
+          issue-close-reason: 'completed'
           lock-issue: false
           issue-lock-reason: 'off-topic'

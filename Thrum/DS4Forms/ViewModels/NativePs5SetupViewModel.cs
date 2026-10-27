@@ -210,7 +210,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 "Games see a " + inputs.NativeDeviceName,
                 currentStep == TurnOnStep, inputs.IsOn, false),
             new NativePs5SetupRailStep(HapticsStep, StepTitle(HapticsStep),
-                "Optional", currentStep == HapticsStep,
+                "On by default", currentStep == HapticsStep,
                 inputs.AudioEndpointsAllowed, true),
         };
 
@@ -323,17 +323,24 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public string GamesSeeOn => inputs.NativeDeviceName + " (virtual)";
 
-        public string Step3HapticsNote => inputs.IsWireless
-            ? "Haptics already work over Bluetooth with Audio Haptics on. " +
-              "Step 4 is only for USB, and it is experimental."
-            : "On USB, Audio Haptics needs the optional step 4, which is " +
-              "experimental.";
+        /// <summary>
+        /// With the endpoints on (the default) it also says what Windows does
+        /// when they appear, which the user would otherwise only find in step 4.
+        /// </summary>
+        public string Step3HapticsNote => inputs.AudioEndpointsAllowed
+            ? "Games drive the pad's haptics and speaker through the virtual " +
+              "pad " + (inputs.IsWireless ? "over Bluetooth" : "over USB") +
+              " (step 4, on by default). When it connects, Windows may make " +
+              "it your default speaker and microphone; if game sound moves " +
+              "to the controller, set your usual devices back in Sound settings."
+            : inputs.IsWireless
+                ? "Haptics work over Bluetooth with Audio Haptics on. Step 4 " +
+                  "turns on game haptics through the virtual pad."
+                : "On USB, game haptics need step 4.";
 
         // ---- step 4 ----
 
         public string Step4Title => "Haptics over the virtual pad";
-
-        public string Step4Badge => "Experimental, unverified";
 
         public string Step4Intro =>
             "Lets games drive the pad's own haptics and speaker through the " +
@@ -341,7 +348,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             "straight into a PS5 or PC is driven. Without it, games get " +
             "adaptive triggers and rumble-style haptics only, and Audio " +
             "Haptics can still add haptics from system audio over Bluetooth. " +
-            "This needs the virtual audio endpoints consent below.";
+            "It uses the virtual audio and microphone endpoints, which are on " +
+            "by default.";
 
         public bool AudioEndpointsAllowed => inputs.AudioEndpointsAllowed;
 
@@ -349,8 +357,9 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             "Allow virtual audio and microphone endpoints";
 
         public string AudioConsentNote =>
-            "Off by default. Ticking it opens the risk disclosure every " +
-            "time; it is saved only after you accept there.";
+            "On by default. Untick to stop games reaching the pad's haptics " +
+            "and speaker through the virtual pad; applies to the next " +
+            "connection.";
 
         public string AudioClassSummary =>
             ViiperExperimentalDisclosure.AudioClassSummary;
@@ -437,7 +446,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 : "Nothing is pre-checked. Tick the box to continue.",
             TurnOnStep => inputs.IsOn ? string.Empty
                 : "Applies to profile " + inputs.ProfileName + ".",
-            _ => "Optional. Leave the box off to keep Bluetooth haptics only.",
+            _ => "On by default. Untick the box to keep Bluetooth haptics only.",
         };
 
         /// <summary>

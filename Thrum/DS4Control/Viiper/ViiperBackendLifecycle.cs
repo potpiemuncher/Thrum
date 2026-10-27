@@ -32,15 +32,20 @@ namespace DS4Windows
     /// How the managed VIIPER backend is launched.
     ///
     /// <para>The command line lives here, on its own, because one of its
-    /// arguments is a security control rather than a preference. hbashton's
-    /// VIIPER fork still points its built-in updater at the upstream project it
-    /// was forked from (<c>internal/updater/updater.go</c> queries
-    /// <c>api.github.com/repos/Alia5/VIIPER</c>), whose version line is
-    /// permanently ahead of the fork's own. The check therefore reports an
-    /// update every time, forever, and accepting it runs a remote install
-    /// script through an <b>elevated</b> PowerShell with no pinned digest and
-    /// no Authenticode check — a script that also installs the usbip-win2
-    /// kernel driver, entirely outside this application's driver gate.</para>
+    /// arguments is a security control rather than a preference. The pinned
+    /// hbashton/VIIPER build (<see cref="ViiperInstallerPins.ViiperBackend"/>)
+    /// has a built-in updater that queries the fork's own releases,
+    /// <c>api.github.com/repos/hbashton/VIIPER/releases/latest</c>; the
+    /// executable contains no other GitHub API URL (checked against the pinned
+    /// digest, 2026-10-23; earlier notes saying it polled
+    /// <c>Alia5/VIIPER</c> do not describe this build). So an update is offered
+    /// as soon as the fork publishes a release newer than the pinned one, and
+    /// accepting it runs the fork's <c>main</c>-branch
+    /// <c>scripts/install.ps1</c> through an <b>elevated</b> PowerShell
+    /// (<c>iwr | iex</c>, <c>-Verb RunAs</c>) with no pinned digest and no
+    /// Authenticode check — a script that also installs the usbip-win2 kernel
+    /// driver, entirely outside this application's driver gate, and replaces
+    /// the backend with a build this application has not pinned.</para>
     ///
     /// <para>So a backend we start is always started with update notifications
     /// off. Version and update policy for the backend belong to this
@@ -75,10 +80,24 @@ namespace DS4Windows
         public const string UpdateNotifyEnvironmentVariable = "VIIPER_UPDATE_NOTIFY";
 
         /// <summary>
-        /// The exact argument vector used to start the backend, in order.
+        /// Loopback-only listen addresses for the server subcommand. Without
+        /// them the backend listened on every interface: USB-IP (no
+        /// authentication, and it carries the virtual pad's input, speaker and
+        /// microphone) and the API were reachable from the network once the
+        /// firewall prompt was answered with Allow, and the prompt itself
+        /// appeared on the backend's first start. Thrum and usbip-win2 attach
+        /// over 127.0.0.1 (checked on hardware, 2026-10-18).
+        /// </summary>
+        public const string UsbListenFlag = "--usb.addr=127.0.0.1:3241";
+        public const string ApiListenFlag = "--api.addr=127.0.0.1:3242";
+
+        /// <summary>
+        /// The exact argument vector used to start the backend, in order. The
+        /// setup script starts its verification backend from this same list.
         /// </summary>
         public static IReadOnlyList<string> ServerArguments { get; } =
-            new[] { UpdateNotifyFlag, UpdateNotifyDisabled, ServerCommand };
+            new[] { UpdateNotifyFlag, UpdateNotifyDisabled, ServerCommand,
+                UsbListenFlag, ApiListenFlag };
 
         /// <summary>
         /// Builds the start info for <c>viiper.exe server</c>.

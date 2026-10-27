@@ -22,21 +22,34 @@
       * Support triage - "which upstream fix is in this build" is otherwise
         unanswerable from the binary alone.
 
-    Note for the release workflow: release.yml reads AssemblyVersion and Version
-    out of this file by XPath. If either element is renamed or moved, that step
-    has to move with it.
+    Note for the release workflow: release.yml reads AssemblyVersion, Version
+    and InformationalVersion out of this file by XPath, and keeps the
+    "(base: ...)" part of InformationalVersion after the release's own version.
+    If any of these elements is renamed or moved, that step has to move with it.
   -->
 
   <PropertyGroup>
-    <Version>0.9.0-beta.2</Version>
+    <Version>0.9.0-beta.3</Version>
     <!-- Win32 binary version fields cannot carry a prerelease suffix; they are
          the numeric core of the same version. -->
     <AssemblyVersion>0.9.0.0</AssemblyVersion>
     <FileVersion>0.9.0.0</FileVersion>
-    <InformationalVersion>0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)</InformationalVersion>
+    <InformationalVersion>0.9.0-beta.3 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)</InformationalVersion>
     <!-- Without this the SDK appends "+<commit sha>" to InformationalVersion,
          which would land inside the parenthetical above. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <!--
+    Zero-warning gate. GitHub Actions sets CI=true, so any compiler, analyzer,
+    MSBuild or NuGet warning (including a newly published vulnerability in a
+    dependency) fails the CI and release builds instead of shipping quietly.
+    Local builds still report warnings without failing, so a work-in-progress
+    change is not blocked on its first compile.
+  -->
+  <PropertyGroup Condition="'$(CI)' == 'true'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
   </PropertyGroup>
 
 </Project>

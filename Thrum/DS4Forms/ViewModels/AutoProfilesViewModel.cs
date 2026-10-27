@@ -67,6 +67,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public event CurrentItemChangeHandler CurrentItemChange;
 
         public event EventHandler SearchFinished;
+        public event EventHandler<string> ScanProblem;
         public delegate void AutoProfileStateHandler(AutoProfilesViewModel sender, bool state);
         public event AutoProfileStateHandler AutoProfileSystemChange;
 
@@ -142,53 +143,77 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             AutoProfileSystemChange?.Invoke(this, true);
         }
 
-        public async void AddProgramsFromStartMenu()
+        public void AddProgramsFromStartMenu()
         {
-            AutoProfileSystemChange?.Invoke(this, false);
-            await Task.Run(() =>
+            RunScan(() =>
             {
                 AddFromStartMenu(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu) + "\\Programs");
             });
-
-            SearchFinished?.Invoke(this, EventArgs.Empty);
-            AutoProfileSystemChange?.Invoke(this, true);
         }
 
-        public async void AddProgramsFromSteam(string location)
+        public void AddProgramsFromSteam(string location)
         {
-            AutoProfileSystemChange?.Invoke(this, false);
-            await Task.Run(() =>
+            RunScan(() =>
             {
                 AddAppsFromLocation(location);
             });
-
-            SearchFinished?.Invoke(this, EventArgs.Empty);
-            AutoProfileSystemChange?.Invoke(this, true);
         }
 
-        public async void AddProgramsFromDir(string location)
+        public void AddProgramsFromDir(string location)
         {
-            AutoProfileSystemChange?.Invoke(this, false);
-            await Task.Run(() =>
+            RunScan(() =>
             {
                 AddAppsFromLocation(location);
             });
-
-            SearchFinished?.Invoke(this, EventArgs.Empty);
-            AutoProfileSystemChange?.Invoke(this, true);
         }
 
-        public async void AddProgramExeLocation(string location)
+        public void AddProgramExeLocation(string location)
         {
-            AutoProfileSystemChange?.Invoke(this, false);
-            await Task.Run(() =>
+            RunScan(() =>
             {
                 AddAppExeLocation(location);
             });
-
-            SearchFinished?.Invoke(this, EventArgs.Empty);
-            AutoProfileSystemChange?.Invoke(this, true);
         }
+
+        // An exception here used to escape the async void method onto the
+        // dispatcher and close the app, and SearchFinished never fired, so the
+        // page stayed disabled. Folders below the chosen one that cannot be
+        // read are skipped by ScanOptions; this catches the chosen folder
+        // itself being unreadable or gone (removed drive, offline share).
+        private async void RunScan(Action scan)
+        {
+            AutoProfileSystemChange?.Invoke(this, false);
+            try
+            {
+                await Task.Run(scan);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException ||
+                ex is ArgumentException || ex is SecurityException)
+            {
+                AppLogger.LogToGui($"Auto Profiles could not finish looking for programs: {ex.Message}", true);
+                ScanProblem?.Invoke(this,
+                    "Thrum could not read everything it was asked to look through, so some programs " +
+                    "may be missing from the list. For a folder, try a more specific one, such as " +
+                    "the folder your games are installed in.");
+            }
+            finally
+            {
+                SearchFinished?.Invoke(this, EventArgs.Empty);
+                AutoProfileSystemChange?.Invoke(this, true);
+            }
+        }
+
+        // Directory.GetFiles(..., SearchOption.AllDirectories) stops with an
+        // exception at the first folder it cannot list, such as
+        // C:\Program Files\WindowsApps or a drive's System Volume Information.
+        // These are the same options with unreadable folders skipped.
+        private static readonly EnumerationOptions ScanOptions = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = 0,
+            MatchType = MatchType.Win32,
+        };
 
         public void AddWindowTitleRule()
         {
@@ -201,8 +226,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         private void AddFromStartMenu(string path)
         {
             List<string> lnkpaths = new List<string>();
-            lnkpaths.AddRange(Directory.GetFiles(path, "*.lnk", SearchOption.AllDirectories));
-            lnkpaths.AddRange(Directory.GetFiles(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu) + "\\Programs", "*.lnk", SearchOption.AllDirectories));
+            lnkpaths.AddRange(Directory.EnumerateFiles(path, "*.lnk", ScanOptions));
+            lnkpaths.AddRange(Directory.EnumerateFiles(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu) + "\\Programs", "*.lnk", ScanOptions));
             List<string> exepaths = new List<string>();
             foreach(string link in lnkpaths)
             {
@@ -216,7 +241,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         private void AddAppsFromLocation(string path)
         {
             List<string> exepaths = new List<string>();
-            exepaths.AddRange(Directory.GetFiles(path, "*.exe", SearchOption.AllDirectories));
+            exepaths.AddRange(Directory.EnumerateFiles(path, "*.exe", ScanOptions));
             ScanApps(exepaths);
         }
 
@@ -245,7 +270,12 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     }
                     */
 
-                    programColl.Add(item);
+                    // Scans run on a worker thread; the collection is
+                    // synchronized with the UI through this lock.
+                    lock (_colLockobj)
+                    {
+                        programColl.Add(item);
+                    }
                     existingapps.Add(target);
                 }
             }

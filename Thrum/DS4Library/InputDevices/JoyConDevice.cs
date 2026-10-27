@@ -592,9 +592,13 @@ namespace DS4Windows.InputDevices
             {
                 SetOperational();
             }
-            catch (System.IO.IOException)
+            catch (Exception ex)
             {
-                AppLogger.LogToGui($"Controller {MacAddress} failed to initialize. Closing device", true);
+                // Not only IOException: a setup write that fails returns no reply
+                // and the calibration parse then throws NullReference or
+                // IndexOutOfRange. That escaped HotPlug and left a slot holding a
+                // controller with no input thread until the service restarted.
+                AppLogger.LogToGui($"Controller {MacAddress} failed to initialize ({ex.GetType().Name}: {ex.Message}). Closing device", true);
             }
 
             if (!connectionOpened)
@@ -723,6 +727,14 @@ namespace DS4Windows.InputDevices
                     else
                     {
                         readWaitEv.Reset();
+                        if (exitInputThread)
+                        {
+                            // StopUpdate cancelled the read: a service stop, not a
+                            // disconnect. It used to run the full removal and tell
+                            // the user the controller was lost on every Stop.
+                            break;
+                        }
+
                         exitInputThread = true;
                         isDisconnecting = true;
                         Removal?.Invoke(this, EventArgs.Empty);

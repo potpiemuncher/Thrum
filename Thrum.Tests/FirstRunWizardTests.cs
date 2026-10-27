@@ -107,6 +107,31 @@ namespace DS4WindowsTests
         }
 
         [TestMethod]
+        public void ExistingSettingsAreNotReplacedByTheDefaultStub()
+        {
+            // The wizard also runs when only Auto Profiles.xml is missing.
+            var operations = new FakeDataLocationOperations();
+            operations.ExistingFiles.Add(Path.Combine(operations.AppDataPath,
+                "Profiles.xml"));
+            operations.ExistingFiles.Add(Path.Combine(
+                operations.ExeDirectoryPath, "Profiles.xml"));
+            var router = new FirstRunDataLocationRouter(operations);
+
+            router.Apply(FirstRunDataLocation.AppData,
+                multipleSaveSpots: false, keepExistingSettings: false);
+            router.Apply(FirstRunDataLocation.Portable,
+                multipleSaveSpots: false, keepExistingSettings: false);
+
+            Assert.IsFalse(operations.Events.Any(item =>
+                item.StartsWith("save-default:", StringComparison.Ordinal)),
+                "An existing Profiles.xml must not be overwritten.");
+            CollectionAssert.Contains(operations.Events,
+                "save-where:" + operations.AppDataPath);
+            CollectionAssert.Contains(operations.Events,
+                "save-where:" + operations.ExeDirectoryPath);
+        }
+
+        [TestMethod]
         public void MultiLocationAppDataUsesSaveWhereCleanupOrder()
         {
             var operations = new FakeDataLocationOperations();
@@ -134,6 +159,9 @@ namespace DS4WindowsTests
             public string ExeDirectoryPath => "C:\\Thrum";
             public bool NeedsAdministrator { get; set; }
             public List<string> Events { get; } = new();
+            public HashSet<string> ExistingFiles { get; } = new();
+
+            public bool FileExists(string path) => ExistingFiles.Contains(path);
 
             public bool AdminNeeded()
             {
@@ -377,6 +405,76 @@ namespace DS4WindowsTests
             }, effects.Events.TakeLast(2).ToArray());
         }
 
+        [TestMethod]
+        public void BackendStepAsksForTheDriverConsentAndOnlyATickRecordsIt()
+        {
+            var effects = new FakeWizardEffects();
+            var wizard = new FirstRunWizardViewModel(effects,
+                appDataConfigPristine: true);
+
+            wizard.Advance();
+            wizard.Advance();
+            wizard.Advance();
+            var backend = (FirstRunBackendStepViewModel)wizard.CurrentStep;
+
+            Assert.IsFalse(backend.Acknowledged, "The box must start unticked.");
+            Assert.AreEqual(ViiperExperimentalDisclosure.AcknowledgementBody,
+                backend.AcknowledgementBody, "The notice is shown in full, not paraphrased.");
+            Assert.IsTrue(backend.CanAdvance, "Consent is optional; setup can continue without it.");
+            Assert.IsFalse(effects.Events.Any(e => e.StartsWith("consent:")));
+
+            backend.Acknowledged = true;
+            backend.Acknowledged = true;
+            backend.Acknowledged = false;
+
+            CollectionAssert.AreEqual(new[] { "consent:True", "consent:False" },
+                effects.Events.Where(e => e.StartsWith("consent:")).ToArray());
+        }
+
+        [TestMethod]
+        public void AnInstalledBackendIsNotReportedAsBroken()
+        {
+            var effects = new FakeWizardEffects
+            {
+                StatusToReturn = new ViiperPrerequisiteStatus
+                {
+                    ViiperInstalled = true,
+                    UsbipInstalled = true,
+                    ServerRunning = false,
+                },
+            };
+            var wizard = new FirstRunWizardViewModel(effects,
+                appDataConfigPristine: true);
+            wizard.Advance();
+            wizard.Advance();
+            wizard.Advance();
+            var backend = (FirstRunBackendStepViewModel)wizard.CurrentStep;
+            backend.Refresh();
+
+            Assert.AreEqual("VIIPER is installed", backend.StatusText);
+            Assert.AreEqual("Repair VIIPER", backend.SetupButtonText);
+            StringAssert.EndsWith(backend.ComponentText, "The server starts when Thrum starts.");
+        }
+
+        [TestMethod]
+        public void BackendStepOffersHidHideOnlyWhenItIsMissing()
+        {
+            var effects = new FakeWizardEffects();
+            var wizard = new FirstRunWizardViewModel(effects,
+                appDataConfigPristine: true);
+            wizard.Advance();
+            wizard.Advance();
+            wizard.Advance();
+            var backend = (FirstRunBackendStepViewModel)wizard.CurrentStep;
+
+            Assert.IsTrue(backend.ShowHidHideOffer);
+            backend.OpenHidHideDownloadPage();
+            CollectionAssert.Contains(effects.Events, "hidhide-page");
+
+            effects.HidHideInstalled = true;
+            Assert.IsFalse(backend.ShowHidHideOffer);
+        }
+
         private static void AssertStep(FirstRunWizardViewModel wizard,
             FirstRunStepKind expected) =>
             Assert.AreEqual(expected, wizard.CurrentStepKind);
@@ -445,11 +543,13 @@ namespace DS4WindowsTests
                 Events.Add("save");
             }
 
+            public ViiperPrerequisiteStatus StatusToReturn { get; set; } = new();
+
             public ViiperPrerequisiteStatus ReadViiperStatus(
                 bool refreshDriver)
             {
                 Events.Add("read-viiper:" + refreshDriver);
-                return new ViiperPrerequisiteStatus();
+                return StatusToReturn;
             }
 
             public bool LaunchViiperInstaller(
@@ -458,6 +558,19 @@ namespace DS4WindowsTests
                 Events.Add("launch-viiper");
                 return true;
             }
+
+            public bool ViiperExperimentalAcknowledged { get; private set; }
+
+            public void RecordViiperExperimentalAcknowledgement(
+                bool acknowledged)
+            {
+                ViiperExperimentalAcknowledged = acknowledged;
+                Events.Add("consent:" + acknowledged);
+            }
+
+            public bool HidHideInstalled { get; set; }
+
+            public void OpenHidHideDownloadPage() => Events.Add("hidhide-page");
         }
     }
 

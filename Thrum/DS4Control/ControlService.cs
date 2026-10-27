@@ -53,8 +53,46 @@ namespace DS4Windows
         private readonly GameBarIntegration gameBarIntegration = new GameBarIntegration();
         private readonly object hidHideSessionLock = new object();
         private readonly HashSet<string> hidHideSessionManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Device paths whose exclusive open failed during the last scan, and
+        // the controllers already announced in the tray this session.
+        private readonly object exclusiveRefusalLock = new object();
+        private readonly HashSet<string> exclusiveOpenRefusedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> exclusiveRefusalTrayShown = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> hidHidePersistentManagedInstanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool? hidHideActiveStateBeforeManagedSession;
+        private HidHideOwnershipRecord hidHideOwnership;
+
+        /// <summary>The on-disk record of HidHide entries Thrum added. Call
+        /// under <see cref="hidHideSessionLock"/>.</summary>
+        private HidHideOwnershipRecord HidHideOwnershipLocked()
+        {
+            if (hidHideOwnership == null)
+            {
+                hidHideOwnership = HidHideOwnershipRecord.Load(Global.appdatapath);
+                // Cloaking an earlier session turned on and could not turn off
+                // again (crash, forced exit) is put back at the next Stop.
+                if (hidHideOwnership.CloakingBefore.HasValue)
+                {
+                    hidHideActiveStateBeforeManagedSession ??=
+                        hidHideOwnership.CloakingBefore;
+                }
+            }
+
+            return hidHideOwnership;
+        }
+
+        /// <summary>
+        /// Whether an entry already in HidHide's hidden-device list is Thrum's.
+        /// Entries this build recorded are; with no record yet (an older build
+        /// added it, and kept no record) it is treated as Thrum's once, as
+        /// before. Anything else was added by the user and is left alone.
+        /// Call under <see cref="hidHideSessionLock"/>.
+        /// </summary>
+        private bool HidHideEntryIsOursLocked(string instanceId)
+        {
+            HidHideOwnershipRecord record = HidHideOwnershipLocked();
+            return record.OwnsHiddenDevice(instanceId) || !record.Existed;
+        }
         // Might be useful for ScpVBus build
         public const int EXPANDED_CONTROLLER_COUNT = 8;
         public const int MAX_DS4_CONTROLLER_COUNT = Global.MAX_DS4_CONTROLLER_COUNT;
@@ -246,7 +284,7 @@ namespace DS4Windows
             //outputslotMan.SlotAssigned += OutputslotMan_SlotAssigned;
             deviceOptions = Global.DeviceOptions;
 
-            DS4Devices.RequestElevation += DS4Devices_RequestElevation;
+            DS4Devices.ExclusiveOpenRefused += DS4Devices_ExclusiveOpenRefused;
             DS4Devices.PrepareDS4Init = PrepareDS4DeviceInit;
             DS4Devices.PostDS4Init = PostDS4DeviceInit;
             DS4Devices.PreparePendingDevice = CheckForSupportedDevice;
@@ -303,7 +341,7 @@ namespace DS4Windows
         {
             oscCallback = delegate (OscPacket packet)
             {
-                var messageReceived = (OscMessage)packet;
+                var messageReceived = packet as OscMessage;
 
                 // If typecase fails, exit
                 if (messageReceived == null)
@@ -357,13 +395,13 @@ namespace DS4Windows
 
                 if (command[3] == "battery")
                 {
-                    if (!isUsingOSCSender())
+                    if (!isUsingOSCSender() || oscSender == null)
                     {
                         AppLogger.LogToGui("Battery level requested, but the OSC Sender isn't active. Turn it on in Settings.", false);
                     }
                     else
                     {
-                        oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + stateInd + "/battery", oscState[stateInd].Battery));
+                        SendOsc(new SharpOSC.OscMessage("/ds4windows/monitor/" + stateInd + "/battery", oscState[stateInd].Battery));
                     }
                     return;
                 }
@@ -607,8 +645,10 @@ namespace DS4Windows
             {
                 stickMouseFakerInputMissingNoticeShown = true;
                 string helpURL = "https://github.com/Ryochan7/FakerInput/";
+                // Log line only. The tray toast that accompanied it returned on
+                // every launch (the "shown" flag is per session), which is a
+                // toast on a normal launch for an optional driver.
                 LogDebug($"Stick mouse profile detected, but FakerInput is not installed. Install FakerInput to expose a persistent virtual mouse and avoid hidden cursor behavior on couch/TV setups: {helpURL}");
-                AppLogger.LogToTray("Stick mouse works best with FakerInput installed for a persistent virtual mouse.");
             }
         }
 
@@ -748,36 +788,23 @@ namespace DS4Windows
             outputslotMan.ShutDown();
             OutputSlotPersist.WriteConfig(outputslotMan);
 
-            eventDispatcher.InvokeShutdown();
+            // Tolerates a second call (the app's shutdown path can reach this twice).
+            eventDispatcher?.InvokeShutdown();
             eventDispatcher = null;
 
-            eventDispatchThread.Join();
+            eventDispatchThread?.Join();
             eventDispatchThread = null;
         }
 
-        private void DS4Devices_RequestElevation(RequestElevationArgs args)
+        private void DS4Devices_ExclusiveOpenRefused(string devicePath)
         {
-            // Launches an elevated child process to re-enable device
-            ProcessStartInfo startInfo =
-                new ProcessStartInfo(Global.exelocation);
-            startInfo.Verb = "runas";
-            startInfo.Arguments = "re-enabledevice " + args.InstanceId;
-            startInfo.UseShellExecute = true;
-
-            try
+            // Called during the device scan. The device is opened in shared
+            // mode; the warning is given once it is known which controller it
+            // is and whether HidHide hides it anyway.
+            lock (exclusiveRefusalLock)
             {
-                Process child = Process.Start(startInfo);
-                if (!child.WaitForExit(30000))
-                {
-                    child.Kill();
-                }
-                else
-                {
-                    args.StatusCode = child.ExitCode;
-                }
-                child.Dispose();
+                exclusiveOpenRefusedPaths.Add(devicePath);
             }
-            catch { }
         }
 
         public void CheckHidHidePresence(string ExePath = "", string ExeName = "Autoprofile Exe", bool AddExe = true) // Default value for D4W Startup
@@ -836,17 +863,46 @@ namespace DS4Windows
                     // treat it as an absolute path and only return path2
                     string realPath = Path.Combine(dosDrivePath, partial.TrimStart('\\'));
                     bool exists = dosPaths.Contains(realPath);
+                    bool ownExe = string.Equals(ExePath, Global.exelocation,
+                        StringComparison.OrdinalIgnoreCase);
                     if (!exists && AddExe)
                     {
                         LogDebug($"{ExeName} not found in HidHide whitelist. Adding to list");
                         dosPaths.Add(realPath);
-                        hidHideDevice.SetWhitelist(dosPaths);
+                        if (hidHideDevice.SetWhitelist(dosPaths) && !ownExe)
+                        {
+                            lock (hidHideSessionLock)
+                            {
+                                HidHideOwnershipLocked().AddAllowedApplication(realPath);
+                            }
+                        }
                     }
                     if (exists && !AddExe)
                     {
-                        LogDebug($"{ExeName} found in HidHide whitelist. Removing from list");
-                        dosPaths.Remove(realPath);
-                        hidHideDevice.SetWhitelist(dosPaths);
+                        bool ours;
+                        lock (hidHideSessionLock)
+                        {
+                            ours = HidHideOwnershipLocked().OwnsAllowedApplication(realPath);
+                        }
+
+                        if (!ours)
+                        {
+                            // Allowed by the user in the HidHide client (for example
+                            // Steam). Saving an auto profile used to remove it.
+                            StartupDiag($"{ExeName} is allowed in HidHide by the user; left as is");
+                        }
+                        else
+                        {
+                            LogDebug($"{ExeName} found in HidHide whitelist. Removing from list");
+                            dosPaths.Remove(realPath);
+                            if (hidHideDevice.SetWhitelist(dosPaths))
+                            {
+                                lock (hidHideSessionLock)
+                                {
+                                    HidHideOwnershipLocked().RemoveAllowedApplication(realPath);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -970,6 +1026,7 @@ namespace DS4Windows
             bool alreadyManaged;
             lock (hidHideSessionLock)
             {
+                HidHideOwnershipLocked();
                 alreadyManaged = hidHideSessionManagedInstanceIds.Contains(instanceId) ||
                     hidHidePersistentManagedInstanceIds.Contains(instanceId);
             }
@@ -992,6 +1049,11 @@ namespace DS4Windows
                         {
                             StartupDiag($"HidHide failed to enable cloaking for {dev.DisplayName} ({instanceId})");
                             return false;
+                        }
+
+                        lock (hidHideSessionLock)
+                        {
+                            HidHideOwnershipLocked().SetCloakingBefore(false);
                         }
                     }
 
@@ -1032,7 +1094,17 @@ namespace DS4Windows
 
             lock (hidHideSessionLock)
             {
+                if (!HidHideEntryIsOursLocked(instanceId))
+                {
+                    // The user hid it in the HidHide client: it is hidden, and
+                    // stays hidden after Thrum stops. Thrum used to take such an
+                    // entry over and delete it at Stop.
+                    StartupDiag($"HidHide entry for {dev.DisplayName} ({instanceId}) was added outside Thrum; left as is");
+                    return true;
+                }
+
                 hidHidePersistentManagedInstanceIds.Add(instanceId);
+                HidHideOwnershipLocked().AddHiddenDevice(instanceId);
             }
 
             StartupDiag($"HidHide adopted existing blacklist entry for {dev.DisplayName} ({instanceId})");
@@ -1041,7 +1113,15 @@ namespace DS4Windows
 
         private bool EnsurePersistentHidHideBlacklist(HidHideAPIDevice hidHideDevice, string instanceId, DS4Device dev)
         {
-            List<string> instances = hidHideDevice.GetBlacklist()
+            if (!hidHideDevice.TryGetBlacklist(out List<string> current))
+            {
+                // Writing back a list that was not read would drop every other
+                // hidden device.
+                StartupDiag($"HidHide blacklist could not be read; not adding {instanceId}");
+                return false;
+            }
+
+            List<string> instances = current
                 .Where(item => !string.IsNullOrWhiteSpace(item))
                 .ToList();
 
@@ -1049,17 +1129,33 @@ namespace DS4Windows
             {
                 lock (hidHideSessionLock)
                 {
-                    hidHidePersistentManagedInstanceIds.Add(instanceId);
+                    if (HidHideEntryIsOursLocked(instanceId))
+                    {
+                        hidHidePersistentManagedInstanceIds.Add(instanceId);
+                        HidHideOwnershipLocked().AddHiddenDevice(instanceId);
+                    }
                 }
 
                 StartupDiag($"HidHide persistent blacklist already contains {instanceId}");
                 return true;
             }
 
+            // Recorded before the write: if Thrum dies right after it, the next
+            // session knows the entry is its own and releases it.
+            lock (hidHideSessionLock)
+            {
+                HidHideOwnershipLocked().AddHiddenDevice(instanceId);
+            }
+
             instances.Add(instanceId);
             if (!hidHideDevice.SetBlacklist(instances))
             {
                 StartupDiag($"HidHide persistent blacklist fallback failed for {dev.DisplayName} ({instanceId})");
+                lock (hidHideSessionLock)
+                {
+                    HidHideOwnershipLocked().RemoveHiddenDevices(new[] { instanceId });
+                }
+
                 return false;
             }
 
@@ -1082,7 +1178,12 @@ namespace DS4Windows
             lock (hidHideSessionLock)
             {
                 sessionIds = hidHideSessionManagedInstanceIds.ToList();
-                persistentIds = hidHidePersistentManagedInstanceIds.ToList();
+                // Plus entries an earlier session left (a crash), even for a
+                // controller that has not connected this time.
+                persistentIds = hidHidePersistentManagedInstanceIds
+                    .Union(HidHideOwnershipLocked().HiddenDevices,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 restoreActiveState = hidHideActiveStateBeforeManagedSession;
             }
 
@@ -1108,9 +1209,15 @@ namespace DS4Windows
                     }
 
                     bool persistentReleased = persistentIds.Count == 0;
-                    if (persistentIds.Count > 0)
+                    List<string> current = null;
+                    if (persistentIds.Count > 0 &&
+                        !hidHideDevice.TryGetBlacklist(out current))
                     {
-                        List<string> instances = hidHideDevice.GetBlacklist()
+                        StartupDiag("HidHide blacklist could not be read; cleanup will be retried");
+                    }
+                    else if (persistentIds.Count > 0)
+                    {
+                        List<string> instances = current
                             .Where(item => !string.IsNullOrWhiteSpace(item))
                             .ToList();
 
@@ -1148,6 +1255,12 @@ namespace DS4Windows
                         if (persistentReleased)
                         {
                             hidHidePersistentManagedInstanceIds.ExceptWith(persistentIds);
+                            HidHideOwnershipLocked().RemoveHiddenDevices(persistentIds);
+                        }
+
+                        if (activeStateRestored)
+                        {
+                            HidHideOwnershipLocked().SetCloakingBefore(null);
                         }
 
                         if (activeStateRestored &&
@@ -1185,8 +1298,10 @@ namespace DS4Windows
                 ChangeExclusiveStatus(device);
                 StartupDiag($"HidHide virtual-output containment ready index={index} type={contType}");
             }
-            else if (ViiperOutDevice.IsViiperType(contType))
+            else if (ViiperOutDevice.IsViiperType(contType) && !device.isExclusive())
             {
+                // An exclusive open already hides the pad from games; the
+                // warning used to fire on every connect in that case too.
                 LogDebug($"VIIPER {contType} output is active but the physical {device.DisplayName} could not be hidden with HidHide. Games may detect both the physical controller and the virtual controller.", true);
             }
         }
@@ -1227,7 +1342,14 @@ namespace DS4Windows
                         return;
                     }
 
-                    List<string> blacklist = hidHideDevice.GetBlacklist()
+                    if (!hidHideDevice.TryGetBlacklist(out List<string> current))
+                    {
+                        StartupDiag(
+                            "HidHide blacklist could not be read while exempting a VIIPER virtual Sony output");
+                        return;
+                    }
+
+                    List<string> blacklist = current
                         .Where(item => !string.IsNullOrWhiteSpace(item))
                         .ToList();
                     int removed = blacklist.RemoveAll(item =>
@@ -1247,6 +1369,7 @@ namespace DS4Windows
                     lock (hidHideSessionLock)
                     {
                         hidHidePersistentManagedInstanceIds.ExceptWith(instanceIds);
+                        HidHideOwnershipLocked().RemoveHiddenDevices(instanceIds);
                     }
 
                     StartupDiag(
@@ -1326,11 +1449,28 @@ namespace DS4Windows
         {
             if (state)
             {
-                oscListener = new UDPListener(Global.getOSCServerPortNum(), callback: oscCallback);
+                // The callback runs on SharpOSC's listener thread, so an
+                // exception there ended the whole app: an OSC bundle failed the
+                // cast, and a short address, a missing argument or an
+                // out-of-range controller number indexed past an array -
+                // anything on the network can send those. An unreadable packet
+                // is now dropped and reported once per session. A port that is
+                // already taken no longer aborts the controller service start.
+                try
+                {
+                    oscListener = new UDPListener(Global.getOSCServerPortNum(),
+                        callback: GuardedOscCallback);
+                }
+                catch (Exception e)
+                {
+                    oscListener = null;
+                    AppLogger.LogToGui($"The OSC server could not start on port {Global.getOSCServerPortNum()}: {e.Message}", true);
+                    return;
+                }
 
                 AppLogger.LogToGui("OSC LISTENER STARTED AT PORT: " + Global.getOSCServerPortNum(), false);
             }
-            else
+            else if (oscListener != null)
             {
                 oscListener.Close();
                 oscListener = null;
@@ -1338,19 +1478,79 @@ namespace DS4Windows
             }
         }
 
+        private int oscUnreadablePacketLogged;
+
+        private void GuardedOscCallback(OscPacket packet)
+        {
+            try
+            {
+                oscCallback(packet);
+            }
+            catch (Exception e)
+            {
+                if (Interlocked.Exchange(ref oscUnreadablePacketLogged, 1) == 0)
+                {
+                    AppLogger.LogToGui("Ignored an OSC message that could not be read: " + e.Message, false);
+                }
+            }
+        }
+
         public void ChangeOSCSenderStatus(bool state)
         {
             if (state)
             {
+                // A bad address or port used to throw out of ControlService.Start
+                // and leave the Start/Stop button disabled.
+                try
+                {
+                    oscSender = new UDPSender(Global.getOSCSenderAddress(), Global.getOSCSenderPortNum());
+                }
+                catch (Exception e)
+                {
+                    oscSender = null;
+                    AppLogger.LogToGui($"The OSC sender could not start for {Global.getOSCSenderAddress()} port {Global.getOSCSenderPortNum()}: {e.Message}", true);
+                    return;
+                }
+
                 AppLogger.LogToGui("OSC SENDER STARTED AT IP: " + Global.getOSCSenderAddress() + " PORT: " + Global.getOSCSenderPortNum(), false);
-                oscSender = new UDPSender(Global.getOSCSenderAddress(), Global.getOSCSenderPortNum());
             }
             else
             {
                 AppLogger.LogToGui("OSC SENDER STOPPED", false);
-                if (oscSender == null) { return; }
-                oscSender.Close();
+                // Clear the field first: controller input threads send through it.
+                UDPSender sender = oscSender;
                 oscSender = null;
+                sender?.Close();
+            }
+        }
+
+        private int oscSendFailureLogged;
+
+        /// <summary>
+        /// Sends from controller input threads. A sender closed by the Settings
+        /// switch mid-report, or a network error to a LAN target (Wi-Fi drop),
+        /// used to throw on the input thread and end the process.
+        /// </summary>
+        private void SendOsc(OscMessage message)
+        {
+            UDPSender sender = oscSender;
+            if (sender == null)
+            {
+                return;
+            }
+
+            try
+            {
+                sender.Send(message);
+            }
+            catch (Exception ex) when (ex is System.Net.Sockets.SocketException ||
+                ex is ObjectDisposedException || ex is NullReferenceException ||
+                ex is InvalidOperationException)
+            {
+                if (Interlocked.Exchange(ref oscSendFailureLogged, 1) == 0)
+                {
+                    AppLogger.LogToGui($"OSC send to {Global.getOSCSenderAddress()} failed: {ex.Message}. Later failures are not logged.", true);
+                }
             }
         }
 
@@ -1359,19 +1559,20 @@ namespace DS4Windows
             IEnumerable<DS4Device> devices = DS4Devices.getDS4Controllers();
             if (state)
             {
-                int i = 0;
                 foreach (DS4Device dev in devices)
                 {
-                    int tempIdx = i;
+                    // Bind to the controller's slot, as the connect path does. The
+                    // enumeration position used here pointed at an empty slot when
+                    // slot 1 was free, and the first motion report then threw on
+                    // the controller's input thread.
+                    int slot = dev.DeviceSlotNumber;
                     dev.queueEvent(() =>
                     {
-                        if (i < UdpServer.NUMBER_SLOTS)
+                        if (slot >= 0 && slot < UdpServer.NUMBER_SLOTS)
                         {
-                            PrepareDevUDPMotion(dev, tempIdx);
+                            PrepareDevUDPMotion(dev, slot);
                         }
                     });
-
-                    i++;
                 }
             }
             else
@@ -1438,13 +1639,32 @@ namespace DS4Windows
             changingUDPPort = false;
         }
 
-        private void WarnExclusiveModeFailure(DS4Device device)
+        private void WarnExclusiveModeFailure(DS4Device device, bool hiddenByHidHide)
         {
-            if (DS4Devices.isExclusiveMode && !device.isExclusive())
+            bool firstTrayNotice;
+            lock (exclusiveRefusalLock)
             {
-                string message = DS4WinWPF.Properties.Resources.CouldNotOpenDS4.Replace("*Mac address*", device.getMacAddress()) + " " +
-                    DS4WinWPF.Properties.Resources.QuitOtherPrograms;
-                LogDebug(message, true);
+                // The HID handle's own mode: device.isExclusive() also reads true
+                // once HidHide has hidden the pad (status HidHideAffected, set just
+                // before this runs), which suppressed the warning in exactly the
+                // case where another program still had the pad open.
+                if (!exclusiveOpenRefusedPaths.Remove(device.HidDevice.DevicePath) ||
+                    device.HidDevice.IsExclusive)
+                {
+                    return;
+                }
+
+                firstTrayNotice = exclusiveRefusalTrayShown.Add(device.getMacAddress());
+            }
+
+            string controllerName = $"{device.DisplayName} ({device.getMacAddress()})";
+            IReadOnlyList<string> running = ControllerHolderHint.RunningKnownPrograms();
+            string message = hiddenByHidHide
+                ? ControllerHolderHint.BuildHidHideMessage(controllerName, running)
+                : ControllerHolderHint.BuildMessage(controllerName, running);
+            LogDebug(message, true);
+            if (firstTrayNotice)
+            {
                 AppLogger.LogToTray(message, true);
             }
         }
@@ -1648,13 +1868,17 @@ namespace DS4Windows
                 if (showlog)
                     LogDebug(DS4WinWPF.Properties.Resources.Starting);
 
-                Thread.Sleep(2000);
-
                 bool runningAsAdmin = Global.IsAdministrator();
                 if (Global.outputKBMHandler.GetIdentifier() != FakerInputHandler.IDENTIFIER && !runningAsAdmin)
                 {
-                    string helpURL = @"https://ryochan7.github.io/ds4windows-site/troubleshooting/kb-mouse-issues/#windows-not-responding-to-ds4ws-kb-m-commands-in-some-situations";
-                    LogDebug($"Some applications may block controller inputs. (Windows UAC Conflictions). Please go to {helpURL} for more information and workarounds.");
+                    // Verbose diagnostics only. As a normal log line this
+                    // warned on every start for everyone who is not admin
+                    // (the required setup) and pointed at another product's
+                    // site. The explanation lives in USERGUIDE.md >
+                    // Troubleshooting ("Keyboard or mouse output does not
+                    // reach an app").
+                    StartupDiag("SendInput cannot reach apps running as administrator while " +
+                        ProductInfo.ProductName + " runs without admin rights (Windows UIPI).");
                 }
 
                 LogDebug($"Using output KB+M handler: {Global.outputKBMHandler.GetFullDisplayName()}");
@@ -1662,6 +1886,15 @@ namespace DS4Windows
                 // Probed, not proclaimed: this is the same status the Settings
                 // card reads, so the log cannot claim a backend the UI says is
                 // missing.
+                // DS4Windows paused 2 s here on every start, after connecting
+                // to ViGEmBus; with that gone it only delayed controllers,
+                // including on every restart. The one thing worth waiting for
+                // now is a backend Thrum launched moments ago (at startup),
+                // which virtual outputs plugged below need to be answering.
+                StartupDiag("Viiper recent-start wait begin");
+                bool waitedServerUp = ViiperSetupManager.WaitForRecentlyStartedServer(TimeSpan.FromSeconds(2));
+                StartupDiag($"Viiper recent-start wait end answered={waitedServerUp}");
+
                 StartupDiag("Viiper status probe begin");
                 ViiperPrerequisiteStatus viiperStatus = ViiperSetupManager.GetStatus();
                 StartupDiag($"Viiper status probe end ready={viiperStatus.Ready} helper={viiperStatus.ViiperInstalled} usbip={viiperStatus.UsbipInstalled} server={viiperStatus.ServerRunning}");
@@ -1755,8 +1988,11 @@ namespace DS4Windows
                     // instead: input discovery refuses any pad attached
                     // through the usbip-win2 controller
                     // (UsbipAttachedInputPolicy), which needs no memory of who
-                    // created it.
-                    ViiperUsbipPortManager.ObserveLocalImports();
+                    // created it. Without usbip-win2 there is nothing to
+                    // observe, and querying anyway logged a WARN on every
+                    // start for everyone who never installed it.
+                    if (viiperStatus.UsbipInstalled)
+                        ViiperUsbipPortManager.ObserveLocalImports();
 
                     StartupDiag("DS4Devices.findControllers dispatch begin");
                     eventDispatcher.Invoke(() =>
@@ -1865,7 +2101,9 @@ namespace DS4Windows
             RunningChanged?.Invoke(this, EventArgs.Empty);
             StartupDiag("ControlService.Start after RunningChanged");
             using var process = Process.GetCurrentProcess();
-            process.PriorityClass = MainWindow.ProcessPriorityClasses[Global.ProcessPriority];
+            // Clamped: an out-of-range saved value threw here after the service
+            // had already reported itself started.
+            process.PriorityClass = MainWindow.PriorityForSetting(Global.ProcessPriority);
             StartupDiag($"ControlService.Start exit priority={process.PriorityClass}");
             return true;
         }
@@ -2083,6 +2321,21 @@ namespace DS4Windows
                     Thread.Sleep(OutputSlotManager.DELAY_TIME);
                 }
 
+                // The input threads are stopped by now: release what their
+                // mappings held before the output handler goes away (Stop never
+                // ran the final commit the removal path runs).
+                for (int i = 0; i < MAX_DS4_CONTROLLER_COUNT; i++)
+                {
+                    try
+                    {
+                        Mapping.ReleaseSyntheticState(i);
+                    }
+                    catch (Exception ex)
+                    {
+                        StartupDiag($"ControlService.Stop release synthetic input {i} failed: {ex.Message}");
+                    }
+                }
+
                 // Disconnect from KBM system when stopping ControlService
                 StartupDiag($"ControlService.Stop outputKBM Disconnect begin handler={outputKBMHandler?.GetFullDisplayName()}");
                 LogDebug($"Closing connection to output handler {outputKBMHandler.GetDisplayName()}");
@@ -2251,9 +2504,9 @@ namespace DS4Windows
             StartupDiag($"CheckControllerNumDeviceSettings end index={index}");
 
             slotManager.AddController(device, index);
-            if (isUsingOSCSender())
+            if (isUsingOSCSender() && oscSender != null)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/plug", 1));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/plug", 1));
             }
             device.Removal += this.On_DS4Removal;
             device.Removal += DS4Devices.On_Removal;
@@ -2394,17 +2647,19 @@ namespace DS4Windows
 
         private void BeginPrepareConnectedInputController(DS4Device device, bool showlog = false)
         {
+            bool hiddenByHidHide = false;
             if (DS4Devices.isExclusiveMode && EnsureHidHideSessionForDevice(device))
             {
                 ChangeExclusiveStatus(device);
+                hiddenByHidHide = true;
             }
             else if (hidDeviceHidingEnabled && CheckAffected(device))
             {
                 ChangeExclusiveStatus(device);
+                hiddenByHidHide = true;
             }
 
-            //Task task = new Task(() => { Thread.Sleep(5); WarnExclusiveModeFailure(device); });
-            //task.Start();
+            WarnExclusiveModeFailure(device, hiddenByHidHide);
 
             PrepareDS4DeviceSettingHooks(device);
         }
@@ -2603,9 +2858,17 @@ namespace DS4Windows
                 return;
             }
 
-            AppLogger.LogToGui(
-                $"Controller #{index + 1}: no PlayStation audio interface was created. " +
-                decision.Reason, false);
+            // Audio endpoints turned off is the user's own choice, so this
+            // used to print the full kernel-risk paragraph on every launch for
+            // nothing. The Settings card and the Output Slots note already
+            // explain the switch; only a refusal for any other reason (such
+            // as a driver release without the upstream fix) reaches the log.
+            if (decision.Block != ViiperVirtualDeviceBlock.AudioClassNotEnabled)
+            {
+                AppLogger.LogToGui(
+                    $"Controller #{index + 1}: no PlayStation audio interface was created. " +
+                    decision.Reason, false);
+            }
             StartupDiag(
                 $"PlayStation audio sidecar gated index={index} block={decision.Block}");
         }
@@ -2648,6 +2911,8 @@ namespace DS4Windows
                 EnsurePlayStationFeatureOutput(ind, device);
             OutContType playStationFeatureOutputType =
                 playStationFeatureOutput?.OutputType ?? OutContType.None;
+            bool nativeAudioPath = NativeAudioPathOwnsControllerAudio(ind,
+                playStationFeatureOutput);
 
             device.ModifyFeatureSetFlag(VidPidFeatureSet.NoOutputData, !getEnableOutputDataToDS4(ind));
             if (!getEnableOutputDataToDS4(ind))
@@ -2715,9 +2980,16 @@ namespace DS4Windows
                         break;
                 }
                 dualsense.HapticPowerLevel = DualSenseHapticPowerLevel[ind];
-                bool speakerEnabled = IsControllerSpeakerEnabled(ind);
-                string speakerCaptureEndpointId =
-                    GetControllerSpeakerCaptureEndpointId(ind);
+                // "Stream audio to controller" streams the chosen source. In
+                // Native PS5 mode the game's own speaker and haptics audio on
+                // the virtual pad is relayed with it off too, from the virtual
+                // endpoint only. Over Bluetooth that audio and the haptics
+                // share one carrier, so without the relay the game got neither.
+                bool streamAudioToController = IsControllerSpeakerEnabled(ind);
+                bool speakerEnabled = streamAudioToController || nativeAudioPath;
+                string speakerCaptureEndpointId = streamAudioToController
+                    ? GetControllerSpeakerCaptureEndpointId(ind)
+                    : DualSenseAudioPassthrough.AutoDetectGameAudioEndpointId;
                 dualsense.EnableSpeakerOutput = speakerEnabled;
                 dualsense.SpeakerVolume = DualSenseSpeakerVolume[ind];
                 dualsense.HeadphoneVolume = DualSenseHeadphoneVolume[ind];
@@ -2814,21 +3086,12 @@ namespace DS4Windows
                 dualSenseMicrophonePassthrough.Stop();
             }
 
-            // Issue #87: a virtual DualSense/Edge with audio interfaces makes
-            // the game the haptics source (channels 3/4 relayed to the pad), so
-            // Audio Haptics is switched off for that profile rather than
-            // stacking a second source onto the same Bluetooth stream. The
-            // same gate the persona ladder asked decides whether the audio
-            // class is actually permitted.
-            bool nativeHapticsPath = !getDInputOnly(ind) &&
-                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
-                    Global.OutContType[ind],
-                    ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio,
-                        alreadyAttached: playStationFeatureOutput?
-                            .SupportsAtomicAudioHaptics == true).Allowed);
+            // Issue #87: with the game as the haptics source, Audio Haptics is
+            // switched off for that profile rather than stacking a second
+            // source onto the same Bluetooth stream.
             AudioHapticsProfileSettings audioHapticsSettings =
                 Global.store.audioHapticsSettings[ind];
-            if (nativeHapticsPath && audioHapticsSettings?.Enabled == true)
+            if (nativeAudioPath && audioHapticsSettings?.Enabled == true)
             {
                 if (audioHapticsService.SuspendForNativeHaptics(ind))
                 {
@@ -2901,9 +3164,17 @@ namespace DS4Windows
                 InputDevices.DualSenseDevice;
             if (ds?.NativeOptionsStore == null) return;
 
+            // While the game owns haptics (issue #87) Audio Haptics is
+            // suspended, and the Bluetooth streamer has to stand down with it:
+            // it kept vibrating the pad from system audio while the Audio
+            // Haptics page said it was off.
+            AudioHapticsProfileSettings settings =
+                NativeAudioPathOwnsControllerAudio(deviceIndex,
+                    GetPlayStationFeatureOutput(deviceIndex))
+                    ? null
+                    : Global.store.audioHapticsSettings[deviceIndex];
             AudioHapticsStreamerMapping.BTHapticsOptions opts =
-                AudioHapticsStreamerMapping.Map(
-                    Global.store.audioHapticsSettings[deviceIndex]);
+                AudioHapticsStreamerMapping.Map(settings);
 
             ds.NativeOptionsStore.ApplyBTHapticsOptions(opts.Mode, opts.Gain,
                 opts.LowPassHz, opts.HFTexture, opts.EndpointId);
@@ -2912,6 +3183,21 @@ namespace DS4Windows
         private static bool IsControllerSpeakerEnabled(int index) =>
             Global.DualSenseEnableSpeakerOutput[index] ||
             IsAudioHapticsSpeakerOverrideActive(index);
+
+        // Issue #87: a virtual DualSense/Edge with audio interfaces makes the
+        // game the source of the pad's speaker and haptics (channels 1/2 and
+        // 3/4 of the virtual endpoint). Asks the same gate the persona ladder
+        // asked to decide whether the audio class is actually permitted.
+        private bool NativeAudioPathOwnsControllerAudio(int index,
+            ViiperOutDevice playStationFeatureOutput)
+        {
+            return !getDInputOnly(index) &&
+                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
+                    Global.OutContType[index],
+                    ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio,
+                        alreadyAttached: playStationFeatureOutput?
+                            .SupportsAtomicAudioHaptics == true).Allowed);
+        }
 
         private static bool IsControllerHeadsetOnlyAudio(int index)
         {
@@ -3109,6 +3395,10 @@ namespace DS4Windows
 
             // Reset some elements of current Mouse instance
             touchPad[ind]?.Reset();
+
+            // Keys and buttons the old profile was holding (toggles included)
+            // must not outlive it.
+            Mapping.ReleaseSyntheticState(ind);
         }
 
         public void TouchPadOn(int ind, DS4Device device)
@@ -3257,6 +3547,8 @@ namespace DS4Windows
                     Task.Run(() =>
                     {
                         Mapping.Commit(ind);
+                        // Commit releases ordinary holds; toggled keys stayed on.
+                        Mapping.ReleaseSyntheticState(ind);
                     }).Wait();
 
                     string removed = DS4WinWPF.Properties.Resources.ControllerWasRemoved.Replace("*Mac address*", (ind + 1).ToString());
@@ -3291,9 +3583,9 @@ namespace DS4Windows
                     //eventDispatcher.Invoke(() =>
                     //{
                     slotManager.RemoveController(device, ind);
-                    if (isUsingOSCSender())
+                    if (isUsingOSCSender() && oscSender != null)
                     {
-                        oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + ind + "/plug", 0));
+                        SendOsc(new SharpOSC.OscMessage("/ds4windows/monitor/" + ind + "/plug", 0));
                     }
                     //});
 
@@ -3383,8 +3675,15 @@ namespace DS4Windows
                     virtualRequired, personaCarriesAdvancedHaptics,
                     audioClassPermitted, laneLive, virtualConnected);
 
+            bool nativeHapticsPath = virtualRequired &&
+                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
+                    desiredType, audioClassPermitted);
+            // The Native PS5 relay runs for a DualSense with the toggle off
+            // too (CheckProfileOptions), so its lane is reported as well.
             bool speakerRequired = physicalPresent &&
-                IsControllerSpeakerEnabled(index);
+                (IsControllerSpeakerEnabled(index) ||
+                    (nativeHapticsPath &&
+                        device is InputDevices.DualSenseDevice));
             ControllerRuntimeLaneState speaker =
                 ControllerRuntimeLaneState.NotRequired;
             if (speakerRequired)
@@ -3429,9 +3728,6 @@ namespace DS4Windows
 
             bool audioHapticsEnabled = physicalPresent &&
                 Global.store.audioHapticsSettings[index]?.Enabled == true;
-            bool nativeHapticsPath = virtualRequired &&
-                ControllerRuntimeStatusPolicy.NativeHapticsPathOwnsAudioHaptics(
-                    desiredType, audioClassPermitted);
             AudioHapticsRuntimeStatus audioHapticsStatus =
                 audioHapticsService.GetStatus(index);
             ControllerRuntimeLaneState audioHaptics =
@@ -4128,7 +4424,7 @@ namespace DS4Windows
                     DS4State tempMapState = MappedState[ind];
                     DS4State oscMapState = oscState[ind];
 
-                    if (isUsingOSCSender())
+                    if (isUsingOSCSender() && oscSender != null)
                     {
                         OSCPreMappingStep(ind, cState, tempMapState, oscMapState);
                     }
@@ -4308,7 +4604,7 @@ namespace DS4Windows
         {
             if (cState.Battery != oscMapState.Battery)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + ind + "/battery", Convert.ToInt32(cState.Battery)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + ind + "/battery", Convert.ToInt32(cState.Battery)));
                 oscMapState.Battery = cState.Battery;
             }
             cState.Cross |= oscMapState.Cross;
@@ -4341,115 +4637,115 @@ namespace DS4Windows
             // Buttons 
             if (oldState.Square != newState.Square)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/square", newState.Square == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/square", newState.Square == true ? 1 : 0));
             }
 
             if (oldState.Triangle != newState.Triangle)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/triangle", newState.Triangle == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/triangle", newState.Triangle == true ? 1 : 0));
             }
 
             if (oldState.Circle != newState.Circle)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/circle", newState.Circle == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/circle", newState.Circle == true ? 1 : 0));
             }
 
             if (oldState.Cross != newState.Cross)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/cross", newState.Cross == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/cross", newState.Cross == true ? 1 : 0));
             }
 
             if (oldState.DpadUp != newState.DpadUp)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpadup", newState.DpadUp == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpadup", newState.DpadUp == true ? 1 : 0));
             }
 
             if (oldState.DpadDown != newState.DpadDown)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpaddown", newState.DpadDown == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpaddown", newState.DpadDown == true ? 1 : 0));
             }
 
             if (oldState.DpadLeft != newState.DpadLeft)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpadleft", newState.DpadLeft == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpadleft", newState.DpadLeft == true ? 1 : 0));
             }
 
             if (oldState.DpadRight != newState.DpadRight)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/dpadright", newState.DpadRight == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/dpadright", newState.DpadRight == true ? 1 : 0));
             }
 
             if (oldState.L1 != newState.L1)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/l1", newState.L1 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/l1", newState.L1 == true ? 1 : 0));
             }
 
             if (oldState.L3 != newState.L3)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/l3", newState.L3 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/l3", newState.L3 == true ? 1 : 0));
             }
 
             if (oldState.R1 != newState.R1)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/r1", newState.R1 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/r1", newState.R1 == true ? 1 : 0));
             }
 
             if (oldState.R3 != newState.R3)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/r3", newState.R3 == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/r3", newState.R3 == true ? 1 : 0));
             }
 
             if (oldState.Options != newState.Options)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/options", newState.Options == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/options", newState.Options == true ? 1 : 0));
             }
 
             if (oldState.Share != newState.Share)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/share", newState.Share == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/share", newState.Share == true ? 1 : 0));
             }
 
             if (oldState.PS != newState.PS)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ps", newState.PS == true ? 1 : 0));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/ps", newState.PS == true ? 1 : 0));
             }
 
             // Sticks
             if (oldState.LX != newState.LX)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/lx", Convert.ToInt32(newState.LX)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/lx", Convert.ToInt32(newState.LX)));
             }
 
             if (oldState.LY != newState.LY)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ly", Convert.ToInt32(newState.LY)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/ly", Convert.ToInt32(newState.LY)));
             }
 
             if (oldState.RX != newState.RX)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/rx", Convert.ToInt32(newState.RX)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/rx", Convert.ToInt32(newState.RX)));
             }
 
             if (oldState.RY != newState.RY)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ry", Convert.ToInt32(newState.RY)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/ry", Convert.ToInt32(newState.RY)));
             }
 
             // Triggers
             if (oldState.L2 != newState.L2)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/l2", Convert.ToInt32(newState.L2)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/l2", Convert.ToInt32(newState.L2)));
             }
 
             if (oldState.R2 != newState.R2)
             {
-                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/r2", Convert.ToInt32(newState.R2)));
+                SendOsc(new OscMessage("/ds4windows/monitor/" + index + "/r2", Convert.ToInt32(newState.R2)));
             }
 
             // if (oldState.Battery != newState.Battery)
             // {
             //     AppLogger.LogToGui("BATTERY " + oldState.Battery + " : " + newState.Battery, false);
-            //     oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + index + "/battery", Convert.ToInt32(newState.Battery)));
+            //     SendOsc(new SharpOSC.OscMessage("/ds4windows/monitor/" + index + "/battery", Convert.ToInt32(newState.Battery)));
             // }
         }
 

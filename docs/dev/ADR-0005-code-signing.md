@@ -117,3 +117,28 @@ blurred: this ADR claims a working pipeline, not a signed release.
   release can be published by CI alone, a signed one cannot.
 - The key never enters CI, this repository, or any automated agent's reach.
   That is a feature.
+
+## Amendment, 2026-09-24 — two premises above are out of date
+
+Checked against Microsoft's current documentation during the pre-release
+review:
+
+- **EV certificates no longer grant immediate SmartScreen reputation.**
+  Microsoft removed that behaviour in 2024. OV, EV and Microsoft's own signing
+  service all start with a SmartScreen warning that fades as the signing
+  identity accumulates clean downloads; no certificate type skips it. The
+  "only EV gets immediate reputation" consequence above no longer holds, and
+  paying for EV to avoid the warning buys nothing.
+  (learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)
+- **Azure Artifact Signing (formerly Trusted Signing) accepts individual
+  developers in Canada as well as the USA**, at about USD 9.99/month, with
+  signing from GitHub Actions and no hardware token. The table's "individual
+  tier is US-only" row is wrong today.
+  (learn.microsoft.com/azure/artifact-signing/quickstart, Prerequisites)
+
+What this changes: the cheapest CI-capable route for a Canadian individual is
+now Artifact Signing, alongside Certum's cloud certificate. Either way the
+certificate subject is the maintainer's verified legal name, and reputation
+belongs to that identity, so every release must be signed by the same
+identity for the warning to fade. The recommendation and setup steps are in
+`RELEASE-READINESS.md` → "Code signing".

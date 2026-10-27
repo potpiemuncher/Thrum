@@ -43,7 +43,11 @@ namespace DS4WinWPF
         public void Refresh()
         {
             profileListCol.Clear();
-            string[] profiles = Directory.GetFiles(DS4Windows.Global.appdatapath + @"\Profiles\");
+            // The folder is only created on the first-run path. A Profiles folder
+            // deleted later (or a portable copy without one) crashed every launch.
+            string profilesDir = DS4Windows.Global.appdatapath + @"\Profiles\";
+            Directory.CreateDirectory(profilesDir);
+            string[] profiles = Directory.GetFiles(profilesDir);
             foreach (string s in profiles)
             {
                 if (s.EndsWith(".xml"))
@@ -60,6 +64,13 @@ namespace DS4WinWPF
 
         public void AddProfileSort(string profilename)
         {
+            // Import could list a replaced profile twice, and lookups by name
+            // use SingleOrDefault, which throws on a duplicate.
+            if (profileListCol.Any(x => string.Equals(x.Name, profilename, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
             int idx = 0;
             bool inserted = false;
             foreach (ProfileEntity entry in profileListCol)

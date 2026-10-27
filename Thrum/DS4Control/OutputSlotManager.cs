@@ -182,7 +182,7 @@ namespace DS4Windows
                     {
                         beforeVirtualSony = DS4Devices.
                             SnapshotBeforeOwnVirtualSony();
-                        DS4Devices.BeginOwnVirtualSonyConnect();
+                        DS4Devices.BeginOwnVirtualSonyConnect(beforeVirtualSony);
                     }
 
                     try

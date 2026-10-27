@@ -637,6 +637,14 @@ namespace DS4Windows
 
             deviceStream = CreateDeviceStreamWithServerFallback();
             Interlocked.Increment(ref streamGeneration);
+            // Which persona the backend accepted was never recorded on success,
+            // only on fallback; it decides which feedback paths exist.
+            ControlService.StartupDiag($"VIIPER {viiperType} stream opened: " +
+                $"audioEndpointsPermitted={audioEndpointsPermitted} " +
+                $"frameVersion={activeStreamFrameVersion} feedbackLength={activeFeedbackLength} " +
+                $"framedFeedback={activeStreamFeedbackIsFramed} directSpeaker={activeStreamSupportsDirectSpeaker} " +
+                $"atomicAudioHaptics={activeStreamSupportsAtomicAudioHaptics} microphone={activeStreamSupportsMicrophone} " +
+                $"bus={deviceStream?.BusId} dev={deviceStream?.DevId} usbipPort={deviceStream?.UsbipPort}");
             Volatile.Write(ref submitFailureLogged, 0);
             Volatile.Write(ref microphoneUnavailableLogged, 0);
             Volatile.Write(ref microphoneNoiseSuppressionUnavailableLogged, 0);
@@ -731,9 +739,10 @@ namespace DS4Windows
             StartFeedbackReader();
             if (stateWriteRateHz > 0)
             {
-                AppLogger.LogToGui(
-                    $"VIIPER {viiperType} virtual input presentation is capped at {stateWriteRateHz} Hz with latest-state coalescing.",
-                    false);
+                // The cap is on by default, so this is a diagnostic, not news:
+                // as a log line it printed on every connect.
+                ControlService.StartupDiag(
+                    $"VIIPER {viiperType} virtual input presentation is capped at {stateWriteRateHz} Hz with latest-state coalescing.");
             }
         }
 
@@ -771,9 +780,9 @@ namespace DS4Windows
                     ViiperFeatureClass.ControllerOnly);
             if (!baseline.Allowed)
             {
-                AppLogger.LogToGui(
-                    $"Refused to create the virtual {outputType.ToDisplayName()} output. " +
-                    baseline.Reason, true);
+                // Not logged here: every caller of Connect already logs the
+                // exception message, so logging it too printed each refusal
+                // twice per controller per connect.
                 throw new IOException(baseline.Reason);
             }
 
@@ -794,9 +803,19 @@ namespace DS4Windows
                 throw new IOException(audio.Reason);
             }
 
-            AppLogger.LogToGui(
-                $"Virtual {outputType.ToDisplayName()} output is starting without its audio and microphone interfaces. " +
-                audio.Reason, false);
+            // Audio endpoints turned off is the user's choice; saying so on
+            // every connect was noise. Other refusals still log.
+            if (audio.Block == ViiperVirtualDeviceBlock.AudioClassNotEnabled)
+            {
+                ControlService.StartupDiag(
+                    $"Virtual {outputType.ToDisplayName()} output starting without audio interfaces (audio endpoints off).");
+            }
+            else
+            {
+                AppLogger.LogToGui(
+                    $"Virtual {outputType.ToDisplayName()} output is starting without its audio and microphone interfaces. " +
+                    audio.Reason, false);
+            }
             return false;
         }
 
@@ -1618,9 +1637,17 @@ namespace DS4Windows
             }
         }
 
+        internal static bool FeedbackDispatchNeeded(bool directSpeaker,
+            bool feedbackIsFramed) => directSpeaker || feedbackIsFramed;
+
         private void StartFeedbackDispatchWorkers()
         {
-            if (!activeStreamSupportsDirectSpeaker || !connected ||
+            // The gamepad-only V5 personas (virtual audio endpoints off) frame
+            // their output state too, and the reader queues it for the control
+            // dispatcher. Gating on the speaker alone left nothing draining that
+            // queue: no game rumble, triggers or lightbar without the endpoints.
+            if (!FeedbackDispatchNeeded(activeStreamSupportsDirectSpeaker,
+                    activeStreamFeedbackIsFramed) || !connected ||
                 feedbackDispatchStopRequested)
             {
                 return;
@@ -1636,8 +1663,9 @@ namespace DS4Windows
                     feedbackDispatchThreadGeneration = generation;
                 }
 
-                if (newGeneration || feedbackSpeakerDispatchThread == null ||
-                    !feedbackSpeakerDispatchThread.IsAlive)
+                if (activeStreamSupportsDirectSpeaker &&
+                    (newGeneration || feedbackSpeakerDispatchThread == null ||
+                    !feedbackSpeakerDispatchThread.IsAlive))
                 {
                     Thread thread = new Thread(() =>
                         FeedbackSpeakerDispatchLoop(generation))
@@ -2349,10 +2377,22 @@ namespace DS4Windows
             }
         }
 
+        /// <summary>
+        /// Set by the app as soon as it starts to close (sign-out included).
+        /// Windows ends viiper.exe at sign-out before Thrum's own teardown, and
+        /// the readers then tried to reopen streams on the dead backend: about
+        /// 2 s per refused connect, against the 8 s shutdown budget.
+        /// </summary>
+        internal static volatile bool ShutdownInProgress;
+
+        private bool StreamRecoveryAllowed =>
+            !writerStopRequested && connected && !ShutdownInProgress &&
+            Program.rootHub?.running != false;
+
         private bool TryRecoverStream(string reason, long failedStreamGeneration,
             byte[] packetToRetry = null)
         {
-            if (writerStopRequested || !connected)
+            if (!StreamRecoveryAllowed)
             {
                 return false;
             }
@@ -2366,7 +2406,7 @@ namespace DS4Windows
 
             lock (streamRecoveryLock)
             {
-                if (writerStopRequested || !connected)
+                if (!StreamRecoveryAllowed)
                 {
                     return false;
                 }
@@ -2405,7 +2445,7 @@ namespace DS4Windows
                         return false;
                     }
 
-                    if (writerStopRequested || !connected)
+                    if (!StreamRecoveryAllowed)
                     {
                         return false;
                     }
@@ -2466,6 +2506,22 @@ namespace DS4Windows
             }
         }
 
+        internal static string DescribeStreamError(Exception ex)
+        {
+            if (ex == null)
+            {
+                return "(no exception)";
+            }
+
+            SocketException socketError = ex as SocketException ??
+                ex.InnerException as SocketException;
+            string socketPart = socketError != null ?
+                $" {socketError.SocketErrorCode}" : string.Empty;
+            string message = string.IsNullOrWhiteSpace(ex.Message) ?
+                "(no message)" : ex.Message;
+            return $"{ex.GetType().Name} 0x{ex.HResult:X8}{socketPart}: {message}";
+        }
+
         internal static int GetStreamRecoveryBackoffMilliseconds(int attempt)
         {
             if (attempt <= 1)
@@ -2484,7 +2540,7 @@ namespace DS4Windows
             int remaining = milliseconds;
             while (remaining > 0)
             {
-                if (writerStopRequested || !connected)
+                if (!StreamRecoveryAllowed)
                 {
                     return false;
                 }
@@ -2494,7 +2550,7 @@ namespace DS4Windows
                 remaining -= slice;
             }
 
-            return !writerStopRequested && connected;
+            return StreamRecoveryAllowed;
         }
 
         private void WriteState(ViiperDeviceStream stream, byte[] data)
@@ -3248,21 +3304,29 @@ namespace DS4Windows
                     }
                 }
             }
-            catch (IOException)
+            catch (IOException ex)
             {
+                // The reason used to be a fixed string; the exception is what
+                // tells a dead backend from a broken stream in a user's log.
+                // connected is read again after recovery: a Stop that raced it
+                // is not a failure worth a warning.
+                string why = DescribeStreamError(ex);
                 if (connected &&
-                    !TryRecoverStream("feedback reader stopped", readStreamGeneration))
+                    !TryRecoverStream("feedback reader stopped: " + why, readStreamGeneration) &&
+                    connected && !ShutdownInProgress)
                 {
-                    AppLogger.LogToGui($"VIIPER {viiperType} feedback reader stopped.", true);
+                    AppLogger.LogToGui($"VIIPER {viiperType} feedback reader stopped: {why}", true);
                 }
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
+                string why = DescribeStreamError(ex);
                 if (connected &&
-                    !TryRecoverStream("feedback reader stopped due to socket error",
-                        readStreamGeneration))
+                    !TryRecoverStream("feedback reader stopped due to socket error: " + why,
+                        readStreamGeneration) &&
+                    connected && !ShutdownInProgress)
                 {
-                    AppLogger.LogToGui($"VIIPER {viiperType} feedback reader stopped due to socket error.", true);
+                    AppLogger.LogToGui($"VIIPER {viiperType} feedback reader stopped due to socket error: {why}", true);
                 }
             }
             catch (ObjectDisposedException)
@@ -4368,7 +4432,10 @@ namespace DS4Windows
 
             if (Interlocked.Exchange(ref edgePhysicalMismatchLogged, 1) == 0)
             {
-                AppLogger.LogToGui("VIIPER DualSense Edge native feedback is not being forwarded to a physical non-Edge DualSense. Use DualSense output for normal DualSense controllers, or connect a DualSense Edge for Edge native feedback.", true);
+                // Information, not a warning: choosing Edge output for a
+                // standard DualSense is a valid configuration (rumble falls
+                // back), and it was flagged as a warning on every connect.
+                AppLogger.LogToGui("VIIPER DualSense Edge native feedback is not being forwarded to a physical non-Edge DualSense. Use DualSense output for normal DualSense controllers, or connect a DualSense Edge for Edge native feedback.", false);
             }
 
             return false;
@@ -5673,8 +5740,16 @@ namespace DS4Windows
                 return;
             }
 
-            if (!TryRunUsbip(new[] { "detach", "-p", port.ToString() }, out _, out string error))
+            if (!TryRunUsbip(new[] { "detach", "-p", port.ToString() }, out _, out string error,
+                out int exitCode))
             {
+                if (string.IsNullOrWhiteSpace(error))
+                {
+                    // At sign-out usbip.exe is often ended by Windows before it
+                    // prints anything; the line used to end in an empty reason.
+                    error = $"usbip.exe exited with code 0x{exitCode:X8} and printed nothing";
+                }
+
                 AppLogger.LogToGui($"VIIPER could not detach usbip port {port} ({reason}): {error}", true);
                 return;
             }
@@ -5825,8 +5900,15 @@ namespace DS4Windows
 
         private static bool TryRunUsbip(string[] arguments, out string output, out string error)
         {
+            return TryRunUsbip(arguments, out output, out error, out _);
+        }
+
+        private static bool TryRunUsbip(string[] arguments, out string output, out string error,
+            out int exitCode)
+        {
             output = string.Empty;
             error = string.Empty;
+            exitCode = -1;
             string usbipPath = FindUsbipPath();
             if (string.IsNullOrEmpty(usbipPath))
             {
@@ -5871,6 +5953,7 @@ namespace DS4Windows
                 output = process.StandardOutput.ReadToEnd();
                 string standardError = process.StandardError.ReadToEnd().Trim();
                 error = string.IsNullOrWhiteSpace(standardError) ? output.Trim() : standardError;
+                exitCode = process.ExitCode;
                 return process.ExitCode == 0;
             }
             catch (Exception ex)

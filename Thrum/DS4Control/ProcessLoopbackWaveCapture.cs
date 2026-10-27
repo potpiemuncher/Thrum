@@ -3,6 +3,7 @@ using NAudio.CoreAudioApi.Interfaces;
 using NAudio.Wave;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -41,7 +42,7 @@ namespace DS4Windows
             }
 
             fixedProcessId = processId;
-            WaveFormat = new WaveFormat(44100, 16, 2);
+            WaveFormat = new WaveFormat(CaptureSampleRate, 16, 2);
         }
 
         private ProcessLoopbackWaveCapture(int automaticSlot,
@@ -56,8 +57,17 @@ namespace DS4Windows
             automaticSettings = (settings ??
                 new AudioHapticsProfileSettings()).Clone();
             automaticDetector = new AutomaticGameAudioDetector();
-            WaveFormat = new WaveFormat(44100, 16, 2);
+            WaveFormat = new WaveFormat(CaptureSampleRate, 16, 2);
         }
+
+        /// <summary>
+        /// 48 kHz, the rate of the DualSense's own audio endpoint and of almost
+        /// every Windows mix. At 44.1 kHz the wired speaker lane, which copies
+        /// frames 1:1 into the controller's 48 kHz endpoint, played app audio
+        /// about 9 % fast and high-pitched; AutoConvertPcm below makes Windows
+        /// do the conversion for every consumer.
+        /// </summary>
+        internal const int CaptureSampleRate = 48000;
 
         public WaveFormat WaveFormat { get; set; }
         // Process-loopback activation is a virtual render endpoint. Windows'
@@ -189,18 +199,36 @@ namespace DS4Windows
                 return 0;
             }
 
+            string targetName = !string.IsNullOrWhiteSpace(settings.ExecutableName)
+                ? settings.ExecutableName
+                : string.IsNullOrWhiteSpace(settings.ProcessPath)
+                    ? null
+                    : Path.GetFileNameWithoutExtension(settings.ProcessPath);
+
             if (settings.ProcessId > 0)
             {
                 try
                 {
                     using Process process = Process.GetProcessById(
                         settings.ProcessId);
-                    if (!process.HasExited)
+                    // A saved PID can belong to another program after a reboot;
+                    // its audio was captured under the game's name.
+                    if (!process.HasExited && (targetName == null ||
+                        string.Equals(process.ProcessName, targetName,
+                            StringComparison.OrdinalIgnoreCase)))
                     {
                         return process.Id;
                     }
                 }
                 catch { }
+            }
+
+            // Nothing to match by: the scan below could never succeed, and it
+            // ran several times a second on the haptics writer and the
+            // automatic-detection monitors.
+            if (targetName == null)
+            {
+                return 0;
             }
 
             foreach (Process process in Process.GetProcesses())
@@ -209,19 +237,37 @@ namespace DS4Windows
                 {
                     try
                     {
-                        string path = process.MainModule?.FileName ??
-                            string.Empty;
-                        if (!string.IsNullOrWhiteSpace(settings.ProcessPath) &&
-                            string.Equals(path, settings.ProcessPath,
-                                StringComparison.OrdinalIgnoreCase))
+                        // The name comes with the snapshot and never throws.
+                        // MainModule is read only for a candidate: for every
+                        // process it cost tens of ms and an exception per
+                        // protected process each scan, and for an elevated
+                        // game it threw before the name was ever compared.
+                        if (!string.Equals(process.ProcessName, targetName,
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(settings.ProcessPath))
                         {
                             return process.Id;
                         }
-                        if (!string.IsNullOrWhiteSpace(
-                                settings.ExecutableName) &&
-                            string.Equals(process.ProcessName,
-                                settings.ExecutableName,
-                                StringComparison.OrdinalIgnoreCase))
+
+                        string path;
+                        try
+                        {
+                            path = process.MainModule?.FileName;
+                        }
+                        catch
+                        {
+                            // Elevated or protected: the name match stands.
+                            return process.Id;
+                        }
+
+                        if (path == null || string.Equals(path,
+                                settings.ProcessPath,
+                                StringComparison.OrdinalIgnoreCase) ||
+                            !string.IsNullOrWhiteSpace(settings.ExecutableName))
                         {
                             return process.Id;
                         }
@@ -238,6 +284,13 @@ namespace DS4Windows
             int proposedProcessId = 0;
             int proposedCount = 0;
             int misses = 0;
+            // A game that refuses capture (a protected process, or a Windows
+            // build without per-process loopback) used to be retried and
+            // logged as a warning on every 500 ms scan for as long as it ran.
+            // Now it is reported once and retried with a growing delay.
+            int failedProcessId = 0;
+            int failedAttempts = 0;
+            long retryAfterTicks = 0;
             try
             {
                 while (Volatile.Read(ref disposed) == 0)
@@ -281,19 +334,34 @@ namespace DS4Windows
                         }
                         // Acquire the first game immediately. Require two
                         // consistent scans before changing an active stream.
-                        if (current == 0 || proposedCount >= 2)
+                        if ((current == 0 || proposedCount >= 2) &&
+                            (candidate.ProcessId != failedProcessId ||
+                                Environment.TickCount64 >= retryAfterTicks))
                         {
                             try
                             {
                                 SwitchToProcess(candidate.ProcessId,
                                     candidate.DisplayName,
                                     candidate.EvidenceDescription);
+                                failedProcessId = 0;
+                                failedAttempts = 0;
                             }
                             catch (Exception exception)
                             {
-                                AppLogger.LogToGui(
-                                    $"Automatic game audio could not attach to '{candidate.DisplayName}': {exception.Message}",
-                                    true);
+                                if (candidate.ProcessId != failedProcessId)
+                                {
+                                    failedProcessId = candidate.ProcessId;
+                                    failedAttempts = 0;
+                                    AppLogger.LogToGui(
+                                        $"Automatic game audio could not attach to '{candidate.DisplayName}': {exception.Message}",
+                                        true);
+                                }
+
+                                failedAttempts++;
+                                // 5 s, 10 s, 20 s ... capped at 5 minutes.
+                                long delayMs = Math.Min(300_000L,
+                                    5_000L << Math.Min(failedAttempts - 1, 6));
+                                retryAfterTicks = Environment.TickCount64 + delayMs;
                             }
                             proposedProcessId = 0;
                             proposedCount = 0;
@@ -309,11 +377,18 @@ namespace DS4Windows
                     if (stopped.WaitOne(DetectionIntervalMilliseconds)) break;
                 }
             }
-            catch (Exception exception) when (
-                Volatile.Read(ref disposed) == 0)
+            catch (Exception exception)
             {
-                RecordingStopped?.Invoke(this,
-                    new StoppedEventArgs(exception));
+                // Dispose waits only 1.2 s for this thread and then disposes
+                // what it uses, so a slow detection pass can fail afterwards.
+                // The old "when (not disposed)" filter let that exception
+                // escape the thread and end the whole process; after Dispose
+                // it is expected teardown and is dropped.
+                if (Volatile.Read(ref disposed) == 0)
+                {
+                    RecordingStopped?.Invoke(this,
+                        new StoppedEventArgs(exception));
+                }
             }
         }
 
@@ -513,10 +588,15 @@ namespace DS4Windows
                         if (signaled == 1) DrainCapture();
                     }
                 }
-                catch (Exception exception) when (
-                    Volatile.Read(ref disposed) == 0)
+                catch (Exception exception)
                 {
-                    stoppedWith = exception;
+                    // Same rule as the monitor loop: an exception after
+                    // Dispose (bounded join, then the client and handles are
+                    // disposed) must not escape the thread and end the app.
+                    if (Volatile.Read(ref disposed) == 0)
+                    {
+                        stoppedWith = exception;
+                    }
                 }
                 finally
                 {

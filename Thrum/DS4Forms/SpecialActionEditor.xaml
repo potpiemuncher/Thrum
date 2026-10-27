@@ -383,7 +383,7 @@
                         <TabItem x:Name="macroActTab" Header="Macro">
                             <StackPanel Margin="{StaticResource spaceMargin}">
                                 <Button x:Name="recordMacroBtn" Content="{lex:Loc SpecialActionEdit.RecordMacro}"
-                                        Tag="{Binding MacroElements,Mode=OneWay,ValidatesOnNotifyDataErrors=True}" Margin="{StaticResource spaceMargin}"
+                                        Tag="{Binding Macro,Mode=OneWay,ValidatesOnNotifyDataErrors=True}" Margin="{StaticResource spaceMargin}"
                                         Click="RecordMacroBtn_Click" />
                                 <CheckBox Content="{lex:Loc ScanCode}" Margin="{StaticResource spaceMargin}" IsChecked="{Binding UseScanCode}" />
                                 <CheckBox Content="{lex:Loc SpecialActionEdit.RunTriggerRelease}" Margin="{StaticResource spaceMargin}" IsChecked="{Binding RunTriggerRelease}" />

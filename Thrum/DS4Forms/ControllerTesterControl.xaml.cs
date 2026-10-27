@@ -169,7 +169,15 @@ namespace DS4WinWPF.DS4Forms
                 // Match the established ControllerReadingsControl gate. The
                 // snapshot copies motion and touch primitives before release,
                 // so no mutable DS4State reference crosses to the dispatcher.
-                device.ReadWaitEv.Wait();
+                // Bounded: a disconnecting pad's input thread exits with the gate
+                // reset, and an unbounded wait froze this panel (and, from the
+                // window's constructor, the UI thread) for good.
+                if (device.IsRemoving ||
+                    !device.ReadWaitEv.Wait(millisecondsTimeout: 250))
+                {
+                    return ControllerTesterSnapshot.Disconnected;
+                }
+
                 device.ReadWaitEv.Reset();
                 readGateOwned = true;
                 if (!IsCurrentControllerConnected(deviceIndex))
@@ -294,7 +302,8 @@ namespace DS4WinWPF.DS4Forms
                 Global.RightStickDriftYAxis[deviceIndex] = yOffset;
             }
 
-            string profileName = Global.ProfilePath[deviceIndex];
+            // The running profile, which is the auto profile while one is active.
+            string profileName = Global.ActiveProfileName(deviceIndex, out _);
             if (!string.IsNullOrWhiteSpace(profileName))
             {
                 Global.SaveProfile(deviceIndex, profileName);

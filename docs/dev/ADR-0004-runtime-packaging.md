@@ -41,6 +41,10 @@ This decision does not enable `PublishSingleFile`, `PublishTrimmed`, or
   the zip grows to approximately 80–90 MB.
 - .NET runtime security fixes require a new Thrum release because the runtime is
   shipped inside each artifact rather than supplied by a shared installation.
+  It also means the target framework must move before its runtime leaves
+  support: Thrum moved from .NET 8 (support ends 2026-11-10) to .NET 10 (LTS)
+  in September 2026, which grew the unpacked artifact to about 216 MB and the
+  zip to about 86 MB.
 - The managed-files manifest contains hundreds of runtime files. They are
   package-owned files and must remain in the manifest so a future updater can
   remove runtime files that no longer ship without touching user-created data.

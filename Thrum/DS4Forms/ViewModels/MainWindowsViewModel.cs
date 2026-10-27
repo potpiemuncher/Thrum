@@ -146,6 +146,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         /// </summary>
         public event EventHandler OutputControllerChosen;
         public event EventHandler HapticStrengthPercentChanged;
+        public event EventHandler HapticStrengthLevelChanged;
+        public event EventHandler HapticStrengthTextChanged;
         public event EventHandler SpeakerOutputEnabledChanged;
         public event EventHandler HeadsetOnlyAudioChanged;
         public event EventHandler MicrophoneInputEnabledChanged;
@@ -253,6 +255,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         public bool ShowEmulatedDeviceChoice => !ShowNativePs5Mode;
 
         private ViiperDriverReadinessState? nativePs5DriverState;
+        private bool nativePs5DriverCarriesFixes;
         private bool nativePs5BackendReady;
 
         /// <summary>
@@ -265,6 +268,8 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             bool backendReady)
         {
             nativePs5DriverState = readiness?.State;
+            nativePs5DriverCarriesFixes =
+                ViiperExperimentalDisclosure.CarriesUpstreamFixes(readiness);
             nativePs5BackendReady = backendReady;
             RefreshNativePs5();
         }
@@ -293,17 +298,21 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     : null;
 
             NativePs5HidHideStatus hidHide;
-            if (!Global.hidHideInstalled)
+            if (device.CurrentExclusiveStatus != DS4Device.ExclusiveStatus.Shared)
+            {
+                // Exclusive access hides the pad from games on its own, so the
+                // "HidHide is not installed" warning was false here and showed
+                // on every launch (the status enum documents Hiding as
+                // "HidHide (or exclusive access)").
+                hidHide = NativePs5HidHideStatus.Hiding;
+            }
+            else if (!Global.hidHideInstalled)
             {
                 hidHide = NativePs5HidHideStatus.NotInstalled;
             }
-            else if (device.CurrentExclusiveStatus == DS4Device.ExclusiveStatus.Shared)
-            {
-                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
-            }
             else
             {
-                hidHide = NativePs5HidHideStatus.Hiding;
+                hidHide = NativePs5HidHideStatus.NotHidingThisPad;
             }
 
             return new NativePs5ModeInputs(
@@ -313,7 +322,10 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 DriverState: nativePs5DriverState,
                 BackendReady: nativePs5BackendReady,
                 ExperimentalAcknowledged: Global.ViiperExperimentalAcknowledged,
-                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints,
+                // What the gate will actually do: the setting, and a release
+                // with the upstream fix (earlier ones never get audio).
+                AudioEndpointsAllowed: Global.AllowExperimentalAudioEndpoints &&
+                    nativePs5DriverCarriesFixes,
                 IsWireless: selectedController.IsWireless,
                 AudioHapticsEnabled: haptics?.Enabled == true,
                 AudioHapticsSource: haptics?.Source ?? AudioHapticsSourceKind.SystemAudio,
@@ -447,9 +459,51 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                     Global.RumbleBoost[deviceIndex] = (byte)requested;
                 }
 
-                HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+                RaiseHapticStrengthChanged();
                 RaiseQuickProfileSettingChanged(deviceIndex);
             }
+        }
+
+        /// <summary>
+        /// DualSense haptic strength as the controller's eight hardware power
+        /// levels, 1 (weakest) to 8 (full). The Overview shows this evenly
+        /// spaced scale instead of percentages the hardware cannot hold.
+        /// </summary>
+        public int HapticStrengthLevel
+        {
+            get
+            {
+                int levelCount = dualSenseHapticPercentages.Length;
+                if (!HasValidSelectedDevice ||
+                    !selectedController.UsesDualSenseHapticPowerLevels)
+                {
+                    return levelCount;
+                }
+
+                int levelIndex = Math.Clamp(
+                    Global.DualSenseHapticPowerLevel[selectedController.DevIndex],
+                    0, levelCount - 1);
+                return levelCount - levelIndex;
+            }
+            set
+            {
+                int levelCount = dualSenseHapticPercentages.Length;
+                int level = Math.Clamp(value, 1, levelCount);
+                HapticStrengthPercent = dualSenseHapticPercentages[levelCount - level];
+            }
+        }
+
+        public string HapticStrengthText =>
+            HasValidSelectedDevice &&
+                selectedController.UsesDualSenseHapticPowerLevels
+                ? $"Level {HapticStrengthLevel}"
+                : $"{HapticStrengthPercent}%";
+
+        private void RaiseHapticStrengthChanged()
+        {
+            HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+            HapticStrengthLevelChanged?.Invoke(this, EventArgs.Empty);
+            HapticStrengthTextChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public bool SpeakerOutputEnabled
@@ -560,7 +614,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             SelectedControllerIsWirelessChanged?.Invoke(this, EventArgs.Empty);
             SelectedOutputControllerChanged?.Invoke(this, EventArgs.Empty);
             SelectedOutputControllerNameChanged?.Invoke(this, EventArgs.Empty);
-            HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+            RaiseHapticStrengthChanged();
             SpeakerOutputEnabledChanged?.Invoke(this, EventArgs.Empty);
             HeadsetOnlyAudioChanged?.Invoke(this, EventArgs.Empty);
             MicrophoneInputEnabledChanged?.Invoke(this, EventArgs.Empty);
@@ -652,7 +706,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
             if (previous.HapticStrength != snapshot.HapticStrength)
             {
-                HapticStrengthPercentChanged?.Invoke(this, EventArgs.Empty);
+                RaiseHapticStrengthChanged();
             }
             if (previous.SpeakerEnabled != snapshot.SpeakerEnabled)
             {
@@ -719,28 +773,23 @@ namespace DS4WinWPF.DS4Forms.ViewModels
         {
             if (controller == null) return;
 
+            // Battery and ID changes are raised on the controller's input
+            // thread. Refreshing from there raced the UI timer and could throw
+            // on WPF objects; the 250 ms runtime timer already picks up battery
+            // and charging changes, and IdText binds through its own event.
             if (hook)
             {
                 controller.SelectedProfileChanged += SelectedController_ProfileChanged;
-                controller.BatteryStateChanged += SelectedController_StatusChanged;
-                controller.IdTextChanged += SelectedController_StatusChanged;
             }
             else
             {
                 controller.SelectedProfileChanged -= SelectedController_ProfileChanged;
-                controller.BatteryStateChanged -= SelectedController_StatusChanged;
-                controller.IdTextChanged -= SelectedController_StatusChanged;
             }
         }
 
         private void SelectedController_ProfileChanged(object sender, EventArgs e)
         {
             RefreshSelectedControllerProperties();
-        }
-
-        private void SelectedController_StatusChanged(object sender, EventArgs e)
-        {
-            RefreshRuntimeState(App.rootHub);
         }
 
         private void CaptureRuntimeSnapshot(ControlService controlService)
@@ -975,11 +1024,14 @@ namespace DS4WinWPF.DS4Forms.ViewModels
 
         public void CheckDrivers()
         {
-            ViiperPrerequisiteStatus status = ViiperSetupManager.GetStatus(tryStartServer: true);
-            if (!status.Ready)
-            {
-                ViiperSetupManager.EnsureReadyWithPrompt(null, forcePrompt: true);
-            }
+            // Starts an installed backend so the service-start status line
+            // sees it. Never prompts: a launch is not a request for virtual
+            // output, and this used to open a modal install offer on every
+            // start without VIIPER, holding back controller detection until it
+            // was answered. The install offers are the first-run wizard, the
+            // output-type choice (EnsureReadyWithPrompt) and the plain refusal
+            // when a virtual output is actually plugged.
+            ViiperSetupManager.GetStatus(tryStartServer: true);
         }
 
         public bool IsNET8Available()

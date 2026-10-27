@@ -57,7 +57,19 @@ namespace DS4WindowsTests
             Assert.AreEqual(ControllerRuntimeLaneState.Unavailable,
                 ControllerRuntimeStatusPolicy.EvaluateAudioHapticsLane(
                     enabled: true, nativeHapticsPath: false, active: false,
-                    "Waiting for a detected game"));
+                    "Waiting for audio source: the selected device is unplugged"));
+        }
+
+        [TestMethod]
+        public void WaitingForAGameIsArmedNotAFault()
+        {
+            // Automatic game detection with no game running is the normal
+            // idle state; it must not put "Needs attention" on the Overview
+            // card at every launch.
+            Assert.AreEqual(ControllerRuntimeLaneState.Ready,
+                ControllerRuntimeStatusPolicy.EvaluateAudioHapticsLane(
+                    enabled: true, nativeHapticsPath: false, active: false,
+                    AudioHapticsService.WaitingForGameMessage));
         }
 
         [TestMethod]
@@ -71,13 +83,13 @@ namespace DS4WindowsTests
                 ControllerRuntimeLaneState.NotRequired,
                 ControllerRuntimeLaneState.NotRequired,
                 ControllerRuntimeLaneState.Unavailable,
-                "DualSense", "Waiting for a detected game");
+                "DualSense", "Waiting for audio source: the selected device is unplugged");
 
             ControllerStartupStatus status =
                 ControllerRuntimeStatusPolicy.Evaluate(signals);
 
             Assert.IsTrue(status.NeedsAttention);
-            StringAssert.Contains(status.Detail, "Waiting for a detected game");
+            StringAssert.Contains(status.Detail, "the selected device is unplugged");
         }
 
         [TestMethod]

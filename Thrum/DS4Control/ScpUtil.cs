@@ -1742,11 +1742,11 @@ namespace DS4Windows
 
         /// <summary>
         /// Whether virtual USB audio and microphone endpoints may be created.
-        /// Default off. This is the switch that keeps ordinary use off the
-        /// kernel path the confirmed usbip-win2 defect lives on, so it is only
-        /// ever turned on from a flow that showed
-        /// <see cref="ViiperExperimentalDisclosure.BuildAudioClassBody"/>.
-        /// Turning it off never tears down an endpoint that is already live.
+        /// Default on. The gate still refuses them on a usbip-win2 release
+        /// without the upstream fix for the teardown defect, and
+        /// <see cref="ViiperExperimentalDisclosure.AcknowledgementBody"/> says
+        /// so before any virtual device is created. Turning it off never tears
+        /// down an endpoint that is already live.
         /// </summary>
         public static bool AllowExperimentalAudioEndpoints
         {
@@ -2037,7 +2037,10 @@ namespace DS4Windows
 
         public static void DebouncingMsHasChanged()
         {
-            DebouncingMsChanged.Invoke(typeof(Global), EventArgs.Empty);
+            // No subscribers until a controller has connected this session;
+            // the unconditional Invoke crashed a profile save with a changed
+            // debounce value before any pad was plugged in.
+            DebouncingMsChanged?.Invoke(typeof(Global), EventArgs.Empty);
         }
 
         public static event EventHandler DebouncingMsChanged;
@@ -3069,7 +3072,7 @@ namespace DS4Windows
                 : profileName;
         }
 
-        private static bool ProfileFileExists(string profileName)
+        internal static bool ProfileFileExists(string profileName)
         {
             if (string.IsNullOrWhiteSpace(profileName))
             {
@@ -3100,6 +3103,21 @@ namespace DS4Windows
             tempprofileDistance[device] = false;
 
             return result;
+        }
+
+        /// <summary>
+        /// The profile a controller is running right now: the auto or
+        /// special-action (temporary) profile while one is active, otherwise the
+        /// assigned one. Edits saved from the main window go here; they used to
+        /// go to the assigned profile and overwrite it with the temporary
+        /// profile's settings.
+        /// </summary>
+        public static string ActiveProfileName(int device, out bool temporary)
+        {
+            temporary = device >= 0 && device < useTempProfile.Length &&
+                useTempProfile[device] &&
+                !string.IsNullOrWhiteSpace(tempprofilename[device]);
+            return temporary ? tempprofilename[device] : ProfilePath[device];
         }
 
         public static bool LoadTempProfile(int device, string name, bool launchprogram,
@@ -3630,6 +3648,14 @@ namespace DS4Windows
             }
             catch (UnauthorizedAccessException)
             {
+            }
+
+            if (string.IsNullOrEmpty(installedReleaseTag) &&
+                selectedRelease != null &&
+                ReleaseChannelPolicy.IsSameRelease(Global.exeDisplayVersion,
+                    selectedRelease.TagName))
+            {
+                installedReleaseTag = selectedRelease.TagName;
             }
 
             bool updateAvailable = ReleaseChannelPolicy.ShouldUpdate(
@@ -4214,12 +4240,12 @@ namespace DS4Windows
         public bool viiperExperimentalAcknowledged =
             DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED;
 
-        // Whether virtual USB audio/microphone endpoints may be created at all.
-        // Default off, and it stays off until a Production-tier driver exists:
-        // this is the only feature class that reaches the confirmed usbip-win2
-        // request-lifetime defect (upstream issue #181), and it is not needed
-        // for any controller function.
-        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = false;
+        // Whether virtual USB audio/microphone endpoints (game haptics and the
+        // pad speaker in Native PS5 mode) may be created. On by default. This
+        // is the only feature class that reaches the usbip-win2 request-lifetime
+        // defect (upstream issue #181), so the gate also requires a release that
+        // carries the upstream fix (0.9.8.0 or later) whatever this says.
+        public const bool DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS = true;
         public bool allowExperimentalAudioEndpoints =
             DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS;
 
@@ -4779,8 +4805,7 @@ namespace DS4Windows
             string path = Path.Combine(Global.appdatapath, "Profiles",
                 $"{proName}{Global.XML_EXTENSION}");
             string testStr = string.Empty;
-            XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
-                ProfileDTO.GetAttributeOverrides());
+            XmlSerializer serializer = ProfileDTO.SharedSerializer;
             using (Utf8StringWriter strWriter = new Utf8StringWriter())
             {
                 using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
@@ -4814,12 +4839,9 @@ namespace DS4Windows
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(path, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(path, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + path, false);
                 saved = false;
@@ -5679,6 +5701,25 @@ namespace DS4Windows
         public bool LoadProfileNew(int device, bool launchprogram, ControlService control,
             string propath = "", bool xinputChange = true, bool postLoad = true)
         {
+            string profilepath = propath == "" ?
+                Path.Combine(Global.appdatapath, "Profiles", $"{profilePath[device]}.xml") :
+                propath;
+            bool loaded = LoadProfileFile(device, launchprogram, control, profilepath,
+                xinputChange, postLoad);
+            if (!loaded && File.Exists(profilepath))
+            {
+                loaded = SettingsFileRecovery.TryRestoreFromBackup(profilepath,
+                    $"The profile \"{Path.GetFileNameWithoutExtension(profilepath)}\"",
+                    backup => LoadProfileFile(device, launchprogram, control, backup,
+                        xinputChange, postLoad));
+            }
+
+            return loaded;
+        }
+
+        private bool LoadProfileFile(int device, bool launchprogram, ControlService control,
+            string propath, bool xinputChange, bool postLoad)
+        {
             bool loaded = true;
 
             bool migratePerformed = false;
@@ -5693,7 +5734,11 @@ namespace DS4Windows
             {
                 string profileXml = string.Empty;
 
-                // Run migrations
+                // Run migrations. A malformed old-format profile threw out of
+                // here uncaught; callers holding the controller's input paused
+                // (profile dropdown, auto profiles) then froze it and the app
+                // closed. Fail the load before anything has been reset.
+                try
                 {
                     XmlDocument migrationDoc = new XmlDocument();
 
@@ -5718,6 +5763,13 @@ namespace DS4Windows
                     }
 
                     tmpMigration.Close();
+                }
+                catch (Exception e) when (e is XmlException || e is IOException ||
+                    e is UnauthorizedAccessException || e is FormatException ||
+                    e is ArgumentException || e is InvalidOperationException)
+                {
+                    AppLogger.LogToGui($"Failed to load {profilepath}. {e.Message}", false);
+                    return false;
                 }
 
                 if (device < Global.MAX_DS4_CONTROLLER_COUNT)
@@ -5745,8 +5797,7 @@ namespace DS4Windows
                     dcs.Reset();
 
                 //XmlReader xmlReader = XmlReader.Create()
-                XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
-                    ProfileDTO.GetAttributeOverrides());
+                XmlSerializer serializer = ProfileDTO.SharedSerializer;
                 using StringReader sr = new StringReader(profileXml);
                 try
                 {
@@ -5762,6 +5813,15 @@ namespace DS4Windows
                 catch (XmlException e)
                 {
                     AppLogger.LogToGui($"Failed to load {profilepath}. Invalid XML. {e.InnerException?.Message ?? e.Message}", false);
+                    loaded = false;
+                }
+                catch (Exception e) when (e is FormatException ||
+                    e is OverflowException || e is ArgumentException ||
+                    e is IndexOutOfRangeException)
+                {
+                    // A bad value (a colour of "256,0,0", a macro step that is not
+                    // a number) in a hand-edited or shared profile.
+                    AppLogger.LogToGui($"Failed to load {profilepath}. Invalid value: {e.Message}", false);
                     loaded = false;
                 }
 
@@ -8531,20 +8591,10 @@ namespace DS4Windows
             bool loaded = true;
             if (File.Exists(m_Profile))
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
-                using StreamReader sr = new StreamReader(m_Profile);
-                try
-                {
-                    AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
-                    dto.MapTo(this);
-
-                    PostProcessLoad();
-                }
-                catch (InvalidOperationException e)
-                {
-                    AppLogger.LogToGui("Failed to load Profiles.xml.", false);
-                    loaded = false;
-                }
+                loaded = TryLoadAppSettings(m_Profile) ||
+                    SettingsFileRecovery.Recover(m_Profile,
+                        ProductInfo.ProductName + "'s settings file (Profiles.xml)",
+                        TryLoadAppSettings);
             }
             else
             {
@@ -8569,6 +8619,24 @@ namespace DS4Windows
             }
 
             return loaded;
+        }
+
+        private bool TryLoadAppSettings(string path)
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
+            try
+            {
+                using StreamReader sr = new StreamReader(path);
+                AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
+                dto.MapTo(this);
+
+                PostProcessLoad();
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         public bool LoadOld()
@@ -8915,12 +8983,9 @@ namespace DS4Windows
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(m_Profile, false))
-                {
-                    sw.Write(testStr);
-                }
+                SafeFileWriter.WriteAllText(m_Profile, testStr);
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception e) when (e is UnauthorizedAccessException || e is IOException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_Profile, false);
                 saved = false;
@@ -9112,9 +9177,16 @@ namespace DS4Windows
             // Compile shortcut version number if lastVersionChecked is populated
             if (!string.IsNullOrEmpty(lastVersionChecked))
             {
+                // The skipped release is stored as its tag ("v0.9.0-beta.3"),
+                // which System.Version cannot parse. Clearing it when the number
+                // came out 0 erased every "Skip this version" at the next launch,
+                // so the update dialog came back; the skip is a tag comparison
+                // (ReleaseChannelPolicy.IsSkippedRelease) and needs no number.
                 lastVersionCheckedNum = Global.CompileVersionNumberFromString(lastVersionChecked);
-                if (lastVersionCheckedNum == 0) lastVersionChecked = string.Empty;
             }
+
+            // Normal, AboveNormal, High. RealTime (3) is no longer offered.
+            processPriority = Math.Clamp(processPriority, 0, 2);
 
             oscServPort = Math.Clamp(oscServPort, 1024, 65535);
             oscSendPort = Math.Clamp(oscSendPort, 1024, 65535);
@@ -9645,16 +9717,18 @@ namespace DS4Windows
                 }
                 catch (InvalidOperationException e)
                 {
-                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {e.InnerException.Message}", false);
+                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {(e.InnerException ?? e).Message}", false);
                 }
                 catch (XmlException e)
                 {
-                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {e.InnerException.Message}", false);
+                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {(e.InnerException ?? e).Message}", false);
                 }
             }
             else
             {
-                AppLogger.LogToGui("LinkedProfiles.xml can't be found.", false);
+                // No file is the normal state until a profile is linked to a
+                // controller; logging it put an error-sounding line in every
+                // launch's log.
                 loaded = false;
             }
 
@@ -9844,9 +9918,10 @@ namespace DS4Windows
                     loaded = true;
                 }
             }
-            catch
+            catch (Exception e)
             {
-                AppLogger.LogToGui("ControllerConfigs.xml can't be found.", false);
+                // Was always "can't be found", whatever the actual problem was.
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be read: {e.Message}", false);
                 loaded = false;
             }
 
@@ -9854,6 +9929,11 @@ namespace DS4Windows
         }
 
         public bool SaveControllerConfigsForDevice(DS4Device device)
+        {
+            return SaveControllerConfigsForDevice(device, retryAfterReset: true);
+        }
+
+        private bool SaveControllerConfigsForDevice(DS4Device device, bool retryAfterReset)
         {
             bool saved = true;
 
@@ -9868,6 +9948,11 @@ namespace DS4Windows
 
                 XmlNode node = xmlDoc.SelectSingleNode("/Controllers/Controller[@Mac=\"" + device.getMacAddress() + "\"]");
                 XmlNode xmlControllersNode = xmlDoc.SelectSingleNode("/Controllers");
+                if (xmlControllersNode == null)
+                {
+                    throw new XmlException("The file has no Controllers element.");
+                }
+
                 if (node == null)
                 {
                     XmlElement el = xmlDoc.CreateElement("Controller");
@@ -9925,6 +10010,36 @@ namespace DS4Windows
             catch (UnauthorizedAccessException)
             {
                 AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_controllerConfigs, false);
+                saved = false;
+            }
+            catch (IOException e)
+            {
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be saved: {e.Message}", true);
+                saved = false;
+            }
+            catch (XmlException e) when (retryAfterReset)
+            {
+                // A truncated or hand-edited file used to make every save throw:
+                // closing the Controller options window then closed the app, and
+                // finishing a wheel calibration ended the process from the input
+                // thread. Keep the damaged copy and start a fresh file.
+                string aside = m_controllerConfigs + ".damaged-" +
+                    DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+                try
+                {
+                    File.Move(m_controllerConfigs, aside, overwrite: true);
+                }
+                catch (Exception)
+                {
+                }
+
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be read ({e.Message}). It was kept as {Path.GetFileName(aside)} and a new file was started.", true);
+                createControllerConfigs();
+                return SaveControllerConfigsForDevice(device, retryAfterReset: false);
+            }
+            catch (XmlException e)
+            {
+                AppLogger.LogToGui($"ControllerConfigs.xml could not be saved: {e.Message}", true);
                 saved = false;
             }
 

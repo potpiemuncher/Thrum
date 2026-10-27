@@ -39,7 +39,17 @@ namespace DS4WinWPF.DS4Forms
     public partial class DupBox : UserControl
     {
         private string oldfilename;
-        public string OldFilename { get => oldfilename; set => oldfilename = value; }
+        public string OldFilename
+        {
+            get => oldfilename;
+            set
+            {
+                oldfilename = value;
+                // The box used to keep the previous duplicate's name, so a
+                // second Duplicate + Save overwrote that profile.
+                profileTxt.Text = string.Empty;
+            }
+        }
 
         public event EventHandler Cancel;
         public delegate void SaveHandler(DupBox sender, string profilename);
@@ -56,8 +66,33 @@ namespace DS4WinWPF.DS4Forms
             if (!string.IsNullOrWhiteSpace(profile) &&
                 profile.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) == -1)
             {
-                System.IO.File.Copy(DS4Windows.Global.appdatapath + "\\Profiles\\" + oldfilename + ".xml",
-                DS4Windows.Global.appdatapath + "\\Profiles\\" + profile + ".xml", true);
+                string profilesDir = System.IO.Path.Combine(DS4Windows.Global.appdatapath, "Profiles");
+                string destination = System.IO.Path.Combine(profilesDir, profile + ".xml");
+                // Copying used overwrite:true with no check, so an existing
+                // profile was silently replaced, and copying onto the source's
+                // own name threw and closed the app.
+                if (string.Equals(profile, oldfilename, StringComparison.OrdinalIgnoreCase) ||
+                    System.IO.File.Exists(destination))
+                {
+                    MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                        $"A profile named \"{profile}\" already exists. Choose another name.",
+                        "Duplicate Profile", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                try
+                {
+                    System.IO.File.Copy(System.IO.Path.Combine(profilesDir, oldfilename + ".xml"),
+                        destination, false);
+                }
+                catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException)
+                {
+                    MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                        $"Thrum could not copy the profile: {ex.Message}",
+                        "Duplicate Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
                 Save?.Invoke(this, profile);
             }
             else

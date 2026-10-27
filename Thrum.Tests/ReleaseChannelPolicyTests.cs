@@ -9,6 +9,71 @@ namespace DS4WindowsTests
     public class ReleaseChannelPolicyTests
     {
         [TestMethod]
+        public void ABuildOfTheOfferedReleaseIsTheSameRelease()
+        {
+            Assert.IsTrue(ReleaseChannelPolicy.IsSameRelease(
+                "0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)",
+                "v0.9.0-beta.2"));
+            Assert.IsTrue(ReleaseChannelPolicy.IsSameRelease("0.9.0-beta.2", "0.9.0-beta.2"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSameRelease("0.9.0-beta.1", "v0.9.0-beta.2"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSameRelease("0.9.0-beta.2", "v0.9.0-beta.20"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSameRelease(null, "v0.9.0-beta.2"));
+        }
+
+        [TestMethod]
+        public void ABeta2InstallIsOfferedBeta3AndBeta3IsUpToDate()
+        {
+            // The live feed (2026-10-25) with beta.3 as the release workflow
+            // publishes it: a prerelease, newest by date. Parsed through the
+            // same DTO the update check reads the GitHub response into.
+            const string feed = @"[
+                {""tag_name"": ""v0.9.0-beta.3"", ""prerelease"": true, ""draft"": false, ""published_at"": ""2026-10-26T00:00:00Z""},
+                {""tag_name"": ""v0.9.0-beta.2"", ""prerelease"": true, ""draft"": false, ""published_at"": ""2026-09-22T03:10:31Z""},
+                {""tag_name"": ""v0.9.0-beta.1"", ""prerelease"": true, ""draft"": false, ""published_at"": ""2026-08-03T19:18:49Z""}]";
+            const string beta2 = "0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)";
+            const string beta3 = "0.9.0-beta.3 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)";
+            GithubRelease[] releases =
+                System.Text.Json.JsonSerializer.Deserialize<GithubRelease[]>(feed);
+
+            Assert.IsTrue(ReleaseChannelPolicy.IsPrereleaseBuild(beta2));
+            GithubRelease offered = ReleaseChannelPolicy.SelectPreferredRelease(
+                releases, currentBuildIsPrerelease: true);
+            Assert.AreEqual("v0.9.0-beta.3", offered.TagName);
+
+            // beta.2 zips carry Thrum.release = v0.9.0-beta.2; a copy without
+            // the marker is offered beta.3 as well.
+            Assert.IsTrue(ReleaseChannelPolicy.ShouldUpdate(
+                offered, beta2, true, installedReleaseTag: "v0.9.0-beta.2"));
+            Assert.IsTrue(ReleaseChannelPolicy.ShouldUpdate(
+                offered, beta2, true, installedReleaseTag: null));
+
+            // beta.3 itself: with its marker, or recognised by its version
+            // when the marker is missing, it is not offered to itself.
+            Assert.IsFalse(ReleaseChannelPolicy.ShouldUpdate(
+                offered, beta3, true, installedReleaseTag: "v0.9.0-beta.3"));
+            Assert.IsTrue(ReleaseChannelPolicy.IsSameRelease(beta3, offered.TagName));
+        }
+
+        [TestMethod]
+        public void ADraftBeta3IsNotOfferedBeforeItIsPublished()
+        {
+            // The release workflow starts from a saved draft and publishes it
+            // only after the downloads are attached.
+            GithubRelease[] releases = Releases(
+                Prerelease("v0.9.0-beta.2", "2026-09-22T03:10:31Z"),
+                Prerelease("v0.9.0-beta.3", "2026-10-26T00:00:00Z"));
+            releases[1].Draft = true;
+
+            GithubRelease offered = ReleaseChannelPolicy.SelectPreferredRelease(
+                releases, currentBuildIsPrerelease: true);
+
+            Assert.AreEqual("v0.9.0-beta.2", offered.TagName);
+            Assert.IsFalse(ReleaseChannelPolicy.ShouldUpdate(offered,
+                "0.9.0-beta.2 (base: hbashton DS4Windows 4.0.2.1 @ 5d2724a)",
+                true, installedReleaseTag: "v0.9.0-beta.2"));
+        }
+
+        [TestMethod]
         public void StableBuildOnlyFollowsStableReleases()
         {
             GithubRelease selected = ReleaseChannelPolicy.SelectPreferredRelease(
@@ -123,6 +188,31 @@ namespace DS4WindowsTests
         private static GithubRelease Stable(string tag, string publishedAt)
         {
             return Release(tag, publishedAt, prerelease: false);
+        }
+
+        [TestMethod]
+        public void ASkippedReleaseIsSkippedExactlyAndOnlyItself()
+        {
+            Assert.IsTrue(ReleaseChannelPolicy.IsSkippedRelease(
+                "v0.9.1-beta.3", "v0.9.1-beta.3"));
+            Assert.IsTrue(ReleaseChannelPolicy.IsSkippedRelease(
+                "V0.9.1-BETA.3 ", " v0.9.1-beta.3"),
+                "tag case and stray whitespace must not defeat a skip");
+
+            // The next beta parses to the same 0.9.1 but is a different
+            // release; skipping one must not hide the other.
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease(
+                "v0.9.1-beta.4", "v0.9.1-beta.3"));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease(
+                "v0.9.2", "v0.9.1-beta.3"));
+        }
+
+        [TestMethod]
+        public void NothingIsSkippedWithoutAStoredSkip()
+        {
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease("v0.9.1", null));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease("v0.9.1", string.Empty));
+            Assert.IsFalse(ReleaseChannelPolicy.IsSkippedRelease(null, "v0.9.1"));
         }
 
         private static GithubRelease Prerelease(string tag, string publishedAt)

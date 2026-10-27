@@ -17,6 +17,7 @@ namespace DS4Windows
         void SaveWhere(string path);
         void SaveDefault(string profilesXmlPath);
         bool DirectoryExists(string path);
+        bool FileExists(string path);
         void DeleteDirectory(string path, bool recursive);
         void DeleteFile(string path);
         void ShowCannotDeleteOldSettings();
@@ -32,6 +33,7 @@ namespace DS4Windows
         public void SaveWhere(string path) => Global.SaveWhere(path);
         public void SaveDefault(string path) => Global.SaveDefault(path);
         public bool DirectoryExists(string path) => Directory.Exists(path);
+        public bool FileExists(string path) => File.Exists(path);
         public void DeleteDirectory(string path, bool recursive) =>
             Directory.Delete(path, recursive);
         public void DeleteFile(string path) => File.Delete(path);
@@ -99,7 +101,7 @@ namespace DS4Windows
             }
             else if (!multipleSaveSpots)
             {
-                operations.SaveDefault(Path.Combine(
+                SaveDefaultIfMissing(Path.Combine(
                     operations.ExeDirectoryPath, "Profiles.xml"));
             }
         }
@@ -126,11 +128,23 @@ namespace DS4Windows
             }
             else if (!multipleSaveSpots)
             {
-                operations.SaveDefault(Path.Combine(
+                SaveDefaultIfMissing(Path.Combine(
                     operations.AppDataPath, "Profiles.xml"));
             }
 
             operations.SaveWhere(operations.AppDataPath);
+        }
+
+        // First run is inferred from Auto Profiles.xml, so the wizard also
+        // runs when only that file was removed. SaveDefault writes an empty
+        // settings stub; over an existing Profiles.xml it erased the user's
+        // settings.
+        private void SaveDefaultIfMissing(string profilesXmlPath)
+        {
+            if (!operations.FileExists(profilesXmlPath))
+            {
+                operations.SaveDefault(profilesXmlPath);
+            }
         }
     }
 }

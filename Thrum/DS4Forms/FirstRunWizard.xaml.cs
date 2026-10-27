@@ -13,6 +13,7 @@ namespace DS4WinWPF.DS4Forms
             FirstRunWizardEffects effects)
         {
             InitializeComponent();
+            SourceInitialized += (_, _) => WindowFit.ClampToWorkArea(this);
             this.viewModel = viewModel;
             DataContext = viewModel;
             effects.Owner = this;
@@ -53,6 +54,14 @@ namespace DS4WinWPF.DS4Forms
             if (viewModel.CurrentStep is FirstRunBackendStepViewModel backend)
             {
                 backend.Refresh();
+            }
+        }
+
+        private void HidHideDownload_Click(object sender, RoutedEventArgs e)
+        {
+            if (viewModel.CurrentStep is FirstRunBackendStepViewModel backend)
+            {
+                backend.OpenHidHideDownloadPage();
             }
         }
 

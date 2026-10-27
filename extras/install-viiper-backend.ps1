@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Installs or repairs the VIIPER backend, and — only on explicit terms — the
+    Installs or repairs the VIIPER backend, and - only on explicit terms - the
     usbip-win2 kernel driver it depends on.
 
 .DESCRIPTION
@@ -14,8 +14,8 @@
 
     Consequences worth stating plainly:
 
-      * Nothing downloaded is executed before its SHA-256 — and, where the
-        publisher signs, its Authenticode chain and signer — have been checked
+      * Nothing downloaded is executed before its SHA-256 - and, where the
+        publisher signs, its Authenticode chain and signer - have been checked
         against a pinned identity.
       * Nothing newer is accepted just because it is newer. A usbip-win2 release
         this build does not recognise is left exactly as it is, and setup says
@@ -52,6 +52,14 @@
     Exit codes: 0 success (driver pair validated), 1 refused or failed,
     3 installed but validation deferred until Windows restarts.
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '',
+    Justification = 'Interactive console script: its status text is for the person running it, not pipeline output.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+    Scope = 'Function', Target = 'Stop-ViiperProcess',
+    Justification = 'Private helper of a setup script that runs as one elevated unit and offers no -WhatIf.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+    Scope = 'Function', Target = 'Start-AndVerifyViiper',
+    Justification = 'Private helper of a setup script that runs as one elevated unit and offers no -WhatIf.')]
 param(
     [switch]$NoPause,
     [switch]$RemoveViiperAutostart,
@@ -91,7 +99,11 @@ function Write-SetupLog([string]$message, [ConsoleColor]$color =
         Add-Content -LiteralPath $script:LogPath -Value (
             "[$timestamp] $message") -Encoding UTF8
     }
-    catch { }
+    catch {
+        # The console line above is the record; a log file that cannot be
+        # written must not stop setup.
+        Write-Verbose "Could not write to the setup log: $_"
+    }
 }
 
 function Write-Step([string]$message) {
@@ -215,6 +227,7 @@ function Test-UsbipAttachedSinceBoot {
         }
         catch {
             # The event log is a refinement. Without it LastBootUpTime stands.
+            Write-Verbose "Kernel-Boot events could not be read: $_"
         }
 
         $allDevices = @(Get-PnpDevice -ErrorAction Stop)
@@ -376,7 +389,7 @@ function Invoke-Download([string]$url, [string]$outFile) {
     A caller-supplied local file takes the place of the download and nothing
     else. It is copied in and verified against the same pin by the same call,
     so staging a corrupted or wrongly-signed artefact exercises the refusal
-    rather than bypassing it — which is exactly what the VM run sheet's
+    rather than bypassing it - which is exactly what the VM run sheet's
     negative cases need.
 #>
 function Get-VerifiedPinnedFile([string]$component, [hashtable]$pins,
@@ -410,7 +423,10 @@ function Get-VerifiedPinnedFile([string]$component, [hashtable]$pins,
         try {
             Remove-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
         }
-        catch { }
+        catch {
+            # Best effort: the throw below refuses the file either way.
+            Write-Verbose "Could not delete the rejected download: $_"
+        }
         throw (
             "$($verification.Data['summary']) " +
             "The downloaded file was discarded and nothing was run from it.")
@@ -448,7 +464,10 @@ function Expand-AndVerifyViiperPayload([hashtable]$pins,
             Remove-Item -LiteralPath $extractionDir -Recurse -Force `
                 -ErrorAction SilentlyContinue
         }
-        catch { }
+        catch {
+            # Best effort: the throw below refuses the payload either way.
+            Write-Verbose "Could not delete the rejected payload: $_"
+        }
         throw (
             "$($verification.Data['summary']) " +
             "The extracted payload was discarded and nothing was installed " +
@@ -496,7 +515,7 @@ function Install-ViiperAtomically([string]$candidatePath,
     # An explicit repair/update may replace a running backend. Stop only the
     # VIIPER process and leave Thrum and every physical Bluetooth device
     # alone.
-    $stopped = Stop-ViiperProcesses "backend replacement"
+    $stopped = Stop-ViiperProcess "backend replacement"
     if (-not $stopped) {
         throw "Unable to stop the currently running VIIPER process automatically during install. " +
               "Please close viiper.exe manually and try again."
@@ -541,7 +560,7 @@ function Install-ViiperAtomically([string]$candidatePath,
     }
 }
 
-function Get-RunningViiperProcesses {
+function Get-RunningViiperProcess {
     try {
         Get-CimInstance Win32_Process -Filter "Name='viiper.exe'" -ErrorAction SilentlyContinue
     }
@@ -556,15 +575,15 @@ function Get-RunningViiperProcesses {
 
     Worth knowing next to Thrum's runtime policy, which is the opposite: at
     runtime the application refuses to stop a backend it did not start or that
-    is hosting a device. Here the rule is different on purpose — an install is
+    is hosting a device. Here the rule is different on purpose - an install is
     an explicit, elevated, user-initiated act, and a running image cannot be
     replaced on Windows while it is held. The two policies are not in conflict;
     they answer different questions.
 #>
-function Stop-ViiperProcesses([string]$operation) {
+function Stop-ViiperProcess([string]$operation) {
     $attempts = 12
     for ($attempt = 1; $attempt -le $attempts; $attempt++) {
-        $processes = @(Get-RunningViiperProcesses)
+        $processes = @(Get-RunningViiperProcess)
         if ($processes.Count -eq 0) { return $true }
 
         if ($attempt -eq 1) {
@@ -583,12 +602,15 @@ function Stop-ViiperProcesses([string]$operation) {
                 Write-SetupLog "Stopping viiper PID=$($process.ProcessId) ($identifier)." Yellow
                 Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
             }
-            catch { }
+            catch {
+                # Re-checked below; a process that is still there is escalated.
+                Write-Verbose "Stop-Process failed for PID $($process.ProcessId): $_"
+            }
         }
 
         Start-Sleep -Milliseconds 300
 
-        $remaining = @(Get-RunningViiperProcesses)
+        $remaining = @(Get-RunningViiperProcess)
         if ($remaining.Count -eq 0) { return $true }
 
         if ($attempt -ge 3) {
@@ -597,7 +619,10 @@ function Stop-ViiperProcesses([string]$operation) {
                 try {
                     & taskkill.exe /PID $process.ProcessId /T /F | Out-Null
                 }
-                catch { }
+                catch {
+                    # The caller reports whatever is still running afterwards.
+                    Write-Verbose "taskkill failed for PID $($process.ProcessId): $_"
+                }
             }
             Start-Sleep -Milliseconds 200
         }
@@ -643,7 +668,7 @@ function Test-ViiperApi([int]$timeoutMilliseconds = 1000) {
     The argument vector is not written here: it comes from the same constant the
     application spawns with. VIIPER's bundled updater still points at the parent
     project's releases and its "Update Now" pipes a remote script into an
-    elevated shell, so every path that starts a backend has to disable it —
+    elevated shell, so every path that starts a backend has to disable it -
     including this one, which is not an autostart entry and was missed by the
     runtime fix (issue #8).
 #>

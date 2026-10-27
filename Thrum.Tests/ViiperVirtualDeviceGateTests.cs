@@ -11,12 +11,11 @@ namespace DS4WindowsTests
     /// <summary>
     /// The gating decision (plan tasks 2.3 and 2.5).
     ///
-    /// <para>The decision is a pure function of five inputs, and this class
-    /// enumerates <b>all 64 combinations</b> rather than sampling them. That is
+    /// <para>The decision is a pure function of six inputs, and this class
+    /// enumerates <b>all 128 combinations</b> rather than sampling them. That is
     /// not thoroughness for its own sake: the failure mode of a wrong cell is a
-    /// virtual USB audio endpoint created without consent on a driver with a
-    /// confirmed kernel defect, which is a bugcheck the user cannot attribute to
-    /// anything. An exhaustive table is the only form of this policy that can be
+    /// virtual USB audio endpoint created on a driver with a confirmed kernel
+    /// defect, which is a bugcheck the user cannot attribute to anything. An exhaustive table is the only form of this policy that can be
     /// reviewed by reading it.</para>
     /// </summary>
     [TestClass]
@@ -44,7 +43,8 @@ namespace DS4WindowsTests
         /// </summary>
         private static ViiperVirtualDeviceBlock Expected(
             ViiperDriverReadinessState state, ViiperFeatureClass featureClass,
-            bool acknowledged, bool audioEnabled, bool alreadyAttached)
+            bool acknowledged, bool audioEnabled, bool carriesFixes,
+            bool alreadyAttached)
         {
             if (alreadyAttached)
             {
@@ -66,13 +66,24 @@ namespace DS4WindowsTests
                 return ViiperVirtualDeviceBlock.ExperimentalNotAcknowledged;
             }
 
-            return featureClass == ViiperFeatureClass.Audio && !audioEnabled
-                ? ViiperVirtualDeviceBlock.AudioClassNotEnabled
-                : ViiperVirtualDeviceBlock.None;
+            if (featureClass != ViiperFeatureClass.Audio)
+            {
+                return ViiperVirtualDeviceBlock.None;
+            }
+
+            if (!audioEnabled)
+            {
+                return ViiperVirtualDeviceBlock.AudioClassNotEnabled;
+            }
+
+            return carriesFixes
+                ? ViiperVirtualDeviceBlock.None
+                : ViiperVirtualDeviceBlock.AudioClassNeedsFixedDriver;
         }
 
         private static IEnumerable<(ViiperDriverReadinessState State,
-            ViiperFeatureClass Class, bool Ack, bool Audio, bool Attached)>
+            ViiperFeatureClass Class, bool Ack, bool Audio, bool Fixes,
+            bool Attached)>
             AllCombinations()
         {
             foreach (ViiperDriverReadinessState state in States)
@@ -83,10 +94,13 @@ namespace DS4WindowsTests
                     {
                         foreach (bool audio in Booleans)
                         {
-                            foreach (bool attached in Booleans)
+                            foreach (bool fixes in Booleans)
                             {
-                                yield return (state, featureClass, ack, audio,
-                                    attached);
+                                foreach (bool attached in Booleans)
+                                {
+                                    yield return (state, featureClass, ack,
+                                        audio, fixes, attached);
+                                }
                             }
                         }
                     }
@@ -105,11 +119,11 @@ namespace DS4WindowsTests
                 count++;
                 ViiperVirtualDeviceBlock expected = Expected(combination.State,
                     combination.Class, combination.Ack, combination.Audio,
-                    combination.Attached);
+                    combination.Fixes, combination.Attached);
 
                 ViiperVirtualDeviceDecision actual = ViiperVirtualDeviceGate.Decide(
                     combination.State, combination.Class, combination.Ack,
-                    combination.Audio, combination.Attached);
+                    combination.Audio, combination.Fixes, combination.Attached);
 
                 if (actual.Block != expected)
                 {
@@ -134,8 +148,8 @@ namespace DS4WindowsTests
                 }
             }
 
-            Assert.AreEqual(64, count,
-                "The table must cover 4 states x 2 classes x 2 x 2 x 2.");
+            Assert.AreEqual(128, count,
+                "The table must cover 4 states x 2 classes x 2 x 2 x 2 x 2.");
             Assert.AreEqual(0, wrong.Count,
                 "Gate decisions that disagree with the table:\n" +
                 string.Join("\n", wrong));
@@ -154,7 +168,8 @@ namespace DS4WindowsTests
             var refused = AllCombinations()
                 .Where(c => c.Attached)
                 .Select(c => (c, decision: ViiperVirtualDeviceGate.Decide(
-                    c.State, c.Class, c.Ack, c.Audio, alreadyAttached: true)))
+                    c.State, c.Class, c.Ack, c.Audio, c.Fixes,
+                    alreadyAttached: true)))
                 .Where(pair => !pair.decision.Allowed)
                 .Select(pair => Describe(pair.c))
                 .ToList();
@@ -164,18 +179,18 @@ namespace DS4WindowsTests
         }
 
         /// <summary>
-        /// The case the whole task exists for: the dev machine's state.
         /// A recognised experimental package, the backend acknowledged, and
-        /// audio not opted into - audio-class output must refuse while
+        /// audio turned off by the user - audio-class output must refuse while
         /// controller output proceeds.
         /// </summary>
         [TestMethod]
-        public void AudioIsRefusedAtValidatedExperimentalWithoutConsentWhileControllersWork()
+        public void AudioTurnedOffIsRefusedWhileControllersWork()
         {
             ViiperVirtualDeviceDecision audio = ViiperVirtualDeviceGate.Decide(
                 ViiperDriverReadinessState.ValidatedExperimental,
                 ViiperFeatureClass.Audio, experimentalAcknowledged: true,
-                audioClassEnabled: false, alreadyAttached: false);
+                audioClassEnabled: false, driverCarriesFixes: true,
+                alreadyAttached: false);
 
             Assert.IsFalse(audio.Allowed);
             Assert.AreEqual(ViiperVirtualDeviceBlock.AudioClassNotEnabled,
@@ -185,11 +200,40 @@ namespace DS4WindowsTests
                 ViiperDriverReadinessState.ValidatedExperimental,
                 ViiperFeatureClass.ControllerOnly,
                 experimentalAcknowledged: true, audioClassEnabled: false,
-                alreadyAttached: false);
+                driverCarriesFixes: false, alreadyAttached: false);
 
             Assert.IsTrue(controller.Allowed,
-                "Controller features must work without the audio opt-in, or the " +
+                "Controller features must work without audio endpoints, or the " +
                 "disclosure's promise that they do is false.");
+        }
+
+        /// <summary>
+        /// Audio is on by default, so the default can no longer stand for a
+        /// user risk decision: a release without the upstream fix for the
+        /// teardown defect never gets audio endpoints, whatever the setting
+        /// says, and says why. The same pad on 0.9.8.0 gets them.
+        /// </summary>
+        [TestMethod]
+        public void AudioOnByDefaultNeedsAReleaseWithTheUpstreamFix()
+        {
+            ViiperVirtualDeviceDecision oldRelease = ViiperVirtualDeviceGate.Decide(
+                ViiperDriverReadinessState.ValidatedExperimental,
+                ViiperFeatureClass.Audio, experimentalAcknowledged: true,
+                audioClassEnabled: true, driverCarriesFixes: false,
+                alreadyAttached: false);
+
+            Assert.IsFalse(oldRelease.Allowed);
+            Assert.AreEqual(ViiperVirtualDeviceBlock.AudioClassNeedsFixedDriver,
+                oldRelease.Block);
+            StringAssert.Contains(oldRelease.Reason,
+                ViiperExperimentalDisclosure.FixedInReleaseLabel);
+            StringAssert.Contains(oldRelease.Reason, "#181");
+
+            Assert.IsTrue(ViiperVirtualDeviceGate.Decide(
+                ViiperDriverReadinessState.ValidatedExperimental,
+                ViiperFeatureClass.Audio, experimentalAcknowledged: true,
+                audioClassEnabled: true, driverCarriesFixes: true,
+                alreadyAttached: false).Allowed);
         }
 
         /// <summary>
@@ -211,7 +255,8 @@ namespace DS4WindowsTests
                     ViiperVirtualDeviceDecision decision =
                         ViiperVirtualDeviceGate.Decide(state, featureClass,
                             experimentalAcknowledged: true,
-                            audioClassEnabled: true, alreadyAttached: false);
+                            audioClassEnabled: true, driverCarriesFixes: true,
+                            alreadyAttached: false);
 
                     Assert.IsFalse(decision.Allowed,
                         $"{state}/{featureClass} was allowed with full consent.");
@@ -220,13 +265,13 @@ namespace DS4WindowsTests
         }
 
         /// <summary>
-        /// Audio-class output is an explicit risk decision at every state that
-        /// exists today, and stops being one only at <c>Approved</c> - which the
-        /// manifest cannot produce. That is what makes the tier meaningful
-        /// rather than decorative.
+        /// Audio-class output depends on the setting and the release at every
+        /// state that exists today, and stops depending on them only at
+        /// <c>Approved</c> - which the manifest cannot produce. That is what
+        /// makes the tier meaningful rather than decorative.
         /// </summary>
         [TestMethod]
-        public void OnlyApprovedNeedsNoAudioOptIn()
+        public void OnlyApprovedIgnoresTheAudioSettingAndRelease()
         {
             foreach (ViiperDriverReadinessState state in States)
             {
@@ -234,12 +279,13 @@ namespace DS4WindowsTests
                     ViiperVirtualDeviceGate.Decide(state,
                         ViiperFeatureClass.Audio,
                         experimentalAcknowledged: true,
-                        audioClassEnabled: false, alreadyAttached: false);
+                        audioClassEnabled: false, driverCarriesFixes: false,
+                        alreadyAttached: false);
 
                 Assert.AreEqual(
                     state == ViiperDriverReadinessState.Approved,
                     decision.Allowed,
-                    $"Audio without the opt-in at {state}.");
+                    $"Audio with the setting off on an old release at {state}.");
             }
         }
 
@@ -255,7 +301,7 @@ namespace DS4WindowsTests
                 (ViiperDriverReadinessState)9999,
                 ViiperFeatureClass.ControllerOnly,
                 experimentalAcknowledged: true, audioClassEnabled: true,
-                alreadyAttached: false);
+                driverCarriesFixes: true, alreadyAttached: false);
 
             Assert.IsFalse(decision.Allowed);
             Assert.AreEqual(ViiperVirtualDeviceBlock.DriverUnvalidated,
@@ -276,7 +322,7 @@ namespace DS4WindowsTests
             {
                 ViiperVirtualDeviceDecision decision = ViiperVirtualDeviceGate.Decide(
                     combination.State, combination.Class, combination.Ack,
-                    combination.Audio, combination.Attached);
+                    combination.Audio, combination.Fixes, combination.Attached);
                 if (decision.Allowed)
                 {
                     continue;
@@ -315,7 +361,7 @@ namespace DS4WindowsTests
                             let decision = ViiperVirtualDeviceGate.Decide(
                                 combination.State, combination.Class,
                                 combination.Ack, combination.Audio,
-                                combination.Attached)
+                                combination.Fixes, combination.Attached)
                             where !decision.Allowed
                             from phrase in forbidden
                             where decision.Reason.Contains(phrase,
@@ -345,6 +391,7 @@ namespace DS4WindowsTests
                     ViiperDriverReadinessState.ValidatedExperimental;
                 ViiperVirtualDeviceGuard.AcknowledgedOverride = () => true;
                 ViiperVirtualDeviceGuard.AudioEnabledOverride = () => false;
+                ViiperVirtualDeviceGuard.CarriesFixesOverride = () => true;
 
                 Assert.IsTrue(ViiperVirtualDeviceGuard
                     .Decide(ViiperFeatureClass.ControllerOnly).Allowed);
@@ -352,6 +399,14 @@ namespace DS4WindowsTests
                     .Decide(ViiperFeatureClass.Audio).Allowed);
                 Assert.IsTrue(ViiperVirtualDeviceGuard
                     .Decide(ViiperFeatureClass.Audio, alreadyAttached: true).Allowed);
+
+                ViiperVirtualDeviceGuard.AudioEnabledOverride = () => true;
+                Assert.IsTrue(ViiperVirtualDeviceGuard
+                    .Decide(ViiperFeatureClass.Audio).Allowed);
+
+                ViiperVirtualDeviceGuard.CarriesFixesOverride = () => false;
+                Assert.AreEqual(ViiperVirtualDeviceBlock.AudioClassNeedsFixedDriver,
+                    ViiperVirtualDeviceGuard.Decide(ViiperFeatureClass.Audio).Block);
             }
             finally
             {
@@ -380,15 +435,20 @@ namespace DS4WindowsTests
 
         // ---- The persisted flags --------------------------------------------
 
+        /// <summary>
+        /// The acknowledgement is off until the user gives it; audio endpoints
+        /// are on by default (2026-09-26), and the gate keeps them off any
+        /// release without the upstream fix.
+        /// </summary>
         [TestMethod]
-        public void BothConsentFlagsDefaultToOff()
+        public void AcknowledgementDefaultsToOffAndAudioToOn()
         {
             Assert.IsFalse(BackingStore.DEFAULT_VIIPER_EXPERIMENTAL_ACKNOWLEDGED);
-            Assert.IsFalse(BackingStore.DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS);
+            Assert.IsTrue(BackingStore.DEFAULT_ALLOW_EXPERIMENTAL_AUDIO_ENDPOINTS);
             Assert.IsFalse(new BackingStore().viiperExperimentalAcknowledged);
-            Assert.IsFalse(new BackingStore().allowExperimentalAudioEndpoints);
+            Assert.IsTrue(new BackingStore().allowExperimentalAudioEndpoints);
             Assert.IsFalse(new AppSettingsDTO().ViiperExperimentalAcknowledged);
-            Assert.IsFalse(new AppSettingsDTO().AllowExperimentalAudioEndpoints);
+            Assert.IsTrue(new AppSettingsDTO().AllowExperimentalAudioEndpoints);
         }
 
         [TestMethod]
@@ -418,10 +478,10 @@ namespace DS4WindowsTests
         }
 
         /// <summary>
-        /// The upgrade case, and the one that matters most: a settings file
-        /// written before these elements existed must read as "no consent
-        /// given". Inferring consent from silence would enable audio endpoints
-        /// on every machine that already has a config.
+        /// The upgrade case: a settings file written before these elements
+        /// existed must read as "not acknowledged", so no virtual device is
+        /// created until the user has read the notice. The audio setting reads
+        /// as its default (on), which does nothing before the acknowledgement.
         /// </summary>
         [TestMethod]
         public void AConfigWrittenBeforeTheseSettingsExistedGrantsNoConsent()
@@ -430,6 +490,20 @@ namespace DS4WindowsTests
                 "<Profile><UseExclusiveMode>False</UseExclusiveMode></Profile>");
 
             Assert.IsFalse(dto.ViiperExperimentalAcknowledged);
+            Assert.IsTrue(dto.AllowExperimentalAudioEndpoints);
+        }
+
+        /// <summary>
+        /// An existing settings file keeps what it says. Every file written
+        /// before 2026-09-26 carries False, because that was the default, so
+        /// turning the default on changes nothing for existing installations.
+        /// </summary>
+        [TestMethod]
+        public void AnExistingConfigKeepsItsAudioSetting()
+        {
+            AppSettingsDTO dto = Deserialize(
+                "<Profile><AllowExperimentalAudioEndpoints>False</AllowExperimentalAudioEndpoints></Profile>");
+
             Assert.IsFalse(dto.AllowExperimentalAudioEndpoints);
         }
 
@@ -486,7 +560,9 @@ namespace DS4WindowsTests
                 acknowledged: true, audio: false);
 
             Assert.IsTrue(banner.IsVisible);
-            Assert.AreEqual("Limited", banner.Severity);
+            // Audio turned off by the user is a working configuration they
+            // chose: a neutral note, not a warning.
+            Assert.AreEqual("Info", banner.Severity);
             StringAssert.Contains(banner.Headline, "audio");
             StringAssert.Contains(banner.Text, "already plugged in");
         }
@@ -515,18 +591,20 @@ namespace DS4WindowsTests
                 new ViiperOutputGateBannerViewModel(
                     () => ViiperVirtualDeviceGate.Decide(state,
                         ViiperFeatureClass.ControllerOnly, acknowledged, audio,
-                        false),
+                        true, false),
                     () => ViiperVirtualDeviceGate.Decide(state,
-                        ViiperFeatureClass.Audio, acknowledged, audio, false));
+                        ViiperFeatureClass.Audio, acknowledged, audio, true,
+                        false));
             banner.Refresh();
             return banner;
         }
 
         private static string Describe(
             (ViiperDriverReadinessState State, ViiperFeatureClass Class,
-                bool Ack, bool Audio, bool Attached) combination) =>
+                bool Ack, bool Audio, bool Fixes, bool Attached) combination) =>
             $"{combination.State}/{combination.Class}/ack={combination.Ack}/" +
-            $"audio={combination.Audio}/attached={combination.Attached}";
+            $"audio={combination.Audio}/fixes={combination.Fixes}/" +
+            $"attached={combination.Attached}";
 
         private static AppSettingsDTO RoundTrip(AppSettingsDTO source) =>
             AppSettingsRoundTrip.Write(source);

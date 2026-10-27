@@ -74,11 +74,19 @@ namespace DS4Windows
         ExperimentalNotAcknowledged,
 
         /// <summary>
-        /// An audio-class device was requested while the audio-class setting is
-        /// off. Remedy: the Settings opt-in, which carries the risk disclosure.
-        /// Never resolved silently.
+        /// An audio-class device was requested while the user has turned the
+        /// audio-class setting off (it is on by default). Remedy: the Settings
+        /// switch. Never resolved silently.
         /// </summary>
         AudioClassNotEnabled,
+
+        /// <summary>
+        /// An audio-class device was requested on a recognised usbip-win2
+        /// release older than <see cref="ViiperExperimentalDisclosure.FixedInReleaseLabel"/>,
+        /// which has the confirmed teardown defect. Refused whatever the
+        /// setting says. Remedy: Install / Repair VIIPER in Settings.
+        /// </summary>
+        AudioClassNeedsFixedDriver,
     }
 
     /// <summary>The answer to "may we create this virtual device now?".</summary>
@@ -116,9 +124,9 @@ namespace DS4Windows
     /// <summary>
     /// The single decision point for "may a new virtual USB device be created".
     ///
-    /// <para><b>Pure and total.</b> <see cref="Decide"/> is a function of five
+    /// <para><b>Pure and total.</b> <see cref="Decide"/> is a function of six
     /// inputs and reads nothing else — no settings store, no clock, no machine.
-    /// Every one of the 64 combinations is covered by
+    /// Every one of the 128 combinations is covered by
     /// <c>ViiperVirtualDeviceGateTests</c>, which is the only way a policy whose
     /// failure mode is "a kernel bugcheck the user cannot attribute to us" can
     /// be reviewed at all.</para>
@@ -135,16 +143,17 @@ namespace DS4Windows
     /// at <see cref="ViiperDriverReadinessState.Missing"/> or
     /// <see cref="ViiperDriverReadinessState.DetectedUnvalidated"/>, for either
     /// class. Above that, the acknowledgement covers the whole backend and is
-    /// therefore checked before the audio opt-in, so a user who has consented to
-    /// nothing is told about the driver first rather than about audio.</item>
+    /// therefore checked before the audio setting, so a user who has consented
+    /// to nothing is told about the driver first rather than about audio.</item>
     /// </list>
     ///
-    /// <para>The audio opt-in is required at every state below
-    /// <see cref="ViiperDriverReadinessState.Approved"/> — which is every state
-    /// reachable today, because the manifest deliberately has no Production
-    /// entry. That is what makes <c>Approved</c> mean something: it is the only
-    /// state in which audio endpoints stop being an explicit user risk
-    /// decision.</para>
+    /// <para>Below <see cref="ViiperDriverReadinessState.Approved"/> — every
+    /// state reachable today, because the manifest deliberately has no
+    /// Production entry — audio endpoints need two things: the audio setting
+    /// (on by default; the user can turn it off) and a recognised release that
+    /// carries the upstream fix for the teardown defect. A release older than
+    /// that never gets audio endpoints, whatever the setting says, because the
+    /// default is no longer an explicit user risk decision.</para>
     /// </summary>
     public static class ViiperVirtualDeviceGate
     {
@@ -155,8 +164,13 @@ namespace DS4Windows
         /// experimental third-party kernel driver.
         /// </param>
         /// <param name="audioClassEnabled">
-        /// Persisted, default off: the user has explicitly enabled virtual audio
-        /// endpoints after reading the risk disclosure.
+        /// Persisted, default on: the user has not turned virtual audio
+        /// endpoints off.
+        /// </param>
+        /// <param name="driverCarriesFixes">
+        /// The installed package is a recognised release at or past
+        /// <see cref="ViiperExperimentalDisclosure.FixedInReleaseLabel"/>
+        /// (<see cref="ViiperExperimentalDisclosure.CarriesUpstreamFixes"/>).
         /// </param>
         /// <param name="alreadyAttached">
         /// True when the request concerns a device that is already attached and
@@ -167,6 +181,7 @@ namespace DS4Windows
             ViiperFeatureClass featureClass,
             bool experimentalAcknowledged,
             bool audioClassEnabled,
+            bool driverCarriesFixes,
             bool alreadyAttached)
         {
             if (alreadyAttached)
@@ -192,8 +207,8 @@ namespace DS4Windows
                 case ViiperDriverReadinessState.Approved:
                     // A maintainer-accepted release. The experimental
                     // acknowledgement is about an experimental driver, and the
-                    // audio opt-in is about a known-risk one; neither statement
-                    // is true here, so neither is required.
+                    // audio checks are about a known-risk one; neither
+                    // statement is true here, so neither is required.
                     return ViiperVirtualDeviceDecision.Allow(
                         "the installed usbip-win2 package is a release " +
                         ProductInfo.ProductName +
@@ -218,11 +233,23 @@ namespace DS4Windows
                     ExperimentalNotAcknowledgedReason);
             }
 
-            if (featureClass == ViiperFeatureClass.Audio && !audioClassEnabled)
+            if (featureClass == ViiperFeatureClass.Audio)
             {
-                return ViiperVirtualDeviceDecision.Refuse(
-                    ViiperVirtualDeviceBlock.AudioClassNotEnabled,
-                    AudioClassNotEnabledReason);
+                // The user's own choice first: someone who turned audio off
+                // does not need to hear about driver releases.
+                if (!audioClassEnabled)
+                {
+                    return ViiperVirtualDeviceDecision.Refuse(
+                        ViiperVirtualDeviceBlock.AudioClassNotEnabled,
+                        AudioClassNotEnabledReason);
+                }
+
+                if (!driverCarriesFixes)
+                {
+                    return ViiperVirtualDeviceDecision.Refuse(
+                        ViiperVirtualDeviceBlock.AudioClassNeedsFixedDriver,
+                        AudioClassNeedsFixedDriverReason);
+                }
             }
 
             return ViiperVirtualDeviceDecision.Allow(
@@ -250,19 +277,26 @@ namespace DS4Windows
             "means and continue.";
 
         internal const string AudioClassNotEnabledReason =
-            "Virtual audio and microphone endpoints are turned off. They are " +
-            "off by default: before usbip-win2 " +
-            ViiperExperimentalDisclosure.FixedInReleaseLabel + " the driver " +
-            "had a confirmed kernel defect that can crash Windows when such an " +
-            "endpoint is torn down, and the fixed driver has not yet been " +
-            "exercised at length by this project. Controller input, rumble " +
-            "and triggers work without them; the switch is in Settings, next " +
-            "to the driver status card.";
+            "Virtual audio and microphone endpoints are turned off, so games " +
+            "cannot drive the pad's haptics and speaker through the virtual " +
+            "pad. Controller input, rumble and triggers work without them. " +
+            "The switch is in Settings, next to the driver status card.";
+
+        internal const string AudioClassNeedsFixedDriverReason =
+            "Virtual audio and microphone endpoints need usbip-win2 " +
+            ViiperExperimentalDisclosure.FixedInReleaseLabel + " or later. " +
+            "Earlier releases have a confirmed kernel defect (upstream issue " +
+            "#181) that can crash Windows when such an endpoint is torn down, " +
+            "so " + ProductInfo.ProductName + " does not create them there. " +
+            "Controller input, rumble and triggers still work. Install / " +
+            "Repair VIIPER in Settings installs the package " +
+            ProductInfo.ProductName + " lists.";
     }
 
     /// <summary>
     /// The gate wired to the running application: the session driver readiness
-    /// and the two persisted consent flags.
+    /// and the two persisted consent flags, plus whether the installed
+    /// release carries the upstream fix.
     ///
     /// <para>Split from <see cref="ViiperVirtualDeviceGate"/> so the policy stays
     /// testable without a settings store, and so there is exactly one place that
@@ -282,6 +316,9 @@ namespace DS4Windows
         /// <summary>Test seam for the persisted flags.</summary>
         internal static Func<bool> AudioEnabledOverride;
 
+        /// <summary>Test seam for the installed release.</summary>
+        internal static Func<bool> CarriesFixesOverride;
+
         public static ViiperDriverReadinessState ReadinessState =>
             ReadinessOverride != null
                 ? ReadinessOverride()
@@ -297,6 +334,12 @@ namespace DS4Windows
                 ? AudioEnabledOverride()
                 : Global.AllowExperimentalAudioEndpoints;
 
+        public static bool DriverCarriesFixes =>
+            CarriesFixesOverride != null
+                ? CarriesFixesOverride()
+                : ViiperExperimentalDisclosure.CarriesUpstreamFixes(
+                    ViiperSetupManager.DriverReadiness);
+
         /// <param name="alreadyAttached">
         /// True only when the caller already holds a live, attached device of
         /// this exact kind. Passing true for a device that does not exist yet
@@ -305,13 +348,15 @@ namespace DS4Windows
         public static ViiperVirtualDeviceDecision Decide(
             ViiperFeatureClass featureClass, bool alreadyAttached = false) =>
             ViiperVirtualDeviceGate.Decide(ReadinessState, featureClass,
-                ExperimentalAcknowledged, AudioClassEnabled, alreadyAttached);
+                ExperimentalAcknowledged, AudioClassEnabled,
+                DriverCarriesFixes, alreadyAttached);
 
         internal static void ResetOverridesForTests()
         {
             ReadinessOverride = null;
             AcknowledgedOverride = null;
             AudioEnabledOverride = null;
+            CarriesFixesOverride = null;
         }
     }
 }

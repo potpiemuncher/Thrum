@@ -2887,6 +2887,19 @@ namespace DS4WinWPF.DS4Control.DTOXml
             //OutputContDevice +Done
         }
 
+        private static readonly Lazy<XmlSerializer> sharedSerializer =
+            new Lazy<XmlSerializer>(() =>
+                new XmlSerializer(typeof(ProfileDTO), GetAttributeOverrides()));
+
+        /// <summary>
+        /// The one serializer for profile files. Each
+        /// <c>new XmlSerializer(type, overrides)</c> generates an assembly that
+        /// .NET never unloads (only the type-only constructor is cached), so
+        /// building one per profile load and save leaked memory on every
+        /// profile switch. XmlSerializer is thread-safe for (de)serialization.
+        /// </summary>
+        public static XmlSerializer SharedSerializer => sharedSerializer.Value;
+
         public static XmlAttributeOverrides GetAttributeOverrides()
         {
             XmlAttributeOverrides xmlOverrides = new XmlAttributeOverrides();

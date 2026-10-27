@@ -647,12 +647,22 @@ namespace DS4Windows
                 }
                 udpSock.Bind(new IPEndPoint(udpListenIPAddress, port));
             }
-            catch (SocketException ex)
+            catch (SocketException)
             {
                 udpSock.Close();
                 udpSock = null;
 
-                throw ex;
+                throw;
+            }
+            catch (ArgumentException)
+            {
+                // An address Dns cannot take ("::", "0", over 255 characters).
+                // Callers handle SocketException with a plain message; anything
+                // else escaped Start and left the service half started.
+                udpSock.Close();
+                udpSock = null;
+
+                throw new SocketException(10049 /*WSAEADDRNOTAVAIL*/);
             }
 
             byte[] randomBuf = new byte[4];
@@ -907,7 +917,9 @@ namespace DS4Windows
 
         public unsafe void NewReportIncoming(ref DualShockPadMeta padMeta, DS4State hidReport, byte[] outputData)
         {
-            if (!running)
+            // No controller in that slot (yet): nothing to send, and the MAC
+            // lookups below would throw on the controller's input thread.
+            if (!running || padMeta.PadMacAddress == null)
                 return;
 
             var clientsList = new List<IPEndPoint>();

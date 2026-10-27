@@ -161,7 +161,9 @@ namespace DS4WindowsTests
                     .Select(match => (file, match.Groups["key"].Value)));
             }
 
-            Assert.AreEqual(602, uses.Count,
+            // 598 since the settings page lost the run-at-startup "Run as"
+            // Program/Task card (four expressions).
+            Assert.AreEqual(598, uses.Count,
                 "The audited localization-expression count changed.");
 
             var missing = new List<string>();

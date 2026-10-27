@@ -45,6 +45,8 @@ namespace DS4WinWPF
         private StringBuilder autoProfileCheckTextBuilder = new StringBuilder(1000);
         private int autoProfileDebugLogLevel = 0;
         private bool turnOffTemp;
+        private readonly HashSet<string> missingRuleProfilesReported =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private AutoProfileEntity tempAutoProfile;
         private bool running;
 
@@ -123,6 +125,22 @@ namespace DS4WinWPF
                         string tempname = controllerProfileEntity.GetProfileNameForController(j);
                         if (tempname != string.Empty && tempname != "(none)")
                         {
+                            // Renaming or deleting a profile does not update the
+                            // rules. Loading a missing profile blanks the slot and
+                            // unplugs its virtual controller, and was retried
+                            // every second while the program stayed in front.
+                            if (!Global.ProfileFileExists(tempname))
+                            {
+                                if (missingRuleProfilesReported.Add(tempname))
+                                {
+                                    DS4Windows.AppLogger.LogToGui(
+                                        $"Auto Profiles: a rule uses the profile \"{tempname}\", which no longer exists, so the rule was skipped. Choose another profile for it on the Auto Profiles page.",
+                                        true);
+                                }
+
+                                continue;
+                            }
+
                             if ((Global.useTempProfile[j] && tempname != Global.tempprofilename[j]) ||
                                 (!Global.useTempProfile[j] && tempname != Global.ProfilePath[j]) ||
                                 forceLoadProfile)

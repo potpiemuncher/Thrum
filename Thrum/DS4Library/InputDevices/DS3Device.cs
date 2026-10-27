@@ -396,6 +396,12 @@ namespace DS4Windows.InputDevices
                                     return; // all done
                                 }
                             }
+
+                            // DisconnectBT cannot work for a DS3 (fake
+                            // address), so without this the same line was
+                            // logged on every poll until the pad was touched.
+                            // Restart the idle clock instead.
+                            lastActive = utcNow;
                         }
                     }
 

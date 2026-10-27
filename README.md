@@ -52,7 +52,8 @@ Each release has two downloads with the same program in them:
 - **`Thrum_<version>_x64.zip`, the portable copy.** Extract it to a folder you
   own, for example `%LOCALAPPDATA%\Programs\Thrum`.
 
-Releases up to v0.9.0-beta.2 have the zip only.
+v0.9.0-beta.3 is the first release with the installer; earlier releases have
+the zip only.
 
 1. Download one of them from the
    [Releases](https://github.com/potpiemuncher/Thrum/releases) page.
@@ -137,12 +138,13 @@ GitHub, once a day, to tell you about updates. The network features you can
 turn on yourself (OSC, the DSU motion server, OpenRGB) send controller state,
 never audio.
 
-One exception to be aware of in the current backend: the VIIPER process
-listens for local virtual-USB connections on all network interfaces, and the
-first time it starts Windows Firewall asks whether to allow it. **Choose
-Cancel (don't allow).** Thrum works the same, because it only uses the
-connection on your own PC, and blocking it keeps other computers on your
-network from reaching the virtual controller.
+The VIIPER backend listens for its virtual-USB and API connections on this
+PC only (127.0.0.1), so other computers on your network cannot reach the
+virtual controller, and Windows Firewall does not ask about it. Releases up to
+v0.9.0-beta.2 started it on every network interface, which made Windows
+Firewall ask the first time. If you answered Allow then, the rule it created
+for `viiper.exe` no longer exposes anything; you can still remove it in
+**Windows Defender Firewall > Allow an app through Windows Firewall**.
 
 ### Getting help
 
@@ -157,7 +159,7 @@ network from reaching the virtual controller.
 
 ## Status
 
-**Pre-release, version 0.9.0-beta.2.** This repository was seeded on 2026-07-25
+**Pre-release, version 0.9.0-beta.3.** This repository was seeded on 2026-07-25
 from the DS4Windows lineage.
 
 The **user-facing identity is rebranded**: the assembly and executable are
@@ -174,11 +176,11 @@ shares the VIIPER and usbip-win2 installs with Thrum while requiring a
 different usbip-win2 release, so after Thrum's setup its virtual controllers
 stop working.
 
-**Releases are pre-releases**, currently `v0.9.0-beta.2`. Each is
+**Releases are pre-releases**, currently `v0.9.0-beta.3`. Each is
 self-contained win-x64, so it does **not** need the .NET Desktop Runtime
-installed. Up to v0.9.0-beta.2 there is **no installer**: unzip, run
-`Thrum.exe`, and let its setup install the two driver-side components. Later
-releases add an installer beside the zip (see [Install](#install)).
+installed. From v0.9.0-beta.3 each release has an installer beside the
+portable zip (see [Install](#install)); v0.9.0-beta.1 and v0.9.0-beta.2 were
+zip only. Either way, Thrum's setup installs the two driver-side components.
 
 The build is **unsigned**, so Windows shows "Windows protected your PC". Verify
 what you downloaded against the SHA-256 published with the release rather than
@@ -288,6 +290,5 @@ Thrum is licensed under the **GNU General Public License, version 3 or later**
 (GPL-3.0-or-later). The complete license text is in [`COPYING`](COPYING).
 
 The corresponding source for any Thrum build is this repository at the release
-tag that produced it — for the current release, tag `v0.9.0-beta.1` (commit
-`8132946`). For a build you made yourself, it is this repository at the commit
-you built.
+tag that produced it — for the current release, tag `v0.9.0-beta.3`. For a
+build you made yourself, it is this repository at the commit you built.
